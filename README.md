@@ -1,4 +1,9 @@
-﻿# Milvaion
+﻿
+<h1 align="center">Milvaion</h1>
+
+<p align="center">
+  <img src="https://portal.milvasoft.com/assets/images/logo256-e8d874bf50d543bf1319f5cbd1effba5.png" alt="MilvaionLogo"  />
+</p>
 
 A distributed job scheduling system built on .NET 10
 
@@ -8,7 +13,8 @@ A distributed job scheduling system built on .NET 10
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.x-FF6600?style=flat-square&logo=rabbitmq)](https://www.rabbitmq.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-[![Worker Templates NuGet](https://img.shields.io/nuget/v/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) [![Worker Sdk NuGet](https://img.shields.io/nuget/dt/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/) ![Stars](https://img.shields.io/github/stars/Milvasoft/milvaion?style=social)
+[![Documentation](https://img.shields.io/badge/docs%20-official%20web-blue)](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
+[![Worker Templates NuGet](https://img.shields.io/nuget/v/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) [![Worker Sdk NuGet](https://img.shields.io/nuget/dt/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
 
 ---
 
