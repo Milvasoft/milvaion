@@ -454,7 +454,7 @@ The HTTP Worker is included in the Milvaion distribution and can be deployed as 
 # docker-compose.yml
 services:
   http-worker:
-    image: milvasoft/milvaion-httpworker:latest
+    image: milvasoft/milvaion-http-worker:latest
     environment:
       - Milvaion__WorkerId=http-worker
       - Milvaion__DisplayName=HTTP Worker

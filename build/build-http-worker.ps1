@@ -60,7 +60,7 @@ if (-not (Test-Path $dockerfile)) {
 
 # Build Docker Image
 Write-Step "Building Docker image..."
-$imageName = "$Registry/milvaion-httpworker:$Tag"
+$imageName = "$Registry/milvaion-http-worker:$Tag"
 
 Write-Info "Building $imageName..."
 Push-Location $rootDir
@@ -77,7 +77,7 @@ Write-Success "Image built successfully"
 # Tag as latest
 if ($Tag -ne "latest") {
     Write-Step "Tagging image as 'latest'..."
-    docker tag $imageName "$Registry/milvaion-httpworker:latest"
+    docker tag $imageName "$Registry/milvaion-http-worker:latest"
     Write-Success "Image tagged as 'latest'"
 }
 
@@ -94,8 +94,8 @@ if (-not $SkipPush) {
     }
 
     if ($Tag -ne "latest") {
-        Write-Info "Pushing $Registry/milvaion-httpworker:latest..."
-        docker push "$Registry/milvaion-httpworker:latest"
+        Write-Info "Pushing $Registry/milvaion-http-worker:latest..."
+        docker push "$Registry/milvaion-http-worker:latest"
 
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Docker push (latest) failed"

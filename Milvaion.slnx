@@ -10,6 +10,17 @@
     <File Path="docker-compose-prod.yml" />
     <File Path="docker-compose.yml" />
   </Folder>
+  <Folder Name="/build/github/">
+    <File Path=".github/workflows/api-docker-build.yml" />
+    <File Path=".github/workflows/emailworker-docker-build.yml" />
+    <File Path=".github/workflows/httpworker-docker-build.yml" />
+    <File Path=".github/workflows/maintenanceworker-docker-build.yml" />
+    <File Path=".github/workflows/README.md" />
+    <File Path=".github/workflows/sampleworker-docker-build.yml" />
+    <File Path=".github/workflows/sdk-nuget-publish.yml" />
+    <File Path=".github/workflows/sqlworker-docker-build.yml" />
+    <File Path=".github/workflows/worker-template-nuget-publish.yml" />
+  </Folder>
   <Folder Name="/build/scripts/">
     <File Path="build/build-all.bat" />
     <File Path="build/build-all.ps1" />

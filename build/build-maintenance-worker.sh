@@ -94,7 +94,7 @@ fi
 
 # Build Docker Image
 print_step "Building Docker image..."
-IMAGE_NAME="$REGISTRY/milvaion-maintenance:$TAG"
+IMAGE_NAME="$REGISTRY/milvaion-maintenance-worker:$TAG"
 
 print_info "Building $IMAGE_NAME..."
 cd "$ROOT_DIR"
@@ -105,7 +105,7 @@ print_success "Image built successfully"
 # Tag as latest
 if [ "$TAG" != "latest" ]; then
     print_step "Tagging image as 'latest'..."
-    docker tag "$IMAGE_NAME" "$REGISTRY/milvaion-maintenance:latest"
+    docker tag "$IMAGE_NAME" "$REGISTRY/milvaion-maintenance-worker:latest"
     print_success "Image tagged as 'latest'"
 fi
 
@@ -117,8 +117,8 @@ if [ "$SKIP_PUSH" = false ]; then
     docker push "$IMAGE_NAME"
 
     if [ "$TAG" != "latest" ]; then
-        print_info "Pushing $REGISTRY/milvaion-maintenance:latest..."
-        docker push "$REGISTRY/milvaion-maintenance:latest"
+        print_info "Pushing $REGISTRY/milvaion-maintenance-worker:latest..."
+        docker push "$REGISTRY/milvaion-maintenance-worker:latest"
     fi
 
     print_success "Image pushed to registry"

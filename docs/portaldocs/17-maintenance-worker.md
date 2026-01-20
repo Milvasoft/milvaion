@@ -196,7 +196,7 @@ JobOccurrences_Archive_2024_03
 ```yaml
 services:
   maintenance-worker:
-    image: milvasoft/milvaion-maintenance:latest
+    image: milvasoft/milvaion-maintenance-worker:latest
     environment:
       - Worker__WorkerId=maintenance-worker-01
       - Worker__RabbitMQ__Host=rabbitmq

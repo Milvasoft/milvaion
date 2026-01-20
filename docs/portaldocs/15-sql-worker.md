@@ -388,7 +388,7 @@ The SQL Worker can be deployed as a Docker container:
 # docker-compose.yml
 services:
   sql-worker:
-    image: milvasoft/milvaion-sqlworker:latest
+    image: milvasoft/milvaion-sql-worker:latest
     environment:
       - Worker__WorkerId=sql-worker-01
       - Worker__RabbitMQ__Host=rabbitmq

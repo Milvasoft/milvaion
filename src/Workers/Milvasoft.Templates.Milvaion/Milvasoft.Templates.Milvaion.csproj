@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <PackageType>Template</PackageType>
-    <PackageVersion>10.0.5</PackageVersion>
+    <PackageVersion>10.0.6</PackageVersion>
     <PackageId>Milvasoft.Templates.Milvaion</PackageId>
     <Title>Milvaion Worker Templates</Title>
     <Authors>Milvasoft Corporation</Authors>

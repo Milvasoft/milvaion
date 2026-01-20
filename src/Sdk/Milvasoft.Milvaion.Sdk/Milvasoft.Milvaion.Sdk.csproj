@@ -25,7 +25,7 @@
 
 	<PropertyGroup>
 		<PackageId>Milvasoft.Milvaion.Sdk</PackageId>
-		<PackageVersion>10.0.8</PackageVersion>
+		<PackageVersion>10.0.9</PackageVersion>
 		<Authors>Milvasoft Corporation</Authors>
 		<Product>Milvasoft.Milvaion.Sdk</Product>
 		<Description>Core SDK for Milvaion Scheduler - Domain models and shared types.</Description>
