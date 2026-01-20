@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN groupadd -r milvaion && useradd -r -g milvaion milvaion
+
 WORKDIR /app
 
 # Build stage
@@ -39,6 +42,12 @@ RUN dotnet publish "EmailWorker.csproj" \
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
+
+# Change ownership to non-root user
+RUN chown -R milvaion:milvaion /app
+
+# Switch to non-root user
+USER milvaion
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

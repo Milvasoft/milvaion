@@ -44,6 +44,8 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-api:${{ steps.version.outputs.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
           build-args: |
             BUILDKIT_INLINE_CACHE=1
 

@@ -27,7 +27,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS base
 # Install required libraries for PostgreSQL and RabbitMQ
 RUN apt-get update && apt-get install -y \
     libgssapi-krb5-2 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r milvaion && useradd -r -g milvaion milvaion
 
 WORKDIR /app
 EXPOSE 5000
@@ -77,6 +81,12 @@ COPY --from=publish /app/publish .
 
 # ✅ Copy React build to wwwroot (served by ASP.NET Core)
 COPY --from=frontend-build /app/frontend/dist ./wwwroot
+
+# Change ownership to non-root user
+RUN chown -R milvaion:milvaion /app
+
+# Switch to non-root user
+USER milvaion
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

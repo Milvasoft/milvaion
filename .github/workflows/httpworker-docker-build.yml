@@ -41,6 +41,8 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-http-worker:${{ steps.version.outputs.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
 
       - name: Image digest
         run: echo "HttpWorker image pushed with version ${{ steps.version.outputs.VERSION }}"
