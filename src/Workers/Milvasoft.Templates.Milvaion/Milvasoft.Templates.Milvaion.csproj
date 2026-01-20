@@ -12,8 +12,8 @@
     <Authors>Milvasoft Corporation</Authors>
     <Description>Project templates for Milvaion Workers</Description>
     <PackageTags>dotnet-new;templates;milvaion;worker;scheduler</PackageTags>
-    <PackageProjectUrl>https://github.com/Milvasoft/milvaion-api</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Milvasoft/milvaion-api</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Milvasoft/milvaion</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Milvasoft/milvaion</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IncludeContentInPack>true</IncludeContentInPack>
     <IncludeBuildOutput>false</IncludeBuildOutput>

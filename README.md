@@ -8,6 +8,8 @@ A distributed job scheduling system built on .NET 10
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.x-FF6600?style=flat-square&logo=rabbitmq)](https://www.rabbitmq.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
+[![Worker Templates NuGet](https://img.shields.io/nuget/v/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) [![Worker Sdk NuGet](https://img.shields.io/nuget/dt/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/) ![Stars](https://img.shields.io/github/stars/Milvasoft/milvaion?style=social)
+
 ---
 
 ## What is Milvaion?

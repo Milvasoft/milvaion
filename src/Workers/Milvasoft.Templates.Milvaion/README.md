@@ -241,7 +241,7 @@ dotnet new uninstall Milvasoft.Milvaion.Templates
 
 # Documentation
 
-- [Milvaion Documentation](https://github.com/Milvasoft/milvaion-api)
+- [Milvaion Documentation](https://github.com/Milvasoft/milvaion)
 - [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
 - [.NET Templates](https://learn.microsoft.com/en-us/dotnet/core/tools/custom-templates)
 

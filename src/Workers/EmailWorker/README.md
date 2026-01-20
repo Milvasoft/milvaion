@@ -91,7 +91,7 @@ Add to `appsettings.json`:
 
 ### Documentation
 
-- [Milvaion Documentation](https://github.com/Milvasoft/milvaion-api)
+- [Milvaion Documentation](https://github.com/Milvasoft/milvaion)
 - [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
 
 ### License

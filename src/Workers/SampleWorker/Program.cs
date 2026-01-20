@@ -13,6 +13,7 @@ builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
 // Register Worker SDK with auto job discovery and consumer registration
 builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);
 
+// File health check
 builder.Services.AddFileHealthCheck(builder.Configuration);
 
 // Build and run

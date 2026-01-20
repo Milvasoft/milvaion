@@ -272,7 +272,7 @@ Configuration:
 
 ## Documentation
 
-- [Full Documentation](https://portal.milvasoft.com)
+- [Full Documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
 - [Quick Start Guide](https://portal.milvasoft.com/docs/quickstart)
 - [Configuration Reference](https://portal.milvasoft.com/docs/configuration)
 - [API Reference](https://portal.milvasoft.com/docs/api-reference)

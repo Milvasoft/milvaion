@@ -130,7 +130,7 @@ docker run -d -p 5000:8080 my-api-worker
 
 ### Documentation
 
-- [Milvaion Documentation](https://github.com/Milvasoft/milvaion-api)
+- [Milvaion Documentation](https://github.com/Milvasoft/milvaion)
 - [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
 - [ASP.NET Core Minimal APIs](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis)
 
