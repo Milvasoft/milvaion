@@ -1,0 +1,133 @@
+.json-viewer {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.json-viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.json-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: color 0.2s;
+}
+
+.json-toggle:hover {
+  color: var(--accent-color);
+}
+
+.json-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.json-copy-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-color);
+}
+
+.json-viewer-content {
+  margin: 0;
+  padding: 1rem;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  text-align: left;
+  color: #a5d6ff;
+  background-color: var(--bg-secondary);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Light theme JSON content */
+[data-theme="light"] .json-viewer-content {
+  color: #333;
+}
+
+[data-theme="light"] .json-key {
+  color: #0969da;
+}
+
+[data-theme="light"] .json-string {
+  color: #0a3069;
+}
+
+[data-theme="light"] .json-number {
+  color: #0550ae;
+}
+
+[data-theme="light"] .json-boolean {
+  color: #cf222e;
+}
+
+[data-theme="light"] .json-null {
+  color: #6e7781;
+}
+
+/* JSON Syntax Highlighting - Dark Mode */
+.json-key {
+  color: #79c0ff;
+}
+
+.json-string {
+  color: #a5d6ff;
+}
+
+.json-number {
+  color: #79c0ff;
+}
+
+.json-boolean {
+  color: #ff7b72;
+}
+
+.json-null {
+  color: #ffa657;
+}
+
+/* JSON Preview (collapsed state) */
+.json-preview {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Fira Code', 'Consolas', monospace;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: light) {
+  .json-preview {
+    color: rgba(0, 0, 0, 0.5);
+  }
+}

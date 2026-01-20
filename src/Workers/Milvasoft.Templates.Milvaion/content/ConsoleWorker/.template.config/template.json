@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Milvasoft Corporation",
+  "classifications": [
+    "Console",
+    "Worker",
+    "Milvaion"
+  ],
+  "identity": "Milvasoft.Milvaion.Worker.Console",
+  "name": "Milvaion Console Worker",
+  "shortName": "milvaion-console-worker",
+  "sourceName": "ConsoleWorker",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "defaultName": "ConsoleWorker",
+  "description": "A Milvaion console worker template with job discovery and RabbitMQ integration",
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "description": "The target framework for the project.",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net9.0",
+          "description": "Target net9.0"
+        },
+        {
+          "choice": "net10.0",
+          "description": "Target net10.0"
+        }
+      ],
+      "replaces": "net10.0",
+      "defaultValue": "net10.0"
+    },
+    "Nullable": {
+      "type": "parameter",
+      "description": "Set the nullable annotations and warnings context for the C# project. Possible values are enable, disable, warnings and annotations",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "enable"
+        },
+        {
+          "choice": "disable"
+        },
+        {
+          "choice": "warnings"
+        },
+        {
+          "choice": "annotations"
+        }
+      ],
+      "replaces": "xnullablexx",
+      "defaultValue": "disable"
+    }
+  },
+  "primaryOutputs": [
+    {
+      "path": "ConsoleWorker.csproj"
+    }
+  ],
+  "sources": [
+    {
+      "source": "./",
+      "target": "./",
+      "modifiers": [
+        {
+          "exclude": [
+            "**/.vs/**",
+            "**/.vscode/**",
+            "**/bin/**",
+            "**/obj/**",
+            ".template.config/**",
+            "**/*.user",
+            "**/.git/**"
+          ]
+        }
+      ]
+    }
+  ],
+  "postActions": [
+    {
+      "description": "Restore NuGet packages required by this project.",
+      "manualInstructions": [
+        {
+          "text": "Run 'dotnet restore'"
+        }
+      ],
+      "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+      "continueOnError": true
+    }
+  ]
+}

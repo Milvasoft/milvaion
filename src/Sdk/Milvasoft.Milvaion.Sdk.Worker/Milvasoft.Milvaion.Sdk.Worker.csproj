@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.2" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+		<PackageReference Include="RabbitMQ.Client" Version="7.2.0" />
+		<PackageReference Include="StackExchange.Redis" Version="2.10.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Milvasoft.Milvaion.Sdk\Milvasoft.Milvaion.Sdk.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="logo.png" Pack="true" PackagePath="\" />
+		<None Include="packagereadme.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<PlatformTarget>AnyCPU</PlatformTarget>
+		<IsPackable>true</IsPackable>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageVersion>10.0.8</PackageVersion>
+		<Authors>Milvasoft Corporation</Authors>
+		<Copyright>Milvasoft Yazılım Bilişim Araştırma Geliştirme Danışmanlık Sanayi ve Ticaret Ltd.Şti.</Copyright>
+		<RepositoryUrl>https://github.com/Milvasoft/milvaion-api</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageProjectUrl>https://github.com/Milvasoft/milvaion-api</PackageProjectUrl>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+		<PackageId>Milvasoft.Milvaion.Sdk.Worker</PackageId>
+		<Product>Milvasoft.Milvaion.Sdk.Worker</Product>
+		<Description>Worker SDK for Milvaion Scheduler.</Description>
+		<PackageTags>schedule,recurring,worker,distributed</PackageTags>
+		<PackageIcon>logo.png</PackageIcon>
+		<PackageReadmeFile>packagereadme.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+
+</Project>

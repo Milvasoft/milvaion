@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json.schemastore.org/vs-2017.3.host",
+  "icon": "logo.png",
+  "symbolInfo": [
+    {
+      "id": "Nullable",
+      "name": {
+        "text": "Set the nullable annotations and warnings context for the C# project. Possible values are enable, disable, warnings and annotations"
+      }
+    }
+  ]
+}

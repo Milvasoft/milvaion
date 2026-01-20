@@ -1,0 +1,15 @@
+﻿global using Milvaion.Application.Dtos;
+global using Milvaion.Application.Interfaces;
+global using Milvaion.Application.Utils.Aspects.UserActivityLogAspect;
+global using Milvaion.Application.Utils.Attributes;
+global using Milvaion.Application.Utils.Constants;
+global using Milvaion.Application.Utils.Extensions;
+global using Milvaion.Application.Utils.LinkedWithFormatters;
+global using Milvaion.Application.Utils.Models.Options;
+global using Milvaion.Application.Utils.PermissionManager;
+global using Milvaion.Domain;
+global using Milvaion.Domain.Enums;
+global using Milvaion.Domain.JsonModels;
+global using Milvasoft.Milvaion.Sdk.Domain;
+global using Milvasoft.Milvaion.Sdk.Domain.Enums;
+global using Milvasoft.Milvaion.Sdk.Domain.JsonModels;

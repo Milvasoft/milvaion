@@ -1,0 +1,1812 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Milvaion.Infrastructure</name>
+    </assembly>
+    <members>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry">
+            <summary>
+            Registry for collecting memory stats from all tracked background services.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry.Register(System.String,System.Func{Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats})">
+            <summary>
+            Registers a memory stats provider for a service.
+            </summary>
+            <param name="serviceName"></param>
+            <param name="statsProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry.Unregister(System.String)">
+            <summary>
+            Unregisters a memory stats provider for a service.
+            </summary>
+            <param name="serviceName"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry.GetStats(System.String)">
+            <summary>
+            Gets memory stats for a specific service.
+            </summary>
+            <param name="serviceName"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry.GetAggregatedStats">
+            <summary>
+            Gets aggregated memory stats across all registered services.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.Base.MemoryStatsRegistry">
+            <summary>
+            Default implementation of memory stats registry.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryStatsRegistry.Register(System.String,System.Func{Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats})">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryStatsRegistry.Unregister(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryStatsRegistry.GetStats(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryStatsRegistry.GetAggregatedStats">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService">
+            <summary>
+            Base class for background services with memory tracking capabilities.
+            Monitors memory usage, detects memory leaks, and logs metrics.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService"/> class.
+            </remarks>
+            <param name="loggerFactory">Logger factory</param>
+            <param name="options">Memory tracking configuration (optional)</param>
+            <param name="memoryStatsRegistry">Optional registry for exposing stats via endpoint</param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Utils.Models.Options.BackgrounServiceOptions,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Base class for background services with memory tracking capabilities.
+            Monitors memory usage, detects memory leaks, and logs metrics.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService"/> class.
+            </remarks>
+            <param name="loggerFactory">Logger factory</param>
+            <param name="options">Memory tracking configuration (optional)</param>
+            <param name="memoryStatsRegistry">Optional registry for exposing stats via endpoint</param>
+        </member>
+        <member name="F:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService._isRunning">
+            <summary>
+            Determines if the service is currently running.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.ServiceName">
+            <summary>
+            Service name for logging (override in derived classes).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.GetStats">
+            <summary>
+            Gets the current memory tracking statistics for this service.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Execute implementation with memory tracking.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <summary>
+            Override this method instead of ExecuteAsync in derived classes.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.TrackMemoryAfterIteration">
+            <summary>
+            Tracks memory after each iteration. Call this at the end of each work cycle.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.ForceGarbageCollection">
+            <summary>
+            Forces garbage collection and logs results.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.GetCurrentMemoryUsage">
+            <summary>
+            Gets current managed memory usage.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.GetProcessMemoryUsage">
+            <summary>
+            Gets current process memory usage (includes native memory).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.LogFinalMemoryStats">
+            <summary>
+            Logs final memory statistics when service stops.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.LogGCStatistics">
+            <summary>
+            Logs garbage collection statistics.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler">
+            <summary>
+            Background service that consumes failed jobs from Dead Letter Queue and stores them in database.
+            Provides visibility and manual recovery capability for jobs that exceeded max retry attempts.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.FailedOccurrenceHandlerOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Background service that consumes failed jobs from Dead Letter Queue and stores them in database.
+            Provides visibility and manual recovery capability for jobs that exceeded max retry attempts.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ProcessFailedOccurrenceAsync(RabbitMQ.Client.Events.BasicDeliverEventArgs,System.Threading.CancellationToken)">
+            <summary>
+            Processes a failed job message and stores it in database.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractCorrelationId(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
+            <summary>
+            Extracts CorrelationId from RabbitMQ message headers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractMaxRetries(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
+            <summary>
+            Extracts MaxRetries from RabbitMQ message headers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractRetryCount(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
+            <summary>
+            Extracts retry count from RabbitMQ message headers.
+            Returns the number of retry attempts that were made before moving to DLQ.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.TruncateException(System.String)">
+            <summary>
+            Truncates exception string to prevent database bloat while preserving important context.
+            </summary>
+            <param name="exception">Original exception string (may be null or very large)</param>
+            <returns>Truncated exception string (max 2KB) with marker if truncated</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.DetermineFailureType(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.String,System.Int32,System.Int32)">
+            <summary>
+            Determines the failure type based on occurrence status and exception content.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.StopAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService">
+            <summary>
+            Background service that dispatches scheduled jobs from Redis to RabbitMQ.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisLockService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Application.Interfaces.IDispatcherControlService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Background service that dispatches scheduled jobs from Redis to RabbitMQ.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.StartAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.StopAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchDueJobsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Dispatches due jobs from Redis to RabbitMQ.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.GetDueJobsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Gets due jobs from Redis or database.
+            </summary>
+            <param name="dbContext"></param>
+            <param name="dueJobIds"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchJobToRabbitMQAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,System.Threading.CancellationToken)">
+            <summary>
+            Dispatches a job to RabbitMQ (worker checks already done).
+            </summary>
+            <returns>True if successfully published, false otherwise</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleRecurringJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Threading.CancellationToken)">
+            <summary>
+            Handles recurring job logic (reschedules if needed).
+            For one-time jobs, removes from Redis scheduled set (if not already removed).
+            NOTE: This method may be called when:
+            1. Job is skipped due to ConcurrentExecutionPolicy (already removed from scheduled set)
+            2. Job is successfully dispatched (not yet removed from scheduled set for one-time jobs)
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.PerformStartupRecoveryAsync(System.Threading.CancellationToken)">
+            <summary>
+            Performs startup recovery (zombie detection and Redis repopulation).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.WaitForDatabaseReadyAsync(System.Threading.CancellationToken)">
+            <summary>
+            Waits for database to be ready and migrations to complete.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.RetryFailedDispatchesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Retries occurrences that failed to dispatch (with exponential backoff).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.LogCollectorService">
+            <summary>
+            Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.ProcessBatchAsync(System.Threading.CancellationToken)">
+            <summary>
+            Process batch of logs - single DB transaction for all logs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.StopAsync(System.Threading.CancellationToken)">
+            <summary>
+            Stops the background service and cleans up resources.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService">
+            <summary>
+            Consumes job status updates from RabbitMQ and updates JobOccurrence records.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Consumes job status updates from RabbitMQ and updates JobOccurrence records.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ProcessBatchAsync(System.Threading.CancellationToken)">
+            <summary>
+            Process batch of status updates - single DB transaction.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ProcessCircuitBreakerUpdatesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.Dictionary{System.Guid,System.ValueTuple{System.Boolean,System.String}},System.Threading.CancellationToken)">
+            <summary>
+            Processes circuit breaker updates for jobs that completed or failed.
+            Increments failure count on failure, resets on success, auto-disables if threshold reached.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.StopAsync(System.Threading.CancellationToken)">
+            <summary>
+            Stops the background service and cleans up resources.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.UpdateConsumerCountersAsync(System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <summary>
+            Updates consumer-level job counters in Redis when job status changes.
+            Increments when job starts (Queued -> Running), decrements when job ends (Running -> Final).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService">
+            <summary>
+            Consumes worker registration and heartbeat messages from RabbitMQ.
+            Stores runtime state in Redis for high performance.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Consumes worker registration and heartbeat messages from RabbitMQ.
+            Stores runtime state in Redis for high performance.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <summary>
+            Executes the background service to listen for worker messages.
+            </summary>
+            <param name="stoppingToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.StopAsync(System.Threading.CancellationToken)">
+            <summary>
+            Stops the background service and cleans up resources.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService">
+            <summary>
+            Background service that detects and cleans up zombie occurrences (Queued status for too long).
+            Prevents job blocking when occurrences are created but never consumed by workers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ZombieOccurrenceDetectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Background service that detects and cleans up zombie occurrences (Queued status for too long).
+            Prevents job blocking when occurrences are created but never consumed by workers.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.DetectAndCleanupProblematicOccurrencesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Detects and cleans up problematic occurrences (zombie queued + lost running).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.DetectZombieQueuedAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Threading.CancellationToken)">
+            <summary>
+            Detects Queued occurrences that exceeded timeout and marks them as Unknown.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.DetectLostRunningAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Threading.CancellationToken)">
+            <summary>
+            Detects Running occurrences that lost heartbeat and marks them as Unknown.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.HealthChecks.DbContextHealthCheck">
+            <summary>
+            Health check for PostgreSQL database connection via DbContext.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.HealthChecks.DbContextHealthCheck"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.DbContextHealthCheck.#ctor(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext)">
+            <summary>
+            Health check for PostgreSQL database connection via DbContext.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.HealthChecks.DbContextHealthCheck"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.DbContextHealthCheck.CheckHealthAsync(Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.HealthChecks.RabbitMQHealthCheck">
+            <summary>
+            Health check for RabbitMQ connection.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.HealthChecks.RabbitMQHealthCheck"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.RabbitMQHealthCheck.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory)">
+            <summary>
+            Health check for RabbitMQ connection.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.HealthChecks.RabbitMQHealthCheck"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.RabbitMQHealthCheck.CheckHealthAsync(Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck">
+            <summary>
+            Health check for Redis connection.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck.#ctor(Milvaion.Infrastructure.Services.Redis.RedisConnectionService)">
+            <summary>
+            Health check for Redis connection.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck.CheckHealthAsync(Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.InfraServiceCollectionExtensions">
+            <summary>
+            Infrastructure service collection extensions.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddInfrastructureServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfigurationManager)">
+            <summary>
+            Adds infrastructure services.
+            </summary>
+            <param name="services"></param>
+            <param name="configurationManager"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddDataAccessServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfigurationManager)">
+            <summary>
+            Adds data access services.
+            </summary>
+            <param name="services"></param>
+            <param name="configurationManager"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddMilvaion(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Add whole milvaion components.
+            </summary>
+            <param name="services"></param>
+            <param name="configuration"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddJobDispatcher(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers job dispatcher background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddZombieOccurrenceDetector(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers zombie occurrence detector background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddFailedOccurrenceHandler(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers failed job handler background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddWorkerAutoDiscovery(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers worker auto discovery background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddLogCollector(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers log collector background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddStatusTracker(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers occurrence status tracker background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddRedisStorage(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers Redis services for job scheduling.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddRabbitMQ(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers RabbitMQ services for job dispatching.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.InfrastructureAssembly">
+            <summary>
+            Static class for ease of assembly access.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.InfrastructureAssembly.Assembly">
+            <summary>
+            Assembly instance.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.LazyImpl.MilvaionLazy`1">
+            <summary>
+            Custom <see cref="T:System.Lazy`1"/> class.
+            </summary>
+            <typeparam name="T"></typeparam>
+            <remarks>
+            Constructor of <see cref="T:Milvaion.Infrastructure.LazyImpl.MilvaionLazy`1"/>.
+            </remarks>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.LazyImpl.MilvaionLazy`1.#ctor(System.IServiceProvider)">
+            <summary>
+            Custom <see cref="T:System.Lazy`1"/> class.
+            </summary>
+            <typeparam name="T"></typeparam>
+            <remarks>
+            Constructor of <see cref="T:Milvaion.Infrastructure.LazyImpl.MilvaionLazy`1"/>.
+            </remarks>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Logging.RemoveTypeTagEnricher">
+            <summary>
+            Removes _typeTag from Serilog's output.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Logging.RemoveTypeTagEnricher.Enrich(Serilog.Events.LogEvent,Serilog.Core.ILogEventPropertyFactory)">
+            <summary>
+            Removes _typeTag from Serilog's output.
+            </summary>
+            <param name="logEvent"></param>
+            <param name="propertyFactory"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Logging.RemoveTypeTagEnricher.RemoveTypeTags(Serilog.Events.LogEventPropertyValue)">
+            <summary>
+            Removes _typeTag from Serilog's output.
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext">
+             <summary>
+             Handles all database operations. Inherits <see cref="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext"/>
+             </summary>
+            
+             <remarks>
+             <para> You must register <see cref="T:Milvasoft.DataAccess.EfCore.Configuration.IDataAccessConfiguration"/> in your application startup. </para>
+             <para> If <see cref="T:Milvasoft.DataAccess.EfCore.Configuration.IDataAccessConfiguration"/>'s AuditDeleter, AuditModifier or AuditCreator is true
+                    and HttpMethod is POST,PUT or DELETE it will gets performer user in constructor from database.
+                    This can affect performance little bit. But you want audit every record easily you must use this :( </para>
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.#ctor(Microsoft.EntityFrameworkCore.DbContextOptions)">
+             <summary>
+             Handles all database operations. Inherits <see cref="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext"/>
+             </summary>
+            
+             <remarks>
+             <para> You must register <see cref="T:Milvasoft.DataAccess.EfCore.Configuration.IDataAccessConfiguration"/> in your application startup. </para>
+             <para> If <see cref="T:Milvasoft.DataAccess.EfCore.Configuration.IDataAccessConfiguration"/>'s AuditDeleter, AuditModifier or AuditCreator is true
+                    and HttpMethod is POST,PUT or DELETE it will gets performer user in constructor from database.
+                    This can affect performance little bit. But you want audit every record easily you must use this :( </para>
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SaveChanges">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SaveChangesAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SetGuidV7">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextAccessor">
+            <summary>
+            Milvaion scoped factory.
+            </summary>
+            <remarks>
+            Initializes new instance of <see cref="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory"/>.
+            </remarks>
+            <param name="context"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextAccessor.#ctor(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext)">
+            <summary>
+            Milvaion scoped factory.
+            </summary>
+            <remarks>
+            Initializes new instance of <see cref="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory"/>.
+            </remarks>
+            <param name="context"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextAccessor.GetDbContext">
+            <summary>
+            Db context creation implementation.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory">
+            <summary>
+            Milvaion scoped factory.
+            </summary>
+            <remarks>
+            Initializes new instance of <see cref="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory"/>.
+            </remarks>
+            <param name="pooledFactory"></param>
+            <param name="dataAccessConfiguration"></param>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory.#ctor(Microsoft.EntityFrameworkCore.IDbContextFactory{Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext},Milvasoft.DataAccess.EfCore.Configuration.IDataAccessConfiguration,System.IServiceProvider)">
+            <summary>
+            Milvaion scoped factory.
+            </summary>
+            <remarks>
+            Initializes new instance of <see cref="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory"/>.
+            </remarks>
+            <param name="pooledFactory"></param>
+            <param name="dataAccessConfiguration"></param>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory.CreateDbContext">
+            <summary>
+            Db context creation implementation.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.DatabaseMigrator">
+            <summary>
+            Data seed methods.
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.#ctor(System.IServiceProvider)">
+            <summary>
+            Data seed methods.
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.ResetDatabaseAsync(System.Threading.CancellationToken)">
+            <summary>
+            Remove, recreates and seed database for development purposes.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.CreateTriggersAsync(System.Threading.CancellationToken)">
+            <summary>
+            Creates default triggers.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.SeedDefaultDataAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Seeds default production data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.SeedUIRelatedDataAsync(System.Threading.CancellationToken)">
+            <summary>
+            Seeds default ui related data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.SeedFakeDataAsync(System.Boolean,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Seeds fake data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.MigratePermissionsAsync(Milvaion.Application.Interfaces.IPermissionManager,System.Threading.CancellationToken)">
+            <summary>
+            Migrate default permissions.
+            </summary>
+            <param name="permissionManager"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.DatabaseMigrator.InitDatabaseAsync(Milvaion.Application.Interfaces.IPermissionManager,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Initial data seed and migration operation for production.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.UserFaker">
+            <summary>
+            Data faker.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.UserFaker.#ctor(System.Boolean,System.String,System.Collections.Generic.List{Milvaion.Domain.Role})">
+            <summary>
+            Constructor for faker.
+            </summary>
+            <param name="sameData"></param>
+            <param name="locale"></param>
+            <param name="roles"></param>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.RoleFaker">
+            <summary>
+            Data faker.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.RoleFaker.#ctor(System.Boolean,System.String)">
+            <summary>
+            Constructor for faker.
+            </summary>
+            <param name="sameData"></param>
+            <param name="locale"></param>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.Repository.MilvaionRepositoryBase`1">
+            <summary>
+            Constructor of <c>BillRepository</c> class.
+            </summary>
+            <param name="dbContext"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Repository.MilvaionRepositoryBase`1.#ctor(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext)">
+            <summary>
+            Constructor of <c>BillRepository</c> class.
+            </summary>
+            <param name="dbContext"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Repository.MilvaionRepositoryBase`1.GetCountAsync(System.Linq.Expressions.Expression{System.Func{`0,System.Boolean}},System.Boolean,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Gets count.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Repository.MilvaionRepositoryBase`1.AnyAsync(System.Linq.Expressions.Expression{System.Func{`0,System.Boolean}},System.Boolean,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Checks whether the entity with the given id exists.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Repository.MilvaionRepositoryBase`1.AnyAsync(System.Object,System.Linq.Expressions.Expression{System.Func{`0,System.Boolean}},System.Boolean,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Checks whether the entity with the given id exists.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.AccountManager">
+            <summary>
+            User login operation.
+            It updates sessions in database.
+            Generates access and refresh tokens.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AccountManager.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserSession},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserSessionHistory},Milvasoft.Identity.Abstract.IMilvaTokenManager,Milvasoft.Identity.Concrete.Options.MilvaIdentityOptions,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
+            <summary>
+            User login operation.
+            It updates sessions in database.
+            Generates access and refresh tokens.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AccountManager.LoginAsync(Milvaion.Domain.User,System.String,System.Threading.CancellationToken)">
+            <summary>
+            User login operation.
+            It updates sessions in database.
+            Generates access and refresh tokens.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AccountManager.GenerateToken(Milvaion.Domain.User,System.Nullable{System.DateTime})">
+            <summary>
+            Generates token for ci user.
+            Generates access token.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AccountManager.FindSessionsToRemove(System.Collections.Generic.List{Milvaion.Domain.UserSession},System.String)">
+            <summary>
+            Finds the sessions to remove. Find criteria is the device id and the expiry date.
+            </summary>
+            <param name="userSessions"></param>
+            <param name="deviceId"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.AdminService">
+            <summary>
+            Implementation of dispatcher control service.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.DispatcherControlService"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.#ctor(System.IServiceProvider)">
+            <summary>
+            Implementation of dispatcher control service.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.DispatcherControlService"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetQueueStatsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets queue statistics for all queues.
+            /// </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Queue statistics</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetQueueInfoAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets detailed information about a specific queue.
+            </summary>
+            <param name="queueName">Queue name</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Queue depth information</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetSystemHealthAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets system health overview including dispatcher status.
+            </summary>
+            <returns>System health information</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.EmergencyStop(System.String)">
+            <summary>
+            Emergency stop - Disables the job dispatcher at runtime.
+            </summary>
+            <param name="reason">Reason for emergency stop</param>
+            <returns>Success response</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.ResumeOperations">
+            <summary>
+            Resume operations - Enables the job dispatcher at runtime.
+            </summary>
+            <returns>Success response</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetJobStatisticsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets job statistics grouped by status.
+            /// </summary>
+            <returns>Job statistics</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetRedisCircuitBreakerStats(System.Threading.CancellationToken)">
+            <summary>
+            Gets Redis circuit breaker statistics.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Circuit breaker statistics</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetDatabaseStatisticsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets database statistics including table sizes, occurrence growth, and large occurrences.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Database statistics</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetBackgroundServiceMemoryDiagnostics">
+            <summary>
+            Gets background service memory diagnostics.
+            </summary>
+            <returns>Database statistics</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.DetermineOverallHealth(System.Collections.Generic.List{Milvaion.Application.Dtos.AdminDtos.QueueStats},System.Boolean)">
+            <summary>
+            Determines overall system health based on queue statistics and dispatcher status.
+            </summary>
+            <param name="queueStats"></param>
+            <param name="dispatcherEnabled"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.TableSizeRawDto">
+            <summary>
+            Raw DTO for table size query (matches PostgreSQL column names).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.OccurrenceGrowthRawDto">
+            <summary>
+            Raw DTO for occurrence growth query (matches PostgreSQL column names).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.LargeOccurrenceRawDto">
+            <summary>
+            Raw DTO for large occurrence query (matches PostgreSQL column names).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.DeveloperService">
+            <summary>
+            Developer service.
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.#ctor(System.IServiceProvider)">
+            <summary>
+            Developer service.
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.ResetDatabaseAsync">
+            <summary>
+            Remove, recreates and seed database for development purposes.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.SeedDevelopmentDataAsync">
+            <summary>
+            Seeds data for development purposes.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.SeedFakeDataAsync(System.Boolean,System.String)">
+            <summary>
+            Seeds fake data.
+            </summary>
+            <param name="sameData"></param>
+            <param name="locale"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.InitDatabaseAsync">
+            <summary>
+            Initial migration operation.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.ResetUIRelatedDataAsync">
+            <summary>
+            Resets ui related data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.ExportExistingDataAsync">
+            <summary>
+            Exports existing data to a JSON file.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DeveloperService.ImportExistingDataAsync">
+            <summary>
+            Imports existing data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.DispatcherControlService">
+            <summary>
+            Implementation of dispatcher control service.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.DispatcherControlService"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Implementation of dispatcher control service.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.DispatcherControlService"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.DispatcherControlService.IsEnabled">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.Stop(System.String,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.Resume(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.GetStopReason">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.ExportService">
+            <summary>
+            Used to export data. 
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExportService.#ctor(System.IServiceProvider)">
+            <summary>
+            Used to export data. 
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExportService.DynamicExportToExcelAsync(Milvaion.Application.Dtos.ExportDtos.ExportRequest,System.Threading.CancellationToken)">
+            <summary>
+            Dynamically creates an excel file according to the export type.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExportService.ExportToExcel``1(Milvasoft.Components.Rest.MilvaResponse.ListResponse{``0},System.String)">
+            <summary>
+            Exports the data to excel.
+            </summary>
+            <typeparam name="T"></typeparam>
+            <param name="response"></param>
+            <param name="pageName"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExportService.ExportToExcel(Milvasoft.Components.Rest.MilvaResponse.IHasMetadata,System.String)">
+            <summary>
+            Exports the data to excel.
+            </summary>
+            <param name="hasMetadataResponse"></param>
+            <param name="pageName"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExportService.DisplayFormatRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>\\{(.*?)\\}</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match '{'.<br/>
+            ○ 1st capture group.<br/>
+                ○ Match a character other than '\n' lazily any number of times.<br/>
+            ○ Match '}'.<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.LookupService">
+            <summary>
+            Lookup service for getting dynamic entity fetch.
+            </summary>
+            <param name="dbContext"></param>
+            <param name="localizer"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LookupService.#ctor(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <summary>
+            Lookup service for getting dynamic entity fetch.
+            </summary>
+            <param name="dbContext"></param>
+            <param name="localizer"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LookupService.GetLookupsAsync(Milvasoft.DataAccess.EfCore.Utils.LookupModels.LookupRequest)">
+            <summary>
+            Dynamic entity fetch.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LookupService.GetEnumLookups(System.String)">
+            <summary>
+            Get enum names as localized.
+            </summary>
+            <param name="enumName"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor">
+            <summary>
+            Implementation of queue depth monitoring service.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Implementation of queue depth monitoring service.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.GetQueueDepthAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.IsQueueHealthyAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.GetDetailedStatsAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.GetAllQueueStatsAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.NotificationService">
+            <summary>
+            Provides functionality for managing and delivering notifications to users.
+            </summary>
+            <remarks>The <see cref="T:Milvaion.Infrastructure.Services.NotificationService"/> class allows for publishing notifications to users based on
+            specific criteria, marking notifications as seen, and deleting notifications. It supports both targeted
+            notifications to specific users and notifications based on user-defined predicates. This service is designed to work
+            with a repository pattern for data access and assumes the use of dependency injection for its
+            dependencies.</remarks>
+            <param name="notificationRepository"></param>
+            <param name="userRepository"></param>
+            <param name="logger"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.InternalNotification},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Provides functionality for managing and delivering notifications to users.
+            </summary>
+            <remarks>The <see cref="T:Milvaion.Infrastructure.Services.NotificationService"/> class allows for publishing notifications to users based on
+            specific criteria, marking notifications as seen, and deleting notifications. It supports both targeted
+            notifications to specific users and notifications based on user-defined predicates. This service is designed to work
+            with a repository pattern for data access and assumes the use of dependency injection for its
+            dependencies.</remarks>
+            <param name="notificationRepository"></param>
+            <param name="userRepository"></param>
+            <param name="logger"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.PublishAsync(Milvaion.Application.Dtos.NotificationDtos.InternalNotificationRequest,System.Linq.Expressions.Expression{System.Func{Milvaion.Domain.User,System.Boolean}},System.Threading.CancellationToken)">
+            <summary>
+            Publishes a notification based on a user predicate.
+            This is the core publishing method.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.MarkAsSeenAsync(System.Collections.Generic.List{System.Int64},System.String,System.Threading.CancellationToken)">
+            <summary>
+            Marks a single notification as seen.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.MarkAllAsSeenAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Marks all of a user's notifications as seen.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.DeleteAsync(System.Collections.Generic.IEnumerable{System.Int64},System.String,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a list of notifications belonging to the current user.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.DeleteAllAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Deletes all of notifications belonging to the current user.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.PermissionManager">
+            <summary>
+            Permission manager for managing system permissions.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.PermissionManager.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Permission},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.RolePermissionRelation})">
+            <summary>
+            Permission manager for managing system permissions.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.PermissionManager.GetAllPermissionsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Get all permissions as entity.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.PermissionManager.MigratePermissionsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Migrate permissions to the database.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory">
+            <summary>
+            Manages RabbitMQ connection lifecycle for job dispatcher.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.Connection">
+            <summary>
+            Gets the active RabbitMQ connection.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.GetChannelAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets or creates a channel for publishing messages.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.IsHealthy">
+            <summary>
+            Checks if RabbitMQ connection is healthy.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.Dispose">
+            <summary>
+            Disposes the RabbitMQ connection and channel.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher">
+            <summary>
+            RabbitMQ publisher implementation for job dispatching.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.PublishJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.GetRoutingKeyFromJobType(System.String,System.String)">
+            <summary>
+            Converts JobType to routing key WITHOUT splitting words.
+            Includes WorkerId prefix for worker-specific routing.
+            Examples (with workerId "email-worker-01"):
+            - NonParallelJob → email-worker-01.nonparallel.job
+            - TestJob → email-worker-01.test.job
+            - SendEmailJob → email-worker-01.sendemail.job
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.PublishBatchAsync(System.Collections.Generic.Dictionary{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.GetQueueMessageCountAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.JobCancellationService">
+            <summary>
+            Redis-based job cancellation service implementation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.JobCancellationService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions})">
+            <summary>
+            Redis-based job cancellation service implementation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.JobCancellationService.PublishCancellationAsync(System.Guid,System.Guid,System.Guid,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.RedisCancellationService">
+            <summary>
+            Redis Pub/Sub implementation for job cancellation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisCancellationService.#ctor(Milvaion.Infrastructure.Services.Redis.RedisConnectionService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisCancellationService"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisCancellationService.PublishCancellationAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisCancellationService.SubscribeToCancellationsAsync(System.Action{System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisCancellationService.UnsubscribeFromCancellationsAsync">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker">
+            <summary>
+            Circuit breaker pattern implementation for Redis operations.
+            Prevents cascading failures when Redis is unavailable.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker.ExecuteAsync``1(System.Func{System.Threading.Tasks.Task{``0}},System.Func{System.Threading.Tasks.Task{``0}},System.String,System.Threading.CancellationToken)">
+            <summary>
+            Executes a Redis operation with circuit breaker protection.
+            </summary>
+            <typeparam name="T">Return type</typeparam>
+            <param name="operation">Redis operation to execute</param>
+            <param name="fallback">Fallback function if circuit is open</param>
+            <param name="operationName">Name for logging</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Result of operation or fallback</returns>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker.State">
+            <summary>
+            Gets the current circuit state.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker.GetStats">
+            <summary>
+            Gets circuit breaker statistics.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.RedisCircuitBreaker">
+            <summary>
+            Redis circuit breaker implementation.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisCircuitBreaker"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisCircuitBreaker.#ctor(Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Redis circuit breaker implementation.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisCircuitBreaker"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.RedisCircuitBreaker.State">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisCircuitBreaker.ExecuteAsync``1(System.Func{System.Threading.Tasks.Task{``0}},System.Func{System.Threading.Tasks.Task{``0}},System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisCircuitBreaker.GetStats">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.RedisConnectionService">
+            <summary>
+            Manages Redis connection lifecycle for job scheduler.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.Connection">
+            <summary>
+            Gets the active Redis connection multiplexer.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.Database">
+            <summary>
+            Gets the Redis database instance.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.Subscriber">
+            <summary>
+            Gets the Redis subscriber for Pub/Sub operations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisConnectionService"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.IsHealthyAsync(System.Threading.CancellationToken)">
+            <summary>
+            Checks if Redis is connected and responsive.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.Dispose">
+            <summary>
+            Disposes the Redis connection.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.RedisLockService">
+            <summary>
+            Redis-based distributed lock implementation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.#ctor(Milvaion.Infrastructure.Services.Redis.RedisConnectionService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisLockService"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.TryAcquireLockAsync(System.Guid,System.String,System.TimeSpan,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ReleaseLockAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.IsLockedAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.GetLockOwnerAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ExtendLockAsync(System.Guid,System.String,System.TimeSpan,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService">
+            <summary>
+            Redis-based job scheduler implementation using ZSET.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RunningJobsKey">
+            <summary>
+            Gets the Redis key for running jobs SET.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.#ctor(Milvaion.Infrastructure.Services.Redis.RedisConnectionService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.AddToScheduledSetAsync(System.Guid,System.DateTime,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetDueJobsAsync(System.DateTime,System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RemoveFromScheduledSetAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RemoveFromScheduledSetBulkAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.UpdateScheduleAsync(System.Guid,System.DateTime,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetScheduledTimeAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetScheduledTimesBulkAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Gets scheduled times (ExecuteAt) for multiple jobs in bulk using Redis pipeline.
+            </summary>
+            <param name="jobIds">Job IDs to retrieve ExecuteAt values for.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>Dictionary mapping JobId to ExecuteAt timestamp (null if not found in ZSET).</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetScheduledJobsCountAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetUnixTimestamp(System.DateTime)">
+            <summary>
+            Converts DateTime to Unix timestamp (seconds since epoch).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.CacheJobDetailsAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Nullable{System.TimeSpan},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetCachedJobAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetCachedJobsBulkAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RemoveCachedJobAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RemoveCachedJobsBulkAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.UpdateCachedJobFieldsAsync(System.Guid,System.Collections.Generic.Dictionary{System.String,System.Object},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetJobCacheKey(System.Guid)">
+            <summary>
+            Gets the Redis cache key for a job.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.DeserializeJob(StackExchange.Redis.HashEntry[])">
+            <summary>
+            Deserializes a job from Redis Hash entries.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.TryMarkJobAsRunningAsync(System.Guid,System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.MarkJobAsRunningAsync(System.Guid,System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.MarkJobAsCompletedAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.IsJobRunningAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetRunningJobIdsAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.RedisWorkerService">
+            <summary>
+            Redis-based worker tracking implementation.
+            Uses Redis Hashes with TTL for automatic zombie detection.
+            Returns CachedWorker models (not DB entities).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Redis-based worker tracking implementation.
+            Uses Redis Hashes with TTL for automatic zombie detection.
+            Returns CachedWorker models (not DB entities).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.RegisterWorkerAsync(Milvasoft.Milvaion.Sdk.Models.WorkerDiscoveryRequest,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.UpdateHeartbeatAsync(System.String,System.String,System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32}},System.Threading.CancellationToken)">
+            <summary>
+            Updates heartbeats for multiple worker instances in a single pipeline operation.
+            Significantly faster than calling UpdateHeartbeatAsync multiple times.
+            </summary>
+            <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs)</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Number of successfully updated instances</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetWorkerAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetAllWorkersAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.IsWorkerActiveAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetWorkerCapacityAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetConsumerCapacityAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.IncrementConsumerJobCountAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.DecrementConsumerJobCountAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.RemoveWorkerAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.DetectZombieWorkersAsync(System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Implementation not needed - TTL handles zombie detection automatically
+            </summary>
+            <param name="threshold"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.DeserializeDictionaryOrDefault(System.String)">
+            <summary>
+            Safely deserializes a JSON string to Dictionary, handling empty/null/invalid values.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.WorkerMetadata">
+            <summary>
+            Worker metadata structure (deserialized from JSON).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.JobConfigMetadata">
+            <summary>
+            Job consumer configuration metadata.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats">
+            <summary>
+            Circuit breaker statistics.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats.State">
+            <summary>
+            Current circuit state
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats.FailureCount">
+            <summary>
+            Consecutive failure count
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats.LastFailureTime">
+            <summary>
+            Last failure time
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats.TotalOperations">
+            <summary>
+            Total operations count (resets hourly)
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats.TotalFailures">
+            <summary>
+            Total failures count (resets hourly)
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats.StatsResetTime">
+            <summary>
+            When stats were last reset
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats.SuccessRate">
+            <summary>
+            Success rate (0-1)
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.Utils.CircuitState">
+            <summary>
+            Circuit breaker state.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Redis.Utils.CircuitState.Closed">
+            <summary>
+            Circuit is closed, operations flow normally
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Redis.Utils.CircuitState.Open">
+            <summary>
+            Circuit is open, operations are blocked
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Redis.Utils.CircuitState.HalfOpen">
+            <summary>
+            Circuit is half-open, testing if service recovered
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException">
+            <summary>
+            Exception thrown when circuit breaker is open.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException.#ctor(System.String,System.Exception)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException"/> class.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.UIService">
+            <summary>
+            Service for UI operations.
+            </summary>
+            <param name="multiLanguageManager"></param>
+            <param name="menuItemRepository"></param>
+            <param name="pageRepository"></param>
+            <param name="userRepository"></param>
+            <param name="httpContextAccessor"></param>
+            <param name="milvaLocalizer"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.#ctor(Milvasoft.Core.MultiLanguage.Manager.IMultiLanguageManager,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UI.MenuItem},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UI.Page},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Microsoft.AspNetCore.Http.IHttpContextAccessor,Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <summary>
+            Service for UI operations.
+            </summary>
+            <param name="multiLanguageManager"></param>
+            <param name="menuItemRepository"></param>
+            <param name="pageRepository"></param>
+            <param name="userRepository"></param>
+            <param name="httpContextAccessor"></param>
+            <param name="milvaLocalizer"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.GetAccessibleMenuItemsAsync(System.Collections.Generic.IEnumerable{Milvaion.Domain.Permission},System.Threading.CancellationToken)">
+            <summary>
+            Gets accessible menu items according to <paramref name="userPermissions"/>.
+            </summary>
+            <param name="userPermissions"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.GetAccessibleMenuItemsForCurrentUserAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets accessible menu items according to current user permissions.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.GetCurrentUserPageAccessibilityAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets page information by <paramref name="pageName"/>. 
+            </summary>
+            <param name="pageName"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.GetPagesAccessibilityAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Gets pages information according to <paramref name="userPermissions"/>. 
+            </summary>
+            <param name="userPermissions"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.GetCurrentUserPagesAccessibilityAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets pages information for current user. 
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.GetLocalizedContents">
+            <summary>
+            Gets localized contents related to UI.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.UIService.BuildHierarchy(System.Collections.Generic.IEnumerable{Milvaion.Domain.UI.MenuItem})">
+            <summary>
+            Builds parent-child hierarchy for menu items.
+            </summary>
+            <param name="menuItems"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Utils.OpenApi.ApiInfoTransformer">
+            <summary>
+            Api info transformer to set metadata for the OpenAPI document.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Utils.OpenApi.ApiInfoTransformer.TransformAsync(Microsoft.OpenApi.OpenApiDocument,Microsoft.AspNetCore.OpenApi.OpenApiDocumentTransformerContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Utils.OpenApi.ExampleSchemaTransformer">
+            <summary>
+            Example schema transformer to add examples to OpenAPI schemas.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Utils.OpenApi.ExampleSchemaTransformer.TransformAsync(Microsoft.OpenApi.OpenApiSchema,Microsoft.AspNetCore.OpenApi.OpenApiSchemaTransformerContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the DisplayFormatRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.Utilities">
+            <summary>Helper methods used by generated <see cref="T:System.Text.RegularExpressions.Regex"/>-derived implementations.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout">
+            <summary>Default timeout value set in <see cref="T:System.AppContext"/>, or <see cref="F:System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> if none was set.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_hasTimeout">
+            <summary>Whether <see cref="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout"/> is non-infinite.</summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type)">
+            <summary>
+            Generates a documentation comment ID for a type.
+            Example: T:Namespace.Outer+Inner`1 becomes T:Namespace.Outer.Inner`1
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.PropertyInfo)">
+            <summary>
+            Generates a documentation comment ID for a property.
+            Example: P:Namespace.ContainingType.PropertyName or for an indexer P:Namespace.ContainingType.Item(System.Int32)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type,System.String)">
+            <summary>
+            Generates a documentation comment ID for a property given its container type and property name.
+            Example: P:Namespace.ContainingType.PropertyName
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.MethodInfo)">
+            <summary>
+            Generates a documentation comment ID for a method (or constructor).
+            For example:
+              M:Namespace.ContainingType.MethodName(ParamType1,ParamType2)~ReturnType
+              M:Namespace.ContainingType.#ctor(ParamType)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.GetTypeDocId(System.Type,System.Boolean,System.Boolean)">
+            <summary>
+            Generates a documentation ID string for a type.
+            This method handles nested types (replacing '+' with '.'),
+            generic types, arrays, pointers, by-ref types, and generic parameters.
+            The <paramref name="includeGenericArguments"/> flag controls whether
+            constructed generic type arguments are emitted, while <paramref name="omitGenericArity"/>
+            controls whether the generic arity marker (e.g. "`1") is appended.
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.NormalizeDocId(System.String)">
+            <summary>
+            Normalizes a documentation comment ID to match the compiler-style format.
+            Strips the return type suffix for ordinary methods but retains it for conversion operators.
+            </summary>
+            <param name="docId">The documentation comment ID to normalize.</param>
+            <returns>The normalized documentation comment ID.</returns>
+        </member>
+    </members>
+</doc>

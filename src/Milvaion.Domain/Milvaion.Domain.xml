@@ -1,0 +1,905 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Milvaion.Domain</name>
+    </assembly>
+    <members>
+        <member name="T:Milvaion.Domain.ActivityLog">
+            <summary>
+            Entity of the ActivityLogs table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ActivityLog.UserName">
+            <summary>
+            Username of the user performing the activity.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ActivityLog.Activity">
+            <summary>
+            Description of the activity performed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ActivityLog.ActivityDate">
+            <summary>
+            Date and time when the activity occurred.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.ContentManagement.Content">
+            <summary>
+            Key value pairs.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.Key">
+            <summary>
+            Key of content.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.Value">
+            <summary>
+            Value of content.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.LanguageId">
+            <summary>
+            LanguageId of content.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.NamespaceSlug">
+            <summary>
+            Slug for the namespace for search without join.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.ResourceGroupSlug">
+            <summary>
+            Slug for the resource group for search without join.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.KeyAlias">
+            <summary>
+            Key alias for search without join. A combination of namespace slug, resource group slug and key. etc. "namespaceSlug.resourceGroupSlug.key"
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.NamespaceId">
+            <summary>
+            Id of the namespace this content belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.Namespace">
+            <summary>
+            Navigation property to the namespace this content belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.ResourceGroupId">
+            <summary>
+            Id of the namespace this content belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.ResourceGroup">
+            <summary>
+            Navigation property to the resource group this content belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Content.Medias">
+            <summary>
+            Navigation property to the medias.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.ContentManagement.Content.BuildKeyAlias">
+            <summary>
+            Builds key alias.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Domain.ContentManagement.Media">
+            <summary>
+            Media typed content values.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Media.Value">
+            <summary>
+            Value of media.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Media.Type">
+            <summary>
+            Media type. etc. "image", "video", "audio"
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Media.ContentId">
+            <summary>
+            Id of the content this media belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Media.Content">
+            <summary>
+            Navigation property to the content this media to.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.ContentManagement.Namespace">
+            <summary>
+            Namespace of resources.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Namespace.Slug">
+            <summary>
+            Unique slug of namespace.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Namespace.Name">
+            <summary>
+            Name of namespace.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Namespace.Description">
+            <summary>
+            Description of namespace.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Namespace.ResourceGroups">
+            <summary>
+            Navigation property to the resource groups. 
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.Namespace.Contents">
+            <summary>
+            Navigation property to the contents. 
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.ContentManagement.ResourceGroup">
+            <summary>
+            Resource group of resources.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.ResourceGroup.Slug">
+            <summary>
+            Unique slug of resource group.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.ResourceGroup.Name">
+            <summary>
+            Name of resource group.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.ResourceGroup.Description">
+            <summary>
+            Description of resource group.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.ResourceGroup.NamespaceId">
+            <summary>
+            Id of the namespace this resource group belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.ResourceGroup.Namespace">
+            <summary>
+            Navigation property to the namespace this resource group belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ContentManagement.ResourceGroup.Contents">
+            <summary>
+            Navigation property to the contents.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.Enums.NotificationEntity">
+            <summary>
+            Notication related entity types.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.Enums.NotificationType">
+            <summary>
+            Notification types.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.NotificationType.OrderApproved">
+            <summary>
+            Order approved notification.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.NotificationType.JobAutoDisabled">
+            <summary>
+            Job was automatically disabled due to consecutive failures.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.NotificationType.JobReEnabled">
+            <summary>
+            Job was manually re-enabled after being auto-disabled.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.Enums.UserActivity">
+            <summary>
+            User activity types.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.Enums.UserType">
+            <summary>
+            Determines which screen users will see after logging in to the frontend.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.UserType.Manager">
+            <summary>
+            Can see management screens.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.UserType.AppUser">
+            <summary>
+            Can see user profile and view screens.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.InternalNotification">
+            <summary>
+            Internal generic notification entity. Unseen notifications are deleted in 60 days, seen notifications in 30 days.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.RecipientUserName">
+            <summary>
+            The user who will receive this notification.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.RecipientUserId">
+            <summary>
+            Recipient user identifier.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.Type">
+            <summary>
+            Notification type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.SeenDate">
+            <summary>
+            Date when the user marked this notification as seen.
+            Null if unseen.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.Text">
+            <summary>
+            Text content of the notification. Can be null. 
+            If it is null, Data property should be used in frontend(text generated with translations in frontend) for dynamic content.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.Data">
+            <summary>
+            JSON data payload for dynamic content or localization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.RelatedEntityType">
+            <summary>
+            Notification related entity.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.RelatedEntityId">
+            <summary>
+            Related entity identifier. Can be null.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.InternalNotification.ActionLink">
+            <summary>
+            Client-side URL/route to navigate when the notification is clicked.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.MenuGroupTranslation">
+            <summary>
+            Json model for menu group translations.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuGroupTranslation.Name">
+            <summary>
+            Gets or sets the menu group name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuGroupTranslation.LanguageId">
+            <summary>
+            Language id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuGroupTranslation.EntityId">
+            <summary>
+            Related entity id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuGroupTranslation.Entity">
+            <summary>
+            Unused property. Because of jsonb.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.MenuItemTranslation">
+            <summary>
+            Json model for menu item translations.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuItemTranslation.Name">
+            <summary>
+            Gets or sets the menu item name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuItemTranslation.LanguageId">
+            <summary>
+            Language id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuItemTranslation.EntityId">
+            <summary>
+            Related entity id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.MenuItemTranslation.Entity">
+            <summary>
+            Unused property. Because of jsonb.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.PageActionTranslation">
+            <summary>
+            Json model for menu group translations.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.PageActionTranslation.Title">
+            <summary>
+            Gets or sets the menu item name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.PageActionTranslation.LanguageId">
+            <summary>
+            Language id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.PageActionTranslation.EntityId">
+            <summary>
+            Related entity id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.PageActionTranslation.Entity">
+            <summary>
+            Unused property. Because of jsonb.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.RequestInfo">
+            <summary>
+            Contains api request information.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.RequestInfo.Method">
+            <summary>
+            Http method of request.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.RequestInfo.AbsoluteUri">
+            <summary>
+            Absolute uri of request.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.RequestInfo.QueryString">
+            <summary>
+            Query string of request.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.RequestInfo.Headers">
+            <summary>
+            Request headers.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.RequestInfo.ContentLength">
+            <summary>
+            Request length.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.RequestInfo.Body">
+            <summary>
+            Request body.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.ResponseInfo">
+            <summary>
+            Information returned by the API in response to the request.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ResponseInfo.StatusCode">
+            <summary>
+            Status code of response.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ResponseInfo.Headers">
+            <summary>
+            Response headers.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ResponseInfo.Length">
+            <summary>
+            Response length.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ResponseInfo.Body">
+            <summary>
+            Response body.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ResponseInfo.ContentType">
+            <summary>
+            Response content type.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.Language">
+            <summary>
+            Language entity.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.Language.GetUniqueIdentifier">
+            <summary>
+            Gets the unique identifier of the entity.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Domain.Language.ToString">
+            <summary>
+            Returns this instance of "<see cref="T:System.Type"/>.Name <see cref="T:Milvasoft.Core.EntityBases.Concrete.BaseEntity`1"/>.Id" as string.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Domain.Permission">
+            <summary>
+            Entity of the Permissions table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Permission.Name">
+            <summary>
+            Name of the permission.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Permission.Description">
+            <summary>
+            Name of the permission.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Permission.NormalizedName">
+            <summary>
+            Normalized name of the permission for consistent comparison.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Permission.PermissionGroup">
+            <summary>
+            Group name or category the permission belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Permission.PermissionGroupDescription">
+            <summary>
+            Group name or category the permission belongs to.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Permission.RolePermissionRelations">
+            <summary>
+            Navigation property of role relation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.Permission.FormatPermissionAndGroup">
+            <summary>
+            Formats the permission and group name with a dot.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Domain.Role">
+            <summary>
+            Entity of the Roles table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Role.Name">
+            <summary>
+            Name of the role.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Role.UserRoleRelations">
+            <summary>
+            Navigation property of users relation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Role.RolePermissionRelations">
+            <summary>
+            Navigation property of permission relation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.RolePermissionRelation">
+            <summary>
+            Entity of the RolePermissionRelations table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.RolePermissionRelation.RoleId">
+            <summary>
+            ID of the role.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.RolePermissionRelation.PermissionId">
+            <summary>
+            ID of the permission.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.RolePermissionRelation.Role">
+            <summary>
+            Navigation property of Role relation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.RolePermissionRelation.Permission">
+            <summary>
+            Navigation property of Permission relation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.UI.MenuGroup">
+            <summary>
+            Entity of the MenuGroups table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuGroup.Order">
+            <summary>
+            Order of menu group.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuGroup.Translations">
+            <summary>
+            Translations of the menu group.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuGroup.MenuItems">
+            <summary>
+            Navigation property of menu items relation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.UI.MenuItem">
+            <summary>
+            Entity of the MenuItem table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.Url">
+            <summary>
+            Frontend page url for navigate to on click.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.PageName">
+            <summary>
+            Frontend page name for navigate to on click.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.Order">
+            <summary>
+            Order of the menu item.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.PermissionOrGroupNames">
+            <summary>
+            Related permission group or permission names. If the user has a permission from one of these group or permissions, the menu item will be visible.
+            If this is a parent menu item, it will be the permission group name. e.g. UserManagement
+            If this is a child menu, it will be the permission name. e.g. UserManagement.List
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.Translations">
+            <summary>
+            Translations of the menu items.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.GroupId">
+            <summary>
+            Related parent group id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.Group">
+            <summary>
+            Navigation property of menu group relation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.ParentId">
+            <summary>
+            Related parent menu item id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.Parent">
+            <summary>
+            Navigation property of menu item relation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.MenuItem.Childrens">
+            <summary>
+            Navigation property of children menu items relation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.UI.Page">
+            <summary>
+            Entity of the Pages table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.Name">
+            <summary>
+            Frontend page name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.HasCreate">
+            <summary>
+            Determines whether the page has create action or not.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.HasDetail">
+            <summary>
+            Determines whether the page has detail action or not.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.HasEdit">
+            <summary>
+            Determines whether the page has edit action or not.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.HasDelete">
+            <summary>
+            Determines whether the page has delete action or not.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.CreatePermissions">
+            <summary>
+            Create action permission names. If the user has one of this permissions, the action will be visible.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.DetailPermissions">
+            <summary>
+            Detail action permission names. If the user has one of this permissions, the action will be visible.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.EditPermissions">
+            <summary>
+            Edit action permission names. If the user has one of this permissions, the action will be visible.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.DeletePermissions">
+            <summary>
+            Delete action permission names. If the user has one of this permissions, the action will be visible.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.Page.AdditionalActions">
+            <summary>
+            Navigation property of additional page action relation.    
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.UI.PageAction">
+            <summary>
+            Entity of the PageActions table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.PageAction.ActionName">
+            <summary>
+            Frontend action or page name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.PageAction.Permissions">
+            <summary>
+            Related permission names. If the user has one of this permissions, the action will be visible.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.PageAction.Translations">
+            <summary>
+            Translations of the page action.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.PageAction.PageId">
+            <summary>
+            Related page id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UI.PageAction.Page">
+            <summary>
+            Navigation property of page relation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.User">
+            <summary>
+            Entity of the Users table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.User.Name">
+            <summary>
+            First name of the user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.User.Surname">
+            <summary>
+            Last name of the user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.User.UserType">
+            <summary>
+            Last name of the user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.User.AllowedNotifications">
+            <summary>
+            Allowed notification types for this user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.User.LastModificationDate">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Domain.User.CreationDate">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Domain.User.CreatorUserName">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Domain.User.LastModifierUserName">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Domain.User.DeleterUserName">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Domain.User.DeletionDate">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Domain.User.IsDeleted">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Domain.User.RoleRelations">
+            <summary>
+            Navigation property of roles relation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.User.Sessions">
+            <summary>
+            Navigation property of user sessions relation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.User.GetCurrentUser(System.IServiceProvider)">
+            <summary>
+            Get current user delegate. Gets the current user from the http context.
+            </summary>
+            <param name="serviceProvider"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Domain.UserRoleRelation">
+            <summary>
+            Entity of the UserRoleRelations table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserRoleRelation.UserId">
+            <summary>
+            ID of the user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserRoleRelation.RoleId">
+            <summary>
+            ID of the role.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserRoleRelation.Role">
+            <summary>
+            Navigation property of Role relation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserRoleRelation.User">
+            <summary>
+            Navigation property of User relation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.UserSession">
+            <summary>
+            Entity of the Users table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.UserName">
+            <summary>
+            Gets or sets the user name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.AccessToken">
+            <summary>
+            Gets or sets the access token.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.RefreshToken">
+            <summary>
+            Gets or sets the refresh token.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.ExpiryDate">
+            <summary>
+            Gets or sets the expiry date.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.DeviceId">
+            <summary>
+            Gets or sets the device ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.IpAddress">
+            <summary>
+            Gets or sets the Ip address.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.UserId">
+            <summary>
+            Related user id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSession.User">
+            <summary>
+            Navigation property of user relation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.UserSessionHistory">
+            <summary>
+            Entity of the Users table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSessionHistory.UserName">
+            <summary>
+            Gets or sets the user name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSessionHistory.AccessToken">
+            <summary>
+            Gets or sets the access token.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSessionHistory.RefreshToken">
+            <summary>
+            Gets or sets the refresh token.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSessionHistory.ExpiryDate">
+            <summary>
+            Gets or sets the expiry date.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSessionHistory.DeviceId">
+            <summary>
+            Gets or sets the device ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSessionHistory.UserId">
+            <summary>
+            Related user id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.UserSessionHistory.IpAddress">
+            <summary>
+            Gets or sets the Ip address.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.UserSessionHistory.#ctor">
+            <summary>
+            Initializes new instance of <see cref="T:Milvaion.Domain.UserSessionHistory"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.UserSessionHistory.#ctor(Milvaion.Domain.UserSession)">
+            <summary>
+            Initializes new instance of <see cref="T:Milvaion.Domain.UserSessionHistory"/> with given <paramref name="session"/>.
+            </summary>
+            <param name="session"></param>
+        </member>
+        <member name="T:Milvaion.Domain.DomainAssembly">
+            <summary>
+            Static class for ease of assembly access.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.DomainAssembly.Assembly">
+            <summary>
+            Assembly instance.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.MigrationHistory">
+            <summary>
+            Entity of the MigrationHistory table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MigrationHistory.MigrationId">
+            <summary>
+            Id of migration
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MigrationHistory.MigrationCompleted">
+            <summary>
+            Migration fully completed or not.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.EfMigrationHistory">
+            <summary>
+            Entity of the MigrationHistory table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.EfMigrationHistory.MigrationId">
+            <summary>
+            Id of migration
+            </summary>
+        </member>
+    </members>
+</doc>

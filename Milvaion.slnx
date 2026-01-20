@@ -1,0 +1,147 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <BuildType Name="TemplateTest" />
+  </Configurations>
+  <Folder Name="/build/">
+    <File Path="build/QUICKSTART.md" />
+    <File Path="build/README.md" />
+    <File Path="docker-compose-prod.yml" />
+    <File Path="docker-compose.yml" />
+  </Folder>
+  <Folder Name="/build/scripts/">
+    <File Path="build/build-all.bat" />
+    <File Path="build/build-all.ps1" />
+    <File Path="build/build-all.sh" />
+    <File Path="build/build-api.bat" />
+    <File Path="build/build-api.ps1" />
+    <File Path="build/build-api.sh" />
+    <File Path="build/build-email-worker.bat" />
+    <File Path="build/build-email-worker.ps1" />
+    <File Path="build/build-email-worker.sh" />
+    <File Path="build/build-http-worker.bat" />
+    <File Path="build/build-http-worker.ps1" />
+    <File Path="build/build-http-worker.sh" />
+    <File Path="build/build-maintenance-worker.bat" />
+    <File Path="build/build-maintenance-worker.ps1" />
+    <File Path="build/build-maintenance-worker.sh" />
+    <File Path="build/build-sql-worker.bat" />
+    <File Path="build/build-sql-worker.ps1" />
+    <File Path="build/build-sql-worker.sh" />
+    <File Path="build/build-worker.bat" />
+    <File Path="build/build-worker.ps1" />
+    <File Path="build/build-worker.sh" />
+    <File Path="build/build.bat" />
+    <File Path="build/build.sh" />
+    <File Path="build/quick-start.ps1" />
+    <File Path="build/quick-start.sh" />
+    <File Path="build/QUICKSTART.md" />
+    <File Path="build/README.md" />
+  </Folder>
+  <Folder Name="/docs/" />
+  <Folder Name="/docs/githubdocs/">
+    <File Path="docs/githubdocs/ARCHITECTURE.md" />
+    <File Path="docs/githubdocs/CONTRIBUTING.md" />
+    <File Path="docs/githubdocs/DEVELOPMENT.md" />
+    <File Path="docs/githubdocs/SECURITY.md" />
+    <File Path="docs/githubdocs/TESTING.md" />
+    <File Path="docs/githubdocs/TROUBLESHOOTING.md" />
+    <File Path="docs/githubdocs/WORKER-SDK.md" />
+  </Folder>
+  <Folder Name="/docs/portaldocs/">
+    <File Path="docs/portaldocs/00-guide.md" />
+    <File Path="docs/portaldocs/01-introduction.md" />
+    <File Path="docs/portaldocs/02-quick-start.md" />
+    <File Path="docs/portaldocs/03-core-concepts.md" />
+    <File Path="docs/portaldocs/04-your-first-worker.md" />
+    <File Path="docs/portaldocs/05-implementing-jobs.md" />
+    <File Path="docs/portaldocs/06-configuration.md" />
+    <File Path="docs/portaldocs/07-deployment.md" />
+    <File Path="docs/portaldocs/08-reliability.md" />
+    <File Path="docs/portaldocs/09-scaling.md" />
+    <File Path="docs/portaldocs/10-monitoring.md" />
+    <File Path="docs/portaldocs/11-maintenance.md" />
+    <File Path="docs/portaldocs/12-security.md" />
+    <File Path="docs/portaldocs/13-dashboard-screenshots.md" />
+    <File Path="docs/portaldocs/14-http-worker.md" />
+    <File Path="docs/portaldocs/15-sql-worker.md" />
+    <File Path="docs/portaldocs/16-email-worker.md" />
+    <File Path="docs/portaldocs/17-maintenance-worker.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/MilvaionUI/" Type="Website" DisplayName="MilvaionUI">
+      <BuildType Project="Debug" />
+      <Properties Name="WebsiteProperties">
+        <Property Name="Debug.AspNetCompiler.Debug" Value="&quot;True&quot;" />
+        <Property Name="Debug.AspNetCompiler.FixedNames" Value="&quot;false&quot;" />
+        <Property Name="Debug.AspNetCompiler.ForceOverwrite" Value="&quot;true&quot;" />
+        <Property Name="Debug.AspNetCompiler.PhysicalPath" Value="&quot;src\MilvaionUI\&quot;" />
+        <Property Name="Debug.AspNetCompiler.TargetPath" Value="&quot;PrecompiledWeb\localhost_49627\&quot;" />
+        <Property Name="Debug.AspNetCompiler.Updateable" Value="&quot;true&quot;" />
+        <Property Name="Debug.AspNetCompiler.VirtualPath" Value="&quot;/localhost_49627&quot;" />
+        <Property Name="Release.AspNetCompiler.Debug" Value="&quot;False&quot;" />
+        <Property Name="Release.AspNetCompiler.FixedNames" Value="&quot;false&quot;" />
+        <Property Name="Release.AspNetCompiler.ForceOverwrite" Value="&quot;true&quot;" />
+        <Property Name="Release.AspNetCompiler.PhysicalPath" Value="&quot;src\MilvaionUI\&quot;" />
+        <Property Name="Release.AspNetCompiler.TargetPath" Value="&quot;PrecompiledWeb\localhost_49627\&quot;" />
+        <Property Name="Release.AspNetCompiler.Updateable" Value="&quot;true&quot;" />
+        <Property Name="Release.AspNetCompiler.VirtualPath" Value="&quot;/localhost_49627&quot;" />
+        <Property Name="TargetFrameworkMoniker" Value="&quot;.NETFramework,Version%3Dv4.8&quot;" />
+        <Property Name="VWDPort" Value="&quot;49627&quot;" />
+      </Properties>
+    </Project>
+  </Folder>
+  <Folder Name="/src/Scheduler/" />
+  <Folder Name="/src/Scheduler/Core/">
+    <Project Path="src/Milvaion.Application/Milvaion.Application.csproj" />
+    <Project Path="src/Milvaion.Domain/Milvaion.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Scheduler/Infrastructure/">
+    <Project Path="src/Milvaion.Infrastructure/Milvaion.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Scheduler/Presentation/">
+    <Project Path="src/Milvaion.Api/Milvaion.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Sdk/">
+    <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk/Milvasoft.Milvaion.Sdk.csproj" Id="848b918f-4553-4e07-8531-3c9423a9fa5e">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+  </Folder>
+  <Folder Name="/src/Workers/">
+    <Project Path="src/Workers/Milvasoft.Templates.Milvaion/Milvasoft.Templates.Milvaion.csproj" Id="21854a56-b551-435e-9e66-4f9cee8804b5">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+  </Folder>
+  <Folder Name="/src/Workers/Built-in/">
+    <Project Path="src/Workers/EmailWorker/EmailWorker.csproj" Id="b346bdda-4a00-4b12-b506-8cdcd5a481a2">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Workers/HttpWorker/HttpWorker.csproj" Id="0ecd2308-b61a-4f20-af6b-bb2690813187">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Workers/MilvaionMaintenanceWorker/MilvaionMaintenanceWorker.csproj" Id="362332d9-cbf0-44a9-a624-c34247fadcf0">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Workers/SampleWorker/SampleWorker.csproj" Id="340388ca-5f48-45f0-8a6b-eb83d35e44d4">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Workers/SqlWorker/SqlWorker.csproj" Id="bb5cda39-7a78-492b-8f63-5e61ffbb2a55">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/IntegrationTests/">
+    <Project Path="tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj">
+      <BuildType Solution="TemplateTest|*" Project="Release" />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/UnitTests/">
+    <Project Path="tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj">
+      <BuildType Solution="TemplateTest|*" Project="Release" />
+    </Project>
+  </Folder>
+</Solution>

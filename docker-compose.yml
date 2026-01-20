@@ -1,0 +1,192 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: milvaion-postgres
+    environment:
+      POSTGRES_DB: MilvaionDb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: N4SQp.qW>6?xwWzg
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c"
+      - "listen_addresses=*"
+      - "-c"
+      - "shared_buffers=2GB"
+      - "-c"
+      - "effective_cache_size=6GB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_compression=on"
+      - "-c"
+      - "autovacuum_max_workers=4"
+      - "-c"
+      - "autovacuum_naptime=10s"
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "max_parallel_workers_per_gather=4"
+      - "-c"
+      - "max_parallel_workers=8"
+      - "-c"
+      - "max_worker_processes=8"
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    mem_limit: 8096m
+    mem_reservation: 2048m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d MilvaionDb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Redis Cache & Scheduler
+  redis:
+    image: redis:7-alpine
+    container_name: milvaion-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: milvaion-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Seq log server
+  seq:
+    image: datalust/seq:latest
+    container_name: milvaion-seq
+    environment:
+      - SEQ_FIRSTRUN_ADMINPASSWORD=ChangeMe123!
+      - ACCEPT_EULA=Y
+    ports:
+      - "5341:80" # Seq default UI port mapped to host 5341
+    volumes:
+      - seq_data:/data
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    labels:
+      - "com.milvaion.service=seq"
+      - "com.milvaion.description=Seq logging server"
+
+  # Milvaion API (Producer/Scheduler)
+  milvaion-api:
+    build:
+      context: .
+      dockerfile: src/Milvaion.Api/Dockerfile
+    container_name: milvaion-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - MILVAION_ROOT_PASSWORD=admin
+      - MILVA_ENV=dev
+    ports:
+      - "5000:5000"  # API + React SPA (http://localhost:5000)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    mem_limit: 2048m
+    labels:
+      - "com.milvaion.service=api"
+      - "com.milvaion.description=Milvaion API with embedded React UI"
+
+  # SampleWorker (Job Executor) - Scalable
+  test-worker:
+    build:
+      context: .
+      dockerfile: src/Workers/SampleWorker/Dockerfile
+    environment:
+      - Worker__WorkerId=test-worker
+      - Worker__RabbitMQ__Host=rabbitmq
+      - Worker__RabbitMQ__Port=5672
+      - Worker__RabbitMQ__Username=guest
+      - Worker__RabbitMQ__Password=guest
+      - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
+      - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
+      - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
+      - Worker__RabbitMQ__ExchangeName=jobs.topic
+      - Worker__Redis__ConnectionString=redis:6379
+      - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
+      - Worker__Heartbeat__Enabled=true
+      - Worker__Heartbeat__IntervalSeconds=30
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvaion-api:
+        condition: service_started
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    mem_limit: 1024m
+    # Enable scaling: docker-compose up --scale test-worker=4 -d
+    deploy:
+      replicas: 1
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  seq_data:
+    driver: local
+
+networks:
+  milvaion-network:
+    driver: bridge

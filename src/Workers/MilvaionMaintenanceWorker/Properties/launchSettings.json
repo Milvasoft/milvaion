@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MilvaionMaintenanceWorker": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

@@ -1,0 +1,131 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: milvaion-postgres
+    environment:
+      POSTGRES_DB: MilvaionDb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: N4SQp.qW>6?xwWzg
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - milvaion-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Scheduler
+  redis:
+    image: redis:7-alpine
+    container_name: milvaion-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - milvaion-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: milvaion-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - milvaion-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Milvaion API (Producer/Scheduler)
+  milvaion-api:
+    build:
+      context: .
+      dockerfile: src/Milvaion.Api/Dockerfile
+    container_name: milvaion-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnectionString=Host=postgres;Port=5432;Database=MilvaionDb;Username=postgres;Password=N4SQp.qW>6?xwWzg
+      - Redis__ConnectionString=redis:6379
+      - Redis__Password=
+      - Redis__Database=0
+      - "Redis__KeyPrefix=Milvaion:JobScheduler:"
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+      - RabbitMQ__QueueName=scheduled_jobs_queue
+      - RabbitMQ__WorkerLogsQueueName=worker_logs_queue
+      - RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
+      - JobDispatcher__Enabled=true
+      - JobDispatcher__PollingIntervalSeconds=10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    labels:
+      - "com.milvaion.service=api"
+      - "com.milvaion.description=Milvaion API with embedded React UI"
+
+  # SampleWorker (Job Executor) - Instance 1
+  sample-worker:
+    build:
+      context: .
+      dockerfile: src/Workers/SampleWorker/Dockerfile
+    container_name: sample-worker
+    environment:
+      - Worker__WorkerId=sample-worker
+      - Worker__RabbitMQ__Host=rabbitmq
+      - Worker__RabbitMQ__Port=5672
+      - Worker__RabbitMQ__Username=guest
+      - Worker__RabbitMQ__Password=guest
+      - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
+      - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
+      - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
+      - Worker__RabbitMQ__ExchangeName=jobs.topic
+      - Worker__Redis__ConnectionString=redis:6379
+      - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
+      - Worker__Heartbeat__Enabled=true
+      - Worker__Heartbeat__IntervalSeconds=30
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvaion-api:
+        condition: service_started
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  milvaion-network:
+    driver: bridge

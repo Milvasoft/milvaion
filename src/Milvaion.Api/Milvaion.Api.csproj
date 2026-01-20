@@ -1,0 +1,79 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Ispackable>true</Ispackable>
+		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<DocumentationFile>..\Milvaion.Api\Milvaion.Api.xml</DocumentationFile>
+		<Configurations>Debug;Release;TemplateTest</Configurations>
+		<UserSecretsId>e8781644-077d-4975-8b31-00179265b6b6</UserSecretsId>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<Nullable>disable</Nullable>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+		<Nullable>disable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AsyncFixer" Version="1.6.0">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.2">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Milvasoft.Components.OpenApi" Version="10.0.0" />
+		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.1" />
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0-preview.4" />
+		<PackageReference Include="Scalar.AspNetCore" Version="2.12.8" />
+		<PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.1" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.14.0-beta.2" />
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.14.0" />
+		<PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.14.0-beta.1" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.14.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.14.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.14.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Process" Version="1.14.0-beta.2" />
+		<PackageReference Include="Serilog.Sinks.Seq" Version="9.0.0" />
+		<PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
+		<PackageReference Include="Serilog.Sinks.PeriodicBatching" Version="5.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Milvaion.Infrastructure\Milvaion.Infrastructure.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="StaticFiles\SQL\create_triggers.sql">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="StaticFiles\SQL\initial_migration_fetch.sql">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="wwwroot\" />
+	</ItemGroup>
+
+	<!-- ✅ Copy React build output to wwwroot -->
+	<ItemGroup>
+		<Content Include="..\MilvaionUI\dist\**\*" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\MilvaionUI\dist')" />
+	</ItemGroup>
+
+	<!-- ✅ Build React app before publish (Release only, NOT in Docker) -->
+	<Target Name="BuildReactApp" BeforeTargets="Publish" Condition="'$(Configuration)'=='Release' AND '$(DOCKER_BUILD)' != 'true'">
+		<Message Text="🔨 Building React frontend..." Importance="high" />
+		<Exec Command="cd ..\src\MilvaionUI &amp;&amp; npm install &amp;&amp; npm run build" />
+		<Message Text="✅ React build completed!" Importance="high" />
+	</Target>
+
+</Project>

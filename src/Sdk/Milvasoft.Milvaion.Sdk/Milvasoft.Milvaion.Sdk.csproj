@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<None Include="logo.png" Pack="true" PackagePath="\" />
+		<None Include="packagereadme.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+		<PackageReference Include="AsyncFixer" Version="1.6.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="10.0.0" />
+		<PackageReference Include="Milvasoft.DataAccess.EfCore.Bulk" Version="10.0.0" />
+		<PackageReference Include="Milvasoft.Identity" Version="10.0.0" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<PackageId>Milvasoft.Milvaion.Sdk</PackageId>
+		<PackageVersion>10.0.8</PackageVersion>
+		<Authors>Milvasoft Corporation</Authors>
+		<Product>Milvasoft.Milvaion.Sdk</Product>
+		<Description>Core SDK for Milvaion Scheduler - Domain models and shared types.</Description>
+		<Copyright>Milvasoft Yazılım Bilişim Araştırma Geliştirme Danışmanlık Sanayi ve Ticaret Ltd.Şti.</Copyright>
+		<PackageTags>schedule,recurring,distributed,domain</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/Milvasoft/milvaion-api</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageProjectUrl>https://github.com/Milvasoft/milvaion-api</PackageProjectUrl>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<PackageIcon>logo.png</PackageIcon>
+		<PackageReadmeFile>packagereadme.md</PackageReadmeFile>
+	</PropertyGroup>
+
+</Project>

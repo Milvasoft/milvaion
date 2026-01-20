@@ -1,0 +1,243 @@
+/* ===== Theme Variables ===== */
+:root {
+  /* Font settings */
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Default to dark theme */
+  --bg-primary: #242424;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #2a2a2a;
+  --bg-hover: rgba(100, 108, 255, 0.05);
+  --bg-card: #1a1a1a;
+
+  --text-primary: rgba(255, 255, 255, 0.87);
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: #999;
+
+  --border-color: #333;
+  --border-light: #444;
+
+  --accent-color: #646cff;
+  --accent-hover: #535bf2;
+
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+
+  /* Apply theme colors */
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+/* Dark Theme - explicit selector */
+[data-theme="dark"] {
+  --bg-primary: #242424;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #2a2a2a;
+  --bg-hover: rgba(100, 108, 255, 0.05);
+  --bg-card: #1a1a1a;
+
+  --text-primary: rgba(255, 255, 255, 0.87);
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: #999;
+
+  --border-color: #333;
+  --border-light: #444;
+
+  --accent-color: #646cff;
+  --accent-hover: #535bf2;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f0f0;
+  --bg-hover: rgba(100, 108, 255, 0.05);
+  --bg-card: #ffffff;
+
+  --text-primary: #213547;
+  --text-secondary: #4a5568;
+  --text-muted: #666;
+
+  --border-color: #ddd;
+  --border-light: #e0e0e0;
+
+  --accent-color: #646cff;
+  --accent-hover: #535bf2;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.2);
+
+  color-scheme: light;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+/* ===== View Transitions API - Circular Reveal Animation ===== */
+/* Custom properties for animation origin (set via JavaScript) */
+:root {
+  --theme-toggle-x: 50vw;
+  --theme-toggle-y: 50vh;
+  --theme-toggle-r: 100vmax;
+}
+
+/* Old view (current theme) - stays behind */
+::view-transition-old(root) {
+  animation: none;
+  z-index: 1;
+}
+
+/* New view (new theme) - circular reveal from button position */
+::view-transition-new(root) {
+  animation: theme-reveal 0.5s ease-out forwards;
+  z-index: 9999;
+}
+
+/* Circular reveal keyframes */
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0px at var(--theme-toggle-x) var(--theme-toggle-y));
+  }
+  to {
+    clip-path: circle(var(--theme-toggle-r) at var(--theme-toggle-x) var(--theme-toggle-y));
+  }
+}
+
+/* Disable animation for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
+/* ===== Base Styles ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  overflow-x: hidden;
+}
+
+
+a {
+  font-weight: 500;
+  color: var(--accent-color);
+  text-decoration: inherit;
+}
+a:hover {
+  color: var(--accent-hover);
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.25s, background-color 0.3s, color 0.3s;
+}
+button:hover {
+  border-color: var(--accent-color);
+  background-color: var(--bg-tertiary);
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+input,
+textarea,
+select {
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  padding: 0.5em;
+  font-size: 1em;
+  font-family: inherit;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+table th,
+table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+table th {
+  background-color: var(--bg-secondary);
+  font-weight: 600;
+}
+
+table tr:hover {
+  background-color: var(--bg-tertiary);
+}
+
+/* Remove old media query - we now use data-theme attribute */

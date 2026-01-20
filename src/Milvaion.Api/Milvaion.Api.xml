@@ -1,0 +1,1281 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Milvaion.Api</name>
+    </assembly>
+    <members>
+        <member name="T:Milvaion.Api.AppStartup.StartupExtensions">
+            <summary>
+            Application builder and service collection extensions.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.UseScalarWithOpenApi(Microsoft.AspNetCore.Builder.WebApplication)">
+            <summary>
+            Adds the required middleware to use the localization. Configures the options before add..
+            </summary>
+            <param name="app"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.UseRequestLocalization(Microsoft.AspNetCore.Builder.WebApplication)">
+            <summary>
+            Adds the required middleware to use the localization. Configures the options before add..
+            </summary>
+            <param name="app"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.UseStaticFiles(Microsoft.AspNetCore.Builder.WebApplication)">
+            <summary>
+            Adds the required middleware to serve static files. Configures the options before adding.
+            </summary>
+            <param name="app">The <see cref="T:Microsoft.AspNetCore.Builder.IApplicationBuilder"/> instance.</param>
+            <returns>The <see cref="T:Microsoft.AspNetCore.Builder.IApplicationBuilder"/> instance.</returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.UseCorsFromConfiguration(Microsoft.AspNetCore.Builder.IApplicationBuilder,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Uses CORS configuration from appsettings.
+            </summary>
+            <param name="app"></param>
+            <param name="configuration"></param>
+            <returns></returns>
+            <exception cref="T:System.InvalidOperationException"></exception>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.UsePrometheusMetrics(Microsoft.AspNetCore.Builder.WebApplication,Microsoft.Extensions.Configuration.IConfigurationManager)">
+            <summary>
+            Maps the Prometheus scraping endpoint for metrics.
+            Call this after building the app: app.UseOpenTelemetryPrometheusScrapingEndpoint();
+            </summary>
+            <param name="app"></param>
+            <param name="configuration"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddAuthorization(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfigurationManager)">
+            <summary>
+            Adds authorization services.
+            </summary>
+            <param name="services"></param>
+            <param name="configuration"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddVersioning(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Adds api versioning.
+            </summary>
+            <param name="services"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddCorsFromConfiguration(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Adds api versioning.
+            </summary>
+            <param name="services"></param>
+            <param name="configuration"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddOpenApi(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Reflection.Assembly[])">
+            <summary>
+            Adds openapi services.
+            </summary>
+            <param name="services"></param>
+            <param name="assemblies"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddAndConfigureResponseCompression(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Adds brotli and gzip response compression.
+            </summary>
+            <param name="services"></param>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddMultiLanguageSupport(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfigurationManager)">
+            <summary>
+            Adds milva multi language services.
+            </summary>
+            <param name="services"></param>
+            <param name="configuration"></param>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddObservibilityAndLogging(Microsoft.AspNetCore.Builder.WebApplicationBuilder)">
+            <summary>
+            Adds serilog logging services.
+            </summary>
+            <param name="builder"></param>
+        </member>
+        <member name="T:Milvaion.Api.AppStartup.IApiMarker">
+            <summary>
+            Dummy class for integration test.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.AppStartup.MissingResxKeyFinder">
+            <summary>
+            Finds missing resx keys.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.MissingResxKeyFinder.FindAndPrintToConsole">
+            <summary>
+            Finds missing keys in .resx files.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.MissingResxKeyFinder.GetConstantsFromClass(System.Type[])">
+            <summary>
+            Gets all contanst strings from the given classes.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.MissingResxKeyFinder.FindNameofReferencesInLocalizer(System.String)">
+            <summary>
+            Finds all references to `nameof` in the project with localizer.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.MissingResxKeyFinder.ParseNameofExpressionAndGetPropertyName(System.String)">
+            <summary>
+            `nameof(Class.Property)` ifadesini parçalar ve sınıf ve özelliğin adını döndürür.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.MissingResxKeyFinder.NameofInLocalizerRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>zer\\[nameof\\(([\\w\\d_\\.]+)\\)\\]</code><br/>
+            Options:<br/>
+            <code>RegexOptions.Compiled</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match the string "zer[nameof(".<br/>
+            ○ 1st capture group.<br/>
+                ○ Match a character in the set [._\w\d] atomically at least once.<br/>
+            ○ Match the string ")]".<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Api.AppStartup.ResxReader">
+            <summary>
+            Reads .resx files and extracts key-value pairs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.ResxReader.ReadResxFile(System.String)">
+            <summary>
+            Belirtilen bir .resx dosyasındaki tüm anahtar-değer çiftlerini okur.
+            </summary>
+            <param name="resxFilePath">.resx dosyasının tam yolu.</param>
+            <returns>Anahtar ve değerlerden oluşan bir sözlük.</returns>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.ResxReader.GetAllKeysFromResxFiles(System.String)">
+            <summary>
+            Bir klasördeki tüm .resx dosyalarını okur ve anahtarları toplar.
+            </summary>
+            <param name="folderPath">.resx dosyalarının bulunduğu klasör.</param>
+            <returns>Anahtarların bir kümesi.</returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.AccountController">
+            <summary>
+            Account endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.#ctor(MediatR.IMediator)">
+            <summary>
+            Account endpoints.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.Controllers.AccountController.LoginEndpointPaths">
+            <summary>
+            Not validate token endpoint paths.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.LoginAsync(Milvaion.Application.Features.Account.Login.LoginCommand,System.Threading.CancellationToken)">
+            <summary>
+            User login operation.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns>Token information</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.RefreshLoginAsync(Milvaion.Application.Features.Account.RefreshLogin.RefreshLoginCommand,System.Threading.CancellationToken)">
+            <summary>
+            User refresh login operation.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.LogoutAsync(Milvaion.Application.Features.Account.Logout.LogoutCommand,System.Threading.CancellationToken)">
+            <summary>
+            User logout operation.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.ChangePasswordAsync(Milvaion.Application.Features.Account.ChangePassword.ChangePasswordCommand,System.Threading.CancellationToken)">
+            <summary>
+            User's own password change operation.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.AccountDetailsAsync(Milvaion.Application.Features.Account.AccountDetail.AccountDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            User can access his/her account information through this endpoint. If the logged in user and the sent id information do not match, the request will fail.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.AccountDetailsAsync(Milvaion.Application.Dtos.AccountDtos.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets account notifications.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.MarkNotificationsAsSeenAsync(Milvaion.Application.Dtos.AccountDtos.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommand,System.Threading.CancellationToken)">
+            <summary>
+            Marks notifications as seen.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AccountController.DeleteNotificationsAsync(Milvaion.Application.Dtos.AccountDtos.InternalNotifications.DeleteNotification.DeleteNotificationsCommand,System.Threading.CancellationToken)">
+            <summary>
+            Deletes notifications.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.ActivityLogsController">
+            <summary>
+            Activity Log endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ActivityLogsController.#ctor(MediatR.IMediator)">
+            <summary>
+            Activity Log endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ActivityLogsController.GetRolesAsync(Milvaion.Application.Features.ActivityLogs.GetActivityLogList.GetActivityLogListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets user activities.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.AdminController">
+            <summary>
+            Admin controls for system monitoring and emergency operations.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Api.Controllers.AdminController"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.#ctor(Milvaion.Application.Interfaces.IAdminService,MediatR.IMediator)">
+            <summary>
+            Admin controls for system monitoring and emergency operations.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Api.Controllers.AdminController"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetQueueStatsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets queue statistics for all queues.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Queue statistics</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetQueueInfoAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets detailed information about a specific queue.
+            </summary>
+            <param name="queueName">Queue name</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Queue depth information</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetSystemHealthAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets system health overview including dispatcher status.
+            </summary>
+            <returns>System health information</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetConfigurationAsync(Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets system configuration (read-only).
+            </summary>
+            <param name="request">Query parameters</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>System configuration</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetJobStatisticsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets job statistics grouped by status.
+            </summary>
+            <returns>Job statistics</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetRedisCircuitBreakerStats(System.Threading.CancellationToken)">
+            <summary>
+            Gets Redis circuit breaker statistics and health status.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Circuit breaker statistics</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetDatabaseStatisticsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets database statistics including table sizes, occurrence growth, and large occurrences.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Database statistics</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.EmergencyStop(System.String)">
+            <summary>
+            Emergency stop. Disables the job dispatcher at runtime.
+            </summary>
+            <param name="reason">Reason for emergency stop</param>
+            <returns>Success response</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.ResumeOperations">
+            <summary>
+            Resume job dispatcher operations. Enables the job dispatcher at runtime.
+            </summary>
+            <returns>Success response</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetBackgrounServiceMemoryDiagnostics">
+            <summary>
+            Gets background services memory diagnostics.
+            </summary>
+            <returns>Success response</returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.CmsController">
+            <summary>
+            Content endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.#ctor(MediatR.IMediator)">
+            <summary>
+            Content endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetNamespacesAsync(Milvaion.Application.Features.ContentManagement.Namespaces.GetNamespaceList.GetNamespaceListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets namespaces.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetNamespaceAsync(Milvaion.Application.Features.ContentManagement.Namespaces.GetNamespaceDetail.GetNamespaceDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get namespace according to namespace id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.AddNamespaceAsync(Milvaion.Application.Features.ContentManagement.Namespaces.CreateNamespace.CreateNamespaceCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds namespace.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.UpdateNamespaceAsync(Milvaion.Application.Features.ContentManagement.Namespaces.UpdateNamespace.UpdateNamespaceCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates namespace. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.RemoveNamespaceAsync(Milvaion.Application.Features.ContentManagement.Namespaces.DeleteNamespace.DeleteNamespaceCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes namespace.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetResourceGroupsAsync(Milvaion.Application.Features.ContentManagement.ResourceGroups.GetResourceGroupList.GetResourceGroupListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets resource groups.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetResourceGroupAsync(Milvaion.Application.Features.ContentManagement.ResourceGroups.GetResourceGroupDetail.GetResourceGroupDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get resource group according to resourceGroup id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.AddResourceGroupAsync(Milvaion.Application.Features.ContentManagement.ResourceGroups.CreateResourceGroup.CreateResourceGroupCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds resource group.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.UpdateResourceGroupAsync(Milvaion.Application.Features.ContentManagement.ResourceGroups.UpdateResourceGroup.UpdateResourceGroupCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates resource group. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.RemoveResourceGroupAsync(Milvaion.Application.Features.ContentManagement.ResourceGroups.DeleteResourceGroup.DeleteResourceGroupCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes resource group.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetContentAsync(Milvaion.Application.Features.ContentManagement.Contents.GetContent.GetContentQuery,System.Threading.CancellationToken)">
+            <summary>
+            Query contents.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetContentsAsync(Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets contents.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetGroupedContentsAsync(Milvaion.Application.Features.ContentManagement.Contents.GetGroupedContentList.GetGroupedContentListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets contents as grouped by key.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.GetContentDetailAsync(Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get content according to content id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.AddContentAsync(Milvaion.Application.Features.ContentManagement.Contents.CreateContent.CreateContentCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds content.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.AddContentsAsync(Milvaion.Application.Features.ContentManagement.Contents.CreateBulkContent.CreateBulkContentCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds contents with bulk method.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.UpdateContentAsync(Milvaion.Application.Features.ContentManagement.Contents.UpdateContent.UpdateContentCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates content. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.CmsController.RemoveContentsAsync(Milvaion.Application.Features.ContentManagement.Contents.DeleteContents.DeleteContentsCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes content.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.DashboardController">
+            <summary>
+            Dashboard endpoints for retrieving application statistics.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DashboardController.#ctor(MediatR.IMediator)">
+            <summary>
+            Dashboard endpoints for retrieving application statistics.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DashboardController.GetRolesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Get dashboard data.
+            </summary>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.DeveloperController">
+            <summary>
+            Developer endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.#ctor(Milvaion.Application.Interfaces.IDeveloperService)">
+            <summary>
+            Developer endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.MigrateAsync">
+            <summary>
+            Remove, recreates and seed database for development purposes.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.SeedDataAsync">
+            <summary>
+            Seeds data for development purposes.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.SeedFakeDataAsync(System.Boolean,System.String)">
+            <summary>
+            Seeds fake data for development purposes.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.InitDatabaseAsync">
+            <summary>
+            Initial migration operation.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.ResetUIRelatedDataAsync">
+            <summary>
+            Resets ui related data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.ExportExistingDataAsync">
+            <summary>
+            Exports product related data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.DeveloperController.ImportExistingDataAsync">
+            <summary>
+            Imports exported product related data.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.ExportsController">
+            <summary>
+            Export endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExportsController.#ctor(Milvaion.Application.Interfaces.IExportService)">
+            <summary>
+            Export endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExportsController.ExportProductsToExcelAsync(Milvaion.Application.Dtos.ExportDtos.ExportRequest,System.Threading.CancellationToken)">
+            <summary>
+            Dynamically creates an excel file according to the export type.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.HealthCheckController">
+            <summary>
+            Health check endpoints for monitoring and orchestration.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Api.Controllers.HealthCheckController"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.HealthCheckController.#ctor(Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckService)">
+            <summary>
+            Health check endpoints for monitoring and orchestration.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Api.Controllers.HealthCheckController"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.HealthCheckController.HealthCheck">
+            <summary>
+            Basic health check - returns OK if API is running.
+            </summary>
+            <returns>OK response</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.HealthCheckController.ReadinessProbe(System.Threading.CancellationToken)">
+            <summary>
+            Readiness probe - checks if application is ready to serve traffic.
+            Validates all dependencies (Redis, RabbitMQ, Database).
+            Use this for Kubernetes readiness probes.
+            </summary>
+            <returns>Health check result with all dependency statuses</returns>
+            <response code="200">Application is ready and all dependencies are healthy</response>
+            <response code="503">Application is not ready - one or more dependencies are unhealthy</response>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.HealthCheckController.LivenessProbe">
+            <summary>
+            Liveness probe - checks if application is alive and responsive.
+            Use this for Kubernetes liveness probes.
+            Returns 200 OK if the application process is running.
+            </summary>
+            <returns>Liveness status</returns>
+            <response code="200">Application is alive and responsive</response>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.HealthCheckController.StartupProbe">
+            <summary>
+            Startup probe - checks if application has completed startup.
+            Use this for Kubernetes startup probes (slower startups).
+            </summary>
+            <returns>Startup completion status</returns>
+            <response code="200">Application startup completed successfully</response>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.HealthCheckController.GetUptime">
+            <summary>
+            Gets application uptime.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.JobsController">
+            <summary>
+            ScheduledJob endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.#ctor(MediatR.IMediator)">
+            <summary>
+            ScheduledJob endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetScheduledJobsAsync(Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList.GetScheduledJobListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets jobs.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetScheduledJobAsync(Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail.GetScheduledJobDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get job according to job id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.AddScheduledJobAsync(Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds job.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.UpdateScheduledJobAsync(Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates job. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.RemoveScheduledJobAsync(Milvaion.Application.Features.ScheduledJobs.DeleteScheduledJob.DeleteScheduledJobCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes job.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.TriggerJobAsync(Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommand,System.Threading.CancellationToken)">
+            <summary>
+            Manually triggers a scheduled job (creates occurrence and executes immediately).
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetJobOccurrencesAsync(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets job occurrences.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetJobOccurrenceDetailAsync(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets job occurrence detail.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.CancelJobOccurrenceAsync(Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence.CancelJobOccurrenceCommand,System.Threading.CancellationToken)">
+            <summary>
+            Cancels a running job occurrence.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.DeleteJobOccurrenceAsync(Milvaion.Application.Features.ScheduledJobs.DeleteJobOccurrence.DeleteJobOccurrenceCommand,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a job occurrence (only completed/failed/cancelled occurrences can be deleted).
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetTagsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets job tags.
+            </summary>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetFailedOccurrencesAsync(Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceList.GetFailedOccurrenceListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets failed occurrences.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetFailedOccurrenceAsync(Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceDetail.GetFailedOccurrenceDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get failed occurrence according to failed occurrence id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.UpdateFailedOccurrenceAsync(Milvaion.Application.Features.FailedOccurrences.UpdateFailedOccurrence.UpdateFailedOccurrenceCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates failed occurrence. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.RemoveFailedOccurrenceAsync(Milvaion.Application.Features.FailedOccurrences.DeleteFailedOccurrence.DeleteFailedOccurrenceCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes failed occurrence.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.LanguagesController">
+            <summary>
+            Language endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.LanguagesController.#ctor(MediatR.IMediator)">
+            <summary>
+            Language endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.LanguagesController.GetLanguagesAsync(Milvaion.Application.Features.Languages.GetLanguageList.GetLanguageListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets languages.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.LanguagesController.UpdateLanguagesAsync(Milvaion.Application.Features.Languages.UpdateLanguage.UpdateLanguageCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates language. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.LookupsController">
+            <summary>
+            Endpoints for lookup.
+            </summary>
+            <param name="lookupService"></param>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.LookupsController.#ctor(Milvaion.Application.Interfaces.ILookupService)">
+            <summary>
+            Endpoints for lookup.
+            </summary>
+            <param name="lookupService"></param>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.LookupsController.GetLookupsAsync(Milvasoft.DataAccess.EfCore.Utils.LookupModels.LookupRequest)">
+            <summary>
+            It is a dynamic endpoint that client applications can use to fetch data into comboboxes. Please review the documentation for usage information.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.LookupsController.GetEnumLookups(System.String)">
+            <summary>
+            Get enum lookups.
+            </summary>
+            <param name="enumName"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.PermissionsController">
+            <summary>
+            Permission endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.PermissionsController.#ctor(MediatR.IMediator,Milvaion.Application.Interfaces.IPermissionManager)">
+            <summary>
+            Permission endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.PermissionsController.GetPermissionsAsync(Milvaion.Application.Features.Permissions.GetPermissionList.GetPermissionListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get permissions in the system.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.PermissionsController.MigratePermissionsAsync">
+            <summary>
+            Migrates permissions to database.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.RolesController">
+            <summary>
+            Role endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.RolesController.#ctor(MediatR.IMediator)">
+            <summary>
+            Role endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.RolesController.GetRolesAsync(Milvaion.Application.Features.Roles.GetRoleList.GetRoleListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets roles.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.RolesController.GetRoleAsync(Milvaion.Application.Features.Roles.GetRoleDetail.GetRoleDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get role according to role id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.RolesController.AddRoleAsync(Milvaion.Application.Features.Roles.CreateRole.CreateRoleCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds role.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.RolesController.UpdateRoleAsync(Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates role. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.RolesController.RemoveRoleAsync(Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes role.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.UIController">
+            <summary>
+            Frontend related endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UIController.#ctor(MediatR.IMediator,Milvaion.Application.Interfaces.IUIService)">
+            <summary>
+            Frontend related endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UIController.GetAccessibleMenuItemsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets accessible menu items.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UIController.GetPageAccessibilityForCurrentUserAsync(Milvaion.Application.Features.Pages.GetPageAccessibilityForCurrentUser.GetPageAccessibilityForCurrentUserQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets page information of current user.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UIController.GetPageAccessibilityForCurrentUserAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets page information of current user.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UIController.GetLocalizedContents">
+            <summary>
+            Gets localized contents related with UI.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.UsersController">
+            <summary>
+            User endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UsersController.#ctor(MediatR.IMediator)">
+            <summary>
+            User endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UsersController.GetUsersAsync(Milvaion.Application.Features.Users.GetUserList.GetUserListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets users.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UsersController.GetUserAsync(Milvaion.Application.Features.Users.GetUserDetail.GetUserDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get user according to user id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UsersController.AddUserAsync(Milvaion.Application.Features.Users.CreateUser.CreateUserCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds user.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UsersController.UpdateUserAsync(Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates user. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.UsersController.RemoveUserAsync(Milvaion.Application.Features.Users.DeleteUser.DeleteUserCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes user.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.WorkersController">
+            <summary>
+            Workers endpoints for managing registered workers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkersController.#ctor(MediatR.IMediator)">
+            <summary>
+            Workers endpoints for managing registered workers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkersController.GetWorkersAsync(Milvaion.Application.Features.Workers.GetWorkerList.GetWorkerListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workers.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkersController.GetWorkerAsync(Milvaion.Application.Features.Workers.GetWorkerDetail.GetWorkerDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Get worker according to worker id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkersController.RemoveWorkerAsync(Milvaion.Application.Features.Workers.DeleteWorker.DeleteWorkerCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes worker.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Hubs.JobsHub">
+            <summary>
+            SignalR hub for real-time job updates to dashboard.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Hubs.JobsHub.OnConnectedAsync">
+            <summary>
+            Called when client connects.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Hubs.JobsHub.SubscribeToOccurrence(System.String)">
+            <summary>
+            Subscribe to specific occurrence updates (for real-time log streaming).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Hubs.JobsHub.UnsubscribeFromOccurrence(System.String)">
+            <summary>
+            Unsubscribe from specific occurrence updates.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Hubs.JobsHub.OnDisconnectedAsync(System.Exception)">
+            <summary>
+            Called when a client disconnects.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Hubs.JobsHub.CleanupOccurrenceGroup(System.String)">
+            <summary>
+            Server-side method to clean up occurrence group when job completes.
+            Called from SignalRJobOccurrenceEventPublisher.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Hubs.JobsHub.GetActiveGroupCount">
+            <summary>
+            Get count of active tracked groups (for monitoring).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.SharedResource">
+            <summary>
+            Dummy class for localization
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Middlewares.ExceptionMiddleware">
+            <summary>
+            Catches errors occurring elsewhere in the project.
+            </summary>
+            <remarks>
+            Constructor of <see cref="T:Milvaion.Api.Middlewares.ExceptionMiddleware"/> class.
+            </remarks>
+            <param name="next"></param>
+            <param name="loggerFactory"></param>
+        </member>
+        <member name="M:Milvaion.Api.Middlewares.ExceptionMiddleware.#ctor(Microsoft.AspNetCore.Http.RequestDelegate,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Catches errors occurring elsewhere in the project.
+            </summary>
+            <remarks>
+            Constructor of <see cref="T:Milvaion.Api.Middlewares.ExceptionMiddleware"/> class.
+            </remarks>
+            <param name="next"></param>
+            <param name="loggerFactory"></param>
+        </member>
+        <member name="M:Milvaion.Api.Middlewares.ExceptionMiddleware.Invoke(Microsoft.AspNetCore.Http.HttpContext)">
+            <summary>
+            Invokes the method or constructor reflected by this MethodInfo instance.
+            </summary>
+            <param name="context"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Middlewares.ExceptionMiddleware.RewriteResponseAsync(Microsoft.AspNetCore.Http.HttpContext,System.String,System.Int32,Milvasoft.Components.Rest.Enums.MessageType,System.Object)">
+            <summary>
+            Rewrites the response.
+            </summary>
+            <param name="context"></param>
+            <param name="messageKey"></param>
+            <param name="statusCode"></param>
+            <param name="messageType"></param>
+            <param name="exceptionObject"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.Migrations.InitialCreate">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.InitialCreate.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.InitialCreate.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.MigrationHostedService">
+            <summary>
+            Applies migrations when the application starts.
+            </summary>
+            <param name="scopeFactory"></param>
+        </member>
+        <member name="M:Milvaion.Api.Migrations.MigrationHostedService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory)">
+            <summary>
+            Applies migrations when the application starts.
+            </summary>
+            <param name="scopeFactory"></param>
+        </member>
+        <member name="M:Milvaion.Api.Migrations.MigrationHostedService.StartAsync(System.Threading.CancellationToken)">
+            <summary>
+            Starts hosted service.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Migrations.MigrationHostedService.StopAsync(System.Threading.CancellationToken)">
+            <summary>
+            Stops hosted service.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Api.PresentationAssembly">
+            <summary>
+            Static class for ease of assembly access.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Api.PresentationAssembly.Assembly">
+            <summary>
+            Assembly instance.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher">
+            <summary>
+            SignalR implementation of job occurrence event publisher.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher.#ctor(Microsoft.AspNetCore.SignalR.IHubContext{Milvaion.Api.Hubs.JobsHub})">
+            <summary>
+            SignalR implementation of job occurrence event publisher.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher.PublishLogAddedAsync(System.Guid,System.Object,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher.PublishOccurrenceCreatedAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher.PublishOccurrenceUpdatedAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher.PublishOccurrenceCreatedAsync(Milvaion.Application.Dtos.OccurrenceCreatedSignal,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher.PublishOccurrenceUpdatedAsync(Milvaion.Application.Dtos.OccurrenceUpdatedSignal,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Api.Utils.DefaultNotification">
+            <summary>
+            Model for health check alerts.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.Utils.DefaultNotification.Message">
+            <summary>
+            Alert message.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Utils.DisableFormValueModelBindingAttribute">
+            <summary>
+            Disables form value model bindings for the current request. For ram optimization.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Utils.DisableFormValueModelBindingAttribute.OnResourceExecuting(Microsoft.AspNetCore.Mvc.Filters.ResourceExecutingContext)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Utils.DisableFormValueModelBindingAttribute.OnResourceExecuted(Microsoft.AspNetCore.Mvc.Filters.ResourceExecutedContext)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Program">
+            <summary>
+            Auto-generated public partial Program class for top-level statement apps.
+            </summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the NameofInLocalizerRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NameofInLocalizerRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.Utilities">
+            <summary>Helper methods used by generated <see cref="T:System.Text.RegularExpressions.Regex"/>-derived implementations.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout">
+            <summary>Default timeout value set in <see cref="T:System.AppContext"/>, or <see cref="F:System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> if none was set.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_hasTimeout">
+            <summary>Whether <see cref="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout"/> is non-infinite.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_indexOfString_54CB2C70E6502A70575DA91ABAEF01E6C6FB2D500A5DB83D36B46DAFD3AB0A9B">
+            <summary>Supports searching for the string "zer[nameof(".</summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type)">
+            <summary>
+            Generates a documentation comment ID for a type.
+            Example: T:Namespace.Outer+Inner`1 becomes T:Namespace.Outer.Inner`1
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.PropertyInfo)">
+            <summary>
+            Generates a documentation comment ID for a property.
+            Example: P:Namespace.ContainingType.PropertyName or for an indexer P:Namespace.ContainingType.Item(System.Int32)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type,System.String)">
+            <summary>
+            Generates a documentation comment ID for a property given its container type and property name.
+            Example: P:Namespace.ContainingType.PropertyName
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.MethodInfo)">
+            <summary>
+            Generates a documentation comment ID for a method (or constructor).
+            For example:
+              M:Namespace.ContainingType.MethodName(ParamType1,ParamType2)~ReturnType
+              M:Namespace.ContainingType.#ctor(ParamType)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.GetTypeDocId(System.Type,System.Boolean,System.Boolean)">
+            <summary>
+            Generates a documentation ID string for a type.
+            This method handles nested types (replacing '+' with '.'),
+            generic types, arrays, pointers, by-ref types, and generic parameters.
+            The <paramref name="includeGenericArguments"/> flag controls whether
+            constructed generic type arguments are emitted, while <paramref name="omitGenericArity"/>
+            controls whether the generic arity marker (e.g. "`1") is appended.
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.NormalizeDocId(System.String)">
+            <summary>
+            Normalizes a documentation comment ID to match the compiler-style format.
+            Strips the return type suffix for ordinary methods but retains it for conversion operators.
+            </summary>
+            <param name="docId">The documentation comment ID to normalize.</param>
+            <returns>The normalized documentation comment ID.</returns>
+        </member>
+    </members>
+</doc>

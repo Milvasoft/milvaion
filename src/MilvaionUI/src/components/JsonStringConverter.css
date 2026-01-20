@@ -1,0 +1,135 @@
+.json-string-converter {
+  border: 1px solid var(--border-color);
+}
+
+.json-string-converter .sidebar-card-title.clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+}
+
+.json-string-converter .sidebar-card-title.clickable:hover {
+  color: var(--primary-color);
+}
+
+.json-string-converter .expand-icon {
+  margin-left: auto;
+  opacity: 0.6;
+}
+
+.converter-content {
+  margin-top: 0.75rem;
+}
+
+.converter-description {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.converter-input-group,
+.converter-output-group {
+  margin-bottom: 0.75rem;
+}
+
+.converter-input-group label,
+.converter-output-group label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.converter-input-group textarea,
+.converter-output-group textarea {
+  width: 100%;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 60px;
+}
+
+.converter-input-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.converter-output-group .output-textarea {
+  background: var(--bg-tertiary);
+  cursor: text;
+}
+
+.converter-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.converter-actions .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  padding: 0.375rem 0.5rem;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+}
+
+.copy-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.output-hint {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-top: 0.25rem;
+}
+
+.converter-example {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.converter-example strong {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.converter-example pre {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.7rem;
+  background: var(--bg-tertiary);
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0;
+  color: var(--text-secondary);
+}

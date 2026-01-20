@@ -1,0 +1,30 @@
+﻿while ($true) {
+    Clear-Host
+    Write-Host "=== Worker Job Monitoring ($(Get-Date -Format 'HH:mm:ss')) ===" -ForegroundColor Cyan
+
+    # Redis'ten instance'ları çek
+    $instances = docker exec milvaion-redis redis-cli KEYS "workers:test-worker:instances:*"
+    $totalJobs = 0
+
+    foreach ($instance in $instances) {
+        $instanceId = $instance -replace "workers:test-worker:instances:", ""
+        $currentJobs = docker exec milvaion-redis redis-cli HGET $instance currentJobs
+        $status = docker exec milvaion-redis redis-cli HGET $instance status
+        $lastHeartbeat = docker exec milvaion-redis redis-cli HGET $instance lastHeartbeat
+
+        $totalJobs += [int]$currentJobs
+
+        Write-Host "`n📦 Instance: $instanceId" -ForegroundColor Yellow
+        Write-Host "   Jobs: $currentJobs | Status: $status" -ForegroundColor White
+        Write-Host "   Last Heartbeat: $lastHeartbeat" -ForegroundColor Gray
+    }
+
+    Write-Host "`n📊 Total Active Jobs: $totalJobs" -ForegroundColor Green
+    Write-Host "   Total Instances: $($instances.Count)" -ForegroundColor Green
+
+    # Queue depths
+    Write-Host "`n🔄 RabbitMQ Queue Depths:" -ForegroundColor Cyan
+    docker exec milvaion-rabbitmq rabbitmqctl list_queues name messages | Select-String "scheduled_jobs"
+
+    Start-Sleep -Seconds 2
+}

@@ -1,0 +1,165 @@
+/* JSON Editor Component Styles */
+.json-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.json-editor-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.json-editor-label .required {
+  color: #f44336;
+  margin-left: 0.25rem;
+}
+
+.json-editor-container {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.json-editor.has-error .json-editor-container {
+  border-color: #f44336;
+}
+
+.json-editor-container:focus-within {
+  border-color: #646cff;
+  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.1);
+}
+
+.json-editor.has-error .json-editor-container:focus-within {
+  border-color: #f44336;
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
+}
+
+/* Toolbar */
+.json-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-btn span {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .toolbar-btn span {
+    display: inline;
+  }
+}
+
+/* Validation Badge */
+.validation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.validation-badge.valid {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+}
+
+.validation-badge.invalid {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+}
+
+/* Textarea */
+.json-editor-textarea {
+  width: 100%;
+  padding: 0.875rem;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  background: var(--bg-primary);
+  border: none;
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 150px;
+  outline: none;
+}
+
+.json-editor-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.json-editor-textarea.invalid {
+  background: rgba(244, 67, 54, 0.03);
+}
+
+/* Error Message */
+.json-editor-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(244, 67, 54, 0.1);
+  border-top: 1px solid rgba(244, 67, 54, 0.3);
+  color: #f44336;
+  font-size: 0.75rem;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.json-editor-error span {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Hint */
+.json-editor-hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}

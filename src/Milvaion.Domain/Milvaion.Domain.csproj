@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<DocumentationFile>..\Milvaion.Domain\Milvaion.Domain.xml</DocumentationFile>
+		<Configurations>Debug;Release;TemplateTest</Configurations>
+	</PropertyGroup>
+
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<Nullable>disable</Nullable>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+		<Nullable>disable</Nullable>
+	</PropertyGroup>
+
+
+	<ItemGroup>
+		<PackageReference Include="AsyncFixer" Version="1.6.0">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="10.0.0" />
+		<PackageReference Include="Milvasoft.DataAccess.EfCore.Bulk" Version="10.0.0" />
+		<PackageReference Include="Milvasoft.Identity" Version="10.0.0" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Sdk\Milvasoft.Milvaion.Sdk\Milvasoft.Milvaion.Sdk.csproj" />
+	</ItemGroup>
+
+</Project>

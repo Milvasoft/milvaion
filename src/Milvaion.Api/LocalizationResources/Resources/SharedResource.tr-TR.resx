@@ -1,0 +1,827 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Successful" xml:space="preserve">
+    <value>İşlem başarıyla gerçekleşti!</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>Bir hata oluştu!</value>
+  </data>
+  <data name="User.ExistWithSameUsername" xml:space="preserve">
+    <value>Aynı kullanıcı adı ile kullanıcı mevcut!</value>
+  </data>
+  <data name="Role.NotFound" xml:space="preserve">
+    <value>Rol bulunamadı!</value>
+  </data>
+  <data name="Global.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Global.UserName" xml:space="preserve">
+    <value>Kullanıcı Adı</value>
+  </data>
+  <data name="Global.Name" xml:space="preserve">
+    <value>Ad</value>
+  </data>
+  <data name="UserDetailDto.RoleIdList" xml:space="preserve">
+    <value>Roler</value>
+  </data>
+  <data name="Global.Surname" xml:space="preserve">
+    <value>Soyad</value>
+  </data>
+  <data name="Global.Id" xml:space="preserve">
+    <value>Id</value>
+  </data>
+  <data name="User.NotFound" xml:space="preserve">
+    <value>Kullanıcı bulunamadı!</value>
+  </data>
+  <data name="Unkown" xml:space="preserve">
+    <value>Bilinmiyor</value>
+  </data>
+  <data name="InvalidParameterException" xml:space="preserve">
+    <value>Lütfen gönderdiğiniz parametreleri kontrol ediniz!</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>Bu işlemi yapmaya yetkili değilsiniz!</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>Geçersiz kimlik bilgisi!</value>
+  </data>
+  <data name="RoleDetailDto.Permissions" xml:space="preserve">
+    <value>Yetkiler</value>
+  </data>
+  <data name="RoleDetailDto.Users" xml:space="preserve">
+    <value>Kullanıcılar</value>
+  </data>
+  <data name="WrongPaginationParamsException" xml:space="preserve">
+    <value>Mevcut sayfalar arasında istenen sayfa numarası yok!</value>
+  </data>
+  <data name="WrongRequestedItemCountException" xml:space="preserve">
+    <value>Lütfen sayfada görüntülenecek kayıt sayısını geçerli bir değer giriniz!</value>
+  </data>
+  <data name="SessionTimeout" xml:space="preserve">
+    <value>Oturumunuz zaman aşımına uğradı. Lütfen tekrar giriş yapınız!</value>
+  </data>
+  <data name="PostgreBasedException" xml:space="preserve">
+    <value>İşlem gerçekleştirilirken bir hata meydana geldi. Lütfen yaptığınız işlemi kontrol edip tekrar deneyiniz!</value>
+  </data>
+  <data name="UnhandledException" xml:space="preserve">
+    <value>Beklenmedik bir hata oluştu lütfen daha sonra tekrar deneyiniz. Sorun çözülmez ise yetkililer ile iletişime geçiniz.</value>
+  </data>
+  <data name="DefaultValueCannotModify" xml:space="preserve">
+    <value>Varsayılan sistem verileri üzerinde güncelleme ve silme işlemi gerçekleştiremezsiniz!</value>
+  </data>
+  <data name="CannotBeEmpty" xml:space="preserve">
+    <value>{0} boş olamaz!</value>
+  </data>
+  <data name="Global.DisplayName" xml:space="preserve">
+    <value>Görünür Ad</value>
+  </data>
+  <data name="Global.Password" xml:space="preserve">
+    <value>Şifre</value>
+  </data>
+  <data name="Global.Role" xml:space="preserve">
+    <value>rol</value>
+  </data>
+  <data name="Global.User" xml:space="preserve">
+    <value>kullanıcı</value>
+  </data>
+  <data name="PleaseSendCorrect" xml:space="preserve">
+    <value>Lütfen {0} bilgisini doğru gönderiniz.</value>
+  </data>
+  <data name="PossibleUIError" xml:space="preserve">
+    <value>Bir hata oluştu! Lütfen tekrar deneyiniz. Sorun çözülmez ise yetkililer ile iletişime geçiniz.</value>
+  </data>
+  <data name="Page.NotFound" xml:space="preserve">
+    <value>Sayfa bulunamadı!</value>
+  </data>
+  <data name="Global.Page" xml:space="preserve">
+    <value>sayfa</value>
+  </data>
+  <data name="Global.UserType" xml:space="preserve">
+    <value>Kullanıcı Tipi</value>
+  </data>
+  <data name="ActivityLogListDto.Description" xml:space="preserve">
+    <value>Aktivite</value>
+  </data>
+  <data name="ActivityLogListDto.ActivityDate" xml:space="preserve">
+    <value>Tarih</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Evet</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>Hayır</value>
+  </data>
+  <data name="Exists" xml:space="preserve">
+    <value>Var</value>
+  </data>
+  <data name="NotExists" xml:space="preserve">
+    <value>Yok</value>
+  </data>
+  <data name="UserType.AppUser" xml:space="preserve">
+    <value>Uygulama Kullanıcısı</value>
+  </data>
+  <data name="UserType.Manager" xml:space="preserve">
+    <value>Yönetici</value>
+  </data>
+  <data name="UserActivity.CreateUser" xml:space="preserve">
+    <value>Kullanıcı ekleme</value>
+  </data>
+  <data name="UserActivity.UpdateUser" xml:space="preserve">
+    <value>Kullanıcı güncelleme</value>
+  </data>
+  <data name="UserActivity.DeleteUser" xml:space="preserve">
+    <value>Kullanıcı silme</value>
+  </data>
+  <data name="UserActivity.UpdateRole" xml:space="preserve">
+    <value>Rol güncelleme</value>
+  </data>
+  <data name="UserActivity.DeleteRole" xml:space="preserve">
+    <value>Rol silme</value>
+  </data>
+  <data name="UserActivity.CreateRole" xml:space="preserve">
+    <value>Rol ekleme</value>
+  </data>
+  <data name="ActivityLogListDto.Activity" xml:space="preserve">
+    <value>Aktivite</value>
+  </data>
+  <data name="PostgreDuplicateDataException" xml:space="preserve">
+    <value>Aynı kayıttan birden fazla ekleyemezsiniz!</value>
+  </data>
+  <data name="Hours" xml:space="preserve">
+    <value>{0} saat</value>
+  </data>
+  <data name="Minutes" xml:space="preserve">
+    <value>{0} dakika</value>
+  </data>
+  <data name="Seconds" xml:space="preserve">
+    <value>{0} saniye</value>
+  </data>
+  <data name="Locked" xml:space="preserve">
+    <value>Art arda başarısız giriş denemesi yaptığınızdan dolayı hesabınız kilitlenmiştir. {0} sonra tekrar deneyin.</value>
+  </data>
+  <data name="LockWarning" xml:space="preserve">
+    <value>{0} geçersiz deneme sonucunda oturum kilitlenecektir.</value>
+  </data>
+  <data name="IdentityDefaultError" xml:space="preserve">
+    <value>Bilinmeyen bir hata meydana geldi.</value>
+  </data>
+  <data name="IdentityDuplicateEmail" xml:space="preserve">
+    <value>Bu email hesabına sahip başka bir kullanıcı bulunuyor.</value>
+  </data>
+  <data name="IdentityDuplicateUsername" xml:space="preserve">
+    <value>Bu kullanıcı adına sahip başka bir kullanıcı bulunuyor.</value>
+  </data>
+  <data name="IdentityInvalidEmail" xml:space="preserve">
+    <value>Geçersiz email hesabı girdiniz.</value>
+  </data>
+  <data name="IdentityInvalidToken" xml:space="preserve">
+    <value>Geçersiz kimlik bilgisi.</value>
+  </data>
+  <data name="IdentityPasswordMismatch" xml:space="preserve">
+    <value>Yanlış şifre girdiniz.</value>
+  </data>
+  <data name="IdentityPasswordRequiresDigit" xml:space="preserve">
+    <value>Şifre en az bir rakam içermelidir.</value>
+  </data>
+  <data name="IdentityPasswordRequiresLower" xml:space="preserve">
+    <value>Şifre en az bir küçük harf içermelidir.</value>
+  </data>
+  <data name="IdentityPasswordRequiresNonAlphanumeric" xml:space="preserve">
+    <value>Parola en az bir alfanümerik karakter içermelidir.</value>
+  </data>
+  <data name="IdentityPasswordRequiresUniqueChars" xml:space="preserve">
+    <value>Parola en az bir özel karakter içermelidir.</value>
+  </data>
+  <data name="IdentityPasswordRequiresUpper" xml:space="preserve">
+    <value>Şifre en az bir büyük harf içermelidir.</value>
+  </data>
+  <data name="IdentityPasswordTooShort" xml:space="preserve">
+    <value>Şifre uzunluğu çok kısa.</value>
+  </data>
+  <data name="IdentityUserLockoutNotEnabled" xml:space="preserve">
+    <value>Bu kullanıcı için kilitleme etkinleştirilmedi.</value>
+  </data>
+  <data name="IdentityInvalidUsername" xml:space="preserve">
+    <value>Geçersiz bir kullanıcı adı girdiniz.</value>
+  </data>
+  <data name="PG.App" xml:space="preserve">
+    <value>Uygulama genelinde izinler</value>
+  </data>
+  <data name="PG.UserManagement" xml:space="preserve">
+    <value>Kullanıcı yönetimi izinleri</value>
+  </data>
+  <data name="PG.RoleManagement" xml:space="preserve">
+    <value>Rol yönetimi izinleri</value>
+  </data>
+  <data name="PG.PermissionManagement" xml:space="preserve">
+    <value>Yetki yönetimi izinleri</value>
+  </data>
+  <data name="PG.SuperAdmin" xml:space="preserve">
+    <value>Bütün sisteme erişim sağlar.</value>
+  </data>
+  <data name="PG.List" xml:space="preserve">
+    <value>{0} listeleme yetkisi.</value>
+  </data>
+  <data name="PG.Detail" xml:space="preserve">
+    <value>{0} detay görüntüleme yetkisi.</value>
+  </data>
+  <data name="PG.Create" xml:space="preserve">
+    <value>{0} ekleme yetkisi.</value>
+  </data>
+  <data name="PG.Update" xml:space="preserve">
+    <value>{0} güncelleme yetkisi.</value>
+  </data>
+  <data name="PG.Delete" xml:space="preserve">
+    <value>{0} silme yetkisi.</value>
+  </data>
+  <data name="UserManagement" xml:space="preserve">
+    <value>Kullanıcı</value>
+  </data>
+  <data name="RoleManagement" xml:space="preserve">
+    <value>Rol</value>
+  </data>
+  <data name="PermissionManagement" xml:space="preserve">
+    <value>Yetki</value>
+  </data>
+  <data name="ActivityLogManagement" xml:space="preserve">
+    <value>Aktivite Geçmişi</value>
+  </data>
+  <data name="UI.UserManagement" xml:space="preserve">
+    <value>Kullanıcılar</value>
+  </data>
+  <data name="UI.RoleManagement" xml:space="preserve">
+    <value>Roller</value>
+  </data>
+  <data name="UI.ActivityLogManagement" xml:space="preserve">
+    <value>Kullanıcı Aktiviteleri</value>
+  </data>
+  <data name="UI.Table.Refresh" xml:space="preserve">
+    <value>Yenile</value>
+  </data>
+  <data name="UI.Table.Filter" xml:space="preserve">
+    <value>Filtre</value>
+  </data>
+  <data name="UI.Table.Aggregation" xml:space="preserve">
+    <value>Toplama</value>
+  </data>
+  <data name="UI.Table.Columns" xml:space="preserve">
+    <value>Kolonlar</value>
+  </data>
+  <data name="UI.Table.Density" xml:space="preserve">
+    <value>Sıklık</value>
+  </data>
+  <data name="UI.Table.Export" xml:space="preserve">
+    <value>Dışa Aktar</value>
+  </data>
+  <data name="UI.RoleManagement.Detail" xml:space="preserve">
+    <value>Rol Detay</value>
+  </data>
+  <data name="UI.RoleManagement.Create" xml:space="preserve">
+    <value>Rol Ekle</value>
+  </data>
+  <data name="UI.UserManagement.Detail" xml:space="preserve">
+    <value>Kullanıcı Detay</value>
+  </data>
+  <data name="UI.UserManagement.Create" xml:space="preserve">
+    <value>Kullanıcı Ekle</value>
+  </data>
+  <data name="UI.UserProfile" xml:space="preserve">
+    <value>Profil</value>
+  </data>
+  <data name="UI.Span.LoginTitle" xml:space="preserve">
+    <value>Hesabınıza Giriş Yapın</value>
+  </data>
+  <data name="UI.Button.Login" xml:space="preserve">
+    <value>Giriş Yap</value>
+  </data>
+  <data name="UI.Input.Username" xml:space="preserve">
+    <value>Kullanıcı Adı</value>
+  </data>
+  <data name="UI.Input.Password" xml:space="preserve">
+    <value>Şifre</value>
+  </data>
+  <data name="UI.Button.AddNew" xml:space="preserve">
+    <value>Yeni Ekle</value>
+  </data>
+  <data name="UI.Table.Size" xml:space="preserve">
+    <value>Boyut</value>
+  </data>
+  <data name="UI.Table.Actions" xml:space="preserve">
+    <value>Aksiyonlar</value>
+  </data>
+  <data name="UI.Button.Save" xml:space="preserve">
+    <value>Kaydet</value>
+  </data>
+  <data name="UI.Hint.EnterRoleName" xml:space="preserve">
+    <value>Rol adı giriniz</value>
+  </data>
+  <data name="UI.Table.AddFilter" xml:space="preserve">
+    <value>Filtre Ekle</value>
+  </data>
+  <data name="UI.Table.Apply" xml:space="preserve">
+    <value>Uygula</value>
+  </data>
+  <data name="UI.Table.Reset" xml:space="preserve">
+    <value>Sıfırla</value>
+  </data>
+  <data name="UI.Hint.SearchColumns" xml:space="preserve">
+    <value>Kolon Ara</value>
+  </data>
+  <data name="UI.Table.ExportAsCsv" xml:space="preserve">
+    <value>CSV Olarak Dışa Aktar</value>
+  </data>
+  <data name="UI.Table.ExportAsPdf" xml:space="preserve">
+    <value>PDF Olarak Dışa Aktar</value>
+  </data>
+  <data name="UI.Table.Column" xml:space="preserve">
+    <value>Kolon</value>
+  </data>
+  <data name="UI.Table.Operator" xml:space="preserve">
+    <value>Operatör</value>
+  </data>
+  <data name="UI.Table.Value" xml:space="preserve">
+    <value>Değer</value>
+  </data>
+  <data name="UI.Table.Type" xml:space="preserve">
+    <value>İşlem</value>
+  </data>
+  <data name="Global.Namespace" xml:space="preserve">
+    <value>Namespace</value>
+  </data>
+  <data name="Resource Group" xml:space="preserve">
+    <value>Resource Grup</value>
+  </data>
+  <data name="Global.Content" xml:space="preserve">
+    <value>İçerik</value>
+  </data>
+  <data name="Global.Media" xml:space="preserve">
+    <value>Medya</value>
+  </data>
+  <data name="Global.Language" xml:space="preserve">
+    <value>Dil</value>
+  </data>
+  <data name="NamespaceNotFound" xml:space="preserve">
+    <value>Namespace bulunamadı!</value>
+  </data>
+  <data name="ResourceGroupNotFound" xml:space="preserve">
+    <value>Resource Grup bulunamadı!</value>
+  </data>
+  <data name="MediaNotFound" xml:space="preserve">
+    <value>Medya bulunamadı!</value>
+  </data>
+  <data name="ContentNotFound" xml:space="preserve">
+    <value>İçerik bulunamadı!</value>
+  </data>
+  <data name="SlugExplaniton" xml:space="preserve">
+    <value>Değiştirilemez, benzersiz isim. Bir kayıt eklerken, "Ad" alanına göre oluşturulur.</value>
+  </data>
+  <data name="Global.Slug" xml:space="preserve">
+    <value>Slug</value>
+  </data>
+  <data name="Global.Key" xml:space="preserve">
+    <value>Anahtar</value>
+  </data>
+  <data name="Global.Value" xml:space="preserve">
+    <value>Değer</value>
+  </data>
+  <data name="Global.KeyAlias" xml:space="preserve">
+    <value>Anahtar Tam Değer</value>
+  </data>
+  <data name="ContentListDto.LanguageId" xml:space="preserve">
+    <value>Dil</value>
+  </data>
+  <data name="Global.NamespaceSlug" xml:space="preserve">
+    <value>Namespace Slug</value>
+  </data>
+  <data name="Global.ResourceGroupSlug" xml:space="preserve">
+    <value>Resource Grup Slug</value>
+  </data>
+  <data name="LanguageDto.Code" xml:space="preserve">
+    <value>Iso Kodu</value>
+  </data>
+  <data name="LanguageDto.Supported" xml:space="preserve">
+    <value>Destekleniyor</value>
+  </data>
+  <data name="LanguageDto.IsDefault" xml:space="preserve">
+    <value>Varsayılan</value>
+  </data>
+  <data name="OnlyImageFilesAccepted" xml:space="preserve">
+    <value>Sadece .jpeg ve .png dosya formatları kabul edilmektedir.</value>
+  </data>
+  <data name="UnsupportedMediaType" xml:space="preserve">
+    <value>Dosya yüklenirken bir hata meydana geldi. Lütfen yetkililer ile iletişime geçiniz!</value>
+  </data>
+  <data name="FileSizeMustLowerThan" xml:space="preserve">
+    <value>Dosya boyutu 1MB'tan küçük olmalıdır.</value>
+  </data>
+  <data name="FileShouldBeUploaded" xml:space="preserve">
+    <value>Lütfen dosya yükleyiniz!</value>
+  </data>
+  <data name="Global.Order" xml:space="preserve">
+    <value>Sıra</value>
+  </data>
+  <data name="QueryType" xml:space="preserve">
+    <value>Sorgu Tipi</value>
+  </data>
+  <data name="Query" xml:space="preserve">
+    <value>Sorgu</value>
+  </data>
+  <data name="WrongPassword" xml:space="preserve">
+    <value>Eski şifrenizi yanlış girdiniz!</value>
+  </data>
+  <data name="UserName" xml:space="preserve">
+    <value>Kullanıcı Adı</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>Yeni Şifre</value>
+  </data>
+  <data name="OldPassword" xml:space="preserve">
+    <value>Eski Şifre</value>
+  </data>
+  <data name="InvalidUrlAddress" xml:space="preserve">
+    <value>Lütfen geçerli bir url giriniz! Örnek: https://www.milvasoft.com</value>
+  </data>
+  <data name="Translations" xml:space="preserve">
+    <value>Çeviriler</value>
+  </data>
+  <data name="MaxLengthReached" xml:space="preserve">
+    <value>{0} {1} karakterden fazla olamaz!</value>
+  </data>
+  <data name="InvalidPhoneNumber" xml:space="preserve">
+    <value>Geçersiz bir telefon numarası girdiniz!</value>
+  </data>
+  <data name="Global.NameSurname" xml:space="preserve">
+    <value>Ad Soyad</value>
+  </data>
+  <data name="NoDataToExport" xml:space="preserve">
+    <value>Dışarı aktarılacak veri bulunamadı!</value>
+  </data>
+  <data name="ExportType.User" xml:space="preserve">
+    <value>kullanicilar</value>
+  </data>
+  <data name="Global.PhoneNumber" xml:space="preserve">
+    <value>Telefon Numarası</value>
+  </data>
+  <data name="PhoneNumber" xml:space="preserve">
+    <value>Telefon Numarası</value>
+  </data>
+  <data name="Global.Message" xml:space="preserve">
+    <value>Mesaj</value>
+  </data>
+  <data name="ExpenseRevenueNotFound" xml:space="preserve">
+    <value>Gelir/Gider bulunamadı!</value>
+  </data>
+  <data name="ExpenseRevenue" xml:space="preserve">
+    <value>Gelir/Gider</value>
+  </data>
+  <data name="ContactForm" xml:space="preserve">
+    <value>İletişim Formu</value>
+  </data>
+  <data name="SiteSetting" xml:space="preserve">
+    <value>Site Ayarı</value>
+  </data>
+  <data name="FileValidationFailed" xml:space="preserve">
+    <value>Dosya biçimi veya boyutu geçersiz. Lütfen sadece izin verilen tür ve boyutta dosya yükleyin!
+
+Lütfen sadece aşağıdaki dosya türlerini yükleyin:
+- Görseller: .jpeg, .jpg, .png
+- Belgeler: .pdf
+
+Maksimum dosya boyutu:
+- Görseller için: 10 MB
+- Belgeler için: 30 MB</value>
+  </data>
+  <data name="Global.PublicSiteOrder" xml:space="preserve">
+    <value>Sitedeki Sırası</value>
+  </data>
+  <data name="Global.Published" xml:space="preserve">
+    <value>Yayında</value>
+  </data>
+  <data name="Global.CreationDate" xml:space="preserve">
+    <value>Oluşturulma Tarihi</value>
+  </data>
+  <data name="ProductFilesNotFound" xml:space="preserve">
+    <value>Silmek istediğiniz dosyalar bulunamadı!</value>
+  </data>
+  <data name="Global.ResourceGroup" xml:space="preserve">
+    <value>Resource Group</value>
+  </data>
+  <data name="Global.Description" xml:space="preserve">
+    <value>Açıklama</value>
+  </data>
+  <data name="Global.Product" xml:space="preserve">
+    <value>Ürün</value>
+  </data>
+  <data name="ProductNotFound" xml:space="preserve">
+    <value>Ürün bulunamadı!</value>
+  </data>
+  <data name="Global.Category" xml:space="preserve">
+    <value>Ürün Kategorisi</value>
+  </data>
+  <data name="CategoryNotFound" xml:space="preserve">
+    <value>Kategori bulunamadı!</value>
+  </data>
+  <data name="Global.AdditionalInformations" xml:space="preserve">
+    <value>Ek Bilgiler</value>
+  </data>
+  <data name="Global.MetaTag" xml:space="preserve">
+    <value>Meta Tag</value>
+  </data>
+  <data name="SiteSettingNotFound" xml:space="preserve">
+    <value>Site ayarları bulunamadı!</value>
+  </data>
+  <data name="ContactFormNotFound" xml:space="preserve">
+    <value>İletişim Formu bulunamadı!</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Şifre</value>
+  </data>
+  <data name="UI.ProductManagement" xml:space="preserve">
+    <value>Ürünler</value>
+  </data>
+  <data name="UI.CategoryManagement" xml:space="preserve">
+    <value>Ürün Kategorileri</value>
+  </data>
+  <data name="UI.ExpenseRevenueManagement" xml:space="preserve">
+    <value>Gelir &amp; Gider</value>
+  </data>
+  <data name="UI.ContentManagement" xml:space="preserve">
+    <value>İçerikler</value>
+  </data>
+  <data name="Global.LanguageName" xml:space="preserve">
+    <value>Dil</value>
+  </data>
+  <data name="Global.IsExpense" xml:space="preserve">
+    <value>Gider</value>
+  </data>
+  <data name="Global.Amount" xml:space="preserve">
+    <value>Tutar</value>
+  </data>
+  <data name="Global.Featured" xml:space="preserve">
+    <value>Öne Çıkarılmış</value>
+  </data>
+  <data name="UI.NamespaceManagement" xml:space="preserve">
+    <value>Namespaceler</value>
+  </data>
+  <data name="UI.ResourceGroupManagement" xml:space="preserve">
+    <value>Resource Grupları</value>
+  </data>
+  <data name="UI.ContactFormManagement" xml:space="preserve">
+    <value>İletişim Formları</value>
+  </data>
+  <data name="Global.Seen" xml:space="preserve">
+    <value>Görüldü</value>
+  </data>
+  <data name="UI.LanguageManagement" xml:space="preserve">
+    <value>Diller</value>
+  </data>
+  <data name="Global.Date" xml:space="preserve">
+    <value>Tarih</value>
+  </data>
+  <data name="PG.ContentManagement" xml:space="preserve">
+    <value>İçerik yönetimi izinleri</value>
+  </data>
+  <data name="PG.NamespaceManagement" xml:space="preserve">
+    <value>Namespace yönetimi izinleri</value>
+  </data>
+  <data name="PG.ResourceGroupManagement" xml:space="preserve">
+    <value>Resource Grup yönetimi izinleri</value>
+  </data>
+  <data name="PG.ActivityLogManagement" xml:space="preserve">
+    <value>Aktivite yönetimi izinleri</value>
+  </data>
+  <data name="PG.LanguageManagement" xml:space="preserve">
+    <value>Dil yönetimi izinleri</value>
+  </data>
+  <data name="PG.ContactFormManagement" xml:space="preserve">
+    <value>İletişim Formu yönetimi izinleri</value>
+  </data>
+  <data name="PG.ExpenseRevenueManagement" xml:space="preserve">
+    <value>Gelir &amp; Gider yönetimi izinleri</value>
+  </data>
+  <data name="PG.ProductManagement" xml:space="preserve">
+    <value>Ürün yönetimi izinleri</value>
+  </data>
+  <data name="PG.CategoryManagement" xml:space="preserve">
+    <value>Kategori yönetimi izinleri</value>
+  </data>
+  <data name="PG.SiteSettingsManagement" xml:space="preserve">
+    <value>Site Ayarları yönetimi izinleri</value>
+  </data>
+  <data name="UserActivity.CreateProduct" xml:space="preserve">
+    <value>Ürün ekleme</value>
+  </data>
+  <data name="UserActivity.UpdateProduct" xml:space="preserve">
+    <value>Ürün güncelleme</value>
+  </data>
+  <data name="UserActivity.DeleteProduct" xml:space="preserve">
+    <value>Ürün silme</value>
+  </data>
+  <data name="UserActivity.CreateCategory" xml:space="preserve">
+    <value>Kategori ekleme</value>
+  </data>
+  <data name="UserActivity.UpdateCategory" xml:space="preserve">
+    <value>Kategori güncelleme</value>
+  </data>
+  <data name="UserActivity.DeleteCategory" xml:space="preserve">
+    <value>Kategori silme</value>
+  </data>
+  <data name="UserActivity.UpdateSiteSettings" xml:space="preserve">
+    <value>Site ayarları güncelleme</value>
+  </data>
+  <data name="UserActivity.DeleteContactForm" xml:space="preserve">
+    <value>İletişim formu silme</value>
+  </data>
+  <data name="UserActivity.UpdateContactForm" xml:space="preserve">
+    <value>İletişim formu güncelleme</value>
+  </data>
+  <data name="UserActivity.CreateExpenseRevenue" xml:space="preserve">
+    <value>Gelir&amp;Gider ekleme</value>
+  </data>
+  <data name="UserActivity.UpdateExpenseRevenue" xml:space="preserve">
+    <value>Gelir&amp;Gider güncelleme</value>
+  </data>
+  <data name="UserActivity.DeleteExpenseRevenue" xml:space="preserve">
+    <value>Gelir&amp;Gider silme</value>
+  </data>
+  <data name="UserActivity.UpdateLanguages" xml:space="preserve">
+    <value>Dil güncelleme</value>
+  </data>
+  <data name="ContentManagement" xml:space="preserve">
+    <value>İçerik</value>
+  </data>
+  <data name="NamespaceManagement" xml:space="preserve">
+    <value>Namespace</value>
+  </data>
+  <data name="ResourceGroupManagement" xml:space="preserve">
+    <value>Resource Grup</value>
+  </data>
+  <data name="LanguageManagement" xml:space="preserve">
+    <value>Dil</value>
+  </data>
+  <data name="ContactFormManagement" xml:space="preserve">
+    <value>İletişim Formu</value>
+  </data>
+  <data name="ExpenseRevenueManagement" xml:space="preserve">
+    <value>Gelir&amp;Gider</value>
+  </data>
+  <data name="ProductManagement" xml:space="preserve">
+    <value>Ürün</value>
+  </data>
+  <data name="CategoryManagement" xml:space="preserve">
+    <value>Kategori</value>
+  </data>
+  <data name="SiteSettingsManagement" xml:space="preserve">
+    <value>Site Ayarları</value>
+  </data>
+  <data name="InternalNotificationNotFound" xml:space="preserve">
+    <value>Bildirim bulunamadı!</value>
+  </data>
+  <data name="Global.InternalNotification" xml:space="preserve">
+    <value>Bildirim</value>
+  </data>
+  <data name="UserActivityCreateMessage" xml:space="preserve">
+    <value>{0} ekleme</value>
+  </data>
+  <data name="UserActivityUpdateMessage" xml:space="preserve">
+    <value>{0} güncelleme</value>
+  </data>
+  <data name="UserActivityDeleteMessage" xml:space="preserve">
+    <value>{0} silme</value>
+  </data>
+  <data name="Global.Job" xml:space="preserve">
+  <value>İş</value>
+</data>
+<data name="Global.JobType" xml:space="preserve">
+  <value>İş Tipi</value>
+</data>
+<data name="CronOrExecuteAtRequired" xml:space="preserve">
+  <value>Cron ifadesi veya çalışma zamanı belirtilmelidir</value>
+</data>
+<data name="InvalidCronExpression" xml:space="preserve">
+  <value>Geçersiz cron ifadesi formatı veya gelecekte çalışma zamanı yok</value>
+</data>
+<data name="ExecuteAtMustBeInFuture" xml:space="preserve">
+  <value>Çalışma zamanı gelecekte bir tarih olmalıdır</value>
+</data>
+<data name="InvalidJobData" xml:space="preserve">
+  <value>İş verisi geçerli JSON formatında olmalıdır</value>
+</data>
+</root>

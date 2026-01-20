@@ -1,0 +1,436 @@
+﻿{
+  "menuGroups": [
+    {
+      "id": 21,
+      "order": 1,
+      "translations": [
+        {
+          "languageId": 21,
+          "name": "Yönetim"
+        },
+        {
+          "languageId": 22,
+          "name": "Management"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "order": 0,
+      "translations": [
+        {
+          "languageId": 21,
+          "name": "Genel"
+        },
+        {
+          "languageId": 22,
+          "name": "General"
+        }
+      ]
+    }
+  ],
+  "menuItems": [
+    {
+      "id": 32,
+      "groupId": 21,
+      "permissionOrGroupNames": [
+        "App.SuperAdmin",
+        "NotificationManagement.List"
+      ],
+      "translations": [
+        {
+          "languageId": 21,
+          "name": "Bildirim Yönetimi"
+        },
+        {
+          "languageId": 22,
+          "name": "Notification Management"
+        }
+      ],
+      "url": "/notifications",
+      "pageName": "NotificationManagement",
+      "order": 1,
+      "children": []
+    },
+    {
+      "order": 99,
+      "groupId": 21,
+      "permissionOrGroupNames": [
+        "App.SuperAdmin",
+        "UserManagement.List",
+        "ActivityLogManagement.List"
+      ],
+      "translations": [
+        {
+          "languageId": 21,
+          "name": "Kullanıcı Yönetimi"
+        },
+        {
+          "languageId": 22,
+          "name": "User Management"
+        }
+      ],
+      "children": [
+        {
+          "order": 96,
+          "url": "/notifications",
+          "pageName": "NotificationManagement",
+          "permissionOrGroupNames": [
+            "App.SuperAdmin",
+            "UserManagement.List"
+          ],
+          "translations": [
+            {
+              "languageId": 21,
+              "name": "Bildirim Yönetimi"
+            },
+            {
+              "languageId": 22,
+              "name": "Notification Management"
+            }
+          ],
+          "id": 32,
+          "groupId": 21,
+          "children": []
+        },
+        {
+          "order": 98,
+          "url": "/activity-logs",
+          "pageName": "ActivityLogManagement",
+          "permissionOrGroupNames": [
+            "App.SuperAdmin",
+            "ActivityLogManagement.List"
+          ],
+          "translations": [
+            {
+              "languageId": 21,
+              "name": "Kullanıcı Aktiviteleri"
+            },
+            {
+              "languageId": 22,
+              "name": "User Activities"
+            }
+          ],
+          "id": 33,
+          "groupId": 21,
+          "children": []
+        },
+        {
+          "order": 97,
+          "url": "/roles",
+          "pageName": "RoleManagement",
+          "permissionOrGroupNames": [
+            "App.SuperAdmin",
+            "RoleManagement.List"
+          ],
+          "translations": [
+            {
+              "languageId": 21,
+              "name": "Roller"
+            },
+            {
+              "languageId": 22,
+              "name": "Roles"
+            }
+          ],
+          "id": 34,
+          "groupId": 21,
+          "children": []
+        }
+      ],
+      "id": 31
+    },
+    {
+      "order": 79,
+      "groupId": 21,
+      "permissionOrGroupNames": [
+        "App.SuperAdmin",
+        "ContentManagement.List",
+        "LanguageManagement.List"
+      ],
+      "translations": [
+        {
+          "languageId": 21,
+          "name": "Site Yönetimi"
+        },
+        {
+          "languageId": 22,
+          "name": "Site Management"
+        }
+      ],
+      "children": [
+        {
+          "url": "/languages",
+          "pageName": "LanguageManagement",
+          "permissionOrGroupNames": [
+            "App.SuperAdmin",
+            "LanguageManagement.List"
+          ],
+          "translations": [
+            {
+              "languageId": 21,
+              "name": "Diller"
+            },
+            {
+              "languageId": 22,
+              "name": "Languages"
+            }
+          ],
+          "id": 36,
+          "groupId": 21,
+          "children": []
+        },
+        {
+          "order": 76,
+          "url": "/namespaces",
+          "pageName": "NamespaceManagement",
+          "permissionOrGroupNames": [
+            "App.SuperAdmin",
+            "ContentManagement.List"
+          ],
+          "translations": [
+            {
+              "languageId": 21,
+              "name": "Namespaceler"
+            },
+            {
+              "languageId": 22,
+              "name": "Namespaces"
+            }
+          ],
+          "id": 37,
+          "groupId": 21,
+          "children": []
+        },
+        {
+          "order": 77,
+          "url": "/resourcegroups",
+          "pageName": "ResourceGroupManagement",
+          "permissionOrGroupNames": [
+            "App.SuperAdmin",
+            "ContentManagement.List"
+          ],
+          "translations": [
+            {
+              "languageId": 21,
+              "name": "Resource Gruplar"
+            },
+            {
+              "languageId": 22,
+              "name": "Resource Groups"
+            }
+          ],
+          "id": 38,
+          "groupId": 21,
+          "children": []
+        },
+        {
+          "order": 75,
+          "url": "/contents",
+          "pageName": "ContentManagement",
+          "permissionOrGroupNames": [
+            "App.SuperAdmin",
+            "ContentManagement.List"
+          ],
+          "translations": [
+            {
+              "languageId": 21,
+              "name": "İçerikler"
+            },
+            {
+              "languageId": 22,
+              "name": "Contents"
+            }
+          ],
+          "id": 39,
+          "groupId": 21,
+          "children": []
+        }
+      ],
+      "id": 35
+    }
+  ],
+  "pages": [
+    {
+      "Id": 31,
+      "Name": "NotificationManagement",
+      "HasCreate": true,
+      "HasEdit": true,
+      "HasDetail": true,
+      "HasDelete": true,
+      "CreatePermissions": [
+        "App.SuperAdmin",
+        "NotificationManagement.Create"
+      ],
+      "EditPermissions": [
+        "App.SuperAdmin",
+        "NotificationManagement.Edit"
+      ],
+      "DetailPermissions": [
+        "App.SuperAdmin",
+        "NotificationManagement.Detail"
+      ],
+      "DeletePermissions": [
+        "App.SuperAdmin",
+        "NotificationManagement.Delete"
+      ],
+      "AdditionalActions": [],
+      "CreationDate": "2025-11-03T00:00:00",
+      "CreatorUserName": "System"
+    },
+    {
+      "Name": "UserManagement",
+      "HasCreate": true,
+      "HasEdit": true,
+      "HasDetail": true,
+      "HasDelete": true,
+      "CreatePermissions": [
+        "App.SuperAdmin",
+        "UserManagement.Create"
+      ],
+      "EditPermissions": [
+        "App.SuperAdmin",
+        "UserManagement.Update"
+      ],
+      "DetailPermissions": [
+        "App.SuperAdmin",
+        "UserManagement.Detail"
+      ],
+      "DeletePermissions": [
+        "App.SuperAdmin",
+        "UserManagement.Delete"
+      ],
+      "CreationDate": "2025-06-14T00:00:00",
+      "CreatorUserName": "System",
+      "AdditionalActions": []
+    },
+    {
+      "Name": "ActivityLogManagement",
+      "HasCreate": false,
+      "HasEdit": false,
+      "HasDetail": false,
+      "HasDelete": false,
+      "CreationDate": "2025-06-14T00:00:00",
+      "CreatorUserName": "System",
+      "AdditionalActions": []
+    },
+    {
+      "Name": "RoleManagement",
+      "HasCreate": true,
+      "HasEdit": true,
+      "HasDetail": true,
+      "HasDelete": true,
+      "CreatePermissions": [
+        "App.SuperAdmin",
+        "RoleManagement.Create"
+      ],
+      "EditPermissions": [
+        "App.SuperAdmin",
+        "RoleManagement.Update"
+      ],
+      "DetailPermissions": [
+        "App.SuperAdmin",
+        "RoleManagement.Detail"
+      ],
+      "DeletePermissions": [
+        "App.SuperAdmin",
+        "RoleManagement.Delete"
+      ],
+      "CreationDate": "2025-06-14T00:00:00",
+      "CreatorUserName": "System",
+      "AdditionalActions": []
+    },
+    {
+      "Name": "LanguageManagement",
+      "HasCreate": false,
+      "HasEdit": true,
+      "HasDetail": true,
+      "HasDelete": false,
+      "EditPermissions": [
+        "App.SuperAdmin",
+        "LanguageManagement.Update"
+      ],
+      "CreationDate": "2025-06-14T00:00:00",
+      "CreatorUserName": "System",
+      "AdditionalActions": []
+    },
+    {
+      "Name": "NamespaceManagement",
+      "HasCreate": true,
+      "HasEdit": true,
+      "HasDetail": true,
+      "HasDelete": true,
+      "CreatePermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Create"
+      ],
+      "EditPermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Update"
+      ],
+      "DetailPermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Detail"
+      ],
+      "DeletePermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Delete"
+      ],
+      "CreationDate": "2025-06-14T00:00:00",
+      "CreatorUserName": "System",
+      "AdditionalActions": []
+    },
+    {
+      "Name": "ResourceGroupManagement",
+      "HasCreate": true,
+      "HasEdit": true,
+      "HasDetail": true,
+      "HasDelete": true,
+      "CreatePermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Create"
+      ],
+      "EditPermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Update"
+      ],
+      "DetailPermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Detail"
+      ],
+      "DeletePermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Delete"
+      ],
+      "CreationDate": "2025-06-14T00:00:00",
+      "CreatorUserName": "System",
+      "AdditionalActions": []
+    },
+    {
+      "Name": "ContentManagement",
+      "HasCreate": true,
+      "HasEdit": true,
+      "HasDetail": true,
+      "HasDelete": true,
+      "CreatePermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Create"
+      ],
+      "EditPermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Update"
+      ],
+      "DetailPermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Detail"
+      ],
+      "DeletePermissions": [
+        "App.SuperAdmin",
+        "ContentManagement.Delete"
+      ],
+      "CreationDate": "2025-06-14T00:00:00",
+      "CreatorUserName": "System",
+      "AdditionalActions": []
+    }
+  ]
+}
