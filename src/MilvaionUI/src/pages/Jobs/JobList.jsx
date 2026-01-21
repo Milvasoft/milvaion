@@ -431,9 +431,8 @@ function JobList() {
                     <div className="job-info-row">
                       <span className="info-label">Concurrent Policy</span>
                       <span className="info-value concurrent-policy">
-                        {job.concurrentExecutionPolicy === 0 ? 'Allow' :
-                         job.concurrentExecutionPolicy === 1 ? 'Skip' :
-                         job.concurrentExecutionPolicy === 2 ? 'Replace' : 'Unknown'}
+                        {job.concurrentExecutionPolicy === 0 ? 'Skip' :
+                          job.concurrentExecutionPolicy === 1 ? 'Queue' : 'Unknown'}
                       </span>
                     </div>
                   </div>
