@@ -31,7 +31,10 @@ function Dashboard() {
   const [overallHealthStatus, setOverallHealthStatus] = useState('Unknown')
   const [loading, setLoading] = useState(true)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
+    const saved = localStorage.getItem('dashboard_autoRefresh')
+    return saved !== null ? saved === 'true' : true
+  })
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
   const formatNumber = (num) => {
@@ -402,7 +405,11 @@ function Dashboard() {
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator
         enabled={autoRefreshEnabled}
-        onToggle={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+        onToggle={() => {
+          const newValue = !autoRefreshEnabled
+          setAutoRefreshEnabled(newValue)
+          localStorage.setItem('dashboard_autoRefresh', newValue.toString())
+        }}
         lastRefreshTime={lastRefreshTime}
         intervalSeconds={10}
       />

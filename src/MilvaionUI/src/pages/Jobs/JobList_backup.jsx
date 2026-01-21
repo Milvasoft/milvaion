@@ -12,36 +12,29 @@ import { useTriggerJob } from '../../hooks/useTriggerJob'
 import './JobList.css'
 
 function JobList() {
-  const location = useLocation()
-  const [jobs, setJobs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [filterTag, setFilterTag] = useState(location.state?.filterByTag || null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
-  const [totalCount, setTotalCount] = useState(0)
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
-    const saved = localStorage.getItem('jobList_autoRefresh')
-    return saved !== null ? saved === 'true' : true
-  })
-  const [lastRefreshTime, setLastRefreshTime] = useState(null)
-  const [viewMode, setViewMode] = useState(() => {
-    const savedViewMode = localStorage.getItem('jobListViewMode')
-    return savedViewMode || 'list'
-  })
+const location = useLocation()
+const [jobs, setJobs] = useState([])
+const [loading, setLoading] = useState(true)
+const [error, setError] = useState(null)
+const [filterTag, setFilterTag] = useState(location.state?.filterByTag || null)
+const [searchTerm, setSearchTerm] = useState('')
+const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+const [currentPage, setCurrentPage] = useState(1)
+const [pageSize, setPageSize] = useState(20)
+const [totalCount, setTotalCount] = useState(0)
+const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
+const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
-  // Trigger modal state
-  const [showTriggerModal, setShowTriggerModal] = useState(false)
-  const [triggerJobData, setTriggerJobData] = useState('')
-  const [useCustomData, setUseCustomData] = useState(false)
-  const [selectedJobForTrigger, setSelectedJobForTrigger] = useState(null)
+// Trigger modal state
+const [showTriggerModal, setShowTriggerModal] = useState(false)
+const [triggerJobData, setTriggerJobData] = useState('')
+const [useCustomData, setUseCustomData] = useState(false)
+const [selectedJobForTrigger, setSelectedJobForTrigger] = useState(null)
 
-  const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = useModal()
-  const { triggerJob, triggering, modalProps: triggerModalProps } = useTriggerJob()
+const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = useModal()
+const { triggerJob, triggering, modalProps: triggerModalProps } = useTriggerJob()
 
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
+const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   // Debounce search term
   useEffect(() => {
@@ -172,12 +165,6 @@ function JobList() {
     setUseCustomData(false)
   }
 
-  const toggleViewMode = () => {
-    const newMode = viewMode === 'list' ? 'table' : 'list'
-    setViewMode(newMode)
-    localStorage.setItem('jobListViewMode', newMode)
-  }
-
   const getLatestStatusBadge = (status) => {
     if (status === null || status === undefined) return null
 
@@ -190,8 +177,7 @@ function JobList() {
     }
 
     const statusInfo = statusMap[status] || { icon: 'help', label: `Status ${status}`, className: 'status-unknown' }
-    return (
-      <div className={`latest-status ${statusInfo.className}`}>
+    return (      <div className={`latest-status ${statusInfo.className}`}>
         <Icon name={statusInfo.icon} size={16} />
       </div>
     )
@@ -286,28 +272,6 @@ function JobList() {
               </button>
             )}
           </div>
-          <div className="view-mode-selector">
-            <button
-              className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => {
-                if (viewMode !== 'list') toggleViewMode()
-              }}
-              title="Card View"
-            >
-              <Icon name="view_list" size={20} />
-              <span>Cards</span>
-            </button>
-            <button
-              className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
-              onClick={() => {
-                if (viewMode !== 'table') toggleViewMode()
-              }}
-              title="Table View"
-            >
-              <Icon name="table_rows" size={20} />
-              <span>Table</span>
-            </button>
-          </div>
           <Link to="/jobs/new" className="create-job-btn">
             <Icon name="add" size={20} />
             <span>Create New Job</span>
@@ -346,199 +310,98 @@ function JobList() {
         </div>
       ) : (
         <>
-          {viewMode === 'list' ? (
-            <div className="jobs-grid">
-              {jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className={`job-card ${job.isActive ? 'active' : 'inactive'}`}
-                  onClick={() => window.location.href = `/jobs/${job.id}`}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="job-card-header">
-                    <div className="job-title-section">
-                      <Link
-                        to={`/jobs/${job.id}`}
-                        className="job-name"
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                      >
-                        {job.displayName || job.name}
-                      </Link>
-                    </div>
-
-                    <div className="job-actions" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => handleTrigger(job, e)}
-                        className="action-btn trigger"
-                        title="Trigger now"
-                        disabled={!job.isActive || triggering}
-                      >
-                        <Icon name="play_arrow" size={18} />
-                      </button>
-                      <Link
-                        to={`/jobs/${job.id}/edit`}
-                        className="action-btn edit"
-                        title="Edit"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Icon name="edit" size={18} />
-                      </Link>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleDelete(job.id)
-                        }}
-                        className="action-btn delete"
-                        title="Delete"
-                      >
-                        <Icon name="delete" size={18} />
-                      </button>
-                    </div>
+          <div className="jobs-grid">
+            {jobs.map((job) => (
+              <div
+                key={job.id}
+                className={`job-card ${job.isActive ? 'active' : 'inactive'}`}
+                onClick={() => window.location.href = `/jobs/${job.id}`}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="job-card-header">
+                  <div className="job-title-section">
+                    <Link
+                      to={`/jobs/${job.id}`}
+                      className="job-name"
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      {job.displayName || job.name}
+                    </Link>
                   </div>
 
-                  <div className="job-card-body">
-                    {job.latestRun ? (
-                      <div className="job-info-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          {getLatestStatusBadge(job.latestStatus)}
-                          <span className="info-label">Latest Run</span>
-                        </div>
-
-                        <div className="info-value latest-run">
-                          <span className="run-date">{formatDateTime(job.latestRun)}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="job-info-row">
-                        <span className="info-label">Latest Run</span>
-                        <span className="info-value never-run">Never run</span>
-                      </div>
-                    )}
-
-                    <div className="job-info-row">
-                      <span className="info-label">Type</span>
-                      <span className="info-value job-type">{job.jobType}</span>
-                    </div>
-
-                    <div className="job-info-row">
-                      <span className="info-label">Schedule</span>
-                      <div className="info-value">
-                        <CronDisplay expression={job.cronExpression} showTooltip={false} />
-                      </div>
-                    </div>
-
-                    <div className="job-info-row">
-                      <span className="info-label">Concurrent Policy</span>
-                      <span className="info-value concurrent-policy">
-                        {job.concurrentExecutionPolicy === 0 ? 'Allow' :
-                         job.concurrentExecutionPolicy === 1 ? 'Skip' :
-                         job.concurrentExecutionPolicy === 2 ? 'Replace' : 'Unknown'}
-                      </span>
-                    </div>
+                  <div className="job-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => handleTrigger(job, e)}
+                      className="action-btn trigger"
+                      title="Trigger now"
+                      disabled={!job.isActive || triggering}
+                    >
+                      <Icon name="play_arrow" size={18} />
+                    </button>
+                    <Link
+                      to={`/jobs/${job.id}/edit`}
+                      className="action-btn edit"
+                      title="Edit"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Icon name="edit" size={18} />
+                    </Link>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleDelete(job.id)
+                      }}
+                      className="action-btn delete"
+                      title="Delete"
+                    >
+                      <Icon name="delete" size={18} />
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="jobs-table-container">
-              <table className="jobs-table">
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Schedule</th>
-                    <th>Latest Run</th>
-                    <th>Latest Status</th>
-                    <th>Concurrent Policy</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jobs.map((job) => (
-                    <tr
-                      key={job.id}
-                      className={`job-table-row ${job.isActive ? 'active' : 'inactive'}`}
-                      onClick={() => window.location.href = `/jobs/${job.id}`}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>
-                        <div className={`job-status-indicator ${job.isActive ? 'active' : 'inactive'}`}>
-                          <Icon name={job.isActive ? 'check_circle' : 'cancel'} size={20} />
-                        </div>
-                      </td>
-                      <td>
-                        <Link
-                          to={`/jobs/${job.id}`}
-                          className="job-name-link"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {job.displayName || job.name}
-                        </Link>
-                      </td>
-                      <td>
-                        <span className="job-type-badge">{job.jobType}</span>
-                      </td>
-                      <td>
-                        <CronDisplay expression={job.cronExpression} showTooltip={false} />
-                      </td>
-                      <td>
-                        {job.latestRun ? (
-                          <span className="latest-run-date">{formatDateTime(job.latestRun)}</span>
-                        ) : (
-                          <span className="never-run">Never run</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="table-status-cell">
-                          {getLatestStatusBadge(job.latestStatus)}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="concurrent-policy-text">
-                          {job.concurrentExecutionPolicy === 0 ? 'Allow' :
-                           job.concurrentExecutionPolicy === 1 ? 'Skip' :
-                           job.concurrentExecutionPolicy === 2 ? 'Replace' : 'Unknown'}
-                        </span>
-                      </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <div className="table-actions">
-                          <button
-                            onClick={(e) => handleTrigger(job, e)}
-                            className="action-btn trigger"
-                            title="Trigger now"
-                            disabled={!job.isActive || triggering}
-                          >
-                            <Icon name="play_arrow" size={18} />
-                          </button>
-                          <Link
-                            to={`/jobs/${job.id}/edit`}
-                            className="action-btn edit"
-                            title="Edit"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Icon name="edit" size={18} />
-                          </Link>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleDelete(job.id)
-                            }}
-                            className="action-btn delete"
-                            title="Delete"
-                          >
-                            <Icon name="delete" size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+
+                <div className="job-card-body">
+                  {job.latestRun ? (
+                    <div className="job-info-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        {getLatestStatusBadge(job.latestStatus)}
+                        <span className="info-label">Latest Run</span>
+                      </div>
+
+                      <div className="info-value latest-run">
+                        <span className="run-date">{formatDateTime(job.latestRun)}</span>
+
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="job-info-row">
+                      <span className="info-label">Latest Run</span>
+                      <span className="info-value never-run">Never run</span>
+                    </div>
+                  )}
+
+                  <div className="job-info-row">
+                    <span className="info-label">Type</span>
+                    <span className="info-value job-type">{job.jobType}</span>
+                  </div>
+
+                  <div className="job-info-row">
+                    <span className="info-label">Schedule</span>
+                    <div className="info-value">
+                      <CronDisplay expression={job.cronExpression} showTooltip={false} />
+                    </div>
+                  </div>
+
+                  <div className="job-info-row">
+                    <span className="info-label">Concurrent Policy</span>
+                    <span className="info-value concurrent-policy">
+                      {job.concurrentExecutionPolicy === 0 ? 'Skip' : job.concurrentExecutionPolicy === 1 ? 'Queue' : 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Pagination */}
           <div className="pagination-container">
@@ -635,11 +498,7 @@ function JobList() {
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator
         enabled={autoRefreshEnabled}
-        onToggle={() => {
-          const newValue = !autoRefreshEnabled
-          setAutoRefreshEnabled(newValue)
-          localStorage.setItem('jobList_autoRefresh', newValue.toString())
-        }}
+        onToggle={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
         lastRefreshTime={lastRefreshTime}
         intervalSeconds={30}
       />

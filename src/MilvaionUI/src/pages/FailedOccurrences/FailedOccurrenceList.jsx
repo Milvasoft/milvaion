@@ -20,7 +20,10 @@ function FailedOccurrenceList() {
   const [filterResolved, setFilterResolved] = useState(null) // null = all, true = resolved, false = unresolved
   const [filterFailureType, setFilterFailureType] = useState(null)
   const [selectedJobs, setSelectedJobs] = useState([])
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
+    const saved = localStorage.getItem('failedOccurrences_autoRefresh')
+    return saved !== null ? saved === 'true' : true
+  })
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
   const [isInitialLoad, setIsInitialLoad] = useState(true)
@@ -560,7 +563,11 @@ function FailedOccurrenceList() {
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator
         enabled={autoRefreshEnabled}
-        onToggle={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+        onToggle={() => {
+          const newValue = !autoRefreshEnabled
+          setAutoRefreshEnabled(newValue)
+          localStorage.setItem('failedOccurrences_autoRefresh', newValue.toString())
+        }}
         lastRefreshTime={lastRefreshTime}
         intervalSeconds={30}
       />

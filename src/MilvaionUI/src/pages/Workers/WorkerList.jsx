@@ -10,7 +10,10 @@ function WorkerList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [expandedWorker, setExpandedWorker] = useState(null)
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
+    const saved = localStorage.getItem('workers_autoRefresh')
+    return saved !== null ? saved === 'true' : true
+  })
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
   const loadWorkers = useCallback(async () => {
@@ -326,7 +329,11 @@ function WorkerList() {
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator
         enabled={autoRefreshEnabled}
-        onToggle={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+        onToggle={() => {
+          const newValue = !autoRefreshEnabled
+          setAutoRefreshEnabled(newValue)
+          localStorage.setItem('workers_autoRefresh', newValue.toString())
+        }}
         lastRefreshTime={lastRefreshTime}
         intervalSeconds={30}
       />

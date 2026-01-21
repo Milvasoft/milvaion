@@ -11,7 +11,10 @@ function AdminDashboard() {
   const [jobStats, setJobStats] = useState(null)
   const [circuitBreakerStats, setCircuitBreakerStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState(() => {
+    const saved = localStorage.getItem('adminDashboard_autoRefresh')
+    return saved !== null ? saved === 'true' : true
+  })
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
   const [emergencyStopDialogOpen, setEmergencyStopDialogOpen] = useState(false)
   const [stopReason, setStopReason] = useState('')
@@ -443,7 +446,11 @@ function AdminDashboard() {
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator
         enabled={autoRefresh}
-        onToggle={() => setAutoRefresh(!autoRefresh)}
+        onToggle={() => {
+          const newValue = !autoRefresh
+          setAutoRefresh(newValue)
+          localStorage.setItem('adminDashboard_autoRefresh', newValue.toString())
+        }}
         lastRefreshTime={lastRefreshTime}
         intervalSeconds={5}
       />

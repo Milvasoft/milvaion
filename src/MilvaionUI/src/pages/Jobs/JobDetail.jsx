@@ -29,7 +29,10 @@ const [pageSize, setPageSize] = useState(10)
 const [showTriggerModal, setShowTriggerModal] = useState(false)
 const [triggerJobData, setTriggerJobData] = useState('')
 const [useCustomData, setUseCustomData] = useState(false)
-const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
+const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
+  const saved = localStorage.getItem('jobDetail_autoRefresh')
+  return saved !== null ? saved === 'true' : true
+})
 const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
 const subscribedOccurrences = useRef(new Set())
@@ -768,7 +771,11 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator
         enabled={autoRefreshEnabled}
-        onToggle={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+        onToggle={() => {
+          const newValue = !autoRefreshEnabled
+          setAutoRefreshEnabled(newValue)
+          localStorage.setItem('jobDetail_autoRefresh', newValue.toString())
+        }}
         lastRefreshTime={lastRefreshTime}
         intervalSeconds={10}
       />
