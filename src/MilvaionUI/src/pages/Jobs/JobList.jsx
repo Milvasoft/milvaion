@@ -496,9 +496,8 @@ function JobList() {
                       </td>
                       <td>
                         <span className="concurrent-policy-text">
-                          {job.concurrentExecutionPolicy === 0 ? 'Allow' :
-                           job.concurrentExecutionPolicy === 1 ? 'Skip' :
-                           job.concurrentExecutionPolicy === 2 ? 'Replace' : 'Unknown'}
+                          {job.concurrentExecutionPolicy === 0 ? 'Skip' :
+                            job.concurrentExecutionPolicy === 1 ? 'Queue' : 'Unknown'}
                         </span>
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
