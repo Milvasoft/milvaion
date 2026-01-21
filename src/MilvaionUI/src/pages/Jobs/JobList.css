@@ -1,5 +1,4 @@
 .job-list {
-  max-width: 1400px;
   margin: 0 auto;
   padding: 0 1rem;
 }
@@ -46,6 +45,8 @@
 .trigger-jobdata-input {
   margin-top: 1rem;
 }
+
+.trigger-jobdata-hint {
   margin-top: 0.5rem;
   color: var(--text-muted);
   font-size: 0.8rem;
@@ -111,7 +112,6 @@
   gap: 0.75rem;
   align-items: center;
   flex-wrap: wrap;
-  width: 100%;
   justify-content: flex-end;
 }
 
@@ -291,8 +291,11 @@
 .jobs-grid {
   display: flex;
   flex-direction: column;
+  padding: 1rem;
   gap: 1rem;
   margin-bottom: 2rem;
+  background: transparent;
+  border-radius: 12px;
 }
 
 /* Job Card */
@@ -300,43 +303,44 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  overflow: hidden;
-  transition: all 0.3s;
+  transition: all 0.2s;
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  grid-template-areas: "header body actions";
-  align-items: center;
+  grid-template-rows: auto auto;
   padding: 1.5rem;
-  gap: 1.5rem;
-  min-height: 100px;
+  gap: 1rem;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+  border-left: 4px solid transparent;
 }
 
-.job-card:hover {
-  transform: translateX(4px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--accent-color);
+.job-card.active {
+  border-left-color: #4caf50;
 }
+
+.job-card.inactive {
+  border-left-color: #ffc107;
+}
+
+  .job-card:hover {
+    background: var(--bg-secondary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
 
 .job-card-header {
-  grid-area: header;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   gap: 1rem;
-  min-width: 200px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .job-title-section {
-  flex: 1;
-  min-width: 150px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
 }
 
 .job-name {
@@ -347,7 +351,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .job-name:hover {
@@ -358,16 +363,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: 1rem;
   gap: 0.25rem;
   padding: 0.5rem 1rem;
   border-radius: 16px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
   border: 2px solid;
-  min-height: 36px;
+  min-height: 32px;
+  width: fit-content;
 }
 
 .job-status-badge.active {
@@ -383,39 +388,39 @@
 }
 
 .job-card-body {
-  grid-area: body;
   display: grid;
-  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1.5rem;
-  align-items: center;
-  justify-items: center;
-  min-width: 420px;
+  width: 100%;
+  align-items: start;
 }
 
 .job-info-row {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
-  align-items: center;
-  text-align: center;
+  gap: 0.5rem;
+  align-items: flex-start;
+  text-align: left;
   width: 100%;
+  min-width: 0;
 }
 
 .info-label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .info-value {
   color: var(--text-primary);
   font-size: 0.95rem;
-  min-height: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
 }
 
 .info-value.job-type {
@@ -423,18 +428,30 @@
   background-color: rgba(100, 108, 255, 0.1);
   padding: 0.375rem 0.625rem;
   border-radius: 4px;
+  max-width: fit-content;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.info-value.concurrent-policy {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .latest-run {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  align-items: center;
+  align-items: flex-start;
+  width: 100%;
 }
 
 .run-date {
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   color: #999;
+  white-space: nowrap;
 }
 
 .never-run {
@@ -444,49 +461,42 @@
 }
 
 .latest-status {
-  padding: 0.25rem 0.75rem;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   border-radius: 10px;
   font-size: 0.8rem;
   font-weight: 500;
   white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
 }
 
-.latest-status.status-success {
-  background-color: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
-}
+  .latest-status.status-success {
+    color: #4caf50;
+    max-height: 1.5rem;
+  }
 
 .latest-status.status-failed {
-  background-color: rgba(244, 67, 54, 0.2);
   color: #f44336;
 }
 
 .latest-status.status-running {
-  background-color: rgba(33, 150, 243, 0.2);
   color: #2196f3;
 }
 
 .latest-status.status-pending {
-  background-color: rgba(158, 158, 158, 0.2);
   color: #9e9e9e;
 }
 
 .latest-status.status-cancelled {
-  background-color: rgba(255, 152, 0, 0.2);
   color: #ff9800;
 }
 
 .job-actions {
-  grid-area: actions;
   display: flex;
   gap: 0.625rem;
   flex-shrink: 0;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .action-btn {
@@ -620,7 +630,7 @@
 /* Large tablet / small desktop breakpoint */
 @media (max-width: 1400px) {
   .job-card-body {
-    min-width: 360px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 1rem;
   }
 }
@@ -628,21 +638,18 @@
 /* Tablet breakpoint */
 @media (max-width: 1200px) {
   .job-card {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "header"
-      "body"
-      "actions";
     gap: 1.25rem;
   }
 
   .job-card-header {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .job-title-section {
     max-width: none;
     flex: 1;
+    min-width: 0;
   }
 
   .job-name {
@@ -651,14 +658,13 @@
   }
 
   .job-card-body {
-    min-width: auto;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     width: 100%;
   }
 
   .job-actions {
-    justify-content: center;
-    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 }
 
@@ -682,17 +688,20 @@
   .header-content h1 {
     font-size: 1.5rem;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .header-actions {
     width: 100%;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 0.75rem;
   }
 
   .search-box {
+    flex: 1;
+    min-width: 200px;
     max-width: 100%;
-    width: 100%;
   }
 
   .search-input {
@@ -700,13 +709,20 @@
   }
 
   .create-job-btn {
-    width: 100%;
+    flex: 1;
+    min-width: 200px;
     justify-content: center;
   }
 
   .filter-tag-display {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .tag-chip {
+    max-width: 200px;
   }
 
   .job-card {
@@ -719,9 +735,10 @@
   }
 
   .job-card-header {
-    flex-direction: row;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
     width: 100%;
+    gap: 1rem;
   }
 
   .job-title-section {
@@ -769,18 +786,16 @@
 
   .job-actions {
     width: 100%;
-    justify-content: center;
-    gap: 0.75rem;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
   .action-btn {
     flex: 1;
     min-width: 44px;
+    max-width: 120px;
   }
 
-    .action-btn span {
-      display: inline-flex !important;
-    }
   .empty-state-card {
     padding: 2.5rem 1.25rem;
   }
@@ -811,10 +826,12 @@
   .pagination {
     width: 100%;
     justify-content: center;
+    overflow-x: auto;
   }
 
   .pagination .btn {
     padding: 0.5rem;
+    flex-shrink: 0;
   }
 
   .page-info {
@@ -838,10 +855,30 @@
 
   .header-content h1 {
     font-size: 1.35rem;
+    flex-wrap: wrap;
+  }
+
+  .header-actions {
+    flex-direction: column;
+  }
+
+  .search-box,
+  .create-job-btn {
+    width: 100%;
+    max-width: 100%;
   }
 
   .job-card {
     padding: 1rem;
+  }
+
+  .job-actions {
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .action-btn {
+    max-width: 80px;
   }
 
   .job-name {
@@ -866,9 +903,10 @@
   }
 
   .pagination .btn {
-    min-width: 40px;
-    min-height: 40px;
-    font-size: 0.9rem;
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 0.85rem;
+    padding: 0.375rem;
   }
 
   .page-ellipsis {

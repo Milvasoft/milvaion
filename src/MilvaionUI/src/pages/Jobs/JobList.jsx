@@ -178,10 +178,9 @@ const [isInitialLoad, setIsInitialLoad] = useState(true)
 
     const statusInfo = statusMap[status] || { icon: 'help', label: `Status ${status}`, className: 'status-unknown' }
     return (
-      <span className={`latest-status ${statusInfo.className}`}>
+      <div className={`latest-status ${statusInfo.className}`}>
         <Icon name={statusInfo.icon} size={16} />
-        {statusInfo.label}
-      </span>
+      </div>
     )
   }
 
@@ -316,7 +315,7 @@ const [isInitialLoad, setIsInitialLoad] = useState(true)
             {jobs.map((job) => (
               <div
                 key={job.id}
-                className="job-card"
+                className={`job-card ${job.isActive ? 'active' : 'inactive'}`}
                 onClick={() => window.location.href = `/jobs/${job.id}`}
                 style={{ cursor: 'pointer' }}
               >
@@ -329,14 +328,59 @@ const [isInitialLoad, setIsInitialLoad] = useState(true)
                     >
                       {job.displayName || job.name}
                     </Link>
-                    <span className={`job-status-badge ${job.isActive ? 'active' : 'inactive'}`}>
-                      <Icon name={job.isActive ? 'check_circle' : 'pause_circle'} size={16} />
-                      {job.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                  </div>
+
+                  <div className="job-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => handleTrigger(job, e)}
+                      className="action-btn trigger"
+                      title="Trigger now"
+                      disabled={!job.isActive || triggering}
+                    >
+                      <Icon name="play_arrow" size={18} />
+                    </button>
+                    <Link
+                      to={`/jobs/${job.id}/edit`}
+                      className="action-btn edit"
+                      title="Edit"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Icon name="edit" size={18} />
+                    </Link>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleDelete(job.id)
+                      }}
+                      className="action-btn delete"
+                      title="Delete"
+                    >
+                      <Icon name="delete" size={18} />
+                    </button>
                   </div>
                 </div>
 
                 <div className="job-card-body">
+                  {job.latestRun ? (
+                    <div className="job-info-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        {getLatestStatusBadge(job.latestStatus)}
+                        <span className="info-label">Latest Run</span>
+                      </div>
+
+                      <div className="info-value latest-run">
+                        <span className="run-date">{formatDateTime(job.latestRun)}</span>
+
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="job-info-row">
+                      <span className="info-label">Latest Run</span>
+                      <span className="info-value never-run">Never run</span>
+                    </div>
+                  )}
+
                   <div className="job-info-row">
                     <span className="info-label">Type</span>
                     <span className="info-value job-type">{job.jobType}</span>
@@ -349,52 +393,12 @@ const [isInitialLoad, setIsInitialLoad] = useState(true)
                     </div>
                   </div>
 
-                  {job.latestRun && (
-                    <div className="job-info-row">
-                      <span className="info-label">Latest Run</span>
-                      <div className="info-value latest-run">
-                        <span className="run-date">{formatDateTime(job.latestRun)}</span>
-                        {getLatestStatusBadge(job.latestStatus)}
-                      </div>
-                    </div>
-                  )}
-
-                  {!job.latestRun && (
-                    <div className="job-info-row">
-                      <span className="info-label">Status</span>
-                      <span className="info-value never-run">Never run</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="job-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={(e) => handleTrigger(job, e)}
-                    className="action-btn trigger"
-                    title="Trigger now"
-                    disabled={!job.isActive || triggering}
-                  >
-                    <Icon name="play_arrow" size={18} />
-                  </button>
-                  <Link
-                    to={`/jobs/${job.id}/edit`}
-                    className="action-btn edit"
-                    title="Edit"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Icon name="edit" size={18} />
-                  </Link>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleDelete(job.id)
-                    }}
-                    className="action-btn delete"
-                    title="Delete"
-                  >
-                    <Icon name="delete" size={18} />
-                  </button>
+                  <div className="job-info-row">
+                    <span className="info-label">Concurrent Policy</span>
+                    <span className="info-value concurrent-policy">
+                      {job.concurrentExecutionPolicy === 0 ? 'Skip' : job.concurrentExecutionPolicy === 1 ? 'Queue' : 'Unknown'}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}

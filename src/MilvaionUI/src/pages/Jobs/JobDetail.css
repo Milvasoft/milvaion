@@ -366,10 +366,12 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-align: left;
 }
 
 .info-value {
   color: var(--text-primary);
+  text-align: left;
 }
 
 .info-value.code {
@@ -657,6 +659,7 @@
   font-weight: 600;
   color: #646cff;
   font-family: 'Courier New', monospace;
+  margin: 0 !important;
 }
 
 .version-history-btn {

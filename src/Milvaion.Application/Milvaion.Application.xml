@@ -3193,6 +3193,11 @@
             Status of the job occurrence.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.OccurrenceUpdatedSignal.WorkerId">
+            <summary>
+            Worker id of the job occurrence.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.OccurrenceUpdatedSignal.StartTime">
             <summary>
             Start time of the job occurrence.
