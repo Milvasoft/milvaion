@@ -14,7 +14,9 @@ A distributed job scheduling system built on .NET 10
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 [![Documentation](https://img.shields.io/badge/docs%20-official%20web-blue)](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
-[![Worker Templates NuGet](https://img.shields.io/nuget/v/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) [![Worker Sdk NuGet](https://img.shields.io/nuget/dt/Milvasoft.Helpers)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
+[![Worker Templates NuGet](https://img.shields.io/nuget/v/Milvasoft.Templates.Milvaion)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) [![Worker Sdk NuGet](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
+
+[Full detailed documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
 
 ---
 
