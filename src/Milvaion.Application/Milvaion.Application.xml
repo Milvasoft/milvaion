@@ -7024,6 +7024,11 @@
         <member name="M:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute.OnAuthorization(Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)">
             <inheritdoc/>
         </member>
+        <member name="T:Milvaion.Application.Utils.Constants.CacheConstant">
+            <summary>
+            Represents a class that contains global constants for the application.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Constants.ConstantJsonOptions">
             <summary>
             Static JSON serializer options.
@@ -8075,6 +8080,11 @@
         <member name="P:Milvaion.Application.Utils.Models.Options.StatusTrackerOptions.BatchIntervalMs">
             <summary>
             Timeout (in milliseconds) for batching status updates.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.StatusTrackerOptions.ExecutionLogMaxCount">
+            <summary>
+            Maximum number of execution log entries to keep per job occurrence.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions">

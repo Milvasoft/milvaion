@@ -71,7 +71,8 @@ class AuthService {
         return false
       }
 
-      const response = await api.post('/v1.0/account/refresh-login', {
+      // Fix: Correct endpoint path to match backend route
+      const response = await api.post('/account/login/refresh', {
         userName: user.username,
         refreshToken: refreshToken,
         deviceId: this.deviceId

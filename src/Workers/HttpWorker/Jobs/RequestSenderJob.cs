@@ -91,7 +91,7 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
                 StatusCode = (int)response.StatusCode,
                 Status = response.StatusCode.ToString(),
                 ContentLength = responseBody.Length,
-                Body = responseBody.Length > 2000 ? responseBody[..2000] + "...(truncated)" : responseBody
+                Body = responseBody.Length > jobData.MaxResponseLength ? responseBody[..jobData.MaxResponseLength] + "...(truncated)" : responseBody
             }, _jsonOptions);
         }
         finally
@@ -880,6 +880,12 @@ public class HttpJobData
     /// </summary>
     [Description("Cookies to send with the request as key-value pairs")]
     public Dictionary<string, string> Cookies { get; set; }
+
+    /// <summary>
+    /// Response body maximum character length to read.
+    /// </summary>
+    [Description("Response body maximum character length to read.")]
+    public int MaxResponseLength { get; set; } = 10000;
 }
 
 /// <summary>

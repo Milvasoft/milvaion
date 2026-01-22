@@ -20,8 +20,8 @@ using Milvaion.Infrastructure.Services.Monitoring;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Redis;
 using Milvasoft.Caching.Builder;
-using Milvasoft.Caching.InMemory;
-using Milvasoft.Caching.InMemory.Accessor;
+using Milvasoft.Caching.Redis;
+using Milvasoft.Caching.Redis.Accessor;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.DataAccess.EfCore;
 using Milvasoft.Interception.Decorator;
@@ -61,7 +61,7 @@ public static class InfraServiceCollectionExtensions
         services.AddMilvaion(configurationManager);
 
         services.AddMilvaCaching(configurationManager)
-                .WithInMemoryAccessor();
+                .WithRedisAccessor();
 
         services.AddMilvaInterception(ApplicationAssembly.Assembly, configurationManager)
                 .WithLogInterceptor()
@@ -73,7 +73,7 @@ public static class InfraServiceCollectionExtensions
                 .PostConfigureInterceptionOptions(opt =>
                 {
                     opt.Response.GenerateMetadataFunc = MilvaionExtensions.GenerateMetadata;
-                    opt.Cache.CacheAccessorType = typeof(IMemoryCacheAccessor);
+                    opt.Cache.CacheAccessorType = typeof(IRedisAccessor);
                 })
                 .PostConfigureTransactionInterceptionOptions(opt =>
                 {
@@ -137,7 +137,7 @@ public static class InfraServiceCollectionExtensions
 
         // Register job cancellation service
         services.AddSingleton<IJobCancellationService, JobCancellationService>();
-        services.AddSingleton<IAdminService, AdminService>();
+        services.AddScoped<IAdminService, AdminService>();
         services.AddSingleton<IMemoryStatsRegistry, MemoryStatsRegistry>();
 
         services.AddRedisStorage(configuration)

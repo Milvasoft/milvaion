@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Milvaion.Application.Dtos.AdminDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Enums;
 using Milvaion.Application.Utils.Extensions;
 using Milvaion.Infrastructure.BackgroundServices.Base;
@@ -10,6 +11,7 @@ using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.Redis;
 using Milvaion.Infrastructure.Services.Redis.Utils;
 using Milvasoft.Components.Rest.MilvaResponse;
+using Milvasoft.Interception.Interceptors.Cache;
 
 namespace Milvaion.Infrastructure.Services;
 
@@ -192,11 +194,9 @@ public class AdminService(IServiceProvider serviceProvider) : IAdminService
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Database statistics</returns>
+    [Cache(CacheConstant.Key.DatabaseStats, CacheConstant.Time.Seconds120)]
     public async Task<Response<DatabaseStatisticsDto>> GetDatabaseStatisticsAsync(CancellationToken cancellationToken)
     {
-        //TODO: Cache
-        //TODO: optimize
-
         // Run all queries in parallel with separate DbContext instances for each
         var tableSizesTask = Task.Run(async () =>
         {

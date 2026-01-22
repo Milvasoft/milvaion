@@ -372,8 +372,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     occurrence.StatusChangeLogs ??= [];
 
                     // Limit status change logs to prevent unbounded growth
-                    if (occurrence.StatusChangeLogs.Count >= 100)
-                        occurrence.StatusChangeLogs = [.. occurrence.StatusChangeLogs.OrderByDescending(l => l.Timestamp).Take(100)];
+                    if (occurrence.StatusChangeLogs.Count >= _options.ExecutionLogMaxCount)
+                        occurrence.StatusChangeLogs = [.. occurrence.StatusChangeLogs.OrderByDescending(l => l.Timestamp).Take(_options.ExecutionLogMaxCount)];
 
                     if (previousStatus != newStatus)
                         occurrence.StatusChangeLogs.Add(new OccurrenceStatusChangeLog

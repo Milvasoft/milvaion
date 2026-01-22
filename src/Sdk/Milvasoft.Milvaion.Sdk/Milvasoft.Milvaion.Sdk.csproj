@@ -14,7 +14,7 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="AsyncFixer" Version="1.6.0">
+		<PackageReference Include="AsyncFixer" Version="2.1.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
@@ -25,7 +25,7 @@
 
 	<PropertyGroup>
 		<PackageId>Milvasoft.Milvaion.Sdk</PackageId>
-		<PackageVersion>10.0.10</PackageVersion>
+		<PackageVersion>10.0.11</PackageVersion>
 		<Authors>Milvasoft Corporation</Authors>
 		<Product>Milvasoft.Milvaion.Sdk</Product>
 		<Description>Core SDK for Milvaion Scheduler - Domain models and shared types.</Description>

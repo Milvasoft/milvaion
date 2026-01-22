@@ -23,7 +23,7 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="AsyncFixer" Version="1.6.0">
+		<PackageReference Include="AsyncFixer" Version="2.1.0">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
@@ -31,6 +31,7 @@
 		<PackageReference Include="ClosedXML" Version="0.105.0" />
 		<PackageReference Include="Cronos" Version="0.11.1" />
 		<PackageReference Include="Milvasoft.Caching.InMemory" Version="10.0.0" />
+		<PackageReference Include="Milvasoft.Caching.Redis" Version="10.0.0" />
 		<PackageReference Include="Milvasoft.JobScheduling" Version="10.0.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />

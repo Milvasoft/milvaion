@@ -29,7 +29,7 @@ const processQueue = (error, token = null) => {
 api.interceptors.request.use(
   (config) => {
     // Skip auth for login and refresh endpoints
-    if (config.url?.includes('/account/login') || config.url?.includes('/account/refresh-login')) {
+    if (config.url?.includes('/account/login')) {
       return config
     }
 
@@ -57,7 +57,7 @@ api.interceptors.response.use(
     }
 
     // Skip refresh for login/refresh endpoints themselves
-    if (originalRequest.url?.includes('/account/login') || originalRequest.url?.includes('/account/refresh-login')) {
+    if (originalRequest.url?.includes('/account/login')) {
       return Promise.reject(error)
     }
 

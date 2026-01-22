@@ -9,8 +9,8 @@ namespace Milvaion.Infrastructure.Services.Redis;
 /// Redis-based job cancellation service implementation.
 /// </summary>
 public class JobCancellationService(IConnectionMultiplexer redis,
-                                   IRedisCircuitBreaker circuitBreaker,
-                                   IOptions<RedisOptions> options) : IJobCancellationService
+                                    IRedisCircuitBreaker circuitBreaker,
+                                    IOptions<RedisOptions> options) : IJobCancellationService
 {
     private readonly IConnectionMultiplexer _redis = redis;
     private readonly IRedisCircuitBreaker _circuitBreaker = circuitBreaker;

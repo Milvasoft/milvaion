@@ -112,9 +112,7 @@ public static class WorkerServiceCollectionExtensions
 
             // Set JobType on config for job data discovery
             if (jobConfigs.TryGetValue(jobName, out var config))
-            {
                 config.JobType = jobType;
-            }
 
             Console.WriteLine($"Registered job: {jobName} → {jobType.FullName}");
         }

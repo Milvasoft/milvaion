@@ -19,4 +19,9 @@ public class StatusTrackerOptions : BackgrounServiceOptions
     /// Timeout (in milliseconds) for batching status updates.
     /// </summary>
     public int BatchIntervalMs { get; set; } = 500;
+
+    /// <summary>
+    /// Maximum number of execution log entries to keep per job occurrence.
+    /// </summary>
+    public int ExecutionLogMaxCount { get; set; } = 100;
 }

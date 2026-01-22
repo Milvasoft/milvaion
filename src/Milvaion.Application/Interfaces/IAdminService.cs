@@ -1,5 +1,6 @@
 ﻿using Milvaion.Application.Dtos.AdminDtos;
 using Milvasoft.Components.Rest.MilvaResponse;
+using Milvasoft.Core.Abstractions;
 
 namespace Milvaion.Application.Interfaces;
 
@@ -9,7 +10,7 @@ namespace Milvaion.Application.Interfaces;
 /// <remarks>
 /// Initializes a new instance of the <see cref="IAdminService"/> class.
 /// </remarks>
-public interface IAdminService
+public interface IAdminService : IInterceptable
 {
     /// <summary>
     /// Gets queue statistics for all queues.
