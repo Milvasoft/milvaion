@@ -45,13 +45,13 @@ public class SyncOrchestratorService(OutboxService outboxService,
                     // Sync status updates
                     var statusResult = await _outboxService.SyncStatusUpdatesAsync(maxBatchSize: 100, maxRetries: 3, cancellationToken: stoppingToken);
 
-                    if (!statusResult.Skipped)
+                    if (!statusResult.Skipped && (statusResult.SyncedCount > 0 || statusResult.FailedCount > 0))
                         _logger?.Information("Status sync: {Message} (Synced: {Synced}, Failed: {Failed})", statusResult.Message, statusResult.SyncedCount, statusResult.FailedCount);
 
                     // Sync logs
                     var logsResult = await _outboxService.SyncLogsAsync(maxBatchSize: 1000, maxRetries: 3, cancellationToken: stoppingToken);
 
-                    if (!logsResult.Skipped)
+                    if (!logsResult.Skipped && (logsResult.SyncedCount > 0 || logsResult.FailedCount > 0))
                         _logger?.Information("Logs sync: {Message} (Synced: {Synced}, Failed: {Failed})", logsResult.Message, logsResult.SyncedCount, logsResult.FailedCount);
                 }
                 else

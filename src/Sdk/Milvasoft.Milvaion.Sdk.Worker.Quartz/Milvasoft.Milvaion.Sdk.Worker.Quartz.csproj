@@ -26,7 +26,7 @@
 	</ItemGroup>
 
 	<PropertyGroup>
-		<PackageVersion>10.1.1</PackageVersion>
+		<PackageVersion>10.1.2</PackageVersion>
 		<Authors>Milvasoft Corporation</Authors>
 		<Copyright>Milvasoft Yazılım Bilişim Araştırma Geliştirme Danışmanlık Sanayi ve Ticaret Ltd.Şti.</Copyright>
 		<RepositoryUrl>https://github.com/Milvasoft/milvaion-api</RepositoryUrl>

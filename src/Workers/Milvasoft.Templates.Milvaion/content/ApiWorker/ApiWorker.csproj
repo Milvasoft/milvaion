@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
-    <PackageReference Include="Milvasoft.Milvaion.Sdk.Worker" Version="10.1.0" />
+    <PackageReference Include="Milvasoft.Milvaion.Sdk.Worker" Version="10.1.2" />
   </ItemGroup>
 
   <ItemGroup>
