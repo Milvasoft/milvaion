@@ -4,7 +4,6 @@ using Milvaion.Domain.ContentManagement;
 using Milvaion.Domain.UI;
 using Milvasoft.DataAccess.EfCore.Bulk.DbContextBase;
 using Milvasoft.DataAccess.EfCore.Configuration;
-using Milvasoft.Milvaion.Sdk.Domain;
 
 namespace Milvaion.Infrastructure.Persistence.Context;
 

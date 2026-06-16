@@ -163,7 +163,8 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                     var command = new TriggerWorkflowCommand
                     {
                         WorkflowId = workflow.Id,
-                        Reason = "Cron schedule"
+                        Reason = "Cron schedule",
+                        ShouldLogActivity = false,
                     };
 
                     await mediator.Send(command, cancellationToken);
@@ -908,6 +909,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 ExecutionTimeoutSeconds = job.ExecutionTimeoutSeconds,
                 Version = job.Version,
                 DisplayName = job.DisplayName,
+                CreatorUserName = "WorkflowEngine",
             };
 
             var published = await _rabbitMQPublisher.PublishJobAsync(jobForDispatch, occ.Id, cancellationToken);

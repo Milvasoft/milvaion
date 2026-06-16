@@ -1,5 +1,4 @@
 using Milvasoft.Components.CQRS.Command;
-using Milvasoft.Milvaion.Sdk.Domain.Enums;
 
 namespace Milvaion.Application.Features.Workflows.CreateWorkflow;
 
@@ -59,7 +58,7 @@ public record CreateWorkflowCommand : ICommand<Guid>
     /// </summary>
     public List<CreateWorkflowEdgeDto> Edges { get; set; } = [];
 
-    }
+}
 
 /// <summary>
 /// DTO for creating a workflow step.

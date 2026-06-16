@@ -53,6 +53,6 @@ public class GetActivityLogListQueryHandler(IMilvaionRepositoryBase<ActivityLog>
         if (activityName.StartsWith(_deletePrefix))
             return _milvaLocalizer[MessageKey.UserActivityDeleteMessage, $"{_milvaLocalizer[_globalPrefix + activityName[_deletePrefix.Length..]]}"];
 
-        return activityName;
+        return _milvaLocalizer[activityName];
     }
 }

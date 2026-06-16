@@ -12,7 +12,7 @@ namespace Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence;
 /// Handles job occurrence cancellation by publishing cancellation signal to Redis Pub/Sub.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.DeleteScheduledJob)] // Reuse existing activity for now
+[UserActivityTrack(UserActivity.CancelJobOccurrence)]
 public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
                                                 IMilvaionRepositoryBase<JobOccurrenceLog> OccurrenceLogRepository,
                                                 IJobCancellationService CancellationService,

@@ -126,7 +126,7 @@ public class EnumTests
         var values = Enum.GetValues<UserActivity>();
 
         // Assert
-        values.Should().HaveCount(22);
+        values.Should().HaveCount(29);
     }
 
     [Fact]

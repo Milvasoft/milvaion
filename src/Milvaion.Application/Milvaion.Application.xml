@@ -3992,6 +3992,16 @@
             Projection expression for mapping CachedWorker to WorkerDto.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.TriggerWorkflowResponse">
+            <summary>
+            Trigger workflow response containing the created WorkflowRun Id. The frontend can use this Id to track the workflow run status and details.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.TriggerWorkflowResponse.ShouldLogActivity">
+            <summary>
+            Determines whether this activity will be logged to database by the <see cref="T:Milvaion.Application.Utils.Aspects.UserActivityLogAspect.UserActivityLogInterceptor"/> or not. Default is true, so the activity will be logged.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto">
             <summary>
             Data transfer object for workflow detail.
@@ -7707,6 +7717,11 @@
             Takes highest priority — overrides base data, design-time step override, and global job data.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.ShouldLogActivity">
+            <summary>
+            Indicates whether this workflow trigger should be logged as a user activity by <see cref="T:Milvaion.Application.Utils.Aspects.UserActivityLogAspect.UserActivityLogInterceptor"/>.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandHandler">
             <summary>
             Handles workflow triggering. Creates a WorkflowRun with step runs for all steps.
@@ -8115,6 +8130,16 @@
             <param name="hasMetadataResponse"></param>
             <param name="pageName"></param>
             <returns></returns>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.IHasActiviyLogDecision">
+            <summary>
+            Indicates that the implementing class has a decision on whether to log the activity or not. Classes implementing this interface can control the logging behavior of their activities by setting the <see cref="P:Milvaion.Application.Interfaces.IHasActiviyLogDecision.ShouldLogActivity"/> property.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IHasActiviyLogDecision.ShouldLogActivity">
+            <summary>
+            Indicates whether the activity should be logged or not. If true, the activity will be logged; if false, it will not be logged.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher">
             <summary>

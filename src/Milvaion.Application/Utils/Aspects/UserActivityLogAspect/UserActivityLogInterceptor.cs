@@ -28,9 +28,16 @@ public partial class UserActivityLogInterceptor(IServiceProvider serviceProvider
 
             if (response.IsSuccess)
             {
-
                 try
                 {
+                    if (call.ReturnType.CanAssignableTo(typeof(IHasMetadata)))
+                    {
+                        var metaResponse = call.ReturnValue as IHasMetadata;
+
+                        if (metaResponse?.GetResponseDataTypePair().Data is IHasActiviyLogDecision activityDecision && !activityDecision.ShouldLogActivity)
+                            return;
+                    }
+
                     var activityLogAttribute = call.GetInterceptorAttribute<UserActivityTrackAttribute>();
 
                     var entity = new ActivityLog

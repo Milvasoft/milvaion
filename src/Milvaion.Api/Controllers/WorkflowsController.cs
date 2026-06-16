@@ -71,7 +71,7 @@ public class WorkflowsController(IMediator mediator) : ControllerBase
     /// </summary>
     [Auth(PermissionCatalog.WorkflowManagement.Trigger)]
     [HttpPost("workflow/trigger")]
-    public Task<Response<Guid>> TriggerWorkflowAsync(TriggerWorkflowCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
+    public Task<Response<TriggerWorkflowResponse>> TriggerWorkflowAsync(TriggerWorkflowCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
     /// Cancels a running workflow (cancels running steps, skips pending steps).

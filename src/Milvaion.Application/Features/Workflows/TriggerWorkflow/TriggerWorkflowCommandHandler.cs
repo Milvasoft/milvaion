@@ -1,3 +1,4 @@
+using Milvaion.Application.Dtos.WorkflowDtos;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
@@ -10,28 +11,28 @@ namespace Milvaion.Application.Features.Workflows.TriggerWorkflow;
 /// The WorkflowEngine background service picks up Pending runs and dispatches root steps.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.CreateScheduledJob)]
+[UserActivityTrack(UserActivity.TriggerWorkflow)]
 public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> WorkflowRepository,
-                                             IMilvaionRepositoryBase<WorkflowRun> RunRepository) : IInterceptable, ICommandHandler<TriggerWorkflowCommand, Guid>
+                                             IMilvaionRepositoryBase<WorkflowRun> RunRepository) : IInterceptable, ICommandHandler<TriggerWorkflowCommand, TriggerWorkflowResponse>
 {
     private readonly IMilvaionRepositoryBase<Workflow> _workflowRepository = WorkflowRepository;
     private readonly IMilvaionRepositoryBase<WorkflowRun> _runRepository = RunRepository;
 
     /// <inheritdoc/>
-    public async Task<Response<Guid>> Handle(TriggerWorkflowCommand request, CancellationToken cancellationToken)
+    public async Task<Response<TriggerWorkflowResponse>> Handle(TriggerWorkflowCommand request, CancellationToken cancellationToken)
     {
         var workflow = await _workflowRepository.GetByIdAsync(request.WorkflowId, projection: Workflow.Projections.Trigger, cancellationToken: cancellationToken);
 
         if (workflow == null)
-            return Response<Guid>.Error(default, "Workflow not found.");
+            return Response<TriggerWorkflowResponse>.Error(default, "Workflow not found.");
 
         if (!workflow.IsActive)
-            return Response<Guid>.Error(default, "Workflow is not active.");
+            return Response<TriggerWorkflowResponse>.Error(default, "Workflow is not active.");
 
         var steps = workflow.Definition?.Steps;
 
         if (steps == null || steps.Count == 0)
-            return Response<Guid>.Error(default, "Workflow has no steps.");
+            return Response<TriggerWorkflowResponse>.Error(default, "Workflow has no steps.");
 
         var correlationId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
@@ -68,6 +69,10 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
 
         await _runRepository.AddAsync(workflowRun, cancellationToken: cancellationToken);
 
-        return Response<Guid>.Success(workflowRun.Id, "Workflow triggered successfully. The engine will start executing root steps.");
+        return Response<TriggerWorkflowResponse>.Success(new TriggerWorkflowResponse
+        {
+            Id = workflowRun.Id,
+            ShouldLogActivity = request.ShouldLogActivity
+        }, "Workflow triggered successfully. The engine will start executing root steps.");
     }
 }

@@ -12,7 +12,7 @@ namespace Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 /// Handles manual job triggering by creating occurrence and dispatching immediately.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.CreateScheduledJob)] // Reuse existing activity
+[UserActivityTrack(UserActivity.TriggerScheduledJob)]
 public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<ScheduledJob> JobRepository,
                                                 IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
                                                 IRabbitMQPublisher RabbitMQPublisher,

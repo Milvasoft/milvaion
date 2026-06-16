@@ -27,5 +27,12 @@ public enum UserActivity : byte
     UpdateFailedOccurrence,
     DeleteFailedOccurrence,
     DeleteJobOccurrence,
+    CancelJobOccurrence,
+    TriggerScheduledJob,
+    CreateWorkflow,
+    UpdateWorkflow,
+    DeleteWorkflow,
+    TriggerWorkflow,
+    CancelWorkflowRun,
 }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

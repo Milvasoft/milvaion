@@ -1,11 +1,13 @@
+using Milvaion.Application.Dtos.WorkflowDtos;
 using Milvasoft.Components.CQRS.Command;
+using System.Text.Json.Serialization;
 
 namespace Milvaion.Application.Features.Workflows.TriggerWorkflow;
 
 /// <summary>
 /// Command to trigger a workflow run. Creates a WorkflowRun and dispatches root steps.
 /// </summary>
-public record TriggerWorkflowCommand : ICommand<Guid>
+public record TriggerWorkflowCommand : ICommand<TriggerWorkflowResponse>
 {
     /// <summary>
     /// Workflow ID to trigger.
@@ -23,4 +25,10 @@ public record TriggerWorkflowCommand : ICommand<Guid>
     /// Takes highest priority — overrides base data, design-time step override, and global job data.
     /// </summary>
     public Dictionary<Guid, string> StepJobData { get; set; }
+
+    /// <summary>
+    /// Indicates whether this workflow trigger should be logged as a user activity by <see cref="Utils.Aspects.UserActivityLogAspect.UserActivityLogInterceptor"/>.
+    /// </summary>
+    [JsonIgnore]
+    public bool ShouldLogActivity { get; set; } = true;
 }

@@ -725,24 +725,6 @@ Maximum file size:
   <data name="PG.SiteSettingsManagement" xml:space="preserve">
     <value>Site Settings management permissions</value>
   </data>
-  <data name="UserActivity.CreateProduct" xml:space="preserve">
-    <value>Product create</value>
-  </data>
-  <data name="UserActivity.UpdateProduct" xml:space="preserve">
-    <value>Product update</value>
-  </data>
-  <data name="UserActivity.DeleteProduct" xml:space="preserve">
-    <value>Product delete</value>
-  </data>
-  <data name="UserActivity.CreateCategory" xml:space="preserve">
-    <value>Category create</value>
-  </data>
-  <data name="UserActivity.UpdateCategory" xml:space="preserve">
-    <value>Category update</value>
-  </data>
-  <data name="UserActivity.DeleteCategory" xml:space="preserve">
-    <value>Category delete</value>
-  </data>
   <data name="UserActivity.UpdateSiteSettings" xml:space="preserve">
     <value>Site settings update</value>
   </data>
@@ -751,15 +733,6 @@ Maximum file size:
   </data>
   <data name="UserActivity.UpdateContactForm" xml:space="preserve">
     <value>Contact form update</value>
-  </data>
-  <data name="UserActivity.CreateExpenseRevenue" xml:space="preserve">
-    <value>Expense&amp;Revenue create</value>
-  </data>
-  <data name="UserActivity.UpdateExpenseRevenue" xml:space="preserve">
-    <value>Expense&amp;Revenue update</value>
-  </data>
-  <data name="UserActivity.DeleteExpenseRevenue" xml:space="preserve">
-    <value>Expense&amp;Revenue delete</value>
   </data>
   <data name="UserActivity.UpdateLanguages" xml:space="preserve">
     <value>Language update</value>
@@ -1054,5 +1027,23 @@ Maximum file size:
   </data>
   <data name="PG.Trigger" xml:space="preserve">
     <value>Job manual trigger</value>
+  </data>
+  <data name="CancelJobOccurrence" xml:space="preserve">
+    <value>Job occurrence cancel</value>
+  </data>
+  <data name="TriggerScheduledJob" xml:space="preserve">
+    <value>Trigger scheduled job</value>
+  </data>
+  <data name="CancelWorkflowRun" xml:space="preserve">
+    <value>Workflow run cancel</value>
+  </data>
+  <data name="TriggerWorkflow" xml:space="preserve">
+    <value>Trigger workflow</value>
+  </data>
+  <data name="Global.Workflow" xml:space="preserve">
+    <value>Workflow</value>
+  </data>
+  <data name="Global.WorkflowRun" xml:space="preserve">
+    <value>Workflow Run</value>
   </data>
 </root>

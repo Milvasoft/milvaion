@@ -9,7 +9,7 @@ namespace Milvaion.Application.Features.Workflows.DeleteWorkflow;
 /// Handles workflow deletion.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.DeleteScheduledJob)]
+[UserActivityTrack(UserActivity.DeleteWorkflow)]
 public record DeleteWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> WorkflowRepository) : IInterceptable, ICommandHandler<DeleteWorkflowCommand, Guid>
 {
     private readonly IMilvaionRepositoryBase<Workflow> _workflowRepository = WorkflowRepository;

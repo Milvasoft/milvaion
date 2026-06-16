@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Milvaion.Application.Dtos.WorkflowDtos;
 using Milvaion.Application.Features.Workflows.CancelWorkflow;
 using Milvaion.Application.Features.Workflows.CreateWorkflow;
 using Milvaion.Application.Features.Workflows.TriggerWorkflow;
@@ -312,7 +313,7 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        var result = await response.Content.ReadFromJsonAsync<Response<TriggerWorkflowResponse>>();
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
@@ -342,7 +343,7 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         var response = await client.PostAsJsonAsync("/api/v1/workflows/workflow/trigger", command);
 
         // Assert
-        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        var result = await response.Content.ReadFromJsonAsync<Response<TriggerWorkflowResponse>>();
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeFalse();
         result.Messages.Should().Contain(m => m.Message.Contains("not active", StringComparison.OrdinalIgnoreCase));

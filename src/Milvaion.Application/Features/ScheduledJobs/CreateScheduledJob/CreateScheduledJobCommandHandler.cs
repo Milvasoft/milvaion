@@ -38,7 +38,7 @@ public record CreateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
         }
         else
         {
-            // FIX: If ExecuteAt from frontend is in the past or very near (< 5 seconds), set to now
+            // If ExecuteAt from frontend is in the past or very near (< 5 seconds), set to now
             var requestedTime = request.ExecuteAt;
             var now = DateTime.UtcNow;
 

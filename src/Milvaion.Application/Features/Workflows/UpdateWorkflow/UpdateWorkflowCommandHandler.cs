@@ -4,7 +4,6 @@ using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Interception.Ef.Transaction;
 using Milvasoft.Interception.Interceptors.Logging;
-using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 
 namespace Milvaion.Application.Features.Workflows.UpdateWorkflow;
 
@@ -12,7 +11,7 @@ namespace Milvaion.Application.Features.Workflows.UpdateWorkflow;
 /// Handles workflow settings update.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.UpdateScheduledJob)]
+[UserActivityTrack(UserActivity.UpdateWorkflow)]
 [Transaction]
 public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> WorkflowRepository,
                                             IMilvaionRepositoryBase<WorkflowRun> RunRepository,

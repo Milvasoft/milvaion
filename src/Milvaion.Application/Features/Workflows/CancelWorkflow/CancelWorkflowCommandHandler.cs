@@ -12,7 +12,7 @@ namespace Milvaion.Application.Features.Workflows.CancelWorkflow;
 /// Handles workflow cancellation.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.UpdateScheduledJob)]
+[UserActivityTrack(UserActivity.CancelWorkflowRun)]
 [Transaction]
 public record CancelWorkflowCommandHandler(IMilvaionRepositoryBase<WorkflowRun> WorkflowRunRepository,
                                             IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,

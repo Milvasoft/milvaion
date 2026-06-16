@@ -37,7 +37,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Test run"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
@@ -110,7 +110,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Test run"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
@@ -275,7 +275,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Test run"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
@@ -454,7 +454,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Retry test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Simulate first failure (retry count 0, max retries 2 → should be retried)
         var stepId = workflow.Definition.Steps.First().Id;
@@ -525,7 +525,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Exhaust retries"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
         var stepId = workflow.Definition.Steps.First().Id;
 
         // Simulate failure with retries already exhausted
@@ -625,7 +625,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Continue test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Simulate step 1 failure
         var dbCtx = GetDbContext();
@@ -723,7 +723,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Condition test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Simulate source step completed successfully
         var dbCtx = GetDbContext();
@@ -834,7 +834,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Merge test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Only complete branch A, leave branch B pending → after merge should NOT be dispatched
         var dbCtx = GetDbContext();
@@ -942,7 +942,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Delay test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
@@ -1006,7 +1006,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Completion test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
         var stepId = workflow.Definition.Steps.First().Id;
 
         // Simulate step completed
@@ -1105,7 +1105,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Partial complete test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Simulate step 1 failed, step 2 completed (ContinueOnFailure allows this)
         var dbCtx = GetDbContext();
@@ -1197,7 +1197,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Disabled engine test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
         await disabledEngine.StopAsync(CancellationToken.None);
@@ -1253,7 +1253,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Skip pending test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Simulate step 1 failed
         var dbCtx = GetDbContext();
@@ -1516,7 +1516,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "JSON field condition test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Simulate source step completed with price = 10 (below threshold of 50)
         var dbCtx = GetDbContext();
@@ -1629,7 +1629,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Specific step status test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Simulate source step completed
         var dbCtx = GetDbContext();
@@ -1735,7 +1735,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
             Reason = "Data mapping test"
         });
 
-        var runId = triggerResult.Data;
+        var runId = triggerResult.Data.Id;
 
         // Complete step 1 with JSON result containing fields to map
         var dbCtx = GetDbContext();

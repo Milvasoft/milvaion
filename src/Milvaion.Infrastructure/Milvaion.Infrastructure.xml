@@ -1815,11 +1815,17 @@
             <summary>
             Lightweight wrapper around the RabbitMQ Management HTTP API.
             </summary>
+            <remarks>
+            Initializes a new instance of <see cref="T:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient"/>.
+            </remarks>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient.#ctor(System.Net.Http.IHttpClientFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions})">
             <summary>
-            Initializes a new instance of <see cref="T:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient"/>.
+            Lightweight wrapper around the RabbitMQ Management HTTP API.
             </summary>
+            <remarks>
+            Initializes a new instance of <see cref="T:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient"/>.
+            </remarks>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient.GetQueueAsync(System.String,System.Threading.CancellationToken)">
             <summary>

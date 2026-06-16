@@ -725,24 +725,6 @@ Maksimum dosya boyutu:
   <data name="PG.SiteSettingsManagement" xml:space="preserve">
     <value>Site Ayarları yönetimi izinleri</value>
   </data>
-  <data name="UserActivity.CreateProduct" xml:space="preserve">
-    <value>Ürün ekleme</value>
-  </data>
-  <data name="UserActivity.UpdateProduct" xml:space="preserve">
-    <value>Ürün güncelleme</value>
-  </data>
-  <data name="UserActivity.DeleteProduct" xml:space="preserve">
-    <value>Ürün silme</value>
-  </data>
-  <data name="UserActivity.CreateCategory" xml:space="preserve">
-    <value>Kategori ekleme</value>
-  </data>
-  <data name="UserActivity.UpdateCategory" xml:space="preserve">
-    <value>Kategori güncelleme</value>
-  </data>
-  <data name="UserActivity.DeleteCategory" xml:space="preserve">
-    <value>Kategori silme</value>
-  </data>
   <data name="UserActivity.UpdateSiteSettings" xml:space="preserve">
     <value>Site ayarları güncelleme</value>
   </data>
@@ -751,15 +733,6 @@ Maksimum dosya boyutu:
   </data>
   <data name="UserActivity.UpdateContactForm" xml:space="preserve">
     <value>İletişim formu güncelleme</value>
-  </data>
-  <data name="UserActivity.CreateExpenseRevenue" xml:space="preserve">
-    <value>Gelir&amp;Gider ekleme</value>
-  </data>
-  <data name="UserActivity.UpdateExpenseRevenue" xml:space="preserve">
-    <value>Gelir&amp;Gider güncelleme</value>
-  </data>
-  <data name="UserActivity.DeleteExpenseRevenue" xml:space="preserve">
-    <value>Gelir&amp;Gider silme</value>
   </data>
   <data name="UserActivity.UpdateLanguages" xml:space="preserve">
     <value>Dil güncelleme</value>
@@ -1054,5 +1027,23 @@ Maksimum dosya boyutu:
   </data>
   <data name="PG.Trigger" xml:space="preserve">
     <value>Job manuel tetikleme</value>
+  </data>
+  <data name="CancelJobOccurrence" xml:space="preserve">
+    <value>Execution iptali</value>
+  </data>
+  <data name="TriggerScheduledJob" xml:space="preserve">
+    <value>Job manuel tetikleme</value>
+  </data>
+  <data name="CancelWorkflowRun" xml:space="preserve">
+    <value>Workflow execution iptali</value>
+  </data>
+  <data name="TriggerWorkflow" xml:space="preserve">
+    <value>Workflow manuel tetikleme</value>
+  </data>
+  <data name="Global.Workflow" xml:space="preserve">
+    <value>Workflow</value>
+  </data>
+  <data name="Global.WorkflowRun" xml:space="preserve">
+    <value>Workflow Run</value>
   </data>
 </root>

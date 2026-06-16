@@ -159,7 +159,7 @@ export default function TriggerWorkflowModal({ workflowId, workflow: workflowPro
     try {
       const result = await workflowService.trigger(workflow.id, reason || 'Manual trigger', stepJobData)
       if (result?.isSuccess) {
-        onSuccess(result.data)
+        onSuccess(result.data.id)
       } else {
         onClose(result?.message || 'Failed to trigger workflow')
       }

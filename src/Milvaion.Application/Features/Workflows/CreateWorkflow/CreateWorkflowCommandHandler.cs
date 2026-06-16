@@ -9,7 +9,7 @@ namespace Milvaion.Application.Features.Workflows.CreateWorkflow;
 /// Handles workflow creation with DAG validation.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.CreateScheduledJob)]
+[UserActivityTrack(UserActivity.CreateWorkflow)]
 public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> WorkflowRepository,
                                             IMilvaionRepositoryBase<ScheduledJob> JobRepository) : IInterceptable, ICommandHandler<CreateWorkflowCommand, Guid>
 {

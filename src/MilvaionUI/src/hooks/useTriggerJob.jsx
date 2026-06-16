@@ -32,7 +32,7 @@ export function useTriggerJob() {
       const response = await jobService.trigger(jobId, reason, force, jobData)
 
       if (response.success || response.isSuccess) {
-        const correlationId = response.data
+        const correlationId = response.data.id
 
         showModal({
           title: force ? '⚡ Force Trigger Successful' : '✅ Job Triggered Successfully',
