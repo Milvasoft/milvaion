@@ -30,6 +30,7 @@ Welcome to the official Milvaion documentation. This documentation will help you
 | [14-built-in-workers.md](14-built-in-workers.md) | Pre-built workers (HTTP Worker, etc.) |
 | [20-workflows.md](20-workflows.md) | Build multi-step job pipelines with DAG-based orchestration |
 | [21-reporter-worker.md](21-reporter-worker.md) | Automated metric report generation worker |
+| [23-local-job-testing.md](23-local-job-testing.md) | Unit test jobs locally without RabbitMQ, Redis, or a live environment |
 
 ### Operations Guide
 

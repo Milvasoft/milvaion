@@ -59,6 +59,9 @@
   "primaryOutputs": [
     {
       "path": "ApiWorker.csproj"
+    },
+    {
+      "path": "../ApiWorker.Tests/ApiWorker.Tests.csproj"
     }
   ],
   "sources": [
@@ -74,7 +77,21 @@
             "**/obj/**",
             ".template.config/**",
             "**/*.user",
-            "**/.git/**"
+            "**/.git/**",
+            "ApiWorker.Tests/**"
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ApiWorker.Tests",
+      "target": "../ApiWorker.Tests",
+      "modifiers": [
+        {
+          "exclude": [
+            "**/bin/**",
+            "**/obj/**",
+            "**/*.user"
           ]
         }
       ]

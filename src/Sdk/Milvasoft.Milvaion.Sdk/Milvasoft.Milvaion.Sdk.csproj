@@ -18,14 +18,14 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Milvasoft.Attributes" Version="10.1.0" />
-		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="10.1.0" />
-		<PackageReference Include="Milvasoft.DataAccess.EfCore" Version="10.1.0" />
+		<PackageReference Include="Milvasoft.Attributes" Version="10.1.2" />
+		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="10.1.2" />
+		<PackageReference Include="Milvasoft.DataAccess.EfCore" Version="10.1.2" />
 	</ItemGroup>
 
 	<PropertyGroup>
 		<PackageId>Milvasoft.Milvaion.Sdk</PackageId>
-		<PackageVersion>10.1.2</PackageVersion>
+		<PackageVersion>10.1.3</PackageVersion>
 		<Authors>Milvasoft Corporation</Authors>
 		<Product>Milvasoft.Milvaion.Sdk</Product>
 		<Description>Core SDK for Milvaion Scheduler - Domain models and shared types.</Description>

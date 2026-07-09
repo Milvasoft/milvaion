@@ -85,6 +85,7 @@
     <File Path="docs/portaldocs/20-workflows.md" />
     <File Path="docs/portaldocs/21-reporter-worker.md" />
     <File Path="docs/portaldocs/22-reports.md" />
+    <File Path="docs/portaldocs/23-local-job-testing.md" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/MilvaionUI/" Type="Website" DisplayName="MilvaionUI">
@@ -165,7 +166,13 @@
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/SampleWorker.Tests/SampleWorker.Tests.csproj">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+      <Build Solution="Debug|*" Project="false" />
+      <Build Solution="TemplateTest|*" Project="false" />
+    </Project>
+  </Folder>
   <Folder Name="/tests/IntegrationTests/">
     <Project Path="tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj">
       <BuildType Solution="TemplateTest|*" Project="Release" />

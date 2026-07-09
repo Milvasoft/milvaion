@@ -29,7 +29,7 @@ public class RabbitMQManagementClient(IHttpClientFactory httpClientFactory, IOpt
     /// Gets statistics for a single queue from the Management API.
     /// Returns <see langword="null"/> when the Management API is disabled or the request fails.
     /// </summary>
-    public async Task<ManagementQueueInfo?> GetQueueAsync(string queueName, CancellationToken cancellationToken = default)
+    public async Task<ManagementQueueInfo> GetQueueAsync(string queueName, CancellationToken cancellationToken = default)
     {
         if (!_options.ManagementEnabled)
             return null;
