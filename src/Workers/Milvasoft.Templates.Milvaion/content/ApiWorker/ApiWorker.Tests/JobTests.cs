@@ -2,7 +2,7 @@ using ApiWorker.Jobs;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
-using Milvasoft.Milvaion.Sdk.Worker;
+using Milvasoft.Milvaion.Sdk.Worker.Testing;
 
 namespace ApiWorker.Tests;
 
