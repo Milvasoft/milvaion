@@ -204,7 +204,7 @@
 
   .notification-icon.info {
     background: color-mix(in srgb, var(--accent-color) 15%, transparent);
-    color: var(--accent-color);
+    color: var(--accent-text);
   }
 
   .notification-icon.warning {
@@ -272,7 +272,7 @@
 
   .notification-action-btn:hover {
     background: var(--bg-tertiary);
-    color: var(--accent-color);
+    color: var(--accent-text);
   }
 
   .notification-action-btn.danger:hover {
@@ -296,7 +296,7 @@
 
   .notification-load-more:hover {
     border-color: var(--accent-color);
-    color: var(--accent-color);
+    color: var(--accent-text);
     background: color-mix(in srgb, var(--accent-color) 5%, transparent);
   }
 

@@ -50,7 +50,7 @@
 }
 
 .wfd-back-btn:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-color: var(--accent-color);
   background-color: var(--bg-hover);
   transform: translateX(-2px);
@@ -286,7 +286,7 @@
 
 /* Links */
 .job-link {
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 500;
 }
@@ -485,7 +485,7 @@
 }
 
 .error-details summary:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .error-json {

@@ -479,7 +479,7 @@
 }
 
 .job-name-cell .table-link {
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: none;
   transition: color 0.15s ease;
 }
@@ -503,7 +503,7 @@
 }
 
 .btn-icon:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   background: var(--bg-hover);
 }
 

@@ -24,10 +24,10 @@
  *    --border-light    : hovered / focused border
  *
  *  Accent
- *    --accent-color    : #6366f1
- *    --accent-hover    : lighter/darker variant on hover
- *    --accent-gradient : linear-gradient(90deg, #6366f1, #8b5cf6)
- *    --accent-glow     : rgba(99,102,241,0.25) — focus ring
+ *    --accent-color    : #456882 (dark) / #456882 (light)
+ *    --accent-hover    : #1B3C53 (dark) / #1B3C53 (light)
+ *    --accent-gradient : #456882 — solid blue, no gradient
+ *    --accent-glow     : rgba(69,104,130,0.12) — subtle focus ring
  *
  *  Semantic
  *    --success-color   : #10b981
@@ -96,8 +96,7 @@
 }
 
 .ds-btn-primary:hover {
-  opacity: 0.9;
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  opacity: 0.88;
   color: #ffffff;
 }
 
@@ -312,11 +311,11 @@
   border: 1px solid transparent;
 }
 
-.ds-badge-accent   { background: rgba(99,102,241,0.1);  color: var(--accent-color); border-color: rgba(99,102,241,0.2); }
+.ds-badge-accent   { background: rgba(69,104,130,0.1);  color: var(--accent-text); border-color: rgba(69,104,130,0.2); }
 .ds-badge-success  { background: rgba(16,185,129,0.1);  color: #10b981;             border-color: rgba(16,185,129,0.2); }
 .ds-badge-warning  { background: rgba(245,158,11,0.1);  color: #f59e0b;             border-color: rgba(245,158,11,0.2); }
 .ds-badge-error    { background: rgba(239,68,68,0.1);   color: #ef4444;             border-color: rgba(239,68,68,0.2); }
-.ds-badge-info     { background: rgba(59,130,246,0.1);  color: #3b82f6;             border-color: rgba(59,130,246,0.2); }
+.ds-badge-info     { background: rgba(148,163,184,0.1); color: #94a3b8;             border-color: rgba(148,163,184,0.2); }
 .ds-badge-neutral  { background: rgba(113,113,122,0.1); color: #71717a;             border-color: rgba(113,113,122,0.2); }
 
 /* ── Alert / Banner ──────────────────────────────────────── */
@@ -334,7 +333,7 @@
 .ds-alert-warning { border-color: rgba(245,158,11,0.25); background: rgba(245,158,11,0.06); }
 .ds-alert-error   { border-color: rgba(239,68,68,0.25);  background: rgba(239,68,68,0.06); }
 .ds-alert-success { border-color: rgba(16,185,129,0.25); background: rgba(16,185,129,0.06); }
-.ds-alert-info    { border-color: rgba(59,130,246,0.25); background: rgba(59,130,246,0.06); }
+.ds-alert-info    { border-color: rgba(148,163,184,0.25); background: rgba(148,163,184,0.06); }
 
 /* ── Divider ─────────────────────────────────────────────── */
 
@@ -360,10 +359,10 @@
 .ds-mono {
   font-family: 'Courier New', 'Fira Code', monospace;
   font-size: 0.9em;
-  background: rgba(99, 102, 241, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   padding: 0.15em 0.4em;
   border-radius: var(--radius-xs);
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* ── Layout helpers ──────────────────────────────────────── */

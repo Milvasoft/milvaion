@@ -30,7 +30,7 @@
 }
 
 .json-toggle:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .json-copy-btn {

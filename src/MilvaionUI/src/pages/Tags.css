@@ -43,10 +43,10 @@
 }
 
 .tag-card:hover {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  border-color: #6366f1;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 8px 20px var(--accent-glow);
   color: white;
 }
 
@@ -75,7 +75,7 @@
 }
 
 .error {
-  color: #ef4444;
+  color: var(--error-color);
 }
 
 .empty-state {

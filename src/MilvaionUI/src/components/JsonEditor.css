@@ -30,8 +30,8 @@
 }
 
 .json-editor-container:focus-within {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .json-editor.has-error .json-editor-container:focus-within {
@@ -76,7 +76,7 @@
 .toolbar-btn:hover:not(:disabled) {
   background: var(--bg-hover);
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .toolbar-btn:disabled {

@@ -23,7 +23,7 @@
 }
 
 .audit-info-btn:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-color: var(--accent-color);
   background-color: var(--bg-hover);
 }

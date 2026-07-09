@@ -166,13 +166,13 @@
 .wfb-toolbar-btn--pressed {
   background: var(--bg-primary);
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .wfb-toolbar-btn--add {
   background: var(--bg-tertiary);
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .wfb-toolbar-btn--add:hover {
@@ -234,7 +234,7 @@
 
 .wfb-add-menu-item > svg,
 .wfb-add-menu-item > span:first-child {
-  color: var(--accent-color);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 
@@ -886,7 +886,7 @@
   font-size: 0.8125rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -1050,9 +1050,9 @@
 
 .wfb-schema-type--string  { background: rgba(34, 197, 94, 0.1);  color: #22c55e; }
 .wfb-schema-type--integer,
-.wfb-schema-type--number  { background: rgba(99, 102, 241, 0.1); color: var(--accent-color); }
+.wfb-schema-type--number  { background: var(--accent-glow); color: var(--accent-text); }
 .wfb-schema-type--boolean { background: rgba(245, 158, 11, 0.1);  color: #f59e0b; }
-.wfb-schema-type--object  { background: rgba(99, 102, 241, 0.1);  color: #6366f1; }
+.wfb-schema-type--object  { background: var(--accent-glow);  color: var(--accent-text); }
 .wfb-schema-type--array   { background: rgba(239, 68, 68, 0.1);   color: #ef4444; }
 
 .wfb-schema-field-desc {

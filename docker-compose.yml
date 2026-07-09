@@ -127,7 +127,6 @@
       - ASPNETCORE_URLS=http://+:5000
       - MILVAION_ROOT_PASSWORD=admin
       - MILVA_ENV=dev
-      - MilvaionConfig__BasePath=/milvaion
     ports:
       - "5000:5000"  # API + React SPA (http://localhost:5000)
     depends_on:

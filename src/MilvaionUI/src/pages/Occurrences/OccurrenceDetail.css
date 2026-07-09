@@ -19,7 +19,7 @@
 }
 
   .back-link:hover {
-    color: var(--accent-color);
+    color: var(--accent-text);
     border-color: var(--accent-color);
     background-color: var(--bg-hover);
     transform: translateX(-4px);
@@ -72,7 +72,7 @@
 }
 
   .back-icon-btn:hover {
-    color: var(--accent-color);
+    color: var(--accent-text);
     border-color: var(--accent-color);
     background-color: var(--bg-hover);
     transform: translateX(-2px);
@@ -103,13 +103,13 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: var(--accent-color);
   color: white;
 }
 
   .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    box-shadow: 0 4px 12px var(--accent-glow);
   }
 
 .btn-danger {
@@ -305,7 +305,7 @@
   }
 
 .job-link {
-  color: #6366f1;
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 500;
   font-size: 0.95rem;
@@ -315,7 +315,7 @@
 
   .job-link:hover {
     text-decoration: underline;
-    color: #4f46e5;
+    color: var(--accent-hover);
   }
 
 .job-info-container {
@@ -377,13 +377,13 @@
   }
 
 .log-count {
-  background-color: rgba(99, 102, 241, 0.14);
-  color: #6366f1;
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
   padding: 0.3rem 0.8rem;
   border-radius: 12px;
   font-size: 0.85rem;
   font-weight: 500;
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.25);
 }
 
 .logs-container {
@@ -519,27 +519,27 @@
 
   .log-data-inline summary {
     cursor: pointer;
-    color: #6366f1;
+    color: var(--accent-text);
     font-weight: 500;
     font-size: 0.75rem;
     user-select: none;
     padding: 0.3rem 0.6rem;
     transition: all 0.2s ease;
     border-radius: 6px;
-    background-color: rgba(99, 102, 241, 0.1);
-    border: 1px solid rgba(99, 102, 241, 0.14);
+    background-color: var(--accent-glow);
+    border: 1px solid rgba(var(--accent-color-rgb), 0.14);
     display: inline-block;
   }
 
     .log-data-inline summary:hover {
-      color: #747bff;
-      background-color: rgba(99, 102, 241, 0.14);
-      border-color: rgba(99, 102, 241, 0.2);
+      color: var(--accent-hover);
+      background-color: var(--accent-glow);
+      border-color: rgba(var(--accent-color-rgb), 0.2);
     }
 
   .log-data-inline[open] summary {
-    background-color: rgba(99, 102, 241, 0.14);
-    border-color: rgba(99, 102, 241, 0.25);
+    background-color: var(--accent-glow);
+    border-color: rgba(var(--accent-color-rgb), 0.25);
   }
 
   .log-data-inline pre {
@@ -579,7 +579,7 @@
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
   color: var(--text-muted);
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: var(--accent-glow);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   display: inline-block;
@@ -607,13 +607,13 @@
   }
 
 .history-count {
-  background-color: rgba(99, 102, 241, 0.14);
-  color: #6366f1;
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
   padding: 0.3rem 0.8rem;
   border-radius: 12px;
   font-size: 0.85rem;
   font-weight: 500;
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.25);
 }
 
 .status-history-timeline {
@@ -631,7 +631,8 @@
     top: 2.5rem;
     bottom: 2.5rem;
     width: 2px;
-    background: linear-gradient(180deg, rgba(99, 102, 241, 0.4) 0%, rgba(99, 102, 241, 0.14) 50%, rgba(99, 102, 241, 0.4) 100% );
+    background: var(--accent-color);
+    opacity: 0.3;
     z-index: 0;
   }
 
@@ -657,10 +658,10 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: #6366f1;
+    background-color: var(--accent-color);
     border: 3px solid var(--bg-card);
     z-index: 1;
-    box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+    box-shadow: 0 0 8px var(--accent-glow);
   }
 
   .status-change-item:last-child {
@@ -763,12 +764,12 @@
   align-items: center;
   gap: 0.375rem;
   padding: 0.375rem 0.75rem;
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--accent-glow);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
   border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--accent-text);
   font-family: 'Courier New', monospace;
   width: fit-content;
   align-self: center;
@@ -799,9 +800,9 @@
   padding: 6px 10px;
   font-size: 0.8rem;
   font-weight: 500;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
-  color: #8b5cf6;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.3);
   border-radius: 6px;
   font-family: monospace;
 }

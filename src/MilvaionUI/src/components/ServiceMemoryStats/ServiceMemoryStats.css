@@ -31,7 +31,7 @@
 .service-memory-stats .refresh-btn-small:hover {
   background: var(--bg-hover);
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 /* Overview Stats */
@@ -74,7 +74,7 @@
   line-height: 1.2;
 }
 
-.memory-stat-value.primary { color: #6366f1; }
+.memory-stat-value.primary { color: var(--accent-text); }
 .memory-stat-value.success { color: #10b981; }
 .memory-stat-value.warning { color: #f59e0b; }
 .memory-stat-value.error { color: #ef4444; }
@@ -105,7 +105,7 @@ gap: 0.5rem;
   display: inline-block;
   width: 4px;
   height: 16px;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: var(--accent-color);
   border-radius: 2px;
 }
 
@@ -276,8 +276,8 @@ gap: 0.5rem;
 .gc-stats {
   margin-top: 1rem;
   padding: 0.75rem;
-  background: rgba(99, 102, 241, 0.04);
-  border: 1px solid rgba(99, 102, 241, 0.1);
+  background: var(--accent-glow);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.1);
   border-radius: 6px;
 }
 
@@ -303,7 +303,7 @@ gap: 0.5rem;
 .gc-stat-value {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--accent-text);
 }
 
 .gc-stat-label {
@@ -340,8 +340,8 @@ gap: 0.5rem;
 .memory-stats-loading .spinner {
   width: 24px;
   height: 24px;
-  border: 3px solid #333;
-  border-top-color: #6366f1;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-text);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -407,7 +407,7 @@ gap: 0.5rem;
   }
 
   .service-card-header {
-    background: rgba(99, 102, 241, 0.02);
+    background: var(--accent-glow);
     border-bottom-color: #ddd;
   }
 
@@ -429,8 +429,8 @@ gap: 0.5rem;
   }
 
   .gc-stats {
-    background: rgba(99, 102, 241, 0.03);
-    border-color: rgba(99, 102, 241, 0.1);
+    background: var(--accent-glow);
+    border-color: rgba(var(--accent-color-rgb), 0.1);
   }
 
   .section-title {
@@ -443,7 +443,7 @@ gap: 0.5rem;
   }
 
   .service-memory-stats .refresh-btn-small:hover {
-    background: rgba(99, 102, 241, 0.04);
+    background: var(--accent-glow);
   }
 
   .memory-bar-container {

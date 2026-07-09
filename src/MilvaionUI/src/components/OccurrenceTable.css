@@ -45,14 +45,14 @@
 }
 
 .status-chip:hover {
-  border-color: #6366f1;
+  border-color: var(--accent-color);
   transform: translateY(-1px);
 }
 
 .status-chip.active {
-  background-color: rgba(99, 102, 241, 0.14);
-  border-color: #6366f1;
-  color: #6366f1;
+  background-color: var(--accent-glow);
+  border-color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .status-chip.pending.active {
@@ -145,7 +145,7 @@
   cursor: pointer;
   width: 18px;
   height: 18px;
-  accent-color: #6366f1;
+  accent-color: var(--accent-color);
 }
 
 .occurrence-table td.checkbox-column input[type="checkbox"]:disabled {
@@ -178,7 +178,7 @@
 
 .job-link,
 .occurrence-link {
-  color: #6366f1;
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 500;
 }
@@ -190,8 +190,8 @@
 
 .worker-badge {
   padding: 0.25rem 0.75rem;
-  background-color: rgba(99, 102, 241, 0.14);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background-color: var(--accent-glow);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.25);
   border-radius: 12px;
   font-size: 0.85rem;
   font-family: monospace;
@@ -319,7 +319,7 @@
 
 .pagination .btn:hover:not(:disabled) {
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
   background: var(--bg-hover);
 }
 
@@ -329,9 +329,9 @@
 }
 
 .pagination .btn.btn-primary {
-  background: rgba(99, 102, 241, 0.14);
-  color: #6366f1;
-  border-color: #6366f1;
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  border-color: var(--accent-color);
 }
 
 .pagination .btn-sm {

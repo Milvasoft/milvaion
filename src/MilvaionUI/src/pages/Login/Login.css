@@ -242,7 +242,7 @@
 }
 
 .password-toggle:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   background-color: var(--bg-hover);
 }
 

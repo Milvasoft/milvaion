@@ -204,7 +204,7 @@
   scroll-behavior: smooth;
   /* Hide scrollbar for cleaner look (optional) */
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-color) var(--bg-secondary);
+  scrollbar-color: var(--accent-text) var(--bg-secondary);
 }
 
 /* Webkit browsers (Chrome, Safari, Edge) scrollbar styling */
@@ -246,13 +246,13 @@
 
 .filter-btn:hover {
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .filter-btn.active {
-  background: rgba(99, 102, 241, 0.14);
-  color: #6366f1;
-  border-color: #6366f1;
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  border-color: var(--accent-color);
 }
 
 .filter-select {
@@ -308,12 +308,12 @@
 }
 
 .failed-jobs-table-container::-webkit-scrollbar-thumb {
-  background: #6366f1;
+  background: var(--accent-color);
   border-radius: 4px;
 }
 
 .failed-jobs-table-container::-webkit-scrollbar-thumb:hover {
-  background: #747bff;
+  background: var(--accent-hover);
 }
 
 .failed-jobs-table {
@@ -355,7 +355,7 @@
   cursor: pointer;
   width: 18px;
   height: 18px;
-  accent-color: #6366f1;
+  accent-color: var(--accent-color);
 }
 
 .failed-jobs-table tbody tr {
@@ -434,11 +434,11 @@
 }
 
 .action-btn.view {
-  color: #6366f1;
+  color: var(--accent-text);
 }
 
 .action-btn.view:hover {
-  background: rgba(99, 102, 241, 0.12);
+  background: var(--accent-glow);
 }
 
 .action-btn.resolve {
@@ -492,7 +492,7 @@
 
 .resolve-form .form-control:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--accent-color);
 }
 
 .resolve-form textarea.form-control {
@@ -505,11 +505,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--accent-glow);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
   border-radius: 6px;
   font-size: 0.875rem;
-  color: #6366f1;
+  color: var(--accent-text);
 }
 
 /* Empty State */
@@ -585,7 +585,7 @@
 
 .pagination .btn:hover:not(:disabled) {
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
   background: var(--bg-hover);
 }
 
@@ -595,9 +595,9 @@
 }
 
 .pagination .btn.btn-primary {
-  background: rgba(99, 102, 241, 0.14);
-  color: #6366f1;
-  border-color: #6366f1;
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  border-color: var(--accent-color);
 }
 
 .pagination .btn-sm {

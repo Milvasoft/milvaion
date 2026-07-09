@@ -67,7 +67,7 @@
 }
 
 .wfr-back-btn:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-color: var(--accent-color);
   background-color: var(--bg-hover);
   transform: translateX(-2px);
@@ -138,7 +138,7 @@
 
 .wfr-btn-secondary:hover {
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .wfr-btn-danger {
@@ -356,7 +356,7 @@
 }
 
 .wfr-link {
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 500;
 }

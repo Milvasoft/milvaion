@@ -49,8 +49,8 @@
   width: 44px;
   height: 44px;
   border-radius: var(--radius-lg);
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--accent-color);
+  background: var(--accent-glow);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 
@@ -281,18 +281,18 @@
 }
 
 .job-tag {
-  background-color: rgba(99, 102, 241, 0.08);
-  color: var(--accent-color);
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
   padding: 0.2rem 0.625rem;
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: 500;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
   transition: background-color var(--transition-base);
 }
 
 .job-tag:hover {
-  background-color: rgba(99, 102, 241, 0.14);
+  background-color: var(--accent-glow);
 }
 
 .pattern-tag {
@@ -320,13 +320,13 @@
 }
 
 .job-name-tag {
-  background-color: rgba(99, 102, 241, 0.1);
-  color: var(--accent-color);
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: 600;
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.25);
   white-space: nowrap;
 }
 
@@ -454,12 +454,12 @@
 
 .job-configs-table code,
 .instances-table code {
-  background-color: rgba(99, 102, 241, 0.08);
+  background-color: var(--accent-glow);
   padding: 0.2rem 0.4rem;
   border-radius: var(--radius-xs);
   font-size: var(--text-xs);
-  color: var(--accent-color);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
 }
 
 /* Empty State */
@@ -541,11 +541,11 @@
 
 /* External Worker Styles */
 .worker-card.external {
-  border-left: 4px solid #8b5cf6;
+  border-left: 4px solid var(--accent-color);
 }
 
 .worker-card.external .worker-header {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+  background: var(--accent-glow);
 }
 
 .external-badge {
@@ -558,7 +558,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  background: var(--accent-color);
   color: white;
   border-radius: 4px;
 }
@@ -570,9 +570,9 @@
   padding: 4px 10px;
   font-size: 0.75rem;
   font-weight: 600;
-  background: rgba(139, 92, 246, 0.15);
-  color: #8b5cf6;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.3);
   border-radius: 6px;
   margin-right: 12px;
 }

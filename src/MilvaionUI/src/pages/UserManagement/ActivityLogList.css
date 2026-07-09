@@ -47,7 +47,7 @@
 .activity-log-list .search-input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .activity-log-list .search-input::placeholder {
@@ -160,9 +160,9 @@
 }
 
 .activity-log-list .activity-update {
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--accent-color);
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.18);
 }
 
 .activity-log-list .activity-delete {

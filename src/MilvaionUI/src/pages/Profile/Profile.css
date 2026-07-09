@@ -99,9 +99,9 @@
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: 500;
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--accent-color);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
 }
 
 /* ── Two-column Grid ───────────────────────────────────── */

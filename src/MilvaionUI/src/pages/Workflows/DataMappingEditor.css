@@ -24,7 +24,7 @@
   gap: 3px;
   padding: 3px 10px;
   background: transparent;
-  color: var(--accent-color);
+  color: var(--accent-text);
   border: 1px solid var(--accent-color);
   border-radius: 6px;
   font-size: 12px;  font-weight: 600;
@@ -60,7 +60,7 @@
   padding: 2px 8px;
   background: var(--bg-secondary);
   border-radius: 4px;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 /* List */
@@ -128,7 +128,7 @@
 }
 
 .dm-side-label--from {
-  color: #818cf8;
+  color: var(--accent-text);
 }
 
 .dm-side-label--to {
@@ -171,7 +171,7 @@
 
 .dm-prefix {
   padding: 5px 0 5px 8px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-family: monospace;
   font-size: 12px;
   font-weight: 600;
@@ -295,7 +295,7 @@
 }
 
 .dm-field-type-icon {
-  color: var(--accent-color);
+  color: var(--accent-text);
   opacity: 0.75;
   flex-shrink: 0;
 }
@@ -341,7 +341,7 @@
   border: 1px solid var(--accent-color);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent-color);
+  color: var(--accent-text);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.1s;
@@ -354,15 +354,15 @@
 
 /* Custom type badge */
 .dm-picker-type--custom {
-  background: rgba(99, 102, 241, 0.12) !important;
-  color: var(--accent-color) !important;
+  background: var(--accent-glow) !important;
+  color: var(--accent-text) !important;
 }
 
 /* Custom path item */
 .dm-picker-item--custom {
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 2px;
-  background: rgba(99, 102, 241, 0.04);
+  background: var(--accent-glow);
 }
 
 .dm-picker-list {
@@ -392,8 +392,8 @@
 }
 
 .dm-picker-item--active {
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--accent-color);
+  background: var(--accent-glow);
+  background: var(--accent-glow);  color: var(--accent-text);
 }
 
 .dm-picker-item--special {

@@ -151,8 +151,8 @@
 }
 
 .nav-menu li.active a {
-  background-color: rgba(99, 102, 241, 0.1);
-  color: var(--accent-color);
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
 }
 
 /* Collapsible Nav Group */
@@ -243,8 +243,8 @@
   }
 
 .nav-submenu li.active a {
-  background-color: rgba(99, 102, 241, 0.1);
-  color: var(--accent-color);
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
 }
 
 /* Sidebar Footer - User Menu */
@@ -541,7 +541,7 @@
     z-index: 999;
     height: 44px;
     border-radius: 8px;
-    background-color: #6366f1;
+    background-color: var(--accent-color);
     border: none;
     color: white;
     display: flex;
@@ -553,7 +553,7 @@
   }
 
   .mobile-menu-toggle:hover {
-    background-color: #4f46e5;
+    background-color: var(--accent-hover);
     transform: scale(1.05);
   }
 
