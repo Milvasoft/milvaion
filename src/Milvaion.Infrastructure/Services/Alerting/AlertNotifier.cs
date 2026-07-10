@@ -45,26 +45,33 @@ public class AlertNotifier(IOptions<AlertingOptions> options,
         var tasks = new List<Task<ChannelResult>>();
 
         // Create a linked token with timeout to prevent hanging
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(_defaultTimeout);
-
-        foreach (var route in routes)
+        var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
         {
-            if (_channelMap.TryGetValue(route, out var channel))
+            timeoutCts.CancelAfter(_defaultTimeout);
+
+            foreach (var route in routes)
             {
-                tasks.Add(SendToChannelWithTimeoutAsync(channel, alertType, payload, timeoutCts.Token));
+                if (_channelMap.TryGetValue(route, out var channel))
+                {
+                    tasks.Add(SendToChannelWithTimeoutAsync(channel, alertType, payload, timeoutCts.Token));
+                }
+                else
+                {
+                    channelResults.Add(ChannelResult.Skipped(route, $"Channel '{route}' not registered"));
+                }
             }
-            else
+
+            if (tasks.Count > 0)
             {
-                channelResults.Add(ChannelResult.Skipped(route, $"Channel '{route}' not registered"));
+                // Wait for all tasks, don't throw on individual failures
+                var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+                channelResults.AddRange(results);
             }
         }
-
-        if (tasks.Count > 0)
+        finally
         {
-            // Wait for all tasks, don't throw on individual failures
-            var results = await Task.WhenAll(tasks).ConfigureAwait(false);
-            channelResults.AddRange(results);
+            timeoutCts.Dispose();
         }
 
         var hasAnySuccess = channelResults.Exists(r => r.Success);

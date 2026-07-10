@@ -1184,8 +1184,16 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
 
         await disabledEngine.StartAsync(cts.Token);
 
-        // Brief delay to let any residual engine iterations from prior tests drain
-        await Task.Delay(TimeSpan.FromSeconds(2), cts.Token);
+        // Wait until any running workflow runs from prior tests have fully settled
+        await WaitForConditionAsync(
+            async () =>
+            {
+                var db = GetDbContext();
+                return !await db.WorkflowRuns.AnyAsync(r => r.Status == WorkflowStatus.Running);
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
 
         // Now create the workflow run — no other enabled engine should be polling at this point
         var workflow = await SeedWorkflowWithSingleStepAsync("Disabled Engine Workflow");
