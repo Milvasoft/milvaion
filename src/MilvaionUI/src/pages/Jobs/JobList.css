@@ -3,6 +3,46 @@
   padding: 0 1rem;
 }
 
+/* Infinite scroll */
+.infinite-scroll-sentinel {
+  height: 1px;
+  grid-column: 1 / -1;
+}
+
+.infinite-scroll-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--primary-color, #6366f1);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.infinite-scroll-end {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
 /* Trigger Job Modal Styles */
 .trigger-modal-content {
   text-align: left;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import jobService from '../../services/jobService'
 import CronDisplay from '../../components/CronDisplay'
@@ -34,6 +34,13 @@ function JobList() {
     return savedViewMode || 'list'
   })
 
+  // Card view infinite scroll state
+  const [cardJobs, setCardJobs] = useState([])
+  const [cardPage, setCardPage] = useState(1)
+  const [cardHasMore, setCardHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef(null)
+
   // Trigger modal state
   const [showTriggerModal, setShowTriggerModal] = useState(false)
   const [triggerJobData, setTriggerJobData] = useState('')
@@ -53,35 +60,23 @@ function JobList() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
+  const buildRequestBody = useCallback((pageNumber, rowCount) => {
+    const requestBody = { pageNumber, rowCount }
+    if (debouncedSearchTerm) requestBody.searchTerm = debouncedSearchTerm
+    if (filterTag) {
+      requestBody.filtering = {
+        criterias: [{ filterBy: 'Tags', value: filterTag, type: 1 }]
+      }
+    }
+    return requestBody
+  }, [debouncedSearchTerm, filterTag])
+
   const loadJobs = useCallback(async (showLoading = false) => {
     try {
-      if (showLoading) {
-        setLoading(true)
-      }
+      if (showLoading) setLoading(true)
       setError(null)
 
-      const requestBody = {
-        pageNumber: currentPage,
-        rowCount: pageSize
-      }
-
-      if (debouncedSearchTerm) {
-        requestBody.searchTerm = debouncedSearchTerm
-      }
-
-      if (filterTag) {
-        requestBody.filtering = {
-          criterias: [
-            {
-              filterBy: "Tags",
-              value: filterTag,
-              type: 1
-            }
-          ]
-        }
-      }
-
-      const response = await jobService.getAll(requestBody)
+      const response = await jobService.getAll(buildRequestBody(currentPage, pageSize))
 
       const data = response?.data?.data || response?.data || []
       const total = response?.data?.totalDataCount || response?.totalDataCount || 0
@@ -95,20 +90,100 @@ function JobList() {
     } finally {
       setLoading(false)
     }
-  }, [filterTag, currentPage, pageSize, debouncedSearchTerm])
+  }, [buildRequestBody, currentPage, pageSize])
 
+  const loadCardJobs = useCallback(async (page, append = false) => {
+    try {
+      if (page === 1 && !append) setLoading(true)
+      else setLoadingMore(true)
+      setError(null)
+
+      const response = await jobService.getAll(buildRequestBody(page, 20))
+
+      const data = response?.data?.data || response?.data || []
+      const total = response?.data?.totalDataCount || response?.totalDataCount || 0
+
+      setCardJobs(prev => append ? [...prev, ...data] : data)
+      setTotalCount(total)
+      setCardHasMore(page * 20 < total)
+      setLastRefreshTime(new Date())
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to load jobs'))
+      console.error(err)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [buildRequestBody])
+
+  // Refresh already-loaded card pages without collapsing back to page 1
+  const loadCardJobsRefresh = useCallback(async (pagesLoaded) => {
+    try {
+      const rowCount = Math.max(pagesLoaded, 1) * 20
+      const response = await jobService.getAll(buildRequestBody(1, rowCount))
+
+      const data = response?.data?.data || response?.data || []
+      const total = response?.data?.totalDataCount || response?.totalDataCount || 0
+
+      setCardJobs(data)
+      setTotalCount(total)
+      setCardHasMore(rowCount < total)
+      setLastRefreshTime(new Date())
+    } catch (err) {
+      console.error(err)
+    }
+  }, [buildRequestBody])
+
+  // Reset card state when search/filter changes
   useEffect(() => {
+    setCardPage(1)
+    setCardJobs([])
+  }, [debouncedSearchTerm, filterTag])
+
+  // Table view effect (pagination)
+  useEffect(() => {
+    if (viewMode !== 'table') return
     loadJobs(true)
 
     const refreshInterval = setInterval(() => {
-      if (autoRefreshEnabled) {
-        loadJobs(false)
-      }
+      if (autoRefreshEnabled) loadJobs(false)
     }, 30000)
 
     return () => clearInterval(refreshInterval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterTag, currentPage, pageSize, debouncedSearchTerm, autoRefreshEnabled])
+  }, [viewMode, filterTag, currentPage, pageSize, debouncedSearchTerm, autoRefreshEnabled])
+
+  // Card view effect (infinite scroll)
+  useEffect(() => {
+    if (viewMode !== 'list') return
+    loadCardJobs(cardPage, cardPage > 1)
+
+    const refreshInterval = setInterval(() => {
+      if (autoRefreshEnabled) loadCardJobsRefresh(cardPage)
+    }, 30000)
+
+    return () => clearInterval(refreshInterval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, cardPage, debouncedSearchTerm, filterTag, autoRefreshEnabled])
+
+  // Infinite scroll sentinel observer
+  useEffect(() => {
+    if (viewMode !== 'list') return
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && cardHasMore && !loadingMore) {
+          setCardPage(prev => prev + 1)
+        }
+      },
+      { root: null, rootMargin: '200px', threshold: 0 }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [viewMode, cardHasMore, loadingMore])
 
   const handleDelete = async (id) => {
     const confirmed = await showConfirm(
@@ -129,7 +204,13 @@ function JobList() {
         return
       }
 
-      await loadJobs()
+      if (viewMode === 'list') {
+        setCardPage(1)
+        setCardJobs([])
+        await loadCardJobs(1, false)
+      } else {
+        await loadJobs()
+      }
       await showSuccess('Job deleted successfully')
     } catch (err) {
       await showError('Failed to delete job. Please try again.')
@@ -156,7 +237,13 @@ function JobList() {
 
     await triggerJob(selectedJobForTrigger.id, 'Manual trigger from job list', false, customData, () => {
       // onSuccess: reload jobs to update latest run info
-      loadJobs()
+      if (viewMode === 'list') {
+        setCardPage(1)
+        setCardJobs([])
+        loadCardJobs(1, false)
+      } else {
+        loadJobs()
+      }
     })
 
     // Reset state
@@ -176,6 +263,11 @@ function JobList() {
     const newMode = viewMode === 'list' ? 'table' : 'list'
     setViewMode(newMode)
     localStorage.setItem('jobListViewMode', newMode)
+    // Reset card state when switching to card view
+    if (newMode === 'list') {
+      setCardPage(1)
+      setCardJobs([])
+    }
   }
 
   const truncateText = (text, maxLength = 50) => {
@@ -183,7 +275,9 @@ function JobList() {
     return text.substring(0, maxLength) + '...'
   }
 
-  if (loading) return <SkeletonJobList rows={pageSize} />
+  const displayJobs = viewMode === 'list' ? cardJobs : jobs
+
+  if (loading && displayJobs.length === 0) return <SkeletonJobList rows={pageSize} />
   if (error) return <div className="error">{error}</div>
 
   return (
@@ -311,7 +405,7 @@ function JobList() {
         </div>
       )}
 
-      {jobs.length === 0 ? (
+      {displayJobs.length === 0 && !loading ? (
         <div className="empty-state-card">
           <div className="empty-icon">
             <Icon name="assignment" size={64} />
@@ -332,7 +426,7 @@ function JobList() {
         <>
           {viewMode === 'list' ? (
             <div className="jobs-grid">
-              {jobs.map((job) => (
+              {displayJobs.map((job) => (
                 <div
                   key={job.id}
                   className={`job-card ${job.isActive ? 'active' : 'inactive'}`}
@@ -413,6 +507,19 @@ function JobList() {
                   </div>
                 </div>
               ))}
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} className="infinite-scroll-sentinel" />
+              {loadingMore && (
+                <div className="infinite-scroll-loading">
+                  <span className="loading-spinner" />
+                  <span>Loading more jobs...</span>
+                </div>
+              )}
+              {!cardHasMore && cardJobs.length > 0 && (
+                <div className="infinite-scroll-end">
+                  Showing all {cardJobs.length} jobs
+                </div>
+              )}
             </div>
           ) : (
             <div className="jobs-table-container">
