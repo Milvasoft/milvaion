@@ -39,6 +39,7 @@ MapMcp endpoint  ──▶  tool method  ──▶  McpPermissionGuard.Require(.
 | `src/Milvaion.Api/Mcp/MilvaionJobTools.cs` | Job and occurrence tools, including CRUD |
 | `src/Milvaion.Api/Mcp/MilvaionOpsTools.cs` | Worker, workflow and dashboard tools |
 | `src/Milvaion.Api/Mcp/MilvaionDiagnosticsTools.cs` | Dead letter failures and the activity log |
+| `src/Milvaion.Api/Mcp/MilvaionInsightTools.cs` | Metric reports, infrastructure health, configuration |
 | `src/Milvaion.Api/Mcp/MilvaionPrompts.cs` | Prompt templates for diagnosis workflows |
 | `src/Milvaion.Api/Mcp/McpPermissionGuard.cs` | Per-tool permission enforcement |
 | `src/Milvaion.Api/AppStartup/McpExtensions.cs` | Registration and endpoint mapping |

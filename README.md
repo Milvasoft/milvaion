@@ -173,7 +173,7 @@ Point Claude Code, Cursor or GitHub Copilot at Milvaion and ask about your jobs 
 
 > *"Which jobs failed last night and why?"*
 
-Twenty-eight tools — reading, triggering, pausing, editing and deleting — each gated by the same permissions used everywhere else. A read-only api key gives an assistant full visibility and no ability to change anything. Milvaion is the data source here; it never calls a language model and stores no model provider keys.
+More than forty tools — reading, triggering, pausing, editing and deleting — each gated by the same permissions used everywhere else. A read-only api key gives an assistant full visibility and no ability to change anything. Milvaion is the data source here; it never calls a language model and stores no model provider keys.
 
 📖 **[MCP Server Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/mcp-server)**
 

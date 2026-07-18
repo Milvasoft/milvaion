@@ -225,7 +225,7 @@ Every client above supports either environment variable expansion or a runtime p
 
 ## Available Tools
 
-Twenty-eight tools, each gated by the permission in the right hand column. A key that lacks a permission cannot call the tool, so the tool surface an assistant actually sees is decided entirely by how you scope the key.
+Every tool is gated by the permission in the right hand column. A key that lacks a permission cannot call the tool, so the tool surface an assistant actually sees is decided entirely by how you scope the key.
 
 ### Reading
 
@@ -246,6 +246,17 @@ Twenty-eight tools, each gated by the permission in the right hand column. A key
 | `list_workflow_runs` | Workflow runs and their status | `WorkflowManagement.List` |
 | `get_workflow_run` | One run with per step outcomes | `WorkflowManagement.Detail` |
 | `list_activity_logs` | Who changed what, and when | `ActivityLogManagement.List` |
+| `list_reports` | Metric reports produced by the reporter worker | `ScheduledJobManagement.List` |
+| `get_latest_report` | Newest report of a metric type, with its data | `ScheduledJobManagement.Detail` |
+| `get_report` | One report by id, for comparing against an older one | `ScheduledJobManagement.Detail` |
+| `get_system_health` | Health of the scheduler, database, Redis and RabbitMQ | `SystemAdministration.List` |
+| `get_queue_stats` | RabbitMQ queue depths and consumer counts | `SystemAdministration.List` |
+| `get_queue_info` | Depth detail for one queue | `SystemAdministration.List` |
+| `get_job_statistics` | Aggregate counters across jobs and executions | `SystemAdministration.List` |
+| `get_database_statistics` | Size, index efficiency, cache hit ratio, bloat | `SystemAdministration.List` |
+| `get_configuration` | Effective scheduler configuration | `SystemAdministration.List` |
+| `list_notifications` | Alerts Milvaion itself raised | `InternalNotificationManagement.List` |
+| `list_permissions` | The permission catalog, for explaining what to grant | `PermissionManagement.List` |
 
 ### Running and pausing
 

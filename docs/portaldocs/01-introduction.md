@@ -120,7 +120,7 @@ Milvaion solves these problems by **completely separating scheduling from execut
 
 ### AI Integration
 - **[MCP server](./25-mcp-server.md)** - connect Claude Code, Cursor or GitHub Copilot and ask about your jobs in plain language
-- **32 tools** - reading, triggering, pausing, editing and deleting, each behind its own permission
+- **40+ tools** - reading, triggering, pausing, editing and deleting, each behind its own permission
 - **Scoped by api key** - a read-only key lets an assistant investigate everything and change nothing
 - **No model provider keys** - Milvaion is the data source; the model runs in the user's own editor
 
@@ -142,7 +142,7 @@ Milvaion solves these problems by **completely separating scheduling from execut
 | **Log Streaming** | Real-time via RabbitMQ | Console plugin | None |
 | **Offline Resilience** | SQLite fallback | None | None |
 | **Workflow Engine (DAG)** | Built-in, visual builder | Continuations only | None |
-| **MCP server for AI assistants** | Built-in, 32 tools | None | None |
+| **MCP server for AI assistants** | Built-in, 40+ tools | None | None |
 | **Monitors the others** | ✅ Hangfire + Quartz.NET | N/A | N/A |
 | **Best For** | Distributed systems | Simple .NET apps | Embedded scheduling |
 
