@@ -11,6 +11,8 @@ using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList;
 using Milvaion.Application.Features.ScheduledJobs.GetTagList;
 using Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
+using Milvasoft.Components.Rest.Enums;
+using Milvasoft.Components.Rest.Request;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Types.Structs;
 using ModelContextProtocol;
@@ -35,28 +37,93 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     private const int _maxPageSize = 100;
 
     /// <summary>
+    /// Builds a filter for an inclusive date range on <paramref name="dateField"/>, or null when neither bound
+    /// is supplied.
+    /// </summary>
+    /// <remarks>
+    /// Two criteria rather than a single Between, so that supplying only one end of the range still works -
+    /// "since yesterday" is a far more common request than a closed interval.
+    /// <para>
+    /// Generic over the value type because the columns are not consistent: occurrences use <c>DateTime</c> while
+    /// the activity log uses <c>DateTimeOffset</c>, and handing the filter the wrong one compares mismatched
+    /// types.
+    /// </para>
+    /// </remarks>
+    internal static List<FilterCriteria> BuildDateRangeCriterias<TDate>(string dateField, TDate? since, TDate? until) where TDate : struct
+    {
+        var criterias = new List<FilterCriteria>();
+
+        if (since is not null)
+            criterias.Add(new FilterCriteria { FilterBy = dateField, Value = since.Value, Type = FilterType.GreaterThanOrEqualTo });
+
+        if (until is not null)
+            criterias.Add(new FilterCriteria { FilterBy = dateField, Value = until.Value, Type = FilterType.LessThanOrEqualTo });
+
+        return criterias;
+    }
+
+    /// <summary>
+    /// Adds an equality criteria for <paramref name="value"/>, ignoring it when null or blank.
+    /// </summary>
+    internal static void AddEqualityCriteria(List<FilterCriteria> criterias, string field, object value)
+    {
+        if (value is null || (value is string s && string.IsNullOrWhiteSpace(s)))
+            return;
+
+        criterias.Add(new FilterCriteria { FilterBy = field, Value = value, Type = FilterType.EqualTo });
+    }
+
+    /// <summary>
+    /// Wraps criterias in a request, or returns null when there is nothing to filter on.
+    /// </summary>
+    /// <remarks>
+    /// Returning null rather than an empty request matters: an empty <c>Criterias</c> list is not the same thing
+    /// as "no filtering" to every code path downstream.
+    /// </remarks>
+    internal static FilterRequest ToFilterRequest(List<FilterCriteria> criterias)
+        => criterias is null || criterias.Count == 0 ? null : new FilterRequest { Criterias = criterias };
+
+    /// <summary>
     /// Gets scheduled jobs.
     /// </summary>
     /// <param name="searchTerm">Free text search over job names and types.</param>
+    /// <param name="tag">Only jobs carrying this tag.</param>
+    /// <param name="workerId">Only jobs assigned to this worker.</param>
+    /// <param name="isActive">Only active or only paused jobs.</param>
     /// <param name="pageNumber">Page number, starting at 1.</param>
     /// <param name="pageSize">Results per page, capped at <see cref="_maxPageSize"/>.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Paged job list with the total count.</returns>
-    [McpServerTool(Name = "list_jobs")]
-    [Description("Lists scheduled jobs in Milvaion. Use this to find a job's id before calling other tools, or to get an overview of what is scheduled. Supports a free text search over job names.")]
+    [McpServerTool(Name = "list_jobs", ReadOnly = true)]
+    [Description("Lists scheduled jobs in Milvaion. Use this to find a job's id before calling other tools, or to get an overview of what is scheduled. Narrow it down with workerId or isActive rather than paging through everything.")]
     public async Task<object> ListJobsAsync(
         [Description("Optional free text search over job names and types.")] string searchTerm = null,
+        [Description("Only jobs carrying this tag, from list_tags.")] string tag = null,
+        [Description("Only jobs assigned to this worker id, from list_workers.")] string workerId = null,
+        [Description("True for only scheduled jobs, false for only paused ones. Omit for both.")] bool? isActive = null,
         [Description("Page number, starting at 1.")] int pageNumber = 1,
         [Description("Results per page. Maximum 100.")] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.ScheduledJobManagement.List);
 
+        var criterias = new List<FilterCriteria>();
+        AddEqualityCriteria(criterias, nameof(ScheduledJob.WorkerId), workerId);
+        AddEqualityCriteria(criterias, nameof(ScheduledJob.IsActive), isActive);
+
+        // Tags are stored as one comma separated string, so this is a substring match rather than equality.
+        // It will also match a tag that is a prefix of another - "billing" finds "billing-nightly" - which is
+        // the more useful behaviour here anyway.
+        if (!string.IsNullOrWhiteSpace(tag))
+            criterias.Add(new FilterCriteria { FilterBy = nameof(ScheduledJob.Tags), Value = tag.Trim(), Type = FilterType.Contains });
+
         var response = await _mediator.Send(new GetScheduledJobListQuery
         {
             SearchTerm = searchTerm,
+            Filtering = ToFilterRequest(criterias),
             PageNumber = pageNumber < 1 ? 1 : pageNumber,
-            RowCount = Math.Clamp(pageSize, 1, _maxPageSize)
+            RowCount = Math.Clamp(pageSize, 1, _maxPageSize),
+            Sorting = new SortRequest { SortBy = nameof(ScheduledJob.Id), Type = SortType.Desc }
         }, cancellationToken);
 
         return new
@@ -74,7 +141,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Job detail.</returns>
     /// <exception cref="McpException">Thrown when no job exists with the given id.</exception>
-    [McpServerTool(Name = "get_job")]
+    [McpServerTool(Name = "get_job", ReadOnly = true)]
     [Description("Gets full detail for one scheduled job: schedule, worker, job data, retry and timeout settings, and current state.")]
     public async Task<object> GetJobAsync(
         [Description("The job's GUID id, as returned by list_jobs.")] Guid jobId,
@@ -93,26 +160,46 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <summary>
     /// Gets job occurrences.
     /// </summary>
+    /// <param name="jobId">Only executions of this job.</param>
+    /// <param name="status">Only executions in this status.</param>
+    /// <param name="workerId">Only executions handled by this worker.</param>
     /// <param name="searchTerm">Free text search over job names.</param>
+    /// <param name="since">Only executions created at or after this UTC time.</param>
+    /// <param name="until">Only executions created at or before this UTC time.</param>
     /// <param name="pageNumber">Page number, starting at 1.</param>
     /// <param name="pageSize">Results per page, capped at <see cref="_maxPageSize"/>.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Paged occurrence list with the total count.</returns>
-    [McpServerTool(Name = "list_occurrences")]
-    [Description("Lists job executions (occurrences) with their status, duration and result. Use this to see what ran recently and how it went.")]
+    [McpServerTool(Name = "list_occurrences", ReadOnly = true)]
+    [Description("Lists job executions (occurrences) with their status, duration and result, newest first. Filter rather than page: jobId for one job's history, status to see only failures, since and until to bound the window. All times are UTC.")]
     public async Task<object> ListOccurrencesAsync(
+        [Description("Only executions of this job, by GUID id from list_jobs.")] Guid? jobId = null,
+        [Description("Only executions in this status.")] JobOccurrenceStatus? status = null,
+        [Description("Only executions handled by this worker id.")] string workerId = null,
         [Description("Optional free text search over job names.")] string searchTerm = null,
+        [Description("Only executions at or after this UTC time, e.g. 2026-07-18T22:00:00Z.")] DateTime? since = null,
+        [Description("Only executions at or before this UTC time.")] DateTime? until = null,
         [Description("Page number, starting at 1.")] int pageNumber = 1,
         [Description("Results per page. Maximum 100.")] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.ScheduledJobManagement.List);
 
+        var criterias = BuildDateRangeCriterias(nameof(JobOccurrence.CreatedAt), since, until);
+        AddEqualityCriteria(criterias, nameof(JobOccurrence.JobId), jobId);
+        AddEqualityCriteria(criterias, nameof(JobOccurrence.Status), status);
+        AddEqualityCriteria(criterias, nameof(JobOccurrence.WorkerId), workerId);
+
         var response = await _mediator.Send(new GetJobOccurrenceListQuery
         {
             SearchTerm = searchTerm,
+            Filtering = ToFilterRequest(criterias),
             PageNumber = pageNumber < 1 ? 1 : pageNumber,
-            RowCount = Math.Clamp(pageSize, 1, _maxPageSize)
+            RowCount = Math.Clamp(pageSize, 1, _maxPageSize),
+            // Newest first, matching the dashboard. Without an explicit sort the database returns rows in
+            // whatever order the plan happens to produce, so the model would see a different - and effectively
+            // arbitrary - set from the one the user is looking at on screen.
+            Sorting = new SortRequest { SortBy = nameof(JobOccurrence.CreatedAt), Type = SortType.Desc }
         }, cancellationToken);
 
         return new
@@ -127,13 +214,15 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// Gets job occurrence according to occurrence id, including its logs and exception detail.
     /// </summary>
     /// <param name="occurrenceId">Occurrence id to access details.</param>
+    /// <param name="logLines">How many of the most recent log lines to include.</param>
     /// <param name="cancellationToken"></param>
-    /// <returns>Occurrence detail.</returns>
+    /// <returns>Occurrence detail with the log tail.</returns>
     /// <exception cref="McpException">Thrown when no occurrence exists with the given id.</exception>
-    [McpServerTool(Name = "get_occurrence")]
-    [Description("Gets one execution in full, including its user-facing log lines and exception detail. This is the tool to reach for when diagnosing why a job failed.")]
+    [McpServerTool(Name = "get_occurrence", ReadOnly = true)]
+    [Description("Gets one execution in full, including its exception detail and the tail of its log. This is the tool to reach for when diagnosing why a job failed. Logs are trimmed to the most recent lines by default because a chatty job can produce thousands; raise logLines if the answer is not in the tail.")]
     public async Task<object> GetOccurrenceAsync(
         [Description("The occurrence's GUID id, as returned by list_occurrences or list_failures.")] Guid occurrenceId,
+        [Description("How many of the most recent log lines to return. Maximum 1000. Pass 0 for none.")] int logLines = 100,
         CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.ScheduledJobManagement.Detail);
@@ -143,7 +232,33 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
         if (response.Data == null)
             throw new McpException($"No occurrence found with id {occurrenceId}.");
 
-        return response.Data;
+        var occurrence = response.Data;
+
+        // A job that logs in a loop can produce tens of thousands of lines. Returning them all would not fail -
+        // it would quietly consume the model's whole context on a single call, which is worse, because the
+        // symptom is a vague, expensive answer rather than an error anyone can act on.
+        var totalLogLines = occurrence.Logs?.Count ?? 0;
+        var requestedLines = Math.Clamp(logLines, 0, 1000);
+
+        var truncated = totalLogLines > requestedLines;
+
+        if (occurrence.Logs is not null && truncated)
+            occurrence.Logs = [.. occurrence.Logs.TakeLast(requestedLines)];
+
+        return new
+        {
+            occurrence,
+            logSummary = new
+            {
+                totalLogLines,
+                returnedLogLines = occurrence.Logs?.Count ?? 0,
+                truncated,
+                // Said explicitly so the model knows more exists rather than concluding the log is complete.
+                note = truncated
+                    ? $"Showing the most recent {requestedLines} of {totalLogLines} log lines. Call again with a higher logLines if the cause is earlier in the run."
+                    : null
+            }
+        };
     }
 
     /// <summary>
@@ -196,7 +311,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns>Tag list.</returns>
-    [McpServerTool(Name = "list_tags")]
+    [McpServerTool(Name = "list_tags", ReadOnly = true)]
     [Description("Lists every tag in use across scheduled jobs. Useful for discovering how jobs are grouped before searching for them.")]
     public async Task<object> ListTagsAsync(CancellationToken cancellationToken = default)
     {
@@ -219,7 +334,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the updated job.</returns>
     /// <exception cref="McpException">Thrown when the job could not be updated.</exception>
-    [McpServerTool(Name = "set_job_active")]
+    [McpServerTool(Name = "set_job_active", Idempotent = true)]
     [Description("Pauses or resumes a scheduled job. A paused job keeps its definition and history but is skipped by the dispatcher. This is the right tool for 'stop this job from running' - prefer it over deleting.")]
     public async Task<object> SetJobActiveAsync(
         [Description("The job's GUID id.")] Guid jobId,
@@ -259,7 +374,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the updated job and the settings applied.</returns>
     /// <exception cref="McpException">Thrown when the job could not be updated.</exception>
-    [McpServerTool(Name = "set_job_auto_disable")]
+    [McpServerTool(Name = "set_job_auto_disable", Idempotent = true)]
     [Description("Configures whether a job disables itself after repeated failures, and on what threshold. Auto-disable stops a broken job from failing on schedule forever. Passing enabled false means this job is never auto-disabled no matter how often it fails; omitting a value falls back to the installation-wide setting. Threshold counts consecutive failures within the failure window, so old unrelated failures do not accumulate.")]
     public async Task<object> SetJobAutoDisableAsync(
         [Description("The job's GUID id.")] Guid jobId,
@@ -375,7 +490,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the updated job.</returns>
     /// <exception cref="McpException">Thrown when the job could not be updated.</exception>
-    [McpServerTool(Name = "update_job")]
+    [McpServerTool(Name = "update_job", Idempotent = true)]
     [Description("Updates a scheduled job. Only the arguments you supply are changed; omitted arguments are left alone and cannot be cleared. Changing a cron expression changes when production work runs - show the user the current and proposed schedule and confirm before calling. To pause a job use set_job_active, and for auto-disable settings use set_job_auto_disable.")]
     public async Task<object> UpdateJobAsync(
         [Description("The job's GUID id.")] Guid jobId,
@@ -440,7 +555,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the deleted job.</returns>
     /// <exception cref="McpException">Thrown when the job could not be deleted.</exception>
-    [McpServerTool(Name = "delete_job")]
+    [McpServerTool(Name = "delete_job", Destructive = true)]
     [Description("Permanently deletes a scheduled job and its history. This cannot be undone. If the intent is only to stop the job running, use set_job_active with false instead - that is almost always what the user actually wants. Always confirm explicitly before calling this.")]
     public async Task<object> DeleteJobAsync(
         [Description("The job's GUID id.")] Guid jobId,
@@ -498,7 +613,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Ids of the deleted occurrences.</returns>
     /// <exception cref="McpException">Thrown when the occurrences could not be deleted.</exception>
-    [McpServerTool(Name = "delete_occurrences")]
+    [McpServerTool(Name = "delete_occurrences", Destructive = true)]
     [Description("Permanently deletes execution records. This is a bulk operation: pass every id in a single call rather than calling once per record. Removing occurrences removes audit history, so prefer leaving them alone and letting the maintenance worker's retention policy handle cleanup. Confirm explicitly before calling.")]
     public async Task<object> DeleteOccurrencesAsync(
         [Description("GUID ids of the occurrences to delete. Accepts many at once - send the whole set in one call.")] List<Guid> occurrenceIds,

@@ -275,6 +275,34 @@ Twenty-eight tools, each gated by the permission in the right hand column. A key
 | `delete_worker` | Removes a worker registration | `WorkerManagement.Delete` |
 | `delete_workflow` | Deletes a workflow and its run history | `WorkflowManagement.Delete` |
 
+### Filtering
+
+The list tools filter rather than make the assistant page through everything:
+
+| Tool | Filters |
+|------|---------|
+| `list_jobs` | `tag`, `workerId`, `isActive`, free text |
+| `list_occurrences` | `jobId`, `status`, `workerId`, `since`, `until`, free text |
+| `list_failures` | `jobId`, `resolved`, `since`, `until`, free text |
+| `list_activity_logs` | `since`, `until` |
+| `list_workflow_runs` | `workflowId` |
+
+All times are UTC. `since` on its own is the common case — "what failed since midnight" needs one bound, not two.
+
+`get_occurrence` returns the tail of the log rather than all of it, defaulting to the last 100 lines with a `logLines` parameter to raise it. A job that logs in a loop can otherwise fill an assistant's entire context in one call.
+
+### Prompts
+
+Three prompt templates ship with the server, selectable in clients that support them:
+
+| Prompt | What it does |
+|--------|--------------|
+| `diagnose_job` | Walks a failing job in order: failures, pattern, logs, worker health, then recent config changes |
+| `overnight_review` | Reviews a recent window and groups failures by cause rather than listing them |
+| `explain_workflow` | Describes a workflow's steps, branching and data flow in plain language |
+
+These matter more than they look. Left to itself a model tends to start with whichever tool it read first; the prompts put a working order in front of it.
+
 ### Not exposed
 
 Users, roles, permissions, api keys, dispatcher control, configuration and content management have no tools and are not reachable over MCP, regardless of what the key is granted. Workflow creation and editing are also absent: authoring a directed graph with conditions and data mappings belongs in the visual builder, not in a tool call.
@@ -296,6 +324,8 @@ You do not choose which tools to expose — you choose what the key can do. Gran
 **Concurrency policies are never bypassed.** `trigger_job` always dispatches with force disabled. Overriding a job's concurrency policy stays a deliberate human action in the dashboard.
 
 **Fields cannot be cleared by accident.** `update_job` only changes the arguments it is given; an omitted argument is left alone rather than blanked. The trade-off is that clearing a field on purpose has to be done in the dashboard, which is the safer way round.
+
+**Tools declare what they do.** Every tool carries the MCP annotations clients use to decide whether to prompt: reading tools are marked read-only, `delete_job` and the other four deletions are marked destructive, and the `set_*` and `update_*` tools are marked idempotent. A client that offers "always allow" for a tool can then treat `list_jobs` and `delete_job` differently, which without these it cannot.
 
 :::warning Treat write permissions as production access
 
@@ -339,9 +369,7 @@ Without the header the same request returns 401, which is the quickest confirmat
 | **Api key was issued with a retired signing secret** | `ApiKey.Version` was incremented after the key was created. Create a new key. |
 | **"does not have the '...' permission"** | Working as intended. Grant that permission to the key, or use a different key. |
 | **404 on /mcp** | The API predates MCP support, or a reverse proxy is not forwarding the path. |
-| **Client connects but lists no tools** | Usually a proxy stripping the `Accept: text/event-stream` header, or the wrong top-level key in the config - VS Code wants `servers`, everyone else wants `mcpServers`. |
-| **Config edited but nothing happens** | Claude Desktop ignores HTTP entries in `claude_desktop_config.json` entirely. Windsurf needs `serverUrl` rather than `url`. Gemini CLI needs a restart. |
-| **Tools listed but never called** | In VS Code the chat is in Ask mode; switch to Agent. In ChatGPT the connector needs enabling in that particular conversation. |
+| **Client connects but lists no tools** | Usually a proxy stripping the `Accept: text/event-stream` header. |
 
 ## Deployment Notes
 

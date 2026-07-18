@@ -49,7 +49,8 @@ public static class McpExtensions
         // which is this API when it runs normally but the test host when it runs under WebApplicationFactory -
         // so tool discovery either finds nothing or fails outright, and the failure surfaces as the host never
         // being built.
-        .WithToolsFromAssembly(typeof(McpExtensions).Assembly);
+        .WithToolsFromAssembly(typeof(McpExtensions).Assembly)
+        .WithPromptsFromAssembly(typeof(McpExtensions).Assembly);
 
         return services;
     }

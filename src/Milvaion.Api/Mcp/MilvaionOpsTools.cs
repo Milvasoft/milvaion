@@ -12,6 +12,8 @@ using Milvaion.Application.Features.Workflows.GetWorkflowRunDetail;
 using Milvaion.Application.Features.Workflows.GetWorkflowRunList;
 using Milvaion.Application.Features.Workflows.TriggerWorkflow;
 using Milvaion.Application.Features.Workflows.UpdateWorkflow;
+using Milvasoft.Components.Rest.Enums;
+using Milvasoft.Components.Rest.Request;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Types.Structs;
 using ModelContextProtocol;
@@ -36,7 +38,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns>Job counts, execution status counts, throughput and worker health.</returns>
-    [McpServerTool(Name = "get_overview")]
+    [McpServerTool(Name = "get_overview", ReadOnly = true)]
     [Description("Gets a high level snapshot of the Milvaion installation: job counts, execution status counts, throughput and worker health. Good first call when asked how things are doing.")]
     public async Task<object> GetOverviewAsync(CancellationToken cancellationToken = default)
     {
@@ -52,7 +54,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns>Worker list.</returns>
-    [McpServerTool(Name = "list_workers")]
+    [McpServerTool(Name = "list_workers", ReadOnly = true)]
     [Description("Lists worker processes with their heartbeat status and the job types each can execute. Use this when a job is not running to check whether a worker capable of executing it is actually alive.")]
     public async Task<object> ListWorkersAsync(CancellationToken cancellationToken = default)
     {
@@ -71,7 +73,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="pageSize">Results per page, capped at <see cref="_maxPageSize"/>.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Paged workflow list with the total count.</returns>
-    [McpServerTool(Name = "list_workflows")]
+    [McpServerTool(Name = "list_workflows", ReadOnly = true)]
     [Description("Lists workflows - multi step job pipelines with branching. Use this to find a workflow's id.")]
     public async Task<object> ListWorkflowsAsync(
         [Description("Optional free text search over workflow names.")] string searchTerm = null,
@@ -85,7 +87,9 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         {
             SearchTerm = searchTerm,
             PageNumber = pageNumber < 1 ? 1 : pageNumber,
-            RowCount = Math.Clamp(pageSize, 1, _maxPageSize)
+            RowCount = Math.Clamp(pageSize, 1, _maxPageSize),
+            // Same ordering the dashboard uses, so the model and the user see the same list.
+            Sorting = new SortRequest { SortBy = nameof(Workflow.Id), Type = SortType.Desc }
         }, cancellationToken);
 
         return new
@@ -104,7 +108,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="pageSize">Results per page, capped at <see cref="_maxPageSize"/>.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Paged workflow run list with the total count.</returns>
-    [McpServerTool(Name = "list_workflow_runs")]
+    [McpServerTool(Name = "list_workflow_runs", ReadOnly = true)]
     [Description("Lists workflow runs with their status, so you can see which pipelines completed, failed or are still going.")]
     public async Task<object> ListWorkflowRunsAsync(
         [Description("Optional workflow GUID id to list runs for. Omit to list runs across all workflows.")] Guid? workflowId = null,
@@ -118,7 +122,8 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         {
             WorkflowId = workflowId,
             PageNumber = pageNumber < 1 ? 1 : pageNumber,
-            RowCount = Math.Clamp(pageSize, 1, _maxPageSize)
+            RowCount = Math.Clamp(pageSize, 1, _maxPageSize),
+            Sorting = new SortRequest { SortBy = nameof(WorkflowRun.Id), Type = SortType.Desc }
         }, cancellationToken);
 
         return new
@@ -172,7 +177,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Worker detail.</returns>
     /// <exception cref="McpException">Thrown when no worker exists with the given id.</exception>
-    [McpServerTool(Name = "get_worker")]
+    [McpServerTool(Name = "get_worker", ReadOnly = true)]
     [Description("Gets one worker in full: heartbeat, capacity and the job types it can execute. Use this to confirm a worker can actually run a given job type before creating or repointing a job at it.")]
     public async Task<object> GetWorkerAsync(
         [Description("The worker id, as returned by list_workers.")] string workerId,
@@ -198,7 +203,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the deleted worker.</returns>
     /// <exception cref="McpException">Thrown when the worker could not be deleted.</exception>
-    [McpServerTool(Name = "delete_worker")]
+    [McpServerTool(Name = "delete_worker", Destructive = true)]
     [Description("Removes a worker registration from Milvaion. This is for tidying up records of workers that no longer exist - it does not stop a running process, and a live worker simply re-registers on its next heartbeat. Jobs pointed at the deleted worker will stop being executed until a worker with that id appears again.")]
     public async Task<object> DeleteWorkerAsync(
         [Description("The worker id.")] string workerId,
@@ -221,7 +226,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Workflow detail.</returns>
     /// <exception cref="McpException">Thrown when no workflow exists with the given id.</exception>
-    [McpServerTool(Name = "get_workflow")]
+    [McpServerTool(Name = "get_workflow", ReadOnly = true)]
     [Description("Gets one workflow in full: its steps, edges, conditions, data mappings and failure strategy. Use this to explain what a pipeline does or to work out which step is responsible for a failure.")]
     public async Task<object> GetWorkflowAsync(
         [Description("The workflow's GUID id, as returned by list_workflows.")] Guid workflowId,
@@ -244,7 +249,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Workflow run detail.</returns>
     /// <exception cref="McpException">Thrown when no workflow run exists with the given id.</exception>
-    [McpServerTool(Name = "get_workflow_run")]
+    [McpServerTool(Name = "get_workflow_run", ReadOnly = true)]
     [Description("Gets one workflow run with the outcome of each step, so you can see exactly where a pipeline stopped and which branch it took.")]
     public async Task<object> GetWorkflowRunAsync(
         [Description("The run's GUID id, as returned by list_workflow_runs.")] Guid runId,
@@ -298,7 +303,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the deleted workflow.</returns>
     /// <exception cref="McpException">Thrown when the workflow could not be deleted.</exception>
-    [McpServerTool(Name = "delete_workflow")]
+    [McpServerTool(Name = "delete_workflow", Destructive = true)]
     [Description("Permanently deletes a workflow and its run history. This cannot be undone. If the intent is only to stop it running, call set_workflow_active with false instead. Confirm explicitly with the user before calling.")]
     public async Task<object> DeleteWorkflowAsync(
         [Description("The workflow's GUID id.")] Guid workflowId,
@@ -382,7 +387,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the updated workflow.</returns>
     /// <exception cref="McpException">Thrown when the workflow could not be updated.</exception>
-    [McpServerTool(Name = "set_workflow_active")]
+    [McpServerTool(Name = "set_workflow_active", Idempotent = true)]
     [Description("Pauses or resumes a workflow without touching its definition. Works even while runs are in progress, so this is the right tool for stopping a misbehaving workflow from starting again. Running instances are unaffected - use cancel_workflow_run for those.")]
     public async Task<object> SetWorkflowActiveAsync(
         [Description("The workflow's GUID id.")] Guid workflowId,
@@ -428,7 +433,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the updated workflow.</returns>
     /// <exception cref="McpException">Thrown when the workflow could not be updated.</exception>
-    [McpServerTool(Name = "update_workflow")]
+    [McpServerTool(Name = "update_workflow", Idempotent = true)]
     [Description("Updates a workflow. Only the arguments you supply are changed. To rewire the graph, supply both steps and edges - they replace the existing definition as a unit and cannot be changed while runs are in progress. Call get_workflow first so you are editing from the current definition rather than guessing it. To pause a workflow use set_workflow_active instead.")]
     public async Task<object> UpdateWorkflowAsync(
         [Description("The workflow's GUID id.")] Guid workflowId,

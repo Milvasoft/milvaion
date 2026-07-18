@@ -1367,11 +1367,15 @@
             beforehand. They delegate to the same MediatR queries the REST API uses.
             </remarks>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ListFailuresAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ListFailuresAsync(System.Nullable{System.Guid},System.Nullable{System.Boolean},System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Int32,System.Int32,System.Threading.CancellationToken)">
             <summary>
             Gets failed occurrences that exhausted their retries.
             </summary>
+            <param name="jobId">Only failures of this job.</param>
+            <param name="resolved">Only resolved or only unresolved failures.</param>
             <param name="searchTerm">Free text search over job names.</param>
+            <param name="since">Only failures at or after this UTC time.</param>
+            <param name="until">Only failures at or before this UTC time.</param>
             <param name="pageNumber">Page number, starting at 1.</param>
             <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionDiagnosticsTools._maxPageSize"/>.</param>
             <param name="cancellationToken"></param>
@@ -1410,10 +1414,12 @@
             <returns>Ids of the deleted failures.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the failures could not be deleted.</exception>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ListActivityLogsAsync(System.Int32,System.Int32,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ListActivityLogsAsync(System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Int32,System.Int32,System.Threading.CancellationToken)">
             <summary>
             Gets the user activity log.
             </summary>
+            <param name="since">Only activities at or after this UTC time.</param>
+            <param name="until">Only activities at or before this UTC time.</param>
             <param name="pageNumber">Page number, starting at 1.</param>
             <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionDiagnosticsTools._maxPageSize"/>.</param>
             <param name="cancellationToken"></param>
@@ -1437,11 +1443,43 @@
             a change to filtering or projection shows up identically in the dashboard, the REST API and MCP.
             </remarks>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ListJobsAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.BuildDateRangeCriterias``1(System.String,System.Nullable{``0},System.Nullable{``0})">
+            <summary>
+            Builds a filter for an inclusive date range on <paramref name="dateField"/>, or null when neither bound
+            is supplied.
+            </summary>
+            <remarks>
+            Two criteria rather than a single Between, so that supplying only one end of the range still works -
+            "since yesterday" is a far more common request than a closed interval.
+            <para>
+            Generic over the value type because the columns are not consistent: occurrences use <c>DateTime</c> while
+            the activity log uses <c>DateTimeOffset</c>, and handing the filter the wrong one compares mismatched
+            types.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.AddEqualityCriteria(System.Collections.Generic.List{Milvasoft.Components.Rest.Request.FilterCriteria},System.String,System.Object)">
+            <summary>
+            Adds an equality criteria for <paramref name="value"/>, ignoring it when null or blank.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ToFilterRequest(System.Collections.Generic.List{Milvasoft.Components.Rest.Request.FilterCriteria})">
+            <summary>
+            Wraps criterias in a request, or returns null when there is nothing to filter on.
+            </summary>
+            <remarks>
+            Returning null rather than an empty request matters: an empty <c>Criterias</c> list is not the same thing
+            as "no filtering" to every code path downstream.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ListJobsAsync(System.String,System.String,System.String,System.Nullable{System.Boolean},System.Int32,System.Int32,System.Threading.CancellationToken)">
             <summary>
             Gets scheduled jobs.
             </summary>
             <param name="searchTerm">Free text search over job names and types.</param>
+            <param name="tag">Only jobs carrying this tag.</param>
+            <param name="workerId">Only jobs assigned to this worker.</param>
+            <param name="isActive">Only active or only paused jobs.</param>
             <param name="pageNumber">Page number, starting at 1.</param>
             <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionJobTools._maxPageSize"/>.</param>
             <param name="cancellationToken"></param>
@@ -1456,23 +1494,29 @@
             <returns>Job detail.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when no job exists with the given id.</exception>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ListOccurrencesAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ListOccurrencesAsync(System.Nullable{System.Guid},System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus},System.String,System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Int32,System.Int32,System.Threading.CancellationToken)">
             <summary>
             Gets job occurrences.
             </summary>
+            <param name="jobId">Only executions of this job.</param>
+            <param name="status">Only executions in this status.</param>
+            <param name="workerId">Only executions handled by this worker.</param>
             <param name="searchTerm">Free text search over job names.</param>
+            <param name="since">Only executions created at or after this UTC time.</param>
+            <param name="until">Only executions created at or before this UTC time.</param>
             <param name="pageNumber">Page number, starting at 1.</param>
             <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionJobTools._maxPageSize"/>.</param>
             <param name="cancellationToken"></param>
             <returns>Paged occurrence list with the total count.</returns>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.GetOccurrenceAsync(System.Guid,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.GetOccurrenceAsync(System.Guid,System.Int32,System.Threading.CancellationToken)">
             <summary>
             Gets job occurrence according to occurrence id, including its logs and exception detail.
             </summary>
             <param name="occurrenceId">Occurrence id to access details.</param>
+            <param name="logLines">How many of the most recent log lines to include.</param>
             <param name="cancellationToken"></param>
-            <returns>Occurrence detail.</returns>
+            <returns>Occurrence detail with the log tail.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when no occurrence exists with the given id.</exception>
         </member>
         <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.TriggerJobAsync(System.Guid,System.String,System.String,System.Threading.CancellationToken)">
@@ -1762,6 +1806,37 @@
             <param name="cancellationToken"></param>
             <returns>Id of the updated workflow.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be updated.</exception>
+        </member>
+        <member name="T:Milvaion.Api.Mcp.MilvaionPrompts">
+            <summary>
+            Prompt templates the user can pick explicitly, each one teaching the model a working order for a common task.
+            </summary>
+            <remarks>
+            The same guidance exists in <c>ServerInstructions</c>, but that is passive background the model may or may not
+            lean on. A prompt is chosen deliberately and puts the sequence directly in front of the model, which produces
+            far more consistent investigations than hoping it picks the right first tool.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionPrompts.DiagnoseJob(System.String)">
+            <summary>
+            Walks through diagnosing a failing job.
+            </summary>
+            <param name="jobName">Name or id of the job to investigate.</param>
+            <returns>The prompt text.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionPrompts.OvernightReview(System.Int32)">
+            <summary>
+            Reviews everything that failed in a recent window.
+            </summary>
+            <param name="hours">How many hours back to look.</param>
+            <returns>The prompt text.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionPrompts.ExplainWorkflow(System.String)">
+            <summary>
+            Explains what a workflow does.
+            </summary>
+            <param name="workflowName">Name or id of the workflow.</param>
+            <returns>The prompt text.</returns>
         </member>
         <member name="T:Milvaion.Api.Middlewares.ExceptionMiddleware">
             <summary>

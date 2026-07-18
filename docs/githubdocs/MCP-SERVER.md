@@ -39,6 +39,7 @@ MapMcp endpoint  ──▶  tool method  ──▶  McpPermissionGuard.Require(.
 | `src/Milvaion.Api/Mcp/MilvaionJobTools.cs` | Job and occurrence tools, including CRUD |
 | `src/Milvaion.Api/Mcp/MilvaionOpsTools.cs` | Worker, workflow and dashboard tools |
 | `src/Milvaion.Api/Mcp/MilvaionDiagnosticsTools.cs` | Dead letter failures and the activity log |
+| `src/Milvaion.Api/Mcp/MilvaionPrompts.cs` | Prompt templates for diagnosis workflows |
 | `src/Milvaion.Api/Mcp/McpPermissionGuard.cs` | Per-tool permission enforcement |
 | `src/Milvaion.Api/AppStartup/McpExtensions.cs` | Registration and endpoint mapping |
 | `src/Milvaion.Api/Utils/ApiKeyAuthenticationHandler.cs` | Authentication scheme |
@@ -175,6 +176,10 @@ public async Task<object> ListJobsAsync(
 ### Conventions
 
 - **Tool names** are `snake_case` and verb-first: `list_jobs`, `get_occurrence`, `trigger_job`.
+- **Annotations are mandatory.** Set `ReadOnly = true` on anything that only reads, `Destructive = true` on anything irreversible, `Idempotent = true` on state setters. Clients use these to decide what to auto-approve; an unannotated destructive tool looks identical to a list call.
+- **Filter, do not paginate.** Every list tool should expose the filters a person would reach for - id, status, owner, date bounds - built through `BuildDateRangeCriterias`, `AddEqualityCriteria` and `ToFilterRequest` in `MilvaionJobTools`. Making the model page through thousands of rows to find ten is slow and expensive.
+- **Sort explicitly.** The handlers do not all default their sort order, so a query without `Sorting` returns rows in whatever order the plan produces. Match whatever the dashboard sends for the same list, or the model and the user will be looking at different data.
+- **Bound the response.** Anything that can grow without limit - logs especially - needs a cap and a note saying it was truncated. Blowing the context window is a silent failure: the answer just gets vague and expensive.
 - **Page sizes** are clamped to `_maxPageSize` (100). A model asking for 10,000 rows should get 100, not an error.
 - **Not-found** throws `McpException` with a message naming the id, rather than returning null.
 - **Write tools** require their own permission and never bypass domain safeguards — `trigger_job` always dispatches with `Force = false`.
