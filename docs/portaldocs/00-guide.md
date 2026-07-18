@@ -5,6 +5,9 @@ sidebar_position: 0
 description: Documentation guide of Milvaion.
 ---
 
+<p align="center">
+  <img src={require('./src/logo256.png').default} alt="Milvaion" />
+</p>
 
 # Milvaion Documentation
 
@@ -16,40 +19,46 @@ Welcome to the official Milvaion documentation. This documentation will help you
 
 | Document | Description |
 |----------|-------------|
-| [01-introduction.md](01-introduction.md) | What is Milvaion, when to use it, comparison with alternatives |
-| [02-quick-start.md](02-quick-start.md) | Get running locally in under 10 minutes |
-| [03-core-concepts.md](03-core-concepts.md) | Understand the architecture and key terms |
+| [Introduction](01-introduction.md) | What is Milvaion, when to use it, comparison with alternatives |
+| [Quick Start](02-quick-start.md) | Get running locally in under 10 minutes |
+| [Core Concepts](03-core-concepts.md) | Understand the architecture and key terms |
 
 ### Developer Guide
 
 | Document | Description |
 |----------|-------------|
-| [04-your-first-worker.md](04-your-first-worker.md) | Create and deploy a custom worker |
-| [05-implementing-jobs.md](05-implementing-jobs.md) | Write jobs with DI, error handling, testing |
-| [06-configuration.md](06-configuration.md) | All configuration options for API and Workers |
-| [14-built-in-workers.md](14-built-in-workers.md) | Pre-built workers (HTTP Worker, etc.) |
-| [20-workflows.md](20-workflows.md) | Build multi-step job pipelines with DAG-based orchestration |
-| [21-reporter-worker.md](21-reporter-worker.md) | Automated metric report generation worker |
-| [23-local-job-testing.md](23-local-job-testing.md) | Unit test jobs locally without RabbitMQ, Redis, or a live environment |
+| [Your First Worker](04-your-first-worker.md) | Create and deploy a custom worker |
+| [Implementing Jobs](05-implementing-jobs.md) | Write jobs with DI, error handling, testing |
+| [Configuration](06-configuration.md) | All configuration options for API and Workers |
+| [Testing](23-testing.md) | Unit test jobs locally without RabbitMQ, Redis, or a live environment |
 
 ### Operations Guide
 
 | Document | Description |
 |----------|-------------|
-| [07-deployment.md](07-deployment.md) | Production deployment with Docker and Kubernetes |
-| [08-reliability.md](08-reliability.md) | Retry, DLQ, zombie detection, idempotency |
-| [09-scaling.md](09-scaling.md) | Horizontal scaling strategies |
-| [10-monitoring.md](10-monitoring.md) | Health checks, metrics, logging, alerting |
-| [11-maintenance.md](11-maintenance.md) | Database cleanup and retention policies |
-| [20-enterprise-features.md](20-enterprise-features.md) | User, role, permission management, activity tracking, auditing, and metric reports |
+| [Deployment](07-deployment.md) | Production deployment with Docker and Kubernetes |
+| [Reliability](08-reliability.md) | Retry, DLQ, zombie detection, idempotency |
+| [Scaling](09-scaling.md) | Horizontal scaling strategies |
+| [Monitoring](10-monitoring.md) | Health checks, metrics, logging, alerting |
+| [Maintenance](11-maintenance.md) | Database cleanup and retention policies |
+| [Built-in Workers](./built-in-workers/14-http-worker.md) | Pre-built workers (HTTP Worker, SQL Worker, Email Worker, Maintenance Worker) |
+| [Workflows](20-workflows.md) | Build multi-step job pipelines with DAG-based orchestration |
+| [Api Keys](24-api-keys.md) | Credentials for CI pipelines, scripts and MCP clients |
+| [MCP Server](25-mcp-server.md) | Connect Claude Code, Cursor or Copilot and ask about your jobs |
+
 
 ## Quick Links
 
-- **First time→** Start with [Introduction](01-introduction.md)
-- **Want to run it→** Jump to [Quick Start](02-quick-start.md)
-- **Building a worker→** See [Your First Worker](04-your-first-worker.md)
-- **Using built-in workers→** See [Built-in Workers](14-built-in-workers.md)
-- **Going to production→** Read [Deployment](07-deployment.md)
+- **First time →** Start with [Introduction](01-introduction.md)
+- **Want to run it →** Jump to [Quick Start](02-quick-start.md)
+- **Building a worker →** See [Your First Worker](04-your-first-worker.md)
+- **Going to production →** Read [Deployment](07-deployment.md)
+- **Security considerations →** Read [Security](12-security.md)
+- **Milvaion UI Features →** See [UI Screenshots](13-dashboard-screenshots.md)
+- **Built-in Workers →** See [Built-in Workers](./built-in-workers/14-http-worker.md)
+- **Workflows →** See [Workflows](20-workflows.md)
+- **Using it from an AI assistant →** See [MCP Server](25-mcp-server.md)
+- **CI or script access →** See [Api Keys](24-api-keys.md)
 
 ## Reading Order
 
@@ -61,7 +70,7 @@ For new users, we recommend reading in this order:
 3. Core Concepts     → Understand the architecture
 4. Your First Worker → Build something real
 5. Configuration     → Reference as needed
-6. (Optional) Reliability, Scaling, Monitoring for production
+6. (Optional) Reliability, Scaling, Monitoring, Security for production, Built-in workers
 ```
 
 ## Version
@@ -74,4 +83,4 @@ This documentation covers **Milvaion 1.0.0** with:
 
 ## Feedback
 
-Found an issue or want to suggest improvements? Open an issue on GitHub.
+Found an issue or want to suggest improvements? Open an issue on [GitHub](https://github.com/Milvasoft/milvaion).
