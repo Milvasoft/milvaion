@@ -1,6 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Milvaion.Application.Interfaces;
-using Milvaion.Application.Utils.PermissionManager;
 using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvasoft.Core.Helpers;

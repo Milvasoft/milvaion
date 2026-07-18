@@ -20,8 +20,6 @@ using Milvaion.Application.Features.ScheduledJobs.GetTagList;
 using Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Application.Utils.Constants;
-using Milvaion.Application.Utils.PermissionManager;
 using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 

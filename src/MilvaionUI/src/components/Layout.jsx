@@ -248,6 +248,12 @@ const user = authService.getCurrentUser()
                       <span>Roles</span>
                     </Link>
                   </li>
+                  <li className={isActive('/api-keys') ? 'active' : ''}>
+                    <Link to="/api-keys">
+                      <Icon name="key" size={18} />
+                      <span>Api Keys</span>
+                    </Link>
+                  </li>
                   <li className={isActive('/activity-logs') ? 'active' : ''}>
                     <Link to="/activity-logs">
                       <Icon name="history" size={18} />
@@ -292,6 +298,11 @@ const user = authService.getCurrentUser()
               <li className={isActive('/roles') ? 'active' : ''}>
                 <Link to="/roles" title="Roles">
                   <Icon name="shield" size={20} />
+                </Link>
+              </li>
+              <li className={isActive('/api-keys') ? 'active' : ''}>
+                <Link to="/api-keys" title="Api Keys">
+                  <Icon name="key" size={20} />
                 </Link>
               </li>
               <li className={isActive('/activity-logs') ? 'active' : ''}>

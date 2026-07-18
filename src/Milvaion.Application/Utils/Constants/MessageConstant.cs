@@ -21,6 +21,7 @@ public static class MessageConstant
     public const string CannotFindFile = "Cannot find file!";
     public const string InvalidJsonFormat = "Invalid json format!";
     public const string CancelledByUser = "Cancelled by user";
+    public const string ApiKey = "X-ApiKey";
     public const string OpenApiAuthMessageTip =
     """
         JWT Authorization header using the Bearer scheme.

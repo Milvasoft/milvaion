@@ -273,7 +273,7 @@ Configure alerting using environment variables in your `docker-compose.yml`:
 ```yaml
 services:
   milvaion-api:
-    image: milvasoft/milvaion:latest
+    image: milvasoft/milvaion-api:latest
     environment:
       # Base URL for action links
       - MilvaionConfig__Alerting__MilvaionAppUrl=https://milvaion.example.com
@@ -380,7 +380,7 @@ spec:
     spec:
       containers:
         - name: milvaion-api
-          image: milvasoft/milvaion:latest
+          image: milvasoft/milvaion-api:latest
           envFrom:
             - configMapRef:
                 name: milvaion-alerting-config

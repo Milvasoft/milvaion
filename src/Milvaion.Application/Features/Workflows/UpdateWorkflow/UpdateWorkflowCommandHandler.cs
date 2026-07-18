@@ -1,3 +1,4 @@
+using Milvaion.Application.Features.Workflows.CreateWorkflow;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
@@ -10,6 +11,12 @@ namespace Milvaion.Application.Features.Workflows.UpdateWorkflow;
 /// <summary>
 /// Handles workflow settings update.
 /// </summary>
+/// <remarks>
+/// Fields are only read when their <c>IsUpdated</c> flag is set, so a caller can rename a workflow or pause it
+/// without resending the definition. The graph is only rebuilt - and the active-run guard only applies - when
+/// steps and edges are actually supplied. That is what allows a running workflow to be paused, which the previous
+/// full-replace shape made impossible.
+/// </remarks>
 [Log]
 [UserActivityTrack(UserActivity.UpdateWorkflow)]
 [Transaction]
@@ -31,10 +38,14 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
         if (workflow == null)
             return Response<Guid>.Error(default, "Workflow not found.");
 
-        bool workflowDefinitionChanged = false;
+        // Steps and edges are one unit. Rebuilding the graph from steps alone would drop every edge, so refuse
+        // rather than quietly destroy the connections.
+        if (request.Steps.IsUpdated != request.Edges.IsUpdated)
+            return Response<Guid>.Error(default, "Steps and edges must be updated together. Send both, or neither.");
 
-        var cronChanged = workflow.CronExpression != request.CronExpression;
+        var definitionSupplied = request.Steps.IsUpdated;
 
+        // Snapshot of the workflow as it is now, taken before any mutation.
         WorkflowSnapshot workflowSnapshot = new()
         {
             Id = workflow.Id,
@@ -55,156 +66,211 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             Steps = [],
         };
 
-        if (workflow.Name != request.Name || workflow.IsActive != request.IsActive || workflow.FailureStrategy != request.FailureStrategy ||
-            workflow.MaxStepRetries != request.MaxStepRetries || workflow.TimeoutSeconds != request.TimeoutSeconds || cronChanged)
-        {
-            workflowDefinitionChanged = true;
-        }
-
-        workflow.Name = request.Name;
-        workflow.Description = request.Description;
-        workflow.Tags = request.Tags;
-        workflow.IsActive = request.IsActive;
-        workflow.FailureStrategy = request.FailureStrategy;
-        workflow.MaxStepRetries = request.MaxStepRetries;
-        workflow.TimeoutSeconds = request.TimeoutSeconds;
-        workflow.CronExpression = string.IsNullOrWhiteSpace(request.CronExpression) ? null : request.CronExpression;
-        workflow.Versions ??= [];
-
-        // Reset last scheduled run time when cron expression changes so the engine picks up the new schedule immediately
-        if (cronChanged)
-            workflow.LastScheduledRunAt = null;
-
-        if (request.Steps.Count == 0)
-            return Response<Guid>.Error(default, "Workflow must have at least one step.");
-
-        // Block step update while active runs are in progress
-        var activeRuns = await _runRepository.GetAllAsync<WorkflowRun>(condition: r => r.WorkflowId == request.WorkflowId && (r.Status == WorkflowStatus.Pending || r.Status == WorkflowStatus.Running),
-                                                                       projection: r => new() { Id = r.Id },
-                                                                       conditionAfterProjection: null,
-                                                                       tracking: false,
-                                                                       splitQuery: false,
-                                                                       cancellationToken: cancellationToken);
-
-        if (!activeRuns.IsNullOrEmpty())
-            return Response<Guid>.Error(default, "Cannot update steps while there are active workflow runs. Please wait for them to complete.");
-
-        var jobIds = request.Steps.Where(s => s.NodeType == WorkflowNodeType.Task && s.JobId.HasValue).Select(s => s.JobId!.Value).Distinct().ToList();
-
-        var existingJobIds = new HashSet<Guid>();
-
-        var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), cancellationToken: cancellationToken);
-
-        foreach (var job in jobs)
-            if (job != null)
-                existingJobIds.Add(job.Id);
-
-        var missingJobs = jobIds.Except(existingJobIds).ToList();
-
-        if (missingJobs.Count > 0)
-            return Response<Guid>.Error(default, $"Jobs not found: {string.Join(", ", missingJobs)}");
-
-        // Validate DAG (no cycles)
-        if (!request.Steps.ValidateDAG(request.Edges))
-            return Response<Guid>.Error(default, "Workflow contains circular dependencies. Steps must form a Directed Acyclic Graph (DAG).");
-
-        // Get existing definition
         var existingSteps = workflow.Definition?.Steps ?? [];
         var existingEdges = workflow.Definition?.Edges ?? [];
 
-        var existingStepIdSet = existingSteps.Select(s => s.Id.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Description and tags are metadata: they are applied but, as before, do not on their own constitute a
+        // definition change worth a new version.
+        bool workflowDefinitionChanged = false;
 
-        var tempIdToRealId = new Dictionary<string, Guid>();
-
-        for (int i = 0; i < request.Steps.Count; i++)
+        if (request.Name.IsUpdated)
         {
-            var stepCmd = request.Steps[i];
-            var tempId = stepCmd.TempId ?? i.ToString();
-            tempIdToRealId[tempId] = existingStepIdSet.Contains(tempId) ? Guid.Parse(tempId) : Guid.CreateVersion7();
+            workflowDefinitionChanged |= workflow.Name != request.Name.Value;
+            workflow.Name = request.Name.Value;
         }
 
-        // Build new definition
-        workflow.Definition = new WorkflowDefinition
-        {
-            Steps = [],
-            Edges = []
-        };
+        if (request.Description.IsUpdated)
+            workflow.Description = request.Description.Value;
 
-        for (int i = 0; i < request.Steps.Count; i++)
-        {
-            var stepCmd = request.Steps[i];
-            var tempId = stepCmd.TempId ?? i.ToString();
-            var stepId = tempIdToRealId[tempId];
+        if (request.Tags.IsUpdated)
+            workflow.Tags = request.Tags.Value;
 
-            workflow.Definition.Steps.Add(new WorkflowStepDefinition
-            {
-                Id = stepId,
-                NodeType = stepCmd.NodeType,
-                JobId = stepCmd.NodeType == WorkflowNodeType.Task && stepCmd.JobId.HasValue && stepCmd.JobId.Value != Guid.Empty ? stepCmd.JobId : null,
-                StepName = stepCmd.StepName,
-                Order = stepCmd.Order,
-                NodeConfigJson = stepCmd.NodeConfigJson,
-                DataMappings = stepCmd.DataMappings,
-                DelaySeconds = stepCmd.DelaySeconds,
-                JobDataOverride = ScheduledJob.FixJobData(stepCmd.JobDataOverride),
-                PositionX = stepCmd.PositionX,
-                PositionY = stepCmd.PositionY,
-            });
+        if (request.IsActive.IsUpdated)
+        {
+            workflowDefinitionChanged |= workflow.IsActive != request.IsActive.Value;
+            workflow.IsActive = request.IsActive.Value;
         }
 
-        foreach (var edgeCmd in request.Edges ?? [])
+        if (request.FailureStrategy.IsUpdated)
         {
-            if (!tempIdToRealId.TryGetValue(edgeCmd.SourceTempId, out var sourceId) || !tempIdToRealId.TryGetValue(edgeCmd.TargetTempId, out var targetId))
-                continue;
-
-            workflow.Definition.Edges.Add(new WorkflowEdgeDefinition
-            {
-                SourceStepId = sourceId,
-                TargetStepId = targetId,
-                SourcePort = edgeCmd.SourcePort,
-                TargetPort = edgeCmd.TargetPort,
-                Label = edgeCmd.Label,
-                Order = edgeCmd.Order,
-                EdgeConfigJson = edgeCmd.EdgeConfigJson,
-            });
+            workflowDefinitionChanged |= workflow.FailureStrategy != request.FailureStrategy.Value;
+            workflow.FailureStrategy = request.FailureStrategy.Value;
         }
 
-        // Delete orphaned JobOccurrences for removed steps
-        var requestedStepIds = tempIdToRealId.Values.ToHashSet();
-        var removedStepIds = existingSteps.Where(s => !requestedStepIds.Contains(s.Id)).Select(s => s.Id).ToList();
-
-        if (removedStepIds.Count > 0)
-            await _jobOccurrenceRepository.ExecuteDeleteAsync(o => removedStepIds.Contains(o.WorkflowStepId.Value), cancellationToken: cancellationToken);
-
-        // Check if steps actually changed
-        bool stepsActuallyChanged = existingSteps.Count != workflow.Definition.Steps.Count || existingEdges.Count != workflow.Definition.Edges.Count;
-
-        if (!stepsActuallyChanged)
+        if (request.MaxStepRetries.IsUpdated)
         {
-            // Deep equality check
-            var existingStepsDict = existingSteps.ToDictionary(s => s.Id);
+            workflowDefinitionChanged |= workflow.MaxStepRetries != request.MaxStepRetries.Value;
+            workflow.MaxStepRetries = request.MaxStepRetries.Value;
+        }
 
-            foreach (var newStep in workflow.Definition.Steps)
+        if (request.TimeoutSeconds.IsUpdated)
+        {
+            workflowDefinitionChanged |= workflow.TimeoutSeconds != request.TimeoutSeconds.Value;
+            workflow.TimeoutSeconds = request.TimeoutSeconds.Value;
+        }
+
+        if (request.CronExpression.IsUpdated)
+        {
+            var newCronExpression = string.IsNullOrWhiteSpace(request.CronExpression.Value) ? null : request.CronExpression.Value;
+
+            if (workflow.CronExpression != newCronExpression)
             {
-                if (!existingStepsDict.TryGetValue(newStep.Id, out var existingStep))
+                workflowDefinitionChanged = true;
+
+                // Reset last scheduled run time when cron expression changes so the engine picks up the new
+                // schedule immediately.
+                workflow.LastScheduledRunAt = null;
+            }
+
+            workflow.CronExpression = newCronExpression;
+        }
+
+        workflow.Versions ??= [];
+
+        // Jobs are needed both to validate a supplied definition and to label the snapshot's steps. Loading the
+        // union covers a gap in the previous implementation, where a step whose job had been dropped from the new
+        // definition was snapshotted without its job name.
+        // Resolved once, defensively: IsUpdated true with a null list is a malformed request, not a crash.
+        List<CreateWorkflowStepDto> requestedSteps = definitionSupplied ? request.Steps.Value ?? [] : [];
+        List<CreateWorkflowEdgeDto> requestedEdges = definitionSupplied ? request.Edges.Value ?? [] : [];
+
+        if (definitionSupplied && requestedSteps.Count == 0)
+            return Response<Guid>.Error(default, "Workflow must have at least one step.");
+
+        var requestJobIds = requestedSteps.Where(s => s.NodeType == WorkflowNodeType.Task && s.JobId.HasValue)
+                                          .Select(s => s.JobId!.Value)
+                                          .Distinct()
+                                          .ToList();
+
+        var snapshotJobIds = existingSteps.Where(s => s.JobId.HasValue).Select(s => s.JobId!.Value).Distinct().ToList();
+
+        var allJobIds = requestJobIds.Union(snapshotJobIds).ToList();
+
+        var jobs = allJobIds.Count > 0
+            ? await _jobRepository.GetAllAsync(j => allJobIds.Contains(j.Id), cancellationToken: cancellationToken)
+            : [];
+
+        bool stepsActuallyChanged = false;
+
+        if (definitionSupplied)
+        {
+            // Block definition changes while runs are in flight. Metadata-only updates deliberately skip this,
+            // so a misbehaving workflow can still be paused mid-run.
+            var activeRuns = await _runRepository.GetAllAsync<WorkflowRun>(condition: r => r.WorkflowId == request.WorkflowId && (r.Status == WorkflowStatus.Pending || r.Status == WorkflowStatus.Running),
+                                                                          projection: r => new() { Id = r.Id },
+                                                                          conditionAfterProjection: null,
+                                                                          tracking: false,
+                                                                          splitQuery: false,
+                                                                          cancellationToken: cancellationToken);
+
+            if (!activeRuns.IsNullOrEmpty())
+                return Response<Guid>.Error(default, "Cannot update steps while there are active workflow runs. Please wait for them to complete.");
+
+            var existingJobIds = jobs.Where(j => j != null).Select(j => j.Id).ToHashSet();
+
+            var missingJobs = requestJobIds.Except(existingJobIds).ToList();
+
+            if (missingJobs.Count > 0)
+                return Response<Guid>.Error(default, $"Jobs not found: {string.Join(", ", missingJobs)}");
+
+            // Validate DAG (no cycles)
+            if (!requestedSteps.ValidateDAG(requestedEdges))
+                return Response<Guid>.Error(default, "Workflow contains circular dependencies. Steps must form a Directed Acyclic Graph (DAG).");
+
+            var existingStepIdSet = existingSteps.Select(s => s.Id.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var tempIdToRealId = new Dictionary<string, Guid>();
+
+            for (int i = 0; i < requestedSteps.Count; i++)
+            {
+                var stepCmd = requestedSteps[i];
+                var tempId = stepCmd.TempId ?? i.ToString();
+                tempIdToRealId[tempId] = existingStepIdSet.Contains(tempId) ? Guid.Parse(tempId) : Guid.CreateVersion7();
+            }
+
+            // Build new definition
+            workflow.Definition = new WorkflowDefinition
+            {
+                Steps = [],
+                Edges = []
+            };
+
+            for (int i = 0; i < requestedSteps.Count; i++)
+            {
+                var stepCmd = requestedSteps[i];
+                var tempId = stepCmd.TempId ?? i.ToString();
+                var stepId = tempIdToRealId[tempId];
+
+                workflow.Definition.Steps.Add(new WorkflowStepDefinition
                 {
-                    stepsActuallyChanged = true;
-                    break;
-                }
+                    Id = stepId,
+                    NodeType = stepCmd.NodeType,
+                    JobId = stepCmd.NodeType == WorkflowNodeType.Task && stepCmd.JobId.HasValue && stepCmd.JobId.Value != Guid.Empty ? stepCmd.JobId : null,
+                    StepName = stepCmd.StepName,
+                    Order = stepCmd.Order,
+                    NodeConfigJson = stepCmd.NodeConfigJson,
+                    DataMappings = stepCmd.DataMappings,
+                    DelaySeconds = stepCmd.DelaySeconds,
+                    JobDataOverride = ScheduledJob.FixJobData(stepCmd.JobDataOverride),
+                    PositionX = stepCmd.PositionX,
+                    PositionY = stepCmd.PositionY,
+                });
+            }
 
-                if (existingStep.JobId != newStep.JobId ||
-                    existingStep.NodeType != newStep.NodeType ||
-                    existingStep.StepName != newStep.StepName ||
-                    existingStep.Order != newStep.Order ||
-                    existingStep.NodeConfigJson != newStep.NodeConfigJson ||
-                    existingStep.DataMappings != newStep.DataMappings ||
-                    existingStep.DelaySeconds != newStep.DelaySeconds ||
-                    existingStep.JobDataOverride != newStep.JobDataOverride ||
-                    existingStep.PositionX != newStep.PositionX ||
-                    existingStep.PositionY != newStep.PositionY)
+            foreach (var edgeCmd in requestedEdges)
+            {
+                if (!tempIdToRealId.TryGetValue(edgeCmd.SourceTempId, out var sourceId) || !tempIdToRealId.TryGetValue(edgeCmd.TargetTempId, out var targetId))
+                    continue;
+
+                workflow.Definition.Edges.Add(new WorkflowEdgeDefinition
                 {
-                    stepsActuallyChanged = true;
-                    break;
+                    SourceStepId = sourceId,
+                    TargetStepId = targetId,
+                    SourcePort = edgeCmd.SourcePort,
+                    TargetPort = edgeCmd.TargetPort,
+                    Label = edgeCmd.Label,
+                    Order = edgeCmd.Order,
+                    EdgeConfigJson = edgeCmd.EdgeConfigJson,
+                });
+            }
+
+            // Delete orphaned JobOccurrences for removed steps
+            var requestedStepIds = tempIdToRealId.Values.ToHashSet();
+            var removedStepIds = existingSteps.Where(s => !requestedStepIds.Contains(s.Id)).Select(s => s.Id).ToList();
+
+            if (removedStepIds.Count > 0)
+                await _jobOccurrenceRepository.ExecuteDeleteAsync(o => removedStepIds.Contains(o.WorkflowStepId.Value), cancellationToken: cancellationToken);
+
+            // Check if steps actually changed
+            stepsActuallyChanged = existingSteps.Count != workflow.Definition.Steps.Count || existingEdges.Count != workflow.Definition.Edges.Count;
+
+            if (!stepsActuallyChanged)
+            {
+                // Deep equality check
+                var existingStepsDict = existingSteps.ToDictionary(s => s.Id);
+
+                foreach (var newStep in workflow.Definition.Steps)
+                {
+                    if (!existingStepsDict.TryGetValue(newStep.Id, out var existingStep))
+                    {
+                        stepsActuallyChanged = true;
+                        break;
+                    }
+
+                    if (existingStep.JobId != newStep.JobId ||
+                        existingStep.NodeType != newStep.NodeType ||
+                        existingStep.StepName != newStep.StepName ||
+                        existingStep.Order != newStep.Order ||
+                        existingStep.NodeConfigJson != newStep.NodeConfigJson ||
+                        existingStep.DataMappings != newStep.DataMappings ||
+                        existingStep.DelaySeconds != newStep.DelaySeconds ||
+                        existingStep.JobDataOverride != newStep.JobDataOverride ||
+                        existingStep.PositionX != newStep.PositionX ||
+                        existingStep.PositionY != newStep.PositionY)
+                    {
+                        stepsActuallyChanged = true;
+                        break;
+                    }
                 }
             }
         }

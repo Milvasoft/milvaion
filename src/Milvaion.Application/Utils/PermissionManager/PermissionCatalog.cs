@@ -250,6 +250,28 @@ public static partial class PermissionCatalog
         public const string Trigger = "WorkflowManagement.Trigger";
     }
 
+    [Description("Api Key Management")]
+    public static class ApiKeyManagement
+    {
+        [Description("Api key list permission.")]
+        public const string List = "ApiKeyManagement.List";
+
+        [Description("Api key detail view permission")]
+        public const string Detail = "ApiKeyManagement.Detail";
+
+        [Description("Api key create permission")]
+        public const string Create = "ApiKeyManagement.Create";
+
+        [Description("Api key update permission")]
+        public const string Update = "ApiKeyManagement.Update";
+
+        [Description("Api key revoke permission")]
+        public const string Revoke = "ApiKeyManagement.Revoke";
+
+        [Description("Api key delete permission")]
+        public const string Delete = "ApiKeyManagement.Delete";
+    }
+
     /// <summary>
     /// Gets all permissions in the system as grouped by permission group.
     /// </summary>

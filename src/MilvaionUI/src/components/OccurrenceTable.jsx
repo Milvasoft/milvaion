@@ -106,7 +106,7 @@ function OccurrenceTable({
         <div className="pagination-container">
           <div className="pagination">
             <button
-              className="btn btn-sm"
+              className="btn btn-sm btn-cursor"
               onClick={onPreviousPage}
               disabled={!hasPreviousPage}
             >
@@ -118,7 +118,7 @@ function OccurrenceTable({
               {totalCount > 0 ? ` (${totalCount} total)` : ''}
             </span>
             <button
-              className="btn btn-sm"
+              className="btn btn-sm btn-cursor"
               onClick={onNextPage}
               disabled={!hasNextPage}
             >

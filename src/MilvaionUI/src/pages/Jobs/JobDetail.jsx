@@ -23,12 +23,18 @@ const { id } = useParams()
 const navigate = useNavigate()
 const [job, setJob] = useState(null)
 const [occurrences, setOccurrences] = useState([])
-const [totalCount, setTotalCount] = useState(0)
 const [loading, setLoading] = useState(true)
 const [error, setError] = useState(null)
 const [signalRConnected, setSignalRConnected] = useState(false)
 const [filterStatus, setFilterStatus] = useState(null)
-const [currentPage, setCurrentPage] = useState(1)
+// The occurrences endpoint is cursor paginated: no page numbers and no total count. cursorHistory doubles as the
+// page counter and as the way back, since a cursor only ever points forwards.
+const [paginationState, setPaginationState] = useState({
+  cursor: null,
+  cursorHistory: [],
+  hasNextPage: false,
+  nextCursor: null,
+})
 const [pageSize, setPageSize] = useState(10)
 const [showTriggerModal, setShowTriggerModal] = useState(false)
 const [triggerJobData, setTriggerJobData] = useState('')
@@ -101,34 +107,53 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
 
   const loadOccurrences = useCallback(async () => {
     try {
-      const occurrencesResponse = await jobService.getOccurrences(id, {
-        pageNumber: currentPage,
+      const response = await jobService.getOccurrences(id, {
+        cursor: paginationState.cursor || undefined,
         rowCount: pageSize,
         status: filterStatus
       })
 
-      let data = []
-      let total = 0
+      setOccurrences(response?.data || [])
 
-      if (occurrencesResponse.data) {
-        if (occurrencesResponse.data.data) {
-          data = occurrencesResponse.data.data
-          total = occurrencesResponse.data.totalDataCount || 0
-        } else if (Array.isArray(occurrencesResponse.data)) {
-          data = occurrencesResponse.data
-          total = occurrencesResponse.totalDataCount || data.length
-        } else {
-          data = occurrencesResponse.data
-          total = occurrencesResponse.totalDataCount || 0
-        }
-      }
-
-      setOccurrences(data)
-      setTotalCount(total)
+      // nextCursor is what the following page is fetched with; hasNextPage is what enables the Next button.
+      setPaginationState(prev => ({
+        ...prev,
+        hasNextPage: response?.hasNextPage ?? false,
+        nextCursor: response?.nextCursor ?? null,
+      }))
     } catch (err) {
       console.error('Failed to load occurrences:', err)
     }
-  }, [id, currentPage, pageSize, filterStatus])
+  }, [id, paginationState.cursor, pageSize, filterStatus])
+
+  const handleNextPage = () => {
+    setPaginationState(prev => {
+      if (!prev.nextCursor) return prev
+      return {
+        cursor: prev.nextCursor,
+        cursorHistory: [...prev.cursorHistory, prev.cursor],
+        hasNextPage: false,
+        nextCursor: null,
+      }
+    })
+  }
+
+  const handlePreviousPage = () => {
+    setPaginationState(prev => {
+      if (prev.cursorHistory.length === 0) return prev
+      const newHistory = [...prev.cursorHistory]
+      const previousCursor = newHistory.pop() ?? null
+      return {
+        cursor: previousCursor,
+        cursorHistory: newHistory,
+        hasNextPage: false,
+        nextCursor: null,
+      }
+    })
+  }
+
+  const resetPagination = () =>
+    setPaginationState({ cursor: null, cursorHistory: [], hasNextPage: false, nextCursor: null })
 
   useEffect(() => {
     loadJobDetails(isInitialLoadRef.current)
@@ -172,20 +197,19 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
     const unsubscribeOccurrenceCreated = signalRService.on('OccurrenceCreated', (occurrence) => {
       const jobId = occurrence.jobId || occurrence.scheduledJobId
       if (jobId === id) {
-        if (currentPage === 1) {
+        // Only prepend on the first page. On a later page the list is anchored to a cursor, so injecting a newer
+        // row there would show something that does not belong to the window the user is looking at.
+        if (paginationState.cursorHistory.length === 0) {
           setOccurrences(prev => {
             const newList = [occurrence, ...prev]
             return newList.slice(0, pageSize)
           })
-          setTotalCount(prev => prev + 1)
 
           if (signalRService.isConnected()) {
             signalRService.subscribeToOccurrence(occurrence.id)
               .then(() => subscribedOccurrences.current.add(occurrence.id))
               .catch(console.error)
           }
-        } else {
-          setTotalCount(prev => prev + 1)
         }
       }
     })
@@ -209,7 +233,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
       }
       subscribedOccurrences.current.clear()
     }
-  }, [id, currentPage, pageSize, subscribeToPageOccurrences, occurrences])
+  }, [id, paginationState.cursorHistory.length, pageSize, subscribeToPageOccurrences, occurrences])
 
   useEffect(() => {
     if (occurrences.length > 0 && signalRService.isConnected()) {
@@ -228,10 +252,11 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
     setShowTriggerModal(false)
     const customData = useCustomData ? triggerJobData : null
     await triggerJob(id, 'Manual trigger by user', false, customData, () => {
-      if (currentPage === 1) {
+      // Back to the newest page, where the run that was just started will actually be.
+      if (paginationState.cursorHistory.length === 0) {
         loadOccurrences()
       } else {
-        setCurrentPage(1)
+        resetPagination()
       }
     })
   }
@@ -326,14 +351,6 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
       className: 'modal-large',
       type: 'custom'
     })
-  }
-
-  const totalPages = Math.ceil(totalCount / pageSize)
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-    }
   }
 
   const handleBulkDelete = async (occurrenceIds) => {
@@ -790,7 +807,6 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
               Execution History
             </h3>
           </div>
-          {totalCount > 0 && <span className="count-badge">{totalCount} total</span>}
           <div className={`signalr-indicator ${signalRConnected ? 'connected' : 'disconnected'}`}>
             <span className="indicator-dot"></span>
             <span>{signalRConnected ? 'Live' : 'Reconnecting...'}</span>
@@ -800,19 +816,22 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
         <OccurrenceTable
           occurrences={occurrences}
           loading={false}
-          totalCount={totalCount}
-          currentPage={currentPage}
+          currentPage={paginationState.cursorHistory.length + 1}
           pageSize={pageSize}
           filterStatus={filterStatus}
           onFilterChange={(status) => {
             setFilterStatus(status)
-            setCurrentPage(1)
+            resetPagination()
           }}
-          onPageChange={handlePageChange}
           onPageSizeChange={(newSize) => {
             setPageSize(newSize)
-            setCurrentPage(1)
+            resetPagination()
           }}
+          useCursorPagination={true}
+          hasNextPage={paginationState.hasNextPage}
+          hasPreviousPage={paginationState.cursorHistory.length > 0}
+          onNextPage={handleNextPage}
+          onPreviousPage={handlePreviousPage}
           showJobName={false}
           onBulkDelete={handleBulkDelete}
         />

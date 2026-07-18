@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Milvaion.Api.Hubs;
 using Milvaion.Application.Dtos;
-using Milvaion.Application.Interfaces;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;

@@ -1,11 +1,21 @@
 using Milvaion.Application.Features.Workflows.CreateWorkflow;
 using Milvasoft.Components.CQRS.Command;
+using Milvasoft.Types.Structs;
 
 namespace Milvaion.Application.Features.Workflows.UpdateWorkflow;
 
 /// <summary>
 /// Command to update an existing workflow's settings.
 /// </summary>
+/// <remarks>
+/// Every field is wrapped in <see cref="UpdateProperty{T}"/>: only the fields sent with <c>isUpdated</c> true are
+/// touched. This makes partial updates possible - renaming a workflow or toggling <see cref="IsActive"/> no
+/// longer requires resending the whole definition, and concurrent editors stop clobbering each other's changes.
+/// <para>
+/// <see cref="Steps"/> and <see cref="Edges"/> are replaced as a single unit. Supplying one without the other is
+/// rejected, because rebuilding the graph from steps alone would silently discard every edge.
+/// </para>
+/// </remarks>
 public record UpdateWorkflowCommand : ICommand<Guid>
 {
     /// <summary>
@@ -16,53 +26,54 @@ public record UpdateWorkflowCommand : ICommand<Guid>
     /// <summary>
     /// Display name of the workflow.
     /// </summary>
-    public string Name { get; set; }
+    public UpdateProperty<string> Name { get; set; }
 
     /// <summary>
     /// Description of the workflow.
     /// </summary>
-    public string Description { get; set; }
+    public UpdateProperty<string> Description { get; set; }
 
     /// <summary>
     /// Tags for categorization.
     /// </summary>
-    public string Tags { get; set; }
+    public UpdateProperty<string> Tags { get; set; }
 
     /// <summary>
     /// Whether this workflow is active.
     /// </summary>
-    public bool IsActive { get; set; }
+    public UpdateProperty<bool> IsActive { get; set; }
 
     /// <summary>
     /// Failure handling strategy.
     /// </summary>
-    public WorkflowFailureStrategy FailureStrategy { get; set; }
+    public UpdateProperty<WorkflowFailureStrategy> FailureStrategy { get; set; }
 
     /// <summary>
     /// Maximum retries for failed steps.
     /// </summary>
-    public int MaxStepRetries { get; set; }
+    public UpdateProperty<int> MaxStepRetries { get; set; }
 
     /// <summary>
     /// Timeout in seconds for entire workflow.
     /// </summary>
-    public int? TimeoutSeconds { get; set; }
+    public UpdateProperty<int?> TimeoutSeconds { get; set; }
 
     /// <summary>
     /// Cron expression for automatic recurring execution (6-part format: second minute hour day month dayOfWeek).
     /// Null or empty means manual-only trigger.
     /// </summary>
-    public string CronExpression { get; set; }
+    public UpdateProperty<string> CronExpression { get; set; }
 
     /// <summary>
-    /// Steps to update in this workflow. When provided, replaces all existing steps.
+    /// Steps of this workflow. When sent with <c>isUpdated</c> true, replaces all existing steps, and
+    /// <see cref="Edges"/> must be sent as well.
     /// TempId can be an existing step's real GUID (preserved) or a temporary string (new step gets a new GUID).
-    /// If null, steps are not modified.
     /// </summary>
-    public List<CreateWorkflowStepDto> Steps { get; set; }
+    public UpdateProperty<List<CreateWorkflowStepDto>> Steps { get; set; }
 
     /// <summary>
-    /// Edges to update in this workflow. When provided, replaces all existing edges.
+    /// Edges of this workflow. When sent with <c>isUpdated</c> true, replaces all existing edges, and
+    /// <see cref="Steps"/> must be sent as well.
     /// </summary>
-    public List<CreateWorkflowEdgeDto> Edges { get; set; }
+    public UpdateProperty<List<CreateWorkflowEdgeDto>> Edges { get; set; }
 }

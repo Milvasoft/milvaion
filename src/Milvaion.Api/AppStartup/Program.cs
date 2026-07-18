@@ -5,10 +5,7 @@ using Milvaion.Api.Hubs;
 using Milvaion.Api.Middlewares;
 using Milvaion.Api.Migrations;
 using Milvaion.Application;
-using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.LinkedWithFormatters;
-using Milvaion.Application.Utils.Models.Options;
-using Milvaion.Domain;
 using Milvaion.Infrastructure;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvasoft.Components.Rest;
@@ -18,6 +15,8 @@ using System.Reflection;
 
 try
 {
+    MissingResxKeyFinder.FindAndPrintToConsole();
+
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     {
         WebRootPath = GlobalConstant.WWWRoot
@@ -45,6 +44,8 @@ try
     services.AddOpenApi(assemblies);
 
     services.AddAuthorization(builder.Configuration);
+
+    services.AddMilvaionMcp();
 
     services.AddHttpContextAccessor();
 
@@ -131,6 +132,9 @@ try
 
     // Map SignalR hub
     app.MapHub<JobsHub>("/hubs/jobs");
+
+    // Must come before MapFallbackToFile, otherwise the SPA fallback would swallow /mcp.
+    app.MapMilvaionMcp();
 
     app.UseScalarWithOpenApi();
 

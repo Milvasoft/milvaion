@@ -11,6 +11,7 @@ using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
+using Milvasoft.Types.Structs;
 using System.Net;
 using System.Net.Http.Json;
 using Xunit.Abstractions;
@@ -25,6 +26,11 @@ namespace Milvaion.IntegrationTests.ControllersTests;
 [Collection(nameof(MilvaionTestCollection))]
 public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
 {
+    /// <summary>
+    /// Marks a value as supplied on an update command. Fields left out are not touched by the handler.
+    /// </summary>
+    private static UpdateProperty<T> Updated<T>(T value) => new() { Value = value, IsUpdated = true };
+
     [Fact]
     public async Task GetWorkflows_ShouldReturnPaginatedList()
     {
@@ -214,14 +220,14 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         var command = new UpdateWorkflowCommand
         {
             WorkflowId = workflow.Id,
-            Name = "Updated Workflow",
-            Description = "Updated description",
-            IsActive = false,
-            FailureStrategy = WorkflowFailureStrategy.ContinueOnFailure,
-            MaxStepRetries = 5,
-            TimeoutSeconds = 7200,
-            Tags = "updated,test",
-            Steps =
+            Name = Updated("Updated Workflow"),
+            Description = Updated("Updated description"),
+            IsActive = Updated(false),
+            FailureStrategy = Updated(WorkflowFailureStrategy.ContinueOnFailure),
+            MaxStepRetries = Updated(5),
+            TimeoutSeconds = Updated<int?>(7200),
+            Tags = Updated("updated,test"),
+            Steps = Updated<List<CreateWorkflowStepDto>>(
             [
                 new CreateWorkflowStepDto
                 {
@@ -231,8 +237,8 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
                     JobId = job.Id,
                     Order = 1
                 }
-            ],
-            Edges = []
+            ]),
+            Edges = Updated(new List<CreateWorkflowEdgeDto>())
         };
 
         // Act
@@ -781,19 +787,19 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         var command = new UpdateWorkflowCommand
         {
             WorkflowId = workflow.Id,
-            Name = "Workflow After Edge Update",
-            Description = workflow.Description,
-            IsActive = true,
-            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
-            MaxStepRetries = 3,
-            TimeoutSeconds = 3600,
-            Tags = "test",
-            Steps =
+            Name = Updated("Workflow After Edge Update"),
+            Description = Updated(workflow.Description),
+            IsActive = Updated(true),
+            FailureStrategy = Updated(WorkflowFailureStrategy.StopOnFirstFailure),
+            MaxStepRetries = Updated(3),
+            TimeoutSeconds = Updated<int?>(3600),
+            Tags = Updated("test"),
+            Steps = Updated<List<CreateWorkflowStepDto>>(
             [
                 new CreateWorkflowStepDto { TempId = "s1", StepName = "Step A", NodeType = WorkflowNodeType.Task, JobId = job1.Id, Order = 1 },
                 new CreateWorkflowStepDto { TempId = "s2", StepName = "Step B", NodeType = WorkflowNodeType.Task, JobId = job2.Id, Order = 2 },
-            ],
-            Edges =
+            ]),
+            Edges = Updated<List<CreateWorkflowEdgeDto>>(
             [
                 new CreateWorkflowEdgeDto
                 {
@@ -803,7 +809,7 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
                     Label = "updated-edge",
                     Order = 1
                 }
-            ]
+            ])
         };
 
         // Act
@@ -923,14 +929,14 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         var command = new UpdateWorkflowCommand
         {
             WorkflowId = workflow.Id,
-            Name = workflow.Name,
-            Description = workflow.Description,
-            IsActive = true,
-            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
-            MaxStepRetries = 3,
-            TimeoutSeconds = 3600,
-            Tags = "test",
-            Steps =
+            Name = Updated(workflow.Name),
+            Description = Updated(workflow.Description),
+            IsActive = Updated(true),
+            FailureStrategy = Updated(WorkflowFailureStrategy.StopOnFirstFailure),
+            MaxStepRetries = Updated(3),
+            TimeoutSeconds = Updated<int?>(3600),
+            Tags = Updated("test"),
+            Steps = Updated<List<CreateWorkflowStepDto>>(
             [
                 new CreateWorkflowStepDto
                 {
@@ -948,11 +954,11 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
                     JobId = job.Id,
                     Order = 2
                 }
-            ],
-            Edges =
+            ]),
+            Edges = Updated<List<CreateWorkflowEdgeDto>>(
             [
                 new CreateWorkflowEdgeDto { TempId = "e1", SourceTempId = "cond", TargetTempId = "task", SourcePort = "true", Order = 1 }
-            ]
+            ])
         };
 
         // Act
@@ -979,6 +985,164 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         // Verify edge with source port
         updated.Definition.Edges.Should().HaveCount(1);
         updated.Definition.Edges[0].SourcePort.Should().Be("true");
+    }
+
+    /// <summary>
+    /// A field that is not sent must survive the update untouched. This is the whole point of wrapping the
+    /// command: the previous full-replace shape blanked anything the caller forgot to include.
+    /// </summary>
+    [Fact]
+    public async Task UpdateWorkflow_WithOnlyName_ShouldLeaveEverythingElseIntact()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var workflow = await SeedWorkflowAsync("Before Rename");
+        var originalStepCount = workflow.Definition.Steps.Count;
+
+        var command = new UpdateWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Name = Updated("After Rename")
+        };
+
+        // Act
+        var response = await client.PutAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeTrue();
+
+        var dbContext = GetDbContext();
+        var updated = await dbContext.Workflows.FindAsync(workflow.Id);
+
+        updated!.Name.Should().Be("After Rename");
+        updated.Description.Should().Be(workflow.Description);
+        updated.Tags.Should().Be(workflow.Tags);
+        updated.MaxStepRetries.Should().Be(workflow.MaxStepRetries);
+        updated.TimeoutSeconds.Should().Be(workflow.TimeoutSeconds);
+        updated.FailureStrategy.Should().Be(workflow.FailureStrategy);
+        updated.Definition.Steps.Should().HaveCount(originalStepCount);
+    }
+
+    /// <summary>
+    /// Steps and edges are replaced as one unit. Accepting steps alone would silently drop every edge.
+    /// </summary>
+    [Fact]
+    public async Task UpdateWorkflow_WithStepsButNoEdges_ShouldFail()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var workflow = await SeedWorkflowAsync("Unit Guard Workflow");
+        var job = await SeedScheduledJobAsync($"UnitGuardJob_{Guid.CreateVersion7():N}");
+
+        var command = new UpdateWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Steps = Updated<List<CreateWorkflowStepDto>>(
+            [
+                new CreateWorkflowStepDto { TempId = "s1", StepName = "Lonely Step", NodeType = WorkflowNodeType.Task, JobId = job.Id, Order = 1 }
+            ])
+            // Edges deliberately left untouched.
+        };
+
+        // Act
+        var response = await client.PutAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Pausing a workflow while it is running used to be impossible: steps were mandatory on every update, so the
+    /// active-run guard rejected even a metadata-only change. Metadata updates now skip that guard.
+    /// </summary>
+    [Fact]
+    public async Task UpdateWorkflow_PausingWhileRunActive_ShouldSucceed()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var workflow = await SeedWorkflowAsync("Running Workflow");
+
+        var dbContext = GetDbContext();
+
+        dbContext.Set<WorkflowRun>().Add(new WorkflowRun
+        {
+            Id = Guid.CreateVersion7(),
+            WorkflowId = workflow.Id,
+            Status = WorkflowStatus.Running,
+            StartTime = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var command = new UpdateWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            IsActive = Updated(false)
+        };
+
+        // Act
+        var response = await client.PutAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeTrue();
+
+        var verifyContext = GetDbContext();
+        var updated = await verifyContext.Workflows.FindAsync(workflow.Id);
+        updated!.IsActive.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The counterpart to the test above: changing the definition while a run is active is still refused.
+    /// </summary>
+    [Fact]
+    public async Task UpdateWorkflow_ChangingDefinitionWhileRunActive_ShouldFail()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var workflow = await SeedWorkflowAsync("Busy Workflow");
+        var job = await SeedScheduledJobAsync($"BusyJob_{Guid.CreateVersion7():N}");
+
+        var dbContext = GetDbContext();
+
+        dbContext.Set<WorkflowRun>().Add(new WorkflowRun
+        {
+            Id = Guid.CreateVersion7(),
+            WorkflowId = workflow.Id,
+            Status = WorkflowStatus.Running,
+            StartTime = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var command = new UpdateWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Steps = Updated<List<CreateWorkflowStepDto>>(
+            [
+                new CreateWorkflowStepDto { TempId = "s1", StepName = "New Step", NodeType = WorkflowNodeType.Task, JobId = job.Id, Order = 1 }
+            ]),
+            Edges = Updated(new List<CreateWorkflowEdgeDto>())
+        };
+
+        // Act
+        var response = await client.PutAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeFalse();
     }
 
     private async Task<HttpClient> GetClient()

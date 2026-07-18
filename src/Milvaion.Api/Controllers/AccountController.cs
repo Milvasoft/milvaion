@@ -12,7 +12,6 @@ using Milvaion.Application.Features.Account.Login;
 using Milvaion.Application.Features.Account.Logout;
 using Milvaion.Application.Features.Account.RefreshLogin;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Application.Utils.Constants;
 using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 

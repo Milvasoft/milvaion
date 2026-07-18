@@ -37,6 +37,28 @@ CREATE INDEX "IX_JobOccurrences_CreatedAt_Recent"
 ON public."JobOccurrences" ("CreatedAt" DESC)
 INCLUDE ("Id", "JobId", "JobName", "CorrelationId", "WorkerId", "Status", "StartTime", "EndTime", "DurationMs");
 
+-- CRITICAL: Composite index for the job detail screen's execution history
+-- UI pattern: WHERE JobId = X ORDER BY CreatedAt DESC
+-- The FK convention only creates a single column index on JobId. That satisfies the filter but not the order,
+-- so Postgres reads every occurrence belonging to the job and sorts the lot before returning ten rows. Cost is
+-- proportional to that job's own history, which is why only busy jobs feel slow. With CreatedAt in the index the
+-- planner walks it in order and stops at the tenth row.
+CREATE INDEX IF NOT EXISTS "IX_JobOccurrences_JobId_CreatedAt_Covering"
+ON "JobOccurrences" ("JobId", "CreatedAt" DESC)
+INCLUDE (
+    "Id", "JobName", "CorrelationId", "WorkerId",
+    "Status", "StartTime", "EndTime", "DurationMs"
+);
+
+-- Same shape for the worker detail screen: WHERE WorkerId = X ORDER BY CreatedAt DESC
+CREATE INDEX IF NOT EXISTS "IX_JobOccurrences_WorkerId_CreatedAt"
+ON "JobOccurrences" ("WorkerId", "CreatedAt" DESC);
+
+-- Job detail filtered by status: WHERE JobId = X AND Status = Y ORDER BY CreatedAt DESC
+-- Without this the status filter falls back to the JobId index and sorts again.
+CREATE INDEX IF NOT EXISTS "IX_JobOccurrences_JobId_Status_CreatedAt"
+ON "JobOccurrences" ("JobId", "Status", "CreatedAt" DESC);
+
 -- =================================================
 -- JobOccurrences - Background Services (Zombie Detector)
 -- =================================================

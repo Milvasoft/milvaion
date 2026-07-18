@@ -1,8 +1,5 @@
 ﻿using Bogus.DataSets;
 using Milvaion.Application;
-using Milvaion.Application.Utils.Constants;
-using Milvaion.Application.Utils.PermissionManager;
-using Milvaion.Domain;
 using Milvaion.Domain.Enums;
 using Milvasoft.Core.Helpers;
 using System.Reflection;
@@ -19,17 +16,44 @@ public static partial class MissingResxKeyFinder
     /// <summary>
     /// Finds missing keys in .resx files.
     /// </summary>
+    /// <remarks>
+    /// A development-time convenience, called before the host is built. It must never throw: anything escaping
+    /// here kills the entry point before an <c>IHost</c> exists, which surfaces as the unhelpful
+    /// "The entry point exited without ever building an IHost" and takes the whole application - or the whole
+    /// integration test suite - down with it.
+    /// <para>
+    /// The paths are resolved from the current working directory, which is the API project only when it is run
+    /// directly. Under a test host it points somewhere else entirely, so the folders legitimately do not exist.
+    /// </para>
+    /// </remarks>
     public static void FindAndPrintToConsole()
     {
 #if !DEBUG
 return;
 #endif
-        string projectFolderPath = Directory.GetParent(Directory.GetCurrentDirectory()).FullName;
+        string projectFolderPath = Directory.GetParent(Directory.GetCurrentDirectory())?.FullName;
         string resxFolderProjectPath = Directory.GetCurrentDirectory();
         string resxFolderPath = Path.Combine(resxFolderProjectPath, "LocalizationResources", "Resources");
 
-        if (string.IsNullOrWhiteSpace(projectFolderPath) || string.IsNullOrWhiteSpace(resxFolderPath))
+        // Existence, not just non-emptiness: the reader throws DirectoryNotFoundException on a missing folder.
+        if (string.IsNullOrWhiteSpace(projectFolderPath) || !Directory.Exists(projectFolderPath) || !Directory.Exists(resxFolderPath))
             return;
+
+        try
+        {
+            RunCheck(projectFolderPath, resxFolderPath);
+        }
+        catch (Exception ex)
+        {
+            // Report and carry on. A broken resx check is never a reason to stop the application starting.
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"Resx key check skipped: {ex.Message}");
+            Console.ResetColor();
+        }
+    }
+
+    private static void RunCheck(string projectFolderPath, string resxFolderPath)
+    {
 
         var nameofReferences = FindNameofReferencesInLocalizer(projectFolderPath);
 

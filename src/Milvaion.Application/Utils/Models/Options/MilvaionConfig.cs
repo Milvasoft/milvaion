@@ -10,6 +10,11 @@ public class MilvaionConfig
     /// </summary>
     public string BasePath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Api key signing and versioning settings.
+    /// </summary>
+    public ApiKeyOptions ApiKey { get; set; }
+
     public RedisOptions Redis { get; set; }
     public RabbitMQOptions RabbitMQ { get; set; }
     public JobDispatcherOptions JobDispatcher { get; set; }

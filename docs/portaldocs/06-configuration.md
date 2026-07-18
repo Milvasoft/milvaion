@@ -251,7 +251,7 @@ MilvaionConfig__BasePath=/milvaion
 ```yaml
 services:
   milvaion-api:
-    image: milvasoft/milvaion:latest   # pull from Docker Hub, no rebuild needed
+    image: milvasoft/milvaion-api:latest   # pull from Docker Hub, no rebuild needed
     environment:
       - MilvaionConfig__BasePath=/milvaion
 ```

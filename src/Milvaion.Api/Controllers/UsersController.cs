@@ -8,8 +8,6 @@ using Milvaion.Application.Features.Users.GetUserDetail;
 using Milvaion.Application.Features.Users.GetUserList;
 using Milvaion.Application.Features.Users.UpdateUser;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Application.Utils.Constants;
-using Milvaion.Application.Utils.PermissionManager;
 using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 

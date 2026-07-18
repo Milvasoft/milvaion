@@ -9,9 +9,9 @@
 		<DocumentationFile>..\Milvaion.Api\Milvaion.Api.xml</DocumentationFile>
 		<Configurations>Debug;Release;TemplateTest</Configurations>
 		<UserSecretsId>e8781644-077d-4975-8b31-00179265b6b6</UserSecretsId>
-		<AssemblyVersion>1.1.0.0</AssemblyVersion>
-		<FileVersion>1.1.0.0</FileVersion>
-		<Version>1.1.0</Version>
+		<AssemblyVersion>1.2.0.0</AssemblyVersion>
+		<FileVersion>1.2.0.0</FileVersion>
+		<Version>1.2.0</Version>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -34,6 +34,7 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Milvasoft.Components.OpenApi" Version="10.1.2" />
+		<PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.4.0" />
 		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.0" />
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
 		<PackageReference Include="Scalar.AspNetCore" Version="2.16.11" />

@@ -1,0 +1,147 @@
+/*
+ * Api key specific styling. Shared list-page styling comes from RoleList.css, which this page also imports.
+ */
+
+.api-key-list .api-key-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.api-key-list .masked-key {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+}
+
+.api-key-list .muted-col {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* Status */
+
+.api-key-list .status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.api-key-list .status-badge.active {
+  color: var(--success, #22c55e);
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.api-key-list .status-badge.revoked {
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.api-key-list .status-badge.expired {
+  color: var(--warning, #eab308);
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.api-key-list .action-btn.revoke:hover {
+  color: var(--warning, #eab308);
+  background: rgba(234, 179, 8, 0.12);
+}
+
+/* Field hints */
+
+.api-key-list .field-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Generated key reveal */
+
+.api-key-list .key-reveal-modal {
+  max-width: 640px;
+}
+
+.api-key-list .key-reveal-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--warning, #eab308);
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.api-key-list .key-reveal-box {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.api-key-list .key-reveal-box code {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  word-break: break-all;
+  max-height: 7.5rem;
+  overflow-y: auto;
+}
+
+.api-key-list .key-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.api-key-list .key-copy-btn:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.1));
+}
+
+.api-key-list .key-usage-snippet {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  overflow-x: auto;
+}

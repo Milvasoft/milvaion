@@ -20,7 +20,7 @@ namespace Milvaion.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -308,6 +308,88 @@ namespace Milvaion.Api.Migrations
                     b.HasKey("MigrationId");
 
                     b.ToTable("_MigrationHistory");
+                });
+
+            modelBuilder.Entity("Milvaion.Domain.MilvaionApiKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatorUserName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeleterUserName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("KeyVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastModificationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastModifierUserName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MaskedKey")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MilvaionApiKeys");
+                });
+
+            modelBuilder.Entity("Milvaion.Domain.MilvaionApiKeyPermissionRelation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("MilvaionApiKeyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PermissionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MilvaionApiKeyId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("MilvaionApiKeyPermissionRelations");
                 });
 
             modelBuilder.Entity("Milvaion.Domain.Permission", b =>
@@ -1268,6 +1350,25 @@ namespace Milvaion.Api.Migrations
                     b.Navigation("Namespace");
                 });
 
+            modelBuilder.Entity("Milvaion.Domain.MilvaionApiKeyPermissionRelation", b =>
+                {
+                    b.HasOne("Milvaion.Domain.MilvaionApiKey", "MilvaionApiKey")
+                        .WithMany("ApiKeyPermissionRelations")
+                        .HasForeignKey("MilvaionApiKeyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Milvaion.Domain.Permission", "Permission")
+                        .WithMany()
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MilvaionApiKey");
+
+                    b.Navigation("Permission");
+                });
+
             modelBuilder.Entity("Milvaion.Domain.RolePermissionRelation", b =>
                 {
                     b.HasOne("Milvaion.Domain.Permission", "Permission")
@@ -1418,6 +1519,11 @@ namespace Milvaion.Api.Migrations
             modelBuilder.Entity("Milvaion.Domain.ContentManagement.ResourceGroup", b =>
                 {
                     b.Navigation("Contents");
+                });
+
+            modelBuilder.Entity("Milvaion.Domain.MilvaionApiKey", b =>
+                {
+                    b.Navigation("ApiKeyPermissionRelations");
                 });
 
             modelBuilder.Entity("Milvaion.Domain.Permission", b =>

@@ -1,13 +1,13 @@
 ﻿using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Milvaion.Api.Controllers;
-using Milvaion.Application.Utils.Constants;
+using Milvaion.Api.Services;
+using Milvaion.Api.Utils;
 using Milvaion.Application.Utils.Extensions;
-using Milvaion.Application.Utils.Models.Options;
-using Milvaion.Domain;
 using Milvaion.Infrastructure.Logging;
 using Milvaion.Infrastructure.Utils.OpenApi;
 using Milvasoft.Components.OpenApi;
@@ -44,7 +44,20 @@ public static partial class StartupExtensions
 
         services.AddSingleton(identityBuilder.IdentityOptions);
 
-        services.AddAuthorization();
+        // Both an interactive session and an api key are acceptable proof of identity. Naming both schemes in the
+        // default policy is what lets the existing [Auth(PermissionCatalog...)] attributes serve machine callers
+        // without being touched.
+        services.AddAuthorization(options =>
+        {
+            options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme,
+                                                                   ApiKeyAuthenticationDefaults.AuthenticationScheme)
+                                        .RequireAuthenticatedUser()
+                                        .Build();
+        });
+
+        services.AddScoped<ApiKeyStore>();
+        services.AddScoped<IApiKeyCacheInvalidator>(sp => sp.GetRequiredService<ApiKeyStore>());
+        services.AddScoped<IApiKeyGenerator, ApiKeyGenerator>();
 
         services.AddAuthentication(option =>
         {
@@ -99,7 +112,8 @@ public static partial class StartupExtensions
                     }
                 }
             };
-        });
+        })
+        .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationDefaults.AuthenticationScheme, _ => { });
 
         return services;
     }

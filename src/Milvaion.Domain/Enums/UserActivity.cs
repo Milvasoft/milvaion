@@ -34,5 +34,9 @@ public enum UserActivity : byte
     DeleteWorkflow,
     TriggerWorkflow,
     CancelWorkflowRun,
+    CreateApiKey,
+    UpdateApiKey,
+    RevokeApiKey,
+    DeleteApiKey,
 }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

@@ -30,5 +30,7 @@ public static class TableNames
     public const string InternalNotifications = nameof(InternalNotifications);
     public const string ScheduledJobs = nameof(ScheduledJobs);
     public const string JobOccurrences = nameof(JobOccurrences);
+    public const string MilvaionApiKeys = nameof(MilvaionApiKeys);
+    public const string MilvaionApiKeyPermissionRelations = nameof(MilvaionApiKeyPermissionRelations);
 }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

@@ -3,10 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Milvaion.Application.Dtos.PermissionDtos;
 using Milvaion.Application.Features.Permissions.GetPermissionList;
-using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Application.Utils.Constants;
-using Milvaion.Application.Utils.PermissionManager;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

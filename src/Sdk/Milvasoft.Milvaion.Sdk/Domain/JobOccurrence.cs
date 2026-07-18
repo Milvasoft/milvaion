@@ -12,6 +12,10 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// Entity representing a single execution instance of a scheduled job.
 /// Tracks the lifecycle of each job trigger with correlation for observability.
 /// </summary>
+/// <remarks>
+/// Read path indexes for this table are maintained in <c>Milvaion.Api/StaticFiles/SQL/indexes.sql</c> rather than
+/// as attributes here, so that covering and partial indexes can be expressed properly.
+/// </remarks>
 [Table(SchedulerTableNames.JobOccurrences)]
 [DontIndexCreationDate]
 public class JobOccurrence : CreationAuditableEntity<Guid>

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Milvaion.Application.Dtos.HealthDtos;
-using Milvaion.Application.Utils.Constants;
 using System.Net;
 
 namespace Milvaion.Api.Controllers;

@@ -1057,3 +1057,9 @@
   cursor: not-allowed;
   pointer-events: none;
 }
+
+.pagination .btn-sm {
+  padding: .375rem .75rem;
+  min-width: 80px !important;
+  font-size: .8125rem;
+}

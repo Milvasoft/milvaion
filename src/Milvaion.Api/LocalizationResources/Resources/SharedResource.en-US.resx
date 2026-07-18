@@ -1046,4 +1046,28 @@ Maximum file size:
   <data name="Global.WorkflowRun" xml:space="preserve">
     <value>Workflow Run</value>
   </data>
+  <data name="Global.ApiKey" xml:space="preserve">
+    <value>Api Key</value>
+  </data>
+  <data name="ApiKeyNotFound" xml:space="preserve">
+    <value>Api Key not found!</value>
+  </data>
+  <data name="ApiKeyAlreadyRevoked" xml:space="preserve">
+    <value>Api Key already revoked!</value>
+  </data>
+  <data name="ApiKey" xml:space="preserve">
+    <value>Api Key</value>
+  </data>
+  <data name="PG.WorkflowManagement" xml:space="preserve">
+    <value>Workflow management permissions</value>
+  </data>
+  <data name="PG.ApiKeyManagement" xml:space="preserve">
+    <value>Api Key management permissions</value>
+  </data>
+  <data name="Global.MilvaionApiKey" xml:space="preserve">
+    <value>Api Key</value>
+  </data>
+  <data name="Global.MilvaionApiKeyPermissionRelation" xml:space="preserve">
+    <value>Api Key/Permission Relation</value>
+  </data>
 </root>

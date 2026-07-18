@@ -339,6 +339,12 @@
   font-size: 0.8125rem;
 }
 
+/* Cursor pagination shows Previous / Next with a label, so the 36px min-width meant for numbered page buttons
+   squashes them. Scoped to these two buttons rather than widening every .btn-sm in the pagination bar. */
+.pagination .btn-cursor {
+  min-width: 80px;
+}
+
 .page-ellipsis {
   color: var(--text-muted);
   font-size: 0.875rem;

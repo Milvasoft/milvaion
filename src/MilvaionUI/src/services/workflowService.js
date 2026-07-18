@@ -1,5 +1,36 @@
 import api from './api'
 
+const wrapForUpdate = (value, isUpdated = true) => ({
+  value: value ?? null,
+  isUpdated
+})
+
+// The update endpoint takes every field wrapped so partial updates are possible. Callers keep passing a plain
+// object; the wrapping happens here, and only the keys actually present are marked as updated.
+const buildUpdatePayload = (workflowId, workflowData) => {
+  const payload = { workflowId }
+
+  const fields = [
+    'name',
+    'description',
+    'tags',
+    'isActive',
+    'failureStrategy',
+    'maxStepRetries',
+    'timeoutSeconds',
+    'cronExpression',
+    'steps',
+    'edges'
+  ]
+
+  for (const field of fields) {
+    const supplied = Object.hasOwn(workflowData, field)
+    payload[field] = wrapForUpdate(supplied ? workflowData[field] : null, supplied)
+  }
+
+  return payload
+}
+
 export const workflowService = {
   // Get all workflows
   getAll: async (params = {}) => {
@@ -25,9 +56,15 @@ export const workflowService = {
     return api.post('/workflows/workflow', workflowData)
   },
 
-  // Update workflow
+  // Update workflow. Only the keys present in workflowData are changed.
   update: async (workflowId, workflowData) => {
-    return api.put('/workflows/workflow', { workflowId, ...workflowData })
+    return api.put('/workflows/workflow', buildUpdatePayload(workflowId, workflowData))
+  },
+
+  // Pause or resume a workflow without touching its definition. Works while runs are in progress, which a full
+  // definition update deliberately does not.
+  setActive: async (workflowId, isActive) => {
+    return api.put('/workflows/workflow', buildUpdatePayload(workflowId, { isActive }))
   },
 
   // Delete workflow

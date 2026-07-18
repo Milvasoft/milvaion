@@ -17,6 +17,7 @@ import FailedOccurrenceList from './pages/FailedOccurrences/FailedOccurrenceList
 import FailedOccurrenceDetail from './pages/FailedOccurrences/FailedOccurrenceDetail'
 import UserList from './pages/UserManagement/UserList'
 import RoleList from './pages/UserManagement/RoleList'
+import ApiKeyList from './pages/UserManagement/ApiKeyList'
 import ActivityLogList from './pages/UserManagement/ActivityLogList'
 import Profile from './pages/Profile/Profile'
 import WorkflowList from './pages/Workflows/WorkflowList'
@@ -66,6 +67,7 @@ function App() {
                     <Route path="/configuration" element={<Configuration />} />
                     <Route path="/users" element={<UserList />} />
                     <Route path="/roles" element={<RoleList />} />
+                    <Route path="/api-keys" element={<ApiKeyList />} />
                     <Route path="/activity-logs" element={<ActivityLogList />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/workflows" element={<WorkflowList />} />

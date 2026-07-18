@@ -489,6 +489,100 @@
             </summary>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Domain.MilvaionApiKey">
+            <summary>
+            Entity of the MilvaionApiKeys table.
+            Represents a non-interactive credential used by external clients (CI pipelines, MCP clients, integrations)
+            to authenticate against the Milvaion API.
+            </summary>
+            <remarks>
+            The key itself is never persisted. The issued token is a signed JWT whose <c>jti</c> claim carries this
+            entity's id, so authentication is a signature check followed by a lookup of this record. That lookup is what
+            makes revocation, expiry and last-used tracking possible.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.Name">
+            <summary>
+            Human readable name of the key. (e.g. "CI pipeline", "Claude Code - Bugra")
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.Description">
+            <summary>
+            Optional description explaining what this key is used for.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.MaskedKey">
+            <summary>
+            Last characters of the issued key, kept only so a user can match a listed key against the one
+            stored in their configuration. Never contains enough of the key to be usable.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.KeyVersion">
+            <summary>
+            Version of the signing secret this key was issued with.
+            Allows the signing secret to be rotated without invalidating every key at once.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.ExpiresAt">
+            <summary>
+            UTC expiry of the key. Null means the key does not expire.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.RevokedAt">
+            <summary>
+            UTC time at which the key was revoked. Null means the key is still active.
+            A revoked key is rejected even though its signature is still valid.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.LastUsedAt">
+            <summary>
+            UTC time the key was last used to authenticate a request.
+            Useful for spotting keys that can safely be removed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.ApiKeyPermissionRelations">
+            <summary>
+            Navigation property of permission relation. Determines what the key is allowed to do.
+            A key with no permissions can authenticate but is authorized for nothing.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.MilvaionApiKey.GetUniqueIdentifier">
+            <summary>
+            Gets the unique identifier of the entity.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Domain.MilvaionApiKey.ToString">
+            <summary>
+            Returns this instance of "<see cref="T:System.Type"/>.Name <see cref="T:Milvasoft.Core.EntityBases.Concrete.BaseEntity`1"/>.Id" as string.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Milvaion.Domain.MilvaionApiKeyPermissionRelation">
+            <summary>
+            Entity of the MilvaionApiKeyPermissionRelations table.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKeyPermissionRelation.MilvaionApiKeyId">
+            <summary>
+            ID of the api key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKeyPermissionRelation.PermissionId">
+            <summary>
+            ID of the permission.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKeyPermissionRelation.MilvaionApiKey">
+            <summary>
+            Navigation property of api key relation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKeyPermissionRelation.Permission">
+            <summary>
+            Navigation property of Permission relation.
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.Permission">
             <summary>
             Entity of the Permissions table.

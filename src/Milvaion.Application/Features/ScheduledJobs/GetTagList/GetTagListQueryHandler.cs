@@ -17,7 +17,7 @@ public class GetTagListQueryHandler(IMilvaionRepositoryBase<ScheduledJob> schedu
     {
         var response = await _scheduledjobRepository.GetAllAsync(projection: ScheduledJob.Projections.TagList, cancellationToken: cancellationToken);
 
-        List<string> allTags = response.SelectMany(s => s.Tags.Split(','))?.Distinct()?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList() ?? [];
+        List<string> allTags = response?.Where(s => s.Tags != null).SelectMany(s => s.Tags?.Split(','))?.Distinct()?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList() ?? [];
 
         return Response<List<string>>.Success(allTags);
     }

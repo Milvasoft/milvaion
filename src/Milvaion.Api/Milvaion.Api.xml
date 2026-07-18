@@ -103,6 +103,32 @@
             Dummy class for integration test.
             </summary>
         </member>
+        <member name="T:Milvaion.Api.AppStartup.McpExtensions">
+            <summary>
+            Registration and mapping for the Milvaion MCP server.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Api.AppStartup.McpExtensions.McpRoute">
+            <summary>
+            Route the MCP endpoint is served from.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.McpExtensions.AddMilvaionMcp(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Adds the MCP server and its tools.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.McpExtensions.MapMilvaionMcp(Microsoft.AspNetCore.Builder.WebApplication)">
+            <summary>
+            Maps the MCP endpoint.
+            </summary>
+            <remarks>
+            Authorization is required at the endpoint, so an anonymous caller never reaches a tool. The default policy
+            accepts both the login token and an api key, which means a developer can point an MCP client at this
+            endpoint with nothing more than a key created in the dashboard. Per-permission checks happen inside the
+            tools themselves - see <see cref="T:Milvaion.Api.Mcp.McpPermissionGuard"/>.
+            </remarks>
+        </member>
         <member name="T:Milvaion.Api.AppStartup.MissingResxKeyFinder">
             <summary>
             Finds missing resx keys.
@@ -112,6 +138,16 @@
             <summary>
             Finds missing keys in .resx files.
             </summary>
+            <remarks>
+            A development-time convenience, called before the host is built. It must never throw: anything escaping
+            here kills the entry point before an <c>IHost</c> exists, which surfaces as the unhelpful
+            "The entry point exited without ever building an IHost" and takes the whole application - or the whole
+            integration test suite - down with it.
+            <para>
+            The paths are resolved from the current working directory, which is the API project only when it is run
+            directly. Under a test host it points somewhere else entirely, so the folders legitimately do not exist.
+            </para>
+            </remarks>
         </member>
         <member name="M:Milvaion.Api.AppStartup.MissingResxKeyFinder.GetConstantsFromClass(System.Type[])">
             <summary>
@@ -370,6 +406,73 @@
             Gets background services memory diagnostics.
             </summary>
             <returns>Success response</returns>
+        </member>
+        <member name="T:Milvaion.Api.Controllers.ApiKeysController">
+            <summary>
+            Api key endpoints.
+            </summary>
+            <remarks>
+            These endpoints are deliberately reachable with an interactive session only. Managing api keys with an api key
+            would let a leaked key mint replacements for itself and survive revocation.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ApiKeysController.#ctor(MediatR.IMediator)">
+            <summary>
+            Api key endpoints.
+            </summary>
+            <remarks>
+            These endpoints are deliberately reachable with an interactive session only. Managing api keys with an api key
+            would let a leaked key mint replacements for itself and survive revocation.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ApiKeysController.GetApiKeysAsync(Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets api keys.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ApiKeysController.GetApiKeyAsync(Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets api key according to api key id.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ApiKeysController.AddApiKeyAsync(Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand,System.Threading.CancellationToken)">
+            <summary>
+            Adds api key. The generated key is returned in this response and nowhere else - it is not persisted and
+            cannot be retrieved again.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ApiKeysController.UpdateApiKeyAsync(Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates api key metadata and permissions. Only the fields that are sent as isUpdated true are updated.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ApiKeysController.RevokeApiKeyAsync(Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommand,System.Threading.CancellationToken)">
+            <summary>
+            Revokes api key. The key stops working immediately, but the record is kept for the audit trail.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ApiKeysController.RemoveApiKeyAsync(Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommand,System.Threading.CancellationToken)">
+            <summary>
+            Removes api key along with its audit trail. Prefer revoking unless you are cleaning up.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
         </member>
         <member name="T:Milvaion.Api.Controllers.CmsController">
             <summary>
@@ -1197,6 +1300,469 @@
             Dummy class for localization
             </summary>
         </member>
+        <member name="T:Milvaion.Api.Mcp.McpPermissionGuard">
+            <summary>
+            Enforces Milvaion permissions inside MCP tools.
+            </summary>
+            <remarks>
+            MCP tools are not MVC actions, so <c>[Auth(PermissionCatalog...)]</c> never runs for them. Authentication is
+            still handled by the endpoint - <c>/mcp</c> requires an authenticated caller - but the per-permission check
+            has to happen here, or every caller with any valid credential would reach every tool.
+            <para>
+            Permissions arrive as role claims, put there by the login token or by
+            <c>ApiKeyAuthenticationHandler</c>, so one check covers both interactive users and api keys.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.McpPermissionGuard.#ctor(Microsoft.AspNetCore.Http.IHttpContextAccessor)">
+            <summary>
+            Enforces Milvaion permissions inside MCP tools.
+            </summary>
+            <remarks>
+            MCP tools are not MVC actions, so <c>[Auth(PermissionCatalog...)]</c> never runs for them. Authentication is
+            still handled by the endpoint - <c>/mcp</c> requires an authenticated caller - but the per-permission check
+            has to happen here, or every caller with any valid credential would reach every tool.
+            <para>
+            Permissions arrive as role claims, put there by the login token or by
+            <c>ApiKeyAuthenticationHandler</c>, so one check covers both interactive users and api keys.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.McpPermissionGuard.Require(System.String)">
+            <summary>
+            Throws when the caller does not hold <paramref name="permission"/> or the super admin permission.
+            </summary>
+            <remarks>
+            The thrown <see cref="T:ModelContextProtocol.McpException"/> is what the calling model sees. The message names the missing
+            permission on purpose: an agent that is told exactly what it lacks stops retrying, and the user can go
+            and grant it.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.McpPermissionGuard.Has(System.String)">
+            <summary>
+            Returns true when the caller holds the permission, without throwing.
+            Useful for trimming optional detail out of a response rather than failing the whole call.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.Mcp.McpPermissionGuard.CallerName">
+            <summary>
+            Name of the current caller, for logging and for stamping trigger reasons.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Mcp.MilvaionDiagnosticsTools">
+            <summary>
+            MCP tools for diagnosing failures and reading the audit trail.
+            </summary>
+            <remarks>
+            These are the tools an assistant reaches for during an incident: what failed, why, and what changed
+            beforehand. They delegate to the same MediatR queries the REST API uses.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.#ctor(MediatR.IMediator,Milvaion.Api.Mcp.McpPermissionGuard)">
+            <summary>
+            MCP tools for diagnosing failures and reading the audit trail.
+            </summary>
+            <remarks>
+            These are the tools an assistant reaches for during an incident: what failed, why, and what changed
+            beforehand. They delegate to the same MediatR queries the REST API uses.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ListFailuresAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets failed occurrences that exhausted their retries.
+            </summary>
+            <param name="searchTerm">Free text search over job names.</param>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionDiagnosticsTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged failed occurrence list with the total count.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.GetFailureAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Gets a failed occurrence in full.
+            </summary>
+            <param name="failedOccurrenceId">Failed occurrence id to access details.</param>
+            <param name="cancellationToken"></param>
+            <returns>Failed occurrence detail.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no failed occurrence exists with the given id.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ResolveFailuresAsync(System.Collections.Generic.List{System.Guid},System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Marks failed occurrences as resolved, with notes describing what was done.
+            </summary>
+            <remarks>
+            This records a human decision about a failure. It does not re-run anything - use <c>trigger_job</c> for
+            that, then mark the failure resolved describing what was retried.
+            </remarks>
+            <param name="failedOccurrenceIds">Failed occurrence ids to mark resolved.</param>
+            <param name="resolutionNote">Explanation of the root cause or decision.</param>
+            <param name="resolutionAction">What was done, e.g. "Retried manually", "Ignored - invalid data".</param>
+            <param name="cancellationToken"></param>
+            <returns>Ids of the updated failures.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the failures could not be updated.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.DeleteFailuresAsync(System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Deletes failed occurrences.
+            </summary>
+            <param name="failedOccurrenceIds">Failed occurrence ids to delete.</param>
+            <param name="cancellationToken"></param>
+            <returns>Ids of the deleted failures.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the failures could not be deleted.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ListActivityLogsAsync(System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets the user activity log.
+            </summary>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionDiagnosticsTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged activity log with the total count.</returns>
+        </member>
+        <member name="T:Milvaion.Api.Mcp.MilvaionJobTools">
+            <summary>
+            MCP tools covering scheduled jobs and their executions.
+            </summary>
+            <remarks>
+            Every tool delegates to the same MediatR queries the REST API uses. Nothing here reimplements data access, so
+            a change to filtering or projection shows up identically in the dashboard, the REST API and MCP.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.#ctor(MediatR.IMediator,Milvaion.Api.Mcp.McpPermissionGuard)">
+            <summary>
+            MCP tools covering scheduled jobs and their executions.
+            </summary>
+            <remarks>
+            Every tool delegates to the same MediatR queries the REST API uses. Nothing here reimplements data access, so
+            a change to filtering or projection shows up identically in the dashboard, the REST API and MCP.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ListJobsAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets scheduled jobs.
+            </summary>
+            <param name="searchTerm">Free text search over job names and types.</param>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionJobTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged job list with the total count.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.GetJobAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Gets scheduled job according to job id.
+            </summary>
+            <param name="jobId">Job id to access details.</param>
+            <param name="cancellationToken"></param>
+            <returns>Job detail.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no job exists with the given id.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ListOccurrencesAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets job occurrences.
+            </summary>
+            <param name="searchTerm">Free text search over job names.</param>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionJobTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged occurrence list with the total count.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.GetOccurrenceAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Gets job occurrence according to occurrence id, including its logs and exception detail.
+            </summary>
+            <param name="occurrenceId">Occurrence id to access details.</param>
+            <param name="cancellationToken"></param>
+            <returns>Occurrence detail.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no occurrence exists with the given id.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.TriggerJobAsync(System.Guid,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Triggers a scheduled job immediately, outside its normal schedule.
+            </summary>
+            <remarks>
+            Always dispatched with <c>Force</c> false, so the job's concurrency policy still applies.
+            </remarks>
+            <param name="jobId">Job id to trigger.</param>
+            <param name="reason">Trigger reason, recorded in the execution history alongside the calling credential.</param>
+            <param name="jobData">JSON payload for this run. Falls back to the job's configured data when empty.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the created occurrence.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be triggered.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.ListTagsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets the distinct tags in use across scheduled jobs.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns>Tag list.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.SetJobActiveAsync(System.Guid,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Enables or disables a scheduled job.
+            </summary>
+            <remarks>
+            Deliberately separate from <c>update_job</c>. Pausing a misbehaving job is the most common intervention
+            during an incident, and it should not require constructing a partial update payload.
+            </remarks>
+            <param name="jobId">Job id.</param>
+            <param name="isActive">True to resume scheduling, false to pause it.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the updated job.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be updated.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.SetJobAutoDisableAsync(System.Guid,System.Nullable{System.Boolean},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            Configures auto-disable for a scheduled job.
+            </summary>
+            <remarks>
+            Separate from <c>update_job</c> for the same reason as <c>set_job_active</c>: these three values belong
+            together, and asking for them as part of a general update makes a common request awkward to express.
+            </remarks>
+            <param name="jobId">Job id.</param>
+            <param name="enabled">True to auto-disable after repeated failures, false to never auto-disable, null to fall back to the global setting.</param>
+            <param name="threshold">Consecutive failures before the job is disabled. Null falls back to the global setting.</param>
+            <param name="failureWindowMinutes">Window in which those failures must occur to count. Null falls back to the global setting.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the updated job and the settings applied.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be updated.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.CreateJobAsync(System.String,System.String,System.String,System.String,System.Nullable{System.DateTime},System.String,System.String,System.String,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Creates a scheduled job.
+            </summary>
+            <param name="displayName">Display name of the job.</param>
+            <param name="workerId">Worker that should execute the job.</param>
+            <param name="selectedJobName">Job type on that worker, as reported by worker auto discovery.</param>
+            <param name="cronExpression">Cron expression for a recurring job. Null makes it a one-off run at <paramref name="executeAt"/>.</param>
+            <param name="executeAt">First or only execution time in UTC. Defaults to now when omitted.</param>
+            <param name="jobData">JSON payload passed to the job.</param>
+            <param name="description">Description of the job.</param>
+            <param name="tags">Comma separated tags.</param>
+            <param name="isActive">Whether the job starts out scheduled.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the created job.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be created.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.UpdateJobAsync(System.Guid,System.String,System.String,System.String,System.String,System.String,System.Nullable{System.Int32},System.Nullable{System.Int32},System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.ConcurrentExecutionPolicy},System.String,System.Threading.CancellationToken)">
+            <summary>
+            Updates a scheduled job. Only the arguments that are supplied are changed.
+            </summary>
+            <remarks>
+            The underlying command uses <see cref="T:Milvasoft.Types.Structs.UpdateProperty`1"/> to distinguish "not supplied" from "set to
+            null". That distinction is expressed here as nullable arguments so the model never has to construct the
+            wrapper shape: a null argument means unchanged.
+            <para>
+            The consequence is that a field cannot be cleared through this tool. Clearing is rare, and a model
+            accidentally blanking a cron expression is a worse failure than not being able to blank one on purpose.
+            </para>
+            </remarks>
+            <param name="jobId">Job id to update.</param>
+            <param name="displayName">New display name, or null to leave unchanged.</param>
+            <param name="description">New description, or null to leave unchanged.</param>
+            <param name="tags">New comma separated tags, or null to leave unchanged.</param>
+            <param name="cronExpression">New cron expression, or null to leave unchanged.</param>
+            <param name="jobData">New JSON payload, or null to leave unchanged.</param>
+            <param name="executionTimeoutSeconds">New execution timeout, or null to leave unchanged.</param>
+            <param name="zombieTimeoutMinutes">New zombie timeout, or null to leave unchanged.</param>
+            <param name="concurrentExecutionPolicy">New concurrency policy, or null to leave unchanged.</param>
+            <param name="jobType">New job type on the worker, or null to leave unchanged.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the updated job.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be updated.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.DeleteJobAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a scheduled job along with its execution history.
+            </summary>
+            <param name="jobId">Job id to delete.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the deleted job.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be deleted.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.CancelOccurrenceAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Cancels a running job occurrence.
+            </summary>
+            <param name="occurrenceId">Occurrence id to cancel.</param>
+            <param name="reason">Cancellation reason, recorded against the occurrence.</param>
+            <param name="cancellationToken"></param>
+            <returns>Whether the cancellation signal was published.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the occurrence could not be cancelled.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.DeleteOccurrencesAsync(System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Deletes job occurrences.
+            </summary>
+            <param name="occurrenceIds">Occurrence ids to delete.</param>
+            <param name="cancellationToken"></param>
+            <returns>Ids of the deleted occurrences.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the occurrences could not be deleted.</exception>
+        </member>
+        <member name="T:Milvaion.Api.Mcp.MilvaionOpsTools">
+            <summary>
+            MCP tools covering workers, workflows and the overall health of the installation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.#ctor(MediatR.IMediator,Milvaion.Api.Mcp.McpPermissionGuard)">
+            <summary>
+            MCP tools covering workers, workflows and the overall health of the installation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetOverviewAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets dashboard statistics for the installation.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns>Job counts, execution status counts, throughput and worker health.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.ListWorkersAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets workers with their heartbeat status and executable job types.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns>Worker list.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.ListWorkflowsAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflows.
+            </summary>
+            <param name="searchTerm">Free text search over workflow names.</param>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionOpsTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged workflow list with the total count.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.ListWorkflowRunsAsync(System.Nullable{System.Guid},System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflow runs, optionally for a single workflow.
+            </summary>
+            <param name="workflowId">Workflow id to filter runs for. Null lists runs across all workflows.</param>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionOpsTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged workflow run list with the total count.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.TriggerWorkflowAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Triggers a workflow run immediately.
+            </summary>
+            <param name="workflowId">Workflow id to trigger.</param>
+            <param name="reason">Trigger reason, recorded against the run alongside the calling credential.</param>
+            <param name="cancellationToken"></param>
+            <returns>The created workflow run.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be triggered.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetWorkerAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets a worker in full.
+            </summary>
+            <param name="workerId">Worker id to access details.</param>
+            <param name="cancellationToken"></param>
+            <returns>Worker detail.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no worker exists with the given id.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.DeleteWorkerAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a worker registration.
+            </summary>
+            <remarks>
+            Removes the registration only. A worker process that is still alive re-registers on its next heartbeat.
+            </remarks>
+            <param name="workerId">Worker id to delete.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the deleted worker.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the worker could not be deleted.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetWorkflowAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Gets a workflow in full, including its step graph.
+            </summary>
+            <param name="workflowId">Workflow id to access details.</param>
+            <param name="cancellationToken"></param>
+            <returns>Workflow detail.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no workflow exists with the given id.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetWorkflowRunAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Gets a workflow run in full, including per step outcomes.
+            </summary>
+            <param name="runId">Workflow run id to access details.</param>
+            <param name="cancellationToken"></param>
+            <returns>Workflow run detail.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no workflow run exists with the given id.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.CancelWorkflowRunAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Cancels a running workflow run.
+            </summary>
+            <param name="workflowRunId">Workflow run id to cancel.</param>
+            <param name="reason">Cancellation reason, recorded against the run.</param>
+            <param name="cancellationToken"></param>
+            <returns>Whether the run was cancelled.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the run could not be cancelled.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.DeleteWorkflowAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a workflow along with its run history.
+            </summary>
+            <param name="workflowId">Workflow id to delete.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the deleted workflow.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be deleted.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.CreateWorkflowAsync(System.String,System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto},System.String,System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy,System.Int32,System.Nullable{System.Int32},System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Creates a workflow with its step graph.
+            </summary>
+            <param name="name">Display name of the workflow.</param>
+            <param name="steps">Steps making up the graph. Each needs a tempId that edges refer to.</param>
+            <param name="edges">Directed connections between steps, referencing step tempIds.</param>
+            <param name="description">Description of the workflow.</param>
+            <param name="tags">Comma separated tags.</param>
+            <param name="cronExpression">Six part cron expression for recurring execution, or null for manual only.</param>
+            <param name="failureStrategy">What to do when a step fails.</param>
+            <param name="maxStepRetries">Maximum retries per step.</param>
+            <param name="timeoutSeconds">Timeout for the whole workflow.</param>
+            <param name="isActive">Whether the workflow is scheduled straight away.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the created workflow.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be created.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.SetWorkflowActiveAsync(System.Guid,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Pauses or resumes a workflow.
+            </summary>
+            <remarks>
+            A metadata-only update, so unlike a definition change it is allowed while runs are in progress.
+            </remarks>
+            <param name="workflowId">Workflow id.</param>
+            <param name="isActive">True to resume scheduling, false to pause it.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the updated workflow.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be updated.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.UpdateWorkflowAsync(System.Guid,System.String,System.String,System.String,System.String,System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto},System.Threading.CancellationToken)">
+            <summary>
+            Updates a workflow. Only the arguments that are supplied are changed.
+            </summary>
+            <remarks>
+            Steps and edges are replaced as a unit: supply both or neither. Supplying a definition is rejected while
+            runs are in progress, whereas metadata-only changes are always allowed.
+            </remarks>
+            <param name="workflowId">Workflow id to update.</param>
+            <param name="name">New name, or null to leave unchanged.</param>
+            <param name="description">New description, or null to leave unchanged.</param>
+            <param name="tags">New comma separated tags, or null to leave unchanged.</param>
+            <param name="cronExpression">New cron expression, or null to leave unchanged.</param>
+            <param name="failureStrategy">New failure strategy, or null to leave unchanged.</param>
+            <param name="maxStepRetries">New retry count, or null to leave unchanged.</param>
+            <param name="timeoutSeconds">New timeout, or null to leave unchanged.</param>
+            <param name="steps">Replacement steps. Must be supplied together with <paramref name="edges"/>.</param>
+            <param name="edges">Replacement edges. Must be supplied together with <paramref name="steps"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the updated workflow.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be updated.</exception>
+        </member>
         <member name="T:Milvaion.Api.Middlewares.ExceptionMiddleware">
             <summary>
             Catches errors occurring elsewhere in the project.
@@ -1319,6 +1885,18 @@
         <member name="M:Milvaion.Api.Migrations.WorkflowJobDataOverride.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:Milvaion.Api.Migrations.AddApiKey">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddApiKey.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddApiKey.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddApiKey.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">
             <summary>
             Applies migrations when the application starts.
@@ -1355,6 +1933,111 @@
             Assembly instance.
             </summary>
         </member>
+        <member name="T:Milvaion.Api.Services.ApiKeyGenerator">
+            <summary>
+            Issues signed api keys using the configured signing secret.
+            </summary>
+            <param name="milvaionConfig"></param>
+        </member>
+        <member name="M:Milvaion.Api.Services.ApiKeyGenerator.#ctor(Milvaion.Application.Utils.Models.Options.MilvaionConfig)">
+            <summary>
+            Issues signed api keys using the configured signing secret.
+            </summary>
+            <param name="milvaionConfig"></param>
+        </member>
+        <member name="P:Milvaion.Api.Services.ApiKeyGenerator.CurrentKeyVersion">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.ApiKeyGenerator.Generate(System.Int32,System.Nullable{System.DateTime})">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.ApiKeyGenerator.Mask(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Api.Services.CachedApiKey">
+            <summary>
+            Authentication state of an api key, as cached.
+            </summary>
+            <param name="Id">Api key record id.</param>
+            <param name="Name">Human readable name, used for the principal identity.</param>
+            <param name="KeyVersion">Signing secret version the key was issued with.</param>
+            <param name="ExpiresAt">UTC expiry, if any.</param>
+            <param name="IsRevoked">Whether the key has been revoked.</param>
+            <param name="Permissions">Permission names granted to the key.</param>
+        </member>
+        <member name="M:Milvaion.Api.Services.CachedApiKey.#ctor(System.Int32,System.String,System.Int32,System.Nullable{System.DateTime},System.Boolean,System.Collections.Generic.List{System.String})">
+            <summary>
+            Authentication state of an api key, as cached.
+            </summary>
+            <param name="Id">Api key record id.</param>
+            <param name="Name">Human readable name, used for the principal identity.</param>
+            <param name="KeyVersion">Signing secret version the key was issued with.</param>
+            <param name="ExpiresAt">UTC expiry, if any.</param>
+            <param name="IsRevoked">Whether the key has been revoked.</param>
+            <param name="Permissions">Permission names granted to the key.</param>
+        </member>
+        <member name="P:Milvaion.Api.Services.CachedApiKey.Id">
+            <summary>Api key record id.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Services.CachedApiKey.Name">
+            <summary>Human readable name, used for the principal identity.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Services.CachedApiKey.KeyVersion">
+            <summary>Signing secret version the key was issued with.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Services.CachedApiKey.ExpiresAt">
+            <summary>UTC expiry, if any.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Services.CachedApiKey.IsRevoked">
+            <summary>Whether the key has been revoked.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Services.CachedApiKey.Permissions">
+            <summary>Permission names granted to the key.</summary>
+        </member>
+        <member name="T:Milvaion.Api.Services.ApiKeyStore">
+            <summary>
+            Reads api key records for authentication, cached in Redis.
+            </summary>
+            <remarks>
+            Redis rather than an in-process cache on purpose: with more than one API replica an in-process cache would
+            leave a revoked key working on every replica that did not handle the revoke request.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Services.ApiKeyStore.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Microsoft.Extensions.Logging.ILogger{Milvaion.Api.Services.ApiKeyStore})">
+            <summary>
+            Reads api key records for authentication, cached in Redis.
+            </summary>
+            <remarks>
+            Redis rather than an in-process cache on purpose: with more than one API replica an in-process cache would
+            leave a revoked key working on every replica that did not handle the revoke request.
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Api.Services.ApiKeyStore._projection">
+            <summary>
+            Projection used when loading an api key for authentication.
+            </summary>
+            <remarks>
+            Permissions are emitted as <c>{PermissionGroup}.{Name}</c>, matching
+            <see cref="M:Milvaion.Domain.Permission.FormatPermissionAndGroup"/> and what <c>AccountManager</c> puts in the login token.
+            <c>Permission.Name</c> on its own is only the field name - "List", "SuperAdmin" - which would never match
+            the values in <c>PermissionCatalog</c> and would fail every authorization check.
+            The concatenation is inline rather than a call to <c>FormatPermissionAndGroup</c> because this expression
+            has to be translatable to SQL.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Services.ApiKeyStore.GetAsync(System.Int32,System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Gets the api key record, from cache when possible.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Services.ApiKeyStore.InvalidateAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.ApiKeyStore.ShouldWriteLastUsedAsync(System.Int32,System.TimeSpan)">
+            <summary>
+            Returns true when a <c>LastUsedAt</c> write is due for this key, and claims the write window.
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher">
             <summary>
             SignalR implementation of job occurrence event publisher.
@@ -1380,6 +2063,97 @@
         <member name="M:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher.PublishOccurrenceUpdatedAsync(Milvaion.Application.Dtos.OccurrenceUpdatedSignal,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="T:Milvaion.Api.Utils.ApiAuthAttribute">
+            <summary>
+            Restricts an endpoint to api key callers, optionally requiring specific permissions.
+            </summary>
+            <remarks>
+            Use this instead of <c>[Auth]</c> when an endpoint is meant for machine callers only - a CI integration or an
+            MCP client - and should not be reachable with an interactive browser session.
+            <para>
+            For endpoints that should accept both a logged-in user and an api key, use <c>[Auth(...)]</c>: the default
+            authorization policy already names both authentication schemes, so api key callers satisfy it.
+            </para>
+            <para>
+            The header parsing, signature check, revocation and expiry checks all live in
+            <see cref="T:Milvaion.Api.Utils.ApiKeyAuthenticationHandler"/>. This attribute only selects that scheme and applies the permission
+            requirement, so authorization stays in one place.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Utils.ApiAuthAttribute.#ctor">
+            <summary>
+            Requires a valid api key, with no particular permission.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Utils.ApiAuthAttribute.#ctor(System.String[])">
+            <summary>
+            Requires a valid api key holding one of <paramref name="permissions"/>, or the super admin permission.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Utils.ApiKeyAuthenticationDefaults">
+            <summary>
+            Constants for the api key authentication scheme.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Api.Utils.ApiKeyAuthenticationDefaults.AuthenticationScheme">
+            <summary>
+            Name of the api key authentication scheme.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Api.Utils.ApiKeyAuthenticationDefaults.ApiKeyIdClaimName">
+            <summary>
+            Claim added to every api key principal so endpoints can tell a machine caller from an interactive user.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Utils.ApiKeyAuthenticationOptions">
+            <summary>
+            Options for the api key authentication scheme.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.Utils.ApiKeyAuthenticationOptions.CacheLifetime">
+            <summary>
+            How long a validated api key record stays cached before it is read from the database again.
+            Revocation invalidates the cache explicitly, so this is only a backstop.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.Utils.ApiKeyAuthenticationOptions.LastUsedWriteInterval">
+            <summary>
+            Minimum interval between <c>LastUsedAt</c> writes for a single key.
+            Without this a busy integration would cause a database write on every request for a column nobody reads
+            at that resolution.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Utils.ApiKeyAuthenticationHandler">
+            <summary>
+            Authenticates requests carrying an <c>X-ApiKey</c> header.
+            </summary>
+            <remarks>
+            This is an authentication scheme rather than an action filter on purpose. Producing a real
+            <see cref="T:System.Security.Claims.ClaimsPrincipal"/> means every existing <c>[Auth(PermissionCatalog...)]</c> attribute keeps working
+            unchanged for api key callers - permissions are emitted as role claims, exactly as the login token does.
+            Had this stayed a filter, authorization would have had to be reimplemented separately for machine callers.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Utils.ApiKeyAuthenticationHandler.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Api.Utils.ApiKeyAuthenticationOptions},Microsoft.Extensions.Logging.ILoggerFactory,System.Text.Encodings.Web.UrlEncoder,Milvaion.Application.Utils.Models.Options.MilvaionConfig,Milvaion.Api.Services.ApiKeyStore,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey})">
+            <summary>
+            Authenticates requests carrying an <c>X-ApiKey</c> header.
+            </summary>
+            <remarks>
+            This is an authentication scheme rather than an action filter on purpose. Producing a real
+            <see cref="T:System.Security.Claims.ClaimsPrincipal"/> means every existing <c>[Auth(PermissionCatalog...)]</c> attribute keeps working
+            unchanged for api key callers - permissions are emitted as role claims, exactly as the login token does.
+            Had this stayed a filter, authorization would have had to be reimplemented separately for machine callers.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Utils.ApiKeyAuthenticationHandler.HandleAuthenticateAsync">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Utils.ApiKeyAuthenticationHandler.TouchLastUsedAsync(System.Int32)">
+            <summary>
+            Records that the key was used, at most once per configured interval.
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Utils.DefaultNotification">
             <summary>
             Model for health check alerts.
@@ -1400,6 +2174,80 @@
         </member>
         <member name="M:Milvaion.Api.Utils.DisableFormValueModelBindingAttribute.OnResourceExecuted(Microsoft.AspNetCore.Mvc.Filters.ResourceExecutedContext)">
             <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Api.Utils.ApiKeyValidationResult">
+            <summary>
+            Result of a successful api key signature validation.
+            </summary>
+            <param name="ApiKeyId">Id of the <see cref="T:Milvaion.Domain.MilvaionApiKey"/> record the key was issued for.</param>
+            <param name="KeyVersion">Version of the signing secret the key was issued with.</param>
+            <param name="ExpiresAt">UTC expiry embedded in the key, if any.</param>
+        </member>
+        <member name="M:Milvaion.Api.Utils.ApiKeyValidationResult.#ctor(System.Int32,System.Int32,System.Nullable{System.DateTime})">
+            <summary>
+            Result of a successful api key signature validation.
+            </summary>
+            <param name="ApiKeyId">Id of the <see cref="T:Milvaion.Domain.MilvaionApiKey"/> record the key was issued for.</param>
+            <param name="KeyVersion">Version of the signing secret the key was issued with.</param>
+            <param name="ExpiresAt">UTC expiry embedded in the key, if any.</param>
+        </member>
+        <member name="P:Milvaion.Api.Utils.ApiKeyValidationResult.ApiKeyId">
+            <summary>Id of the <see cref="T:Milvaion.Domain.MilvaionApiKey"/> record the key was issued for.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Utils.ApiKeyValidationResult.KeyVersion">
+            <summary>Version of the signing secret the key was issued with.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Utils.ApiKeyValidationResult.ExpiresAt">
+            <summary>UTC expiry embedded in the key, if any.</summary>
+        </member>
+        <member name="T:Milvaion.Api.Utils.KeyHelper">
+            <summary>
+            Api key helpers for api authorization.
+            </summary>
+            <remarks>
+            A Milvaion api key is a JWT signed with <c>MilvaionConfig.ApiKey</c>. The signature proves the key was issued
+            by this installation; the <c>jti</c> claim identifies which <see cref="T:Milvaion.Domain.MilvaionApiKey"/> record it belongs to.
+            Authorization always requires the record lookup as well, otherwise revocation would be impossible.
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Api.Utils.KeyHelper.KeyVersionClaimName">
+            <summary>
+            Claim carrying the version of the signing secret used to issue the key.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Utils.KeyHelper.GenerateApiKey(System.Byte[],System.Int32,System.Int32,System.Nullable{System.DateTime})">
+            <summary>
+            Generates a signed api key for the given api key record.
+            </summary>
+            <param name="secret">Signing secret. Comes from <c>MilvaionConfig.ApiKey</c>.</param>
+            <param name="apiKeyId">Id of the persisted <see cref="T:Milvaion.Domain.MilvaionApiKey"/> record.</param>
+            <param name="keyVersion">Version of the signing secret.</param>
+            <param name="expiresAt">
+            UTC expiry of the key. Pass null for a key that never expires - revocation is then the only way to
+            invalidate it, which is exactly why the record lookup exists.
+            </param>
+        </member>
+        <member name="M:Milvaion.Api.Utils.KeyHelper.ValidateApiKey(System.String,System.Byte[])">
+            <summary>
+            Validates the signature and expiry of the given key and returns the claims needed to look up its record.
+            Returns null when the key is malformed, tampered with or expired.
+            </summary>
+            <remarks>
+            A non-null result means the key was genuinely issued by this installation. It does <b>not</b> mean the key
+            is still active - the caller must load the <see cref="T:Milvaion.Domain.MilvaionApiKey"/> record and check
+            <c>RevokedAt</c> before honouring it.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Utils.KeyHelper.Mask(System.String)">
+            <summary>
+            Masks a generated key for display. Only the trailing characters are kept, which is enough for a user to
+            match a listed key against the one in their configuration and useless to anybody else.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Utils.KeyHelper.GetPrincipalForAccessKey(System.String,System.Byte[])">
+            <summary>
+            Returns claims in the token, or null when the token is invalid.
+            </summary>
         </member>
         <member name="T:Program">
             <summary>

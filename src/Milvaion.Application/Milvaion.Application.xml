@@ -1288,6 +1288,128 @@
             Critical alert - immediate action required.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto">
+            <summary>
+            Data transfer object for api key details.
+            </summary>
+            <remarks>
+            Never contains the key itself. The key is returned exactly once, by the create endpoint.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.Name">
+            <summary>
+            Human readable name of the key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.Description">
+            <summary>
+            Description explaining what the key is used for.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.MaskedKey">
+            <summary>
+            Trailing characters of the key, for matching against a stored configuration value.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.KeyVersion">
+            <summary>
+            Version of the signing secret this key was issued with.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.ExpiresAt">
+            <summary>
+            UTC expiry of the key. Null means it does not expire.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.RevokedAt">
+            <summary>
+            UTC time the key was revoked. Null means the key is still active.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.LastUsedAt">
+            <summary>
+            UTC time the key was last used to authenticate a request.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.Permissions">
+            <summary>
+            Permissions granted to the key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.AuditInfo">
+            <summary>
+            Information about record audit.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyDetailDto.Projection">
+            <summary>
+            Projection expression for mapping MilvaionApiKey entity to ApiKeyDetailDto.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyListDto">
+            <summary>
+            Data transfer object for api key list.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyListDto.Name">
+            <summary>
+            Human readable name of the key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyListDto.MaskedKey">
+            <summary>
+            Trailing characters of the key, for matching against a stored configuration value.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyListDto.ExpiresAt">
+            <summary>
+            UTC expiry of the key. Null means it does not expire.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyListDto.RevokedAt">
+            <summary>
+            UTC time the key was revoked. Null means the key is still active.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyListDto.LastUsedAt">
+            <summary>
+            UTC time the key was last used to authenticate a request.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.ApiKeyListDto.Projection">
+            <summary>
+            Projection expression for mapping MilvaionApiKey entity to ApiKeyListDto.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ApiKeyDtos.CreatedApiKeyDto">
+            <summary>
+            Data transfer object returned when an api key is created.
+            </summary>
+            <remarks>
+            This is the only response in the system that ever carries <see cref="P:Milvaion.Application.Dtos.ApiKeyDtos.CreatedApiKeyDto.Key"/>. The key is not persisted, so
+            once this response is discarded it cannot be recovered and a new key must be created.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.CreatedApiKeyDto.Id">
+            <summary>
+            Id of the created api key record.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.CreatedApiKeyDto.Name">
+            <summary>
+            Human readable name of the key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.CreatedApiKeyDto.Key">
+            <summary>
+            The generated key. Shown once, never again.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ApiKeyDtos.CreatedApiKeyDto.ExpiresAt">
+            <summary>
+            UTC expiry of the key. Null means it does not expire.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.AuditDto`1">
             <summary>
             Represents an audit data transfer object.
@@ -4791,6 +4913,278 @@
         <member name="M:Milvaion.Application.Features.ActivityLogs.GetActivityLogList.GetActivityLogListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.ActivityLogs.GetActivityLogList.GetActivityLogListQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand">
+            <summary>
+            Data transfer object for api key creation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand.Name">
+            <summary>
+            Human readable name of the key. (e.g. "CI pipeline", "Claude Code - Bugra")
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand.Description">
+            <summary>
+            Optional description explaining what the key is used for.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand.ExpiresAt">
+            <summary>
+            UTC expiry of the key. Leave null for a key that never expires.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand.PermissionIdList">
+            <summary>
+            Permissions to grant to the key. A key with no permissions can authenticate but is authorized for nothing.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler">
+            <summary>
+            Handles the creation of the api key.
+            </summary>
+            <remarks>
+            The key embeds the record id, so the record must be persisted before the key can be generated. The record is
+            therefore saved first, then updated with the mask - both inside one transaction.
+            </remarks>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyGenerator"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IApiKeyGenerator)">
+            <summary>
+            Handles the creation of the api key.
+            </summary>
+            <remarks>
+            The key embeds the record id, so the record must be persisted before the key can be generated. The record is
+            therefore saved first, then updated with the mask - both inside one transaction.
+            </remarks>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyGenerator"></param>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.ApiKeyRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.ApiKeyGenerator">
+            <summary></summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.Handle(Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandValidator">
+            <summary>
+            Api key creation command validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <inheritdoc cref="T:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommand">
+            <summary>
+            Data transfer object for api key deletion.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommand.ApiKeyId">
+            <summary>
+            Id of the api key to be deleted.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandHandler">
+            <summary>
+            Handles the deletion of the api key.
+            </summary>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyCacheInvalidator"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IApiKeyCacheInvalidator)">
+            <summary>
+            Handles the deletion of the api key.
+            </summary>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyCacheInvalidator"></param>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandHandler.ApiKeyRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandHandler.ApiKeyCacheInvalidator">
+            <summary></summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandHandler.Handle(Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandValidator">
+            <summary>
+            Api key deletion command validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <inheritdoc cref="T:Milvaion.Application.Features.ApiKeys.DeleteApiKey.DeleteApiKeyCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQuery">
+            <summary>
+            Data transfer object for api key details.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQuery.ApiKeyId">
+            <summary>
+            Api key id to access details.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQueryHandler">
+            <summary>
+            Handles the api key detail operation.
+            </summary>
+            <param name="apiKeyRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey})">
+            <summary>
+            Handles the api key detail operation.
+            </summary>
+            <param name="apiKeyRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQueryHandler.Handle(Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQueryValidator">
+            <summary>
+            Api key detail query validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <inheritdoc cref="T:Milvaion.Application.Features.ApiKeys.GetApiKeyDetail.GetApiKeyDetailQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQuery">
+            <summary>
+            Data transfer object for api key list.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQueryHandler">
+            <summary>
+            Handles the api key list operation.
+            </summary>
+            <param name="apiKeyRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey})">
+            <summary>
+            Handles the api key list operation.
+            </summary>
+            <param name="apiKeyRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQueryHandler.Handle(Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQueryValidator">
+            <summary>
+            Api key list query validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ApiKeys.GetApiKeyList.GetApiKeyListQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommand">
+            <summary>
+            Data transfer object for api key revocation.
+            </summary>
+            <remarks>
+            Revoking is preferred over deleting: the record stays behind so the audit trail still explains what the key
+            was and who created it. Deleting is available separately for housekeeping.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommand.ApiKeyId">
+            <summary>
+            Id of the api key to be revoked.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandHandler">
+            <summary>
+            Handles the revocation of the api key.
+            </summary>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyCacheInvalidator"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IApiKeyCacheInvalidator)">
+            <summary>
+            Handles the revocation of the api key.
+            </summary>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyCacheInvalidator"></param>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandHandler.ApiKeyRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandHandler.ApiKeyCacheInvalidator">
+            <summary></summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandHandler.Handle(Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandValidator">
+            <summary>
+            Api key revocation command validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <inheritdoc cref="T:Milvaion.Application.Features.ApiKeys.RevokeApiKey.RevokeApiKeyCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommand">
+            <summary>
+            Data transfer object for api key update.
+            </summary>
+            <remarks>
+            Only metadata and permissions can be changed. The key itself, its expiry and its signing version are fixed at
+            creation - changing them would mean issuing a different key, which is what the create endpoint is for.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommand.Name">
+            <summary>
+            Human readable name of the key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommand.Description">
+            <summary>
+            Description explaining what the key is used for.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommand.PermissionIdList">
+            <summary>
+            Related entities will always be updated according to the values in this list. If you send it empty, related
+            entities will be cleared. If no update has been made, please send it with isUpdated false.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler">
+            <summary>
+            Handles the update of the api key.
+            </summary>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyPermissionRelationRepository"></param>
+            <param name="ApiKeyCacheInvalidator"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKeyPermissionRelation},Milvaion.Application.Interfaces.IApiKeyCacheInvalidator)">
+            <summary>
+            Handles the update of the api key.
+            </summary>
+            <param name="ApiKeyRepository"></param>
+            <param name="ApiKeyPermissionRelationRepository"></param>
+            <param name="ApiKeyCacheInvalidator"></param>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.ApiKeyRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.ApiKeyPermissionRelationRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.ApiKeyCacheInvalidator">
+            <summary></summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.Handle(Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandValidator">
+            <summary>
+            Api key update command validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <inheritdoc cref="T:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandValidator"/>
+        </member>
         <member name="T:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQuery">
             <summary>
             Query for getting system configuration.
@@ -7749,6 +8143,15 @@
             <summary>
             Command to update an existing workflow's settings.
             </summary>
+            <remarks>
+            Every field is wrapped in <see cref="T:Milvasoft.Types.Structs.UpdateProperty`1"/>: only the fields sent with <c>isUpdated</c> true are
+            touched. This makes partial updates possible - renaming a workflow or toggling <see cref="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.IsActive"/> no
+            longer requires resending the whole definition, and concurrent editors stop clobbering each other's changes.
+            <para>
+            <see cref="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Steps"/> and <see cref="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Edges"/> are replaced as a single unit. Supplying one without the other is
+            rejected, because rebuilding the graph from steps alone would silently discard every edge.
+            </para>
+            </remarks>
         </member>
         <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.WorkflowId">
             <summary>
@@ -7798,25 +8201,38 @@
         </member>
         <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Steps">
             <summary>
-            Steps to update in this workflow. When provided, replaces all existing steps.
+            Steps of this workflow. When sent with <c>isUpdated</c> true, replaces all existing steps, and
+            <see cref="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Edges"/> must be sent as well.
             TempId can be an existing step's real GUID (preserved) or a temporary string (new step gets a new GUID).
-            If null, steps are not modified.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Edges">
             <summary>
-            Edges to update in this workflow. When provided, replaces all existing edges.
+            Edges of this workflow. When sent with <c>isUpdated</c> true, replaces all existing edges, and
+            <see cref="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Steps"/> must be sent as well.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler">
             <summary>
             Handles workflow settings update.
             </summary>
+            <remarks>
+            Fields are only read when their <c>IsUpdated</c> flag is set, so a caller can rename a workflow or pause it
+            without resending the definition. The graph is only rebuilt - and the active-run guard only applies - when
+            steps and edges are actually supplied. That is what allows a running workflow to be paused, which the previous
+            full-replace shape made impossible.
+            </remarks>
         </member>
         <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
             <summary>
             Handles workflow settings update.
             </summary>
+            <remarks>
+            Fields are only read when their <c>IsUpdated</c> flag is set, so a caller can rename a workflow or pause it
+            without resending the definition. The graph is only rebuilt - and the active-run guard only applies - when
+            steps and edges are actually supplied. That is what allows a running workflow to be paused, which the previous
+            full-replace shape made impossible.
+            </remarks>
         </member>
         <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.Handle(Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand,System.Threading.CancellationToken)">
             <inheritdoc/>
@@ -7825,6 +8241,10 @@
             <summary>
             Validator for <see cref="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand"/>.
             </summary>
+            <remarks>
+            Every rule is gated on the field's <c>IsUpdated</c> flag. A partial update must not be rejected for a field it
+            never intended to change - otherwise renaming a workflow would fail because the caller did not resend the steps.
+            </remarks>
         </member>
         <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandValidator"/>
@@ -8023,6 +8443,48 @@
             </summary>
             <param name="alertType">The alert type to get routes for.</param>
             <returns>A list of channel names that the alert will be routed to.</returns>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.IApiKeyCacheInvalidator">
+            <summary>
+            Drops cached authentication state for an api key.
+            </summary>
+            <remarks>
+            Api key lookups are cached so that authentication does not hit the database on every request. That cache has
+            to be invalidated the moment a key is revoked or its permissions change, otherwise the key keeps working for
+            the remainder of the cache lifetime - the exact failure a revoke button is supposed to prevent.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IApiKeyCacheInvalidator.InvalidateAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Removes the cached entry for the given api key.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.IApiKeyGenerator">
+            <summary>
+            Issues signed api keys for <see cref="T:Milvaion.Domain.MilvaionApiKey"/> records.
+            </summary>
+            <remarks>
+            The signing implementation lives in the API layer because that is where the signing secret is configured.
+            This abstraction keeps the application layer free of that dependency.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IApiKeyGenerator.CurrentKeyVersion">
+            <summary>
+            Version of the signing secret currently in use. Stamped onto every newly issued key.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IApiKeyGenerator.Generate(System.Int32,System.Nullable{System.DateTime})">
+            <summary>
+            Generates a signed key for the given persisted api key record.
+            </summary>
+            <param name="apiKeyId">Id of the persisted <see cref="T:Milvaion.Domain.MilvaionApiKey"/> record.</param>
+            <param name="expiresAt">UTC expiry, or null for a key that never expires.</param>
+            <returns>The key. This is the only time it exists in plain form - it is never persisted.</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IApiKeyGenerator.Mask(System.String)">
+            <summary>
+            Masks a generated key for display and storage.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Interfaces.IDeveloperService">
             <summary>
@@ -9917,6 +10379,35 @@
             Defines the available alert channel types.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.ApiKeyOptions">
+            <summary>
+            Api key configuration options.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.ApiKeyOptions.SectionKey">
+            <summary>
+            Configuration section key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ApiKeyOptions.Secret">
+            <summary>
+            Secret used to sign api keys issued by this installation.
+            Anyone holding it can mint keys, so treat it like a private key: keep it out of source control and
+            supply it through an environment variable or secret store in production.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ApiKeyOptions.Version">
+            <summary>
+            Current version of <see cref="P:Milvaion.Application.Utils.Models.Options.ApiKeyOptions.Secret"/>. Stamped onto every key issued from now on.
+            Increment it after rotating the secret so previously issued keys are rejected with a clear reason
+            rather than silently failing signature validation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ApiKeyOptions.SecretBytes">
+            <summary>
+            <see cref="P:Milvaion.Application.Utils.Models.Options.ApiKeyOptions.Secret"/> as a byte array, for signing and validation.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions">
             <summary>
             Configuration base options for background services.
@@ -10139,6 +10630,11 @@
             Optional base path for the application (e.g. "/milvaion").
             When set, the UI is served at &lt;BasePath&gt; and the API at &lt;BasePath&gt;/api.
             Leave empty or null to keep the default root behaviour.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.ApiKey">
+            <summary>
+            Api key signing and versioning settings.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RabbitMQOptions">

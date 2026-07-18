@@ -75,9 +75,10 @@ export const jobService = {
   },
 
   // Get job occurrences with filtering by jobId
+  // Occurrences for a single job. The endpoint is cursor paginated: there is no page number and no total count,
+  // only nextCursor / hasNextPage. Sending pageNumber here is silently ignored.
   getOccurrences: async (jobId, params = {}) => {
     const requestBody = {
-      pageNumber: params.pageNumber || 1,
       rowCount: params.rowCount || 10,
       sorting: {
         sortBy: "CreatedAt",
@@ -92,6 +93,10 @@ export const jobService = {
           }
         ]
       }
+    }
+
+    if (params.cursor) {
+      requestBody.cursor = params.cursor
     }
 
     // Add status filtering if provided

@@ -47,6 +47,8 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
     public DbSet<Workflow> Workflows { get; set; }
     public DbSet<WorkflowRun> WorkflowRuns { get; set; }
     public DbSet<MetricReport> MetricReports { get; set; }
+    public DbSet<MilvaionApiKey> ApiKeys { get; set; }
+    public DbSet<MilvaionApiKeyPermissionRelation> ApiKeyPermissionRelations { get; set; }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 

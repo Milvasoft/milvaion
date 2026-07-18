@@ -8,6 +8,8 @@
 
 <p align="center">
 A distributed job scheduling system built on .NET 10
+<br>
+<sub>Already on <b>Hangfire</b> or <b>Quartz.NET</b>? Keep it — <a href="#already-running-hangfire-or-quartznet">add Milvaion monitoring in two lines</a>.</sub>
 </p>
 
 <div align="center">
@@ -60,6 +62,53 @@ Milvaion solves these problems by **completely separating scheduling from execut
 
 ---
 
+## Already Running Hangfire or Quartz.NET?
+
+**You don't have to migrate to adopt Milvaion.**
+
+Milvaion plugs into the scheduler you already run. Your scheduler keeps owning triggers, storage and cron expressions. Your job code doesn't change. Milvaion adds one real-time dashboard across every service, plus persisted execution history, metrics and alerting.
+
+```csharp
+// Hangfire - your existing setup stays exactly as it is
+builder.Services.AddMilvaionHangfireIntegration(builder.Configuration);
+builder.Services.AddHangfire((sp, config) => config.UseMilvaion(sp));
+
+// Quartz.NET - your existing setup stays exactly as it is
+builder.Services.AddMilvaionQuartzIntegration(builder.Configuration);
+builder.Services.AddQuartz(q => q.UseMilvaion(builder.Services));
+```
+
+That's the whole integration.
+
+### The problem this solves
+
+A typical .NET estate ends up with background jobs scattered across a dozen services — each with its own dashboard behind its own URL and its own auth. Nobody can answer *"which jobs failed last night?"* without opening every one of them, and history vanishes when the retention window rolls over.
+
+| Before | After |
+|--------|-------|
+| One dashboard per service | One dashboard for the whole estate |
+| History limited by Hangfire/Quartz retention | Full execution history in PostgreSQL |
+| Logs only in each app's own sink | Real-time log streaming per execution |
+| Failures noticed when someone complains | Multi-channel alerts on failure and timeout |
+| No cross-service metrics | Success rate, duration and EPM per job |
+
+### The adoption path
+
+1. **Add monitoring** — two lines per application. No migration window, no change to job code.
+2. **Get visibility** — every Hangfire and Quartz.NET job appears in the dashboard, flagged as external.
+3. **Migrate selectively, or never** — when one job outgrows in-process execution, move just that job to a Milvaion worker. Everything else keeps running untouched.
+
+Plenty of teams stop at step 2. That's a perfectly good outcome.
+
+| Scheduler | Package | Status |
+|-----------|---------|--------|
+| **Hangfire** | `Milvasoft.Milvaion.Sdk.Worker.Hangfire` | ✅ Available |
+| **Quartz.NET** | `Milvasoft.Milvaion.Sdk.Worker.Quartz` | ✅ Available |
+
+📖 **[Full Integration Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/external-schedulers)**
+
+---
+
 ## Features
 
 ![Milvaion Real Time](https://portal.milvasoft.com/assets/images/executions-4b5918b7fca1b603f54be133c7880397.gif)
@@ -105,26 +154,28 @@ Milvaion solves these problems by **completely separating scheduling from execut
 - **Maintenance Worker** - Milvaion self data warehouse cleanup and archival
 
 ### External Scheduler Integration
-Already using **Quartz.NET** or **Hangfire**? Keep your existing scheduler and gain Milvaion's monitoring capabilities:
+Milvaion also monitors jobs running in **Quartz.NET** and **Hangfire** without replacing them — see [Already Running Hangfire or Quartz.NET?](#already-running-hangfire-or-quartznet) above.
 
-| Scheduler | Package | Status |
-|-----------|---------|--------|
-| **Quartz.NET** | `Milvasoft.Milvaion.Sdk.Worker.Quartz` | ✅ Available |
-| **Hangfire** | `Milvasoft.Milvaion.Sdk.Worker.Hangfire` | ✅ Available |
+### MCP Server
+Point Claude Code, Cursor or GitHub Copilot at Milvaion and ask about your jobs in plain language:
 
-```csharp
-// Quartz.NET Integration
-builder.Services.AddMilvaionQuartzIntegration(builder.Configuration);
-builder.Services.AddQuartz(q => q.UseMilvaion(builder.Services));
-
-// Hangfire Integration
-builder.Services.AddMilvaionHangfireIntegration(builder.Configuration);
-builder.Services.AddHangfire((sp, config) => config.UseMilvaion(sp));
+```json
+{
+  "mcpServers": {
+    "milvaion": {
+      "type": "http",
+      "url": "https://milvaion.yourcompany.com/mcp",
+      "headers": { "X-ApiKey": "your-api-key" }
+    }
+  }
+}
 ```
 
-External jobs appear in Milvaion dashboard with full monitoring, metrics, and execution history - without changing your existing scheduler setup.
+> *"Which jobs failed last night and why?"*
 
-[For more information...](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/external-schedulers)
+Twenty-eight tools — reading, triggering, pausing, editing and deleting — each gated by the same permissions used everywhere else. A read-only api key gives an assistant full visibility and no ability to change anything. Milvaion is the data source here; it never calls a language model and stores no model provider keys.
+
+📖 **[MCP Server Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/mcp-server)**
 
 ---
 
@@ -378,6 +429,9 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | Document | Description |
 |----------|-------------|
 | [Introduction](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/introduction) | What is Milvaion, when to use it |
+| [Hangfire & Quartz.NET Integration](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/external-schedulers) | Keep your existing scheduler, add Milvaion monitoring |
+| [Api Keys](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/api-keys) | Credentials for CI pipelines, scripts and MCP clients |
+| [MCP Server](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/mcp-server) | Connect Claude Code, Cursor or Copilot to Milvaion |
 | [Quick Start](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/quick-start) | Get running in under 10 minutes |
 | [Core Concepts](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/core-concepts) | Architecture and key terms |
 | [Your First Worker](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/your-first-worker) | Create a custom worker |
@@ -397,6 +451,7 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Architecture](./docs/githubdocs/ARCHITECTURE.md) | Technical architecture deep-dive |
 | [Development](./docs/githubdocs/DEVELOPMENT.md) | Development environment setup |
 | [Worker SDK](./docs/githubdocs/WORKER-SDK.md) | Worker SDK reference |
+| [MCP Server](./docs/githubdocs/MCP-SERVER.md) | MCP server and api key auth internals |
 | [Security](./SECURITY.md) | Security policies |
 
 ---
