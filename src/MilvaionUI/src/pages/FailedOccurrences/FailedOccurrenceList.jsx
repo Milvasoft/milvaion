@@ -267,7 +267,7 @@ function FailedOccurrenceList() {
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="failed-job-list">
+    <div className="page failed-job-list">
       <Modal {...deleteModalProps} />
       <Modal {...resolveModalProps} />
 
@@ -276,7 +276,7 @@ function FailedOccurrenceList() {
         <div className="header-content">
           <h1>
             <Icon name="error" size={28} />
-            <span style={{ margin: '0 0 0 1rem' }}>Failed Executions (DLQ)</span>
+            <span>Failed Executions (DLQ)</span>
             <span>({totalCount})</span>
           </h1>
         </div>

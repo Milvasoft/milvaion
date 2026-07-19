@@ -27,7 +27,7 @@
       color: var(--text-muted);
     }
 
-.page-header-actions {
+.report-detail .page-header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;

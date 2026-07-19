@@ -4,6 +4,25 @@ import configurationService from '../services/configurationService'
 import { SkeletonCard } from '../components/Skeleton'
 import { getApiErrorMessage } from '../utils/errorUtils'
 import './Configuration.css'
+import CollapsibleSection from '../components/CollapsibleSection'
+
+/**
+ * Açık/kapalı bir ayarın satırı.
+ *
+ * Bu rozet sayfada onlarca kez tekrar ediyordu; yeni bölümlerle birlikte sayı
+ * ikiye katlanacaktı. Tek yerde durunca "açık" görünümü her bölümde aynı oluyor.
+ */
+function EnabledItem({ label, value, onText = 'Enabled', offText = 'Disabled' }) {
+  return (
+    <div className="config-item">
+      <span className="config-label">{label}</span>
+      <span className={'config-value badge ' + (value ? 'enabled' : 'disabled')}>
+        <Icon name={value ? 'check_circle' : 'cancel'} size={16} />
+        {value ? onText : offText}
+      </span>
+    </div>
+  )
+}
 
 function Configuration() {
   const [config, setConfig] = useState(null)
@@ -53,7 +72,7 @@ function Configuration() {
 
   if (loading) {
     return (
-      <div className="configuration">
+      <div className="page configuration">
         <SkeletonCard lines={8} />
         <SkeletonCard lines={6} />
         <SkeletonCard lines={4} />
@@ -66,22 +85,23 @@ function Configuration() {
   }
 
   return (
-    <div className="configuration">
-      <div className="configuration-header">
+    <div className="page configuration">
+      <div className="page-header">
         <h1>
           <Icon name="settings" size={28} />
           System Configuration
         </h1>
-        <p className="configuration-subtitle">Read-only view of system settings</p>
+        <p className="page-subtitle">Read-only view of non-sensitive system settings</p>
       </div>
 
 
       {/* System Resources */}
-      <div className="config-section">
-          <h2 className="config-header-title">
-          <Icon name="bar_chart" size={24} />
-          System Resources
-          </h2>
+      <CollapsibleSection
+        className="config-section"
+        storageKey="milvaion.configuration.resourcesOpen"
+        icon="bar_chart"
+        title="System Resources"
+      >
         <div className="resource-grid">
           {/* CPU */}
           <div className="resource-card">
@@ -136,14 +156,15 @@ function Configuration() {
             </div>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* System Information */}
-      <div className="config-section">
-        <h2 className="config-header-title">
-          <Icon name="computer" size={24} />
-          System Information
-        </h2>
+      <CollapsibleSection
+        className="config-section"
+        storageKey="milvaion.configuration.systemOpen"
+        icon="computer"
+        title="System Information"
+      >
         <div className="config-grid">
           <div className="config-item">
             <span className="config-label">Version</span>
@@ -167,16 +188,246 @@ function Configuration() {
             <span className="config-label">Uptime</span>
             <span className="config-value">{formatUptime(config.uptime)}</span>
           </div>
+          {config.apiKeyVersion != null && (
+            <div className="config-item">
+              <span className="config-label">API Key Version</span>
+              <span className="config-value">v{config.apiKeyVersion}</span>
+            </div>
+          )}
         </div>
-      </div>
+      </CollapsibleSection>
+
+      {/* Background Services */}
+      {config.backgroundServices && (
+        <CollapsibleSection
+          className="config-section"
+          storageKey="milvaion.configuration.backgroundServicesOpen"
+          icon="settings_suggest"
+          title="Background Services"
+        >
+          <p className="section-description">
+            Services running inside the API process. A job that is never dispatched, or logs that
+            arrive late, usually trace back to one of these being off or polling slowly.
+          </p>
+
+          <h3 className="config-header-title">
+            <Icon name="search" size={20} />
+            Worker Auto-Discovery
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.backgroundServices.workerAutoDiscovery?.enabled} />
+          </div>
+
+          <h3 className="config-header-title">
+            <Icon name="running_with_errors" size={20} />
+            Zombie Occurrence Detector
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.backgroundServices.zombieOccurrenceDetector?.enabled} />
+            <div className="config-item">
+              <span className="config-label">Check Interval</span>
+              <span className="config-value">{config.backgroundServices.zombieOccurrenceDetector?.checkIntervalSeconds}s</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Zombie Timeout</span>
+              <span className="config-value">{config.backgroundServices.zombieOccurrenceDetector?.zombieTimeoutMinutes} min</span>
+            </div>
+          </div>
+
+          <h3 className="config-header-title">
+            <Icon name="description" size={20} />
+            Log Collector
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.backgroundServices.logCollector?.enabled} />
+            <div className="config-item">
+              <span className="config-label">Batch Size</span>
+              <span className="config-value">{config.backgroundServices.logCollector?.batchSize}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Batch Interval</span>
+              <span className="config-value">{config.backgroundServices.logCollector?.batchIntervalMs}ms</span>
+            </div>
+          </div>
+
+          <h3 className="config-header-title">
+            <Icon name="sync" size={20} />
+            Status Tracker
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.backgroundServices.statusTracker?.enabled} />
+            <div className="config-item">
+              <span className="config-label">Batch Size</span>
+              <span className="config-value">{config.backgroundServices.statusTracker?.batchSize}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Batch Interval</span>
+              <span className="config-value">{config.backgroundServices.statusTracker?.batchIntervalMs}ms</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Execution Log Limit</span>
+              <span className="config-value">{config.backgroundServices.statusTracker?.executionLogMaxCount} lines</span>
+            </div>
+          </div>
+
+          <h3 className="config-header-title">
+            <Icon name="report" size={20} />
+            Failed Occurrence Handler
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.backgroundServices.failedOccurrenceHandler?.enabled} />
+          </div>
+
+          <h3 className="config-header-title">
+            <Icon name="link" size={20} />
+            External Job Tracker
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.backgroundServices.externalJobTracker?.enabled} />
+            <div className="config-item">
+              <span className="config-label">Registration Batch Size</span>
+              <span className="config-value">{config.backgroundServices.externalJobTracker?.registrationBatchSize}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Occurrence Batch Size</span>
+              <span className="config-value">{config.backgroundServices.externalJobTracker?.occurrenceBatchSize}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Batch Interval</span>
+              <span className="config-value">{config.backgroundServices.externalJobTracker?.batchIntervalMs}ms</span>
+            </div>
+          </div>
+
+          <h3 className="config-header-title">
+            <Icon name="account_tree" size={20} />
+            Workflow Engine
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.backgroundServices.workflowEngine?.enabled} />
+            <div className="config-item">
+              <span className="config-label">Polling Interval</span>
+              <span className="config-value">{config.backgroundServices.workflowEngine?.pollingIntervalSeconds}s</span>
+            </div>
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* Observability */}
+      {config.observability && (
+        <CollapsibleSection
+          className="config-section"
+          storageKey="milvaion.configuration.observabilityOpen"
+          icon="monitoring"
+          title="Observability"
+        >
+          <h3 className="config-header-title">
+            <Icon name="receipt_long" size={20} />
+            Seq
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.observability.seq?.enabled} />
+            <div className="config-item">
+              <span className="config-label">Uri</span>
+              <span className="config-value code">{config.observability.seq?.uri || '—'}</span>
+            </div>
+          </div>
+
+          <h3 className="config-header-title">
+            <Icon name="show_chart" size={20} />
+            OpenTelemetry
+          </h3>
+          <div className="config-grid">
+            <EnabledItem label="Enabled" value={config.observability.openTelemetry?.enabled} />
+            <div className="config-item">
+              <span className="config-label">Export Path</span>
+              <span className="config-value code">{config.observability.openTelemetry?.exportPath || '—'}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Service</span>
+              <span className="config-value code">{config.observability.openTelemetry?.service || '—'}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Environment</span>
+              <span className="config-value code">{config.observability.openTelemetry?.environment || '—'}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Job</span>
+              <span className="config-value code">{config.observability.openTelemetry?.job || '—'}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Instance</span>
+              <span className="config-value code">{config.observability.openTelemetry?.instance || '—'}</span>
+            </div>
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* Alerting */}
+      {config.alerting && (
+        <CollapsibleSection
+          className="config-section"
+          storageKey="milvaion.configuration.alertingOpen"
+          icon="notifications_active"
+          title="Alerting"
+        >
+          <p className="section-description">
+            Channel status only. Webhook URLs and SMTP credentials are deliberately not exposed here.
+          </p>
+
+          <div className="config-grid">
+            <div className="config-item">
+              <span className="config-label">App Url</span>
+              <span className="config-value code">{config.alerting.milvaionAppUrl || '—'}</span>
+            </div>
+            <div className="config-item">
+              <span className="config-label">Default Channel</span>
+              <span className="config-value">{config.alerting.defaultChannel || '—'}</span>
+            </div>
+            <EnabledItem
+              label="Production Only"
+              value={config.alerting.sendOnlyInProduction}
+              onText="Yes"
+              offText="No"
+            />
+            <div className="config-item">
+              <span className="config-label">Alert Types</span>
+              <span className="config-value">
+                {config.alerting.enabledAlertCount} enabled / {config.alerting.configuredAlertCount} configured
+              </span>
+            </div>
+          </div>
+
+          {config.alerting.channels?.length > 0 && (
+            <>
+              <h3 className="config-header-title">
+                <Icon name="forum" size={20} />
+                Channels
+              </h3>
+              <div className="config-grid">
+                {config.alerting.channels.map((channel) => (
+                  <div className="config-item" key={channel.name}>
+                    <span className="config-label">{channel.name}</span>
+                    <span className={'config-value badge ' + (channel.enabled ? 'enabled' : 'disabled')}>
+                      <Icon name={channel.enabled ? 'check_circle' : 'cancel'} size={16} />
+                      {channel.enabled ? 'Enabled' : 'Disabled'}
+                      {channel.enabled && channel.defaultTarget ? ` · ${channel.defaultTarget}` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </CollapsibleSection>
+      )}
 
 
       {/* Job Dispatcher */}
-      <div className="config-section">
-        <h2 className="config-header-title">
-          <Icon name="rocket_launch" size={24} />
-          Job Dispatcher
-        </h2>
+      <CollapsibleSection
+        className="config-section"
+        storageKey="milvaion.configuration.dispatcherOpen"
+        icon="rocket_launch"
+        title="Job Dispatcher"
+      >
         <div className="config-grid">
           <div className="config-item">
             <span className="config-label">Enabled</span>
@@ -205,15 +456,16 @@ function Configuration() {
             </span>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Job Auto-Disable (Circuit Breaker) */}
       {config.jobAutoDisable && (
-        <div className="config-section">
-          <h2 className="config-header-title">
-            <Icon name="power_off" size={24} />
-            Job Auto-Disable (Circuit Breaker)
-          </h2>
+        <CollapsibleSection
+        className="config-section"
+        storageKey="milvaion.configuration.autoDisableOpen"
+        icon="power_off"
+        title="Job Auto-Disable (Circuit Breaker)"
+      >
           <p className="section-description">
             Automatically disables jobs that fail repeatedly to prevent resource waste.
           </p>
@@ -253,15 +505,16 @@ function Configuration() {
               </ul>
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Database */}
-      <div className="config-section">
-        <h2 className="config-header-title">
-          <Icon name="storage" size={24} />
-          Database
-          </h2>
+      <CollapsibleSection
+        className="config-section"
+        storageKey="milvaion.configuration.databaseOpen"
+        icon="storage"
+        title="Database"
+      >
         <div className="config-grid">
           <div className="config-item">
             <span className="config-label">Provider</span>
@@ -276,14 +529,15 @@ function Configuration() {
             <span className="config-value code">{config.database.host}</span>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Redis */}
-      <div className="config-section">
-        <h2 className="config-header-title">
-          <Icon name="flash_on" size={24} />
-          Redis
-        </h2>
+      <CollapsibleSection
+        className="config-section"
+        storageKey="milvaion.configuration.redisOpen"
+        icon="flash_on"
+        title="Redis"
+      >
         <div className="config-grid">
           <div className="config-item">
             <span className="config-label">Connection String</span>
@@ -310,14 +564,15 @@ function Configuration() {
             <span className="config-value">{config.redis.defaultLockTtlSeconds}s</span>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* RabbitMQ */}
-      <div className="config-section">
-        <h2 className="config-header-title">
-          <Icon name="message" size={24} />
-          RabbitMQ
-        </h2>
+      <CollapsibleSection
+        className="config-section"
+        storageKey="milvaion.configuration.rabbitOpen"
+        icon="message"
+        title="RabbitMQ"
+      >
         <div className="config-grid">
           <div className="config-item">
             <span className="config-label">Host</span>
@@ -419,7 +674,7 @@ function Configuration() {
             <span className="config-value code">{config.rabbitMQ.queues.failedOccurrences}</span>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   )
 }

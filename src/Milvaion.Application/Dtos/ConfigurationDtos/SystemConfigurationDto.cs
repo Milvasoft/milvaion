@@ -62,4 +62,25 @@ public class SystemConfigurationDto
     /// Job auto-disable configuration.
     /// </summary>
     public JobAutoDisableOptions JobAutoDisable { get; set; }
+
+    /// <summary>
+    /// Arka plan servisleri.
+    /// </summary>
+    public BackgroundServicesConfigDto BackgroundServices { get; set; }
+
+    /// <summary>
+    /// Log ve metrik dışa aktarımı.
+    /// </summary>
+    public ObservabilityConfigDto Observability { get; set; }
+
+    /// <summary>
+    /// Uyarı gönderimi.
+    /// </summary>
+    public AlertingConfigDto Alerting { get; set; }
+
+    /// <summary>
+    /// Api anahtarı imzalama sürümü. Anahtarın kendisi ve imzalama sırrı
+    /// gösterilmiyor; yalnızca hangi sürümün geçerli olduğu.
+    /// </summary>
+    public int ApiKeyVersion { get; set; }
 }

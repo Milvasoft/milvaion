@@ -7,6 +7,7 @@ import { useModal } from '../../hooks/useModal'
 import CronDisplay from '../../components/CronDisplay'
 import TriggerWorkflowModal from '../../components/TriggerWorkflowModal'
 import './WorkflowList.css'
+import { SkeletonGrid } from '../../components/Skeleton'
 
 const failureStrategyLabels = {
   0: 'Stop on First Failure',
@@ -69,11 +70,21 @@ function WorkflowList() {
   }
 
   if (loading) {
-    return <div className="workflow-list-loading"><Icon name="hourglass_empty" size={24} /> Loading workflows...</div>
+    return (
+      <div className="page workflow-list-page">
+        <div className="page-header">
+          <div className="page-title">
+            <Icon name="account_tree" size={28} />
+            <h1>Workflows</h1>
+          </div>
+        </div>
+        <SkeletonGrid cards={6} lines={3} />
+      </div>
+    )
   }
 
   return (
-    <div className="workflow-list-page">
+    <div className="page workflow-list-page">
       <div className="page-header">
         <div className="page-title">
           <Icon name="account_tree" size={28} />

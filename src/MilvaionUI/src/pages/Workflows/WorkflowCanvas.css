@@ -1,0 +1,121 @@
+/*
+ * Salt okunur DAG görünümü.
+ *
+ * Node kartlarının kendisi WorkflowBuilder.css'ten geliyor - kasıt bu, workflow üç ekranda da
+ * aynı görünsün diye. Buradaki kurallar yalnızca builder'da karşılığı olmayan şeyleri ekliyor:
+ * çalışma durumu, bloke adımların soluklaşması ve dal etiketleri.
+ */
+
+.wfc-canvas {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* ── Salt okunur mod ──────────────────────────────────────────────────────── */
+
+.wfb-node--readonly {
+  cursor: pointer;
+}
+
+/* Bağlantı noktaları salt okunur modda tıklanamıyor; görünür durmaları
+   yapılamayacak bir şeyi vaat ediyor. Builder'daki hover büyümesi de burada
+   anlamsız - bağlanacak bir şey yok. */
+.wfb-node--readonly .react-flow__handle,
+.wfb-node--readonly:hover .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+  transform: none;
+}
+
+/* Bir adımın patlaması yüzünden hiç sıra gelmemiş adımlar. Gizlemek yerine
+   soluklaştırıyoruz - workflow'un tamamı görünmeye devam etmeli. */
+.wfb-node--dimmed {
+  opacity: 0.4;
+  filter: saturate(0.5);
+}
+
+/* ── Durum kenarlığı ──────────────────────────────────────────────────────── */
+
+.wfb-node--status-1 { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f633; }
+.wfb-node--status-2 { border-color: #22c55e; }
+.wfb-node--status-3 { border-color: #ef4444; box-shadow: 0 0 0 1px #ef444433; }
+.wfb-node--status-4 { border-color: #a855f7; }
+.wfb-node--status-5 { border-color: #6b7280; }
+.wfb-node--status-6 { border-color: #f59e0b; }
+
+/* ── Durum rozeti ─────────────────────────────────────────────────────────── */
+
+.wfb-node-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wfb-node-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.wfb-node-badge--idle    { color: #94a3b8; background: #94a3b81a; }
+.wfb-node-badge--0       { color: #94a3b8; background: #94a3b81a; }
+.wfb-node-badge--1       { color: #3b82f6; background: #3b82f61a; }
+.wfb-node-badge--2       { color: #22c55e; background: #22c55e1a; }
+.wfb-node-badge--3       { color: #ef4444; background: #ef44441a; }
+.wfb-node-badge--4       { color: #a855f7; background: #a855f71a; }
+.wfb-node-badge--5       { color: #6b7280; background: #6b72801a; }
+.wfb-node-badge--6       { color: #f59e0b; background: #f59e0b1a; }
+
+/* Running rozetindeki ikon dönsün, canlılık göstergesi olarak. */
+.wfb-node-badge--1 svg {
+  animation: wfc-spin 1.6s linear infinite;
+}
+
+@keyframes wfc-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Meta etiketleri ──────────────────────────────────────────────────────── */
+
+.wfb-node-tag--warn  { color: #f59e0b; }
+.wfb-node-tag--error { color: #ef4444; }
+
+/* ── Dal etiketleri ───────────────────────────────────────────────────────── */
+
+/* Meta satırıyla aynı ayraç ve boşluk: ikisi de kartın alt bölgesinde duruyor. */
+.wfb-node-branches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border-color);
+}
+
+.wfb-node-branch {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.wfb-node-branch--success { color: #22c55e; background: #22c55e14; }
+.wfb-node-branch--danger  { color: #ef4444; background: #ef444414; }
+.wfb-node-branch--neutral { color: var(--text-secondary); background: var(--bg-secondary); }

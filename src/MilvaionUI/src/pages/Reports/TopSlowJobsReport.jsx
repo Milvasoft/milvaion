@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 const COLORS = ['#802020', '#f59e0b', '#f97316', '#fbbf24', '#fcd34d', '#fde047', '#facc15', '#a3e635', '#86efac', '#6ee7b7']
 
@@ -143,12 +144,9 @@ function TopSlowJobsReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="hourglass_empty" size={32} /> Top Slow Jobs</h1>
+          <h1><Icon name="hourglass_empty" size={28} /> Top Slow Jobs</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -160,7 +158,7 @@ function TopSlowJobsReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="hourglass_empty" size={32} /> Top Slow Jobs</h1>
+          <h1><Icon name="hourglass_empty" size={28} /> Top Slow Jobs</h1>
           <p className="page-description">Average duration by job name</p>
         </div>
         <div className="page-header-actions">

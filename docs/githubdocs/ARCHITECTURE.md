@@ -193,7 +193,13 @@ CREATE TABLE "ScheduledJobs" (
     "JobType" VARCHAR(200) NOT NULL,
     "JobData" JSONB,
     "CronExpression" VARCHAR(100),
+    -- Configured start time, NOT the next run. The dispatcher advances a recurring
+    -- job's schedule in Redis and never writes it back here, so this goes stale
+    -- after the first run. Read the Redis sorted set for the live schedule.
     "ExecuteAt" TIMESTAMPTZ,
+    -- Set when a one-time job is dispatched, so it is never scheduled again even if
+    -- Redis is flushed. Separate from IsActive: "finished" is not "switched off".
+    "CompletedAt" TIMESTAMPTZ,
     "IsActive" BOOLEAN DEFAULT TRUE,
     "ConcurrentExecutionPolicy" INTEGER DEFAULT 0,
     "TimeoutMinutes" INTEGER,

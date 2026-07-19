@@ -1,39 +1,14 @@
 .configuration {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
-.configuration-header {
-  margin-bottom: 1.5rem;
-}
+/* Sayfa başlığı artık ortak `page-header` kullanıyor - kendi tanımı yoktu ki
+   diğer sayfalarla aynı hizada dursun; burada duran `configuration-header`
+   kuralları o yüzden kaldırıldı. Bkz. styles/page.css */
 
-.configuration-header h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.375rem;
-}
-
-.configuration-subtitle {
-  color: var(--text-muted);
-  font-size: 1rem;
-  margin: 0;
-}
-
+/* Bölüm bir kutu değil: başlık CollapsibleSection'dan geliyor ve dışarıda
+   duruyor, çerçeveyi tek tek öğeler taşıyor. Diğer sayfalarda da yapı bu. */
 .config-section {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.config-section h2 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  margin: 0 0 1.5rem 0;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0;
 }
 
 .config-section h3 {
@@ -94,6 +69,13 @@
   padding: 0.3rem 0.5rem;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+}
+.config-section h3 {
+  display: flex;
+}
+.section-description {
+  text-align: left;
+  display: flex;
 }
 
 .config-value.badge {
@@ -302,7 +284,7 @@
   }
 
   .config-section {
-    padding: 1.5rem;
+    padding: 0;
   }
 
   .info-box {

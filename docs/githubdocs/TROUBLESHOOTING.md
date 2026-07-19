@@ -657,11 +657,25 @@ curl http://localhost:5000/api/v1/jobs/{jobId}
 ```
 
 2. **Verify next execution time:**
+
+Fastest route — the Upcoming Executions endpoint reads the live schedule and flags jobs
+that are active and recurring but hold no run time at all. Such a job will never fire, and
+because no occurrence is ever created, nothing else in the product reports it:
+
 ```bash
-# Check Redis
+curl -H "X-ApiKey: $MILVAION_API_KEY" \
+  "http://localhost:5000/api/v1/jobs/upcoming?onlyProblems=true"
+```
+
+Or read the sorted set directly:
+
+```bash
 docker exec -it milvaion-redis redis-cli
 ZRANGE Milvaion:JobScheduler:schedule 0 -1 WITHSCORES
 ```
+
+Do not use the job's `executeAt` field for this — it is the configured start time, not the
+next run, and is in the past for every recurring job that has run at least once.
 
 3. **Check dispatcher is running:**
 ```bash
@@ -973,6 +987,66 @@ services:
 ---
 
 ## Deployment Issues
+
+### Problem: Every job fires at once after a deploy
+
+**Cause:**
+
+Startup recovery used to write the `ExecuteAt` column back into the Redis sorted set. That
+column is the *configured start time*, not the next run — the dispatcher advances a
+recurring job's schedule in Redis and never persists it. For any job that had run at least
+once, `ExecuteAt` was in the past, so recovery put the whole catalogue at a due time and
+the next poll dispatched all of it.
+
+**Solution:**
+
+Upgrade. Recovery now treats Redis as authoritative and only fills gaps:
+
+| Situation | Behaviour |
+|-----------|-----------|
+| Redis holds a run time | Left untouched |
+| Redis empty, recurring job | Next run derived from the cron expression |
+| Redis empty, one-time job that never ran | Scheduled at `ExecuteAt` |
+| Redis empty, one-time job with `CompletedAt` | Skipped — already ran |
+
+No migration or manual cleanup is needed beyond the `CompletedAt` column.
+
+**Verify after deploying:**
+
+```bash
+curl -H "X-ApiKey: $MILVAION_API_KEY" \
+  "http://localhost:5000/api/v1/jobs/upcoming?withinHours=24"
+```
+
+Every recurring job should report a future time. In the startup log, expect
+`already scheduled` to account for nearly everything:
+
+```
+Startup recovery (Redis) completed. ZSET: 3 added, 128 already scheduled. ...
+```
+
+A large `added` count means Redis lost its data and the schedule was rebuilt from cron
+expressions — which is correct, but worth knowing.
+
+### Problem: A one-time job ran twice
+
+**Cause:**
+
+Before the `CompletedAt` column existed, the only record that a one-time job had run was
+its *absence* from the Redis sorted set. Redis is a cache: a flush or a restart erased that
+fact, and recovery scheduled the job again.
+
+**Solution:**
+
+Upgrade and apply the migration adding `ScheduledJobs.CompletedAt`. The stamp is durable,
+so a finished one-time job stays finished across restarts.
+
+```sql
+-- Jobs that already ran and must never be rescheduled
+SELECT "Id", "DisplayName", "CompletedAt"
+FROM "ScheduledJobs"
+WHERE "CronExpression" IS NULL AND "CompletedAt" IS NOT NULL;
+```
 
 ### Problem: Containers failing health checks
 

@@ -1,6 +1,7 @@
+/* Kenar boşluğu main-content'ten geliyor; buradaki ek dolgu içeriği daha da
+   içeri itiyordu. */
 .job-list {
-  margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0;
 }
 
 /* Infinite scroll */
@@ -122,7 +123,7 @@
 }
 
 /* Page Header */
-.page-header {
+.job-list .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -208,15 +209,86 @@
   color: #ef4444;
 }
 
-.filter-tag-display {
+/* Tag filtresi artık filtre şeridinin içinde bir çip olarak duruyor; ayrı bir
+   bant olarak gösteren `.filter-tag-display` kuralı bu yüzden kaldırıldı. */
+
+/* ── Kolon filtreleri ────────────────────────────────────────────────────────
+   Filtreler kendi kutusunda değil, başlık ile liste arasında tek bir şerit
+   olarak duruyor. Ayrı bir kart olsaydı sayfada üçüncü bir çerçeve seviyesi
+   açılırdı; diğer sayfalarda da yapı bu. */
+
+.job-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.job-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 150px;
+}
+
+.job-filter label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.job-filter select {
+  padding: 0.5rem 0.7rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color var(--transition-base);
+}
+
+.job-filter select:hover,
+.job-filter select:focus {
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+/* Tag filtresi diğerlerinden farklı: bir seçim listesi değil, başka bir
+   sayfadan taşınan tek bir değer. O yüzden kaldırılabilir bir çip. */
+.job-filter-tag {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0.875rem;
+  gap: 0.4rem;
+  align-self: flex-end;
+  padding: 0.5rem 0.7rem;
   background-color: var(--accent-glow);
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.25);
   border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
+}
+
+.job-filters-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-end;
+  padding: 0.5rem 0.8rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-base), border-color var(--transition-base);
+}
+
+.job-filters-clear:hover {
+  color: var(--error-color);
+  border-color: rgba(var(--error-color-rgb), 0.4);
 }
 
 .filter-label {
@@ -789,11 +861,10 @@
     justify-content: center;
   }
 
-  .filter-tag-display {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+  /* Dar ekranda seçimler yan yana sıkışmak yerine tam genişlikte alt alta. */
+  .job-filter {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
   .tag-chip {
@@ -995,7 +1066,7 @@
 }
 
 .job-list,
-.page-header,
+.job-list .page-header,
 .header-actions,
 .jobs-grid,
 .job-card,
@@ -1300,6 +1371,25 @@
   letter-spacing: 0.5px;
   background: var(--accent-color);
   color: white;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+/* Çalışmış tek seferlik job. Aktif kalıyor ama çalışacak bir şeyi kalmadı -
+   rozet olmadan listede sonsuza dek "birazdan çalışacak" gibi duruyor. */
+.completed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(var(--text-muted-rgb), 0.15);
+  color: var(--text-muted);
+  border: 1px solid rgba(var(--text-muted-rgb), 0.35);
   border-radius: 4px;
   vertical-align: middle;
 }

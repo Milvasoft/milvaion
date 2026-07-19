@@ -26,6 +26,7 @@ import ConditionNode from './ConditionNode'
 import MergeNode from './MergeNode'
 import CustomEdge from './CustomEdge'
 import StepConfigPanel from './StepConfigPanel'
+import { Skeleton } from '../../../components/Skeleton'
 import './WorkflowBuilder.css'
 
 const nodeTypes = { stepNode: StepNode, conditionNode: ConditionNode, mergeNode: MergeNode }
@@ -45,7 +46,7 @@ const defaultEdgeOptions = {
 let _tempIdSeq = 1
 const newTempId = () => `step-${_tempIdSeq++}`
 
-function stepsToNodes(steps, jobsMap, onDelete) {
+function stepsToNodes(steps, jobsMap, onDelete, incomingCounts = new Map()) {
   return steps.map((s, idx) => {
     let nodeType = 'stepNode'
     if (s.nodeType === 1) nodeType = 'conditionNode'
@@ -55,7 +56,7 @@ function stepsToNodes(steps, jobsMap, onDelete) {
       id: s.tempId,
       type: nodeType,
       position: { x: s.positionX ?? idx * 240 + 40, y: s.positionY ?? 100 },
-      data: { step: s, jobsMap, onDelete },
+      data: { step: s, jobsMap, onDelete, incomingCount: incomingCounts.get(s.tempId) ?? 0 },
       connectable: true,
     }
   })
@@ -198,11 +199,23 @@ function WorkflowBuilderInner() {
     setSelectedStepId(prev => prev === tempId ? null : prev)
   }, [steps, edges, pushHistory])
 
+  // Merge kartı kaç dal beklediğini yazıyor. Kenar sayısı üzerinden hesaplandığı için
+  // node'lar bağlantı değiştiğinde de yenileniyor; pozisyonlar steps'te tutulduğundan
+  // yeniden kurulmaları sürüklenen yerleşimi bozmuyor.
+  const incomingCounts = useMemo(() => {
+    const counts = new Map()
+
+    for (const edge of edges)
+      counts.set(edge.target, (counts.get(edge.target) ?? 0) + 1)
+
+    return counts
+  }, [edges])
+
   // ── Sync steps → nodes ────────────────────────────────────────────────
   useEffect(() => {
-    const newNodes = stepsToNodes(steps, jobsMap, handleDeleteStep)
+    const newNodes = stepsToNodes(steps, jobsMap, handleDeleteStep, incomingCounts)
     setNodes(newNodes)
-  }, [steps, jobsMap, handleDeleteStep])
+  }, [steps, jobsMap, handleDeleteStep, incomingCounts])
 
   // ── Load jobs ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -503,9 +516,21 @@ function WorkflowBuilderInner() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   if (loading) {
+    // Düzenleyicinin kendisi bir tuval; iskelet araç çubuğunu ve tuval alanını
+    // taklit ediyor, böylece yükleme bitince yerleşim sıçramıyor.
     return (
-      <div className="wfb-loading">
-        <Icon name="hourglass_empty" size={28} /> Loading workflow...
+      <div className="wfb-page">
+        <div className="wfb-toolbar">
+          <Skeleton variant="rectangular" width={34} height={34} />
+          <Skeleton variant="rectangular" width={220} height={34} />
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.625rem' }}>
+            <Skeleton variant="rectangular" width={110} height={34} />
+            <Skeleton variant="rectangular" width={90} height={34} />
+          </div>
+        </div>
+        <div className="wfb-canvas-wrapper">
+          <Skeleton variant="rectangular" width="100%" height="100%" />
+        </div>
       </div>
     )
   }
@@ -687,6 +712,9 @@ function WorkflowBuilderInner() {
           fitViewOptions={{ padding: 0.2 }}
           deleteKeyCode={['Backspace', 'Delete']}
           edgesReconnectable={true}
+          // Bağlantı bırakılırken bu yarıçap içindeki en yakın noktaya oturuyor.
+          // Varsayılan 20px, yani imleci neredeyse noktanın üstüne getirmek gerekiyordu.
+          connectionRadius={45}
           className="wfb-reactflow"
           style={{ width: '100%', height: '100%' }}
         >
@@ -714,6 +742,7 @@ function WorkflowBuilderInner() {
             step={selectedStep}
             jobs={jobs}
             allSteps={steps}
+            edges={edges}
             schemasMap={schemasMap}
             onChange={updateSelectedStep}
             onClose={() => setSelectedStepId(null)}

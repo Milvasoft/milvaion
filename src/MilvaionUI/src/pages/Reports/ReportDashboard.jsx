@@ -5,6 +5,7 @@ import Icon from '../../components/Icon'
 import { formatDateTime } from '../../utils/dateUtils'
 import '../../components/Modal.css'
 import './ReportDashboard.css'
+import { SkeletonGrid } from '../../components/Skeleton'
 
 const METRIC_TYPES = [
   {
@@ -148,14 +149,11 @@ function ReportDashboard() {
 
   if (loading) {
     return (
-      <div className="page-container">
+      <div className="page page-container">
         <div className="page-header">
-          <h1><Icon name="analytics" size={32} /> Reports</h1>
+          <h1><Icon name="analytics" size={28} /> Reports</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading reports...</p>
-        </div>
+        <SkeletonGrid cards={9} lines={3} />
       </div>
     )
   }
@@ -164,19 +162,19 @@ function ReportDashboard() {
     <div className="page-container report-dashboard">
       <div className="page-header">
         <div>
-          <h1><Icon name="analytics" size={32} /> Reports</h1>
+          <h1><Icon name="analytics" size={28} /> Reports</h1>
           <p className="page-description">Metric and performance reports</p>
         </div>
-        <div className="dashboard-header-actions">
+        <div className="page-header-actions">
           <button
-            className="btn btn-secondary"
+            className="dtl-btn dtl-btn--secondary"
             onClick={() => { setCleanupResult(null); setCleanupOpen(true) }}
           >
             <Icon name="delete_sweep" size={20} />
             Cleanup
           </button>
           <button
-            className="btn btn-secondary"
+            className="dtl-btn dtl-btn--secondary"
             onClick={handleRefresh}
             disabled={refreshing}
           >

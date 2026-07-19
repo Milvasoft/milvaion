@@ -1,7 +1,4 @@
-.profile-page {
-  max-width: 900px;
-  margin: 0 auto;
-}
+/* Genişlik sınırı .page'den geliyor; diğer sayfalarla aynı hizada dursun. */
 
 /* ── Page Header ───────────────────────────────────────── */
 .profile-page .page-header {

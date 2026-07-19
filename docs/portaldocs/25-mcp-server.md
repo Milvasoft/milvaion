@@ -246,6 +246,8 @@ Every tool is gated by the permission in the right hand column. A key that lacks
 | `list_workflow_runs` | Workflow runs and their status | `WorkflowManagement.List` |
 | `get_workflow_run` | One run, steps in order with dependencies by name | `WorkflowManagement.Detail` |
 | `list_activity_logs` | Who changed what, and when | `ActivityLogManagement.List` |
+| `summarize_logs` | Execution log counts by level, category, exception, job and message | `ScheduledJobManagement.Detail` |
+| `search_logs` | Individual execution log lines | `ScheduledJobManagement.Detail` |
 | `list_reports` | Metric report metadata and freshness, without payloads | `ScheduledJobManagement.List` |
 | `get_latest_report` | Newest report of a metric type, with its data | `ScheduledJobManagement.Detail` |
 | `get_report` | One report by id, for comparing against an older one | `ScheduledJobManagement.Detail` |
@@ -296,6 +298,8 @@ The list tools filter rather than make the assistant page through everything:
 | `list_occurrences` | `jobId`, `status`, `workerId`, `since`, `until`, free text |
 | `list_failures` | `jobId`, `resolved`, `since`, `until`, free text |
 | `list_activity_logs` | `since`, `until` |
+| `summarize_logs` | `jobId`, `level`, `since`, `until`, free text |
+| `search_logs` | `jobId`, `occurrenceId`, `level`, `category`, `exceptionType`, `since`, `until`, free text |
 | `list_workflow_runs` | `workflowId` |
 
 All times are UTC. `since` on its own is the common case — "what failed since midnight" needs one bound, not two.

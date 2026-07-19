@@ -6,6 +6,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import './Profile.css'
+import { SkeletonCard } from '../../components/Skeleton'
 
 function Profile() {
   const [profile, setProfile] = useState(null)
@@ -72,10 +73,14 @@ function Profile() {
 
   if (loading) {
     return (
-      <div className="profile-page">
-        <div className="profile-loading">
-          <Icon name="person" size={48} />
-          <p>Loading profile...</p>
+      <div className="page profile-page">
+        <div className="page-header">
+          <h1><Icon name="person" size={28} /> Profile</h1>
+        </div>
+        <SkeletonCard lines={4} />
+        <div className="profile-grid" style={{ marginTop: '1.5rem' }}>
+          <SkeletonCard lines={5} />
+          <SkeletonCard lines={4} />
         </div>
       </div>
     )

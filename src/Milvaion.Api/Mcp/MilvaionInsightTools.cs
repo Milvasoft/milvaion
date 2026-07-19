@@ -6,8 +6,6 @@ using Milvaion.Application.Features.MetricReports.GetLatestMetricReport;
 using Milvaion.Application.Features.MetricReports.GetMetricReportDetail;
 using Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList;
 using Milvaion.Application.Features.Permissions.GetPermissionList;
-using Milvasoft.Components.Rest.Enums;
-using Milvasoft.Components.Rest.Request;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using System.ComponentModel;

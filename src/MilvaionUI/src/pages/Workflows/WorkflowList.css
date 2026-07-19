@@ -11,11 +11,7 @@
   flex-wrap: wrap;
 }
 
-.page-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
+/* Ortak tanım styles/page.css içinde. */
 
 .workflow-list-page .page-title {
   display: flex;

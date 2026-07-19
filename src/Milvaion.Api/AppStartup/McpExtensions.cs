@@ -33,6 +33,10 @@ public static class McpExtensions
                 "individual executions of those jobs. When investigating a problem, start with list_failures " +
                 "rather than list_occurrences - it is a much smaller set of jobs that exhausted their retries. " +
                 "Use get_occurrence to read the logs and exception for a specific execution. " +
+                "For questions about the system as a whole rather than one execution - what is going wrong, " +
+                "which job is noisiest, what errors are new - call summarize_logs first: it returns counts " +
+                "whose size does not grow with the log volume. Only then use search_logs, narrowed by what " +
+                "the summary pointed at. " +
                 "trigger_job and trigger_workflow cause real work to run in the user's environment; ask before " +
                 "calling them. " +
                 "Tools whose id parameter is a list - delete_failures, resolve_failures, delete_occurrences - are " +

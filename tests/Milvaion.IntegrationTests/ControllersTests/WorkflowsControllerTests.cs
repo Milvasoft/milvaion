@@ -14,6 +14,7 @@ using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Types.Structs;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Xunit.Abstractions;
 
 namespace Milvaion.IntegrationTests.ControllersTests;
@@ -610,11 +611,98 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         transformStep.DataMappings.Should().Contain("inputUserId");
         transformStep.DataMappings.Should().Contain("inputData");
 
+        // The source of a mapping is addressed by the temporary id in the request, which only means something
+        // for the duration of that request. Persisting it verbatim leaves a reference the engine cannot resolve,
+        // and it fails silently rather than erroring, so assert the translation explicitly.
+        transformStep.DataMappings.Should().NotContain("extract:", "temporary ids must not survive into the stored definition");
+        transformStep.DataMappings.Should().Contain($"{extractStep.Id}:result.userId");
+        transformStep.DataMappings.Should().Contain($"{extractStep.Id}:result.data");
+
         // Verify edge
         createdWorkflow.Definition.Edges.Should().HaveCount(1);
         var edge = createdWorkflow.Definition.Edges[0];
         edge.SourceStepId.Should().Be(extractStep.Id);
         edge.TargetStepId.Should().Be(transformStep.Id);
+    }
+
+    /// <summary>
+    /// A condition can target one specific incoming step by prefixing the clause with its id. In the request that
+    /// id is the temporary one, and it has to be translated on the way in.
+    /// </summary>
+    [Fact]
+    public async Task CreateWorkflow_WithConditionTargetingAStep_ShouldRemapTemporaryId()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var job = await SeedScheduledJobAsync($"SourceJob_{Guid.CreateVersion7():N}");
+
+        var command = new CreateWorkflowCommand
+        {
+            Name = "Targeted Condition Workflow",
+            Steps =
+            [
+                new CreateWorkflowStepDto
+                {
+                    TempId = "source",
+                    StepName = "Source",
+                    NodeType = WorkflowNodeType.Task,
+                    JobId = job.Id,
+                    Order = 1
+                },
+                new CreateWorkflowStepDto
+                {
+                    TempId = "gate",
+                    StepName = "Gate",
+                    NodeType = WorkflowNodeType.Condition,
+                    Order = 2,
+                    NodeConfigJson = @"{""expression"": ""source:@status == 'Completed' && $.count > 0""}"
+                }
+            ],
+            Edges =
+            [
+                new CreateWorkflowEdgeDto
+                {
+                    TempId = "edge1",
+                    SourceTempId = "source",
+                    TargetTempId = "gate",
+                    Order = 1
+                }
+            ]
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result.Should().NotBeNull();
+        result!.IsSuccess.Should().BeTrue();
+
+        var dbContext = GetDbContext();
+        var createdWorkflow = await dbContext.Workflows.FindAsync(result.Data);
+        createdWorkflow.Should().NotBeNull();
+
+        var sourceStep = createdWorkflow!.Definition!.Steps.Single(s => s.StepName == "Source");
+        var gateStep = createdWorkflow.Definition.Steps.Single(s => s.StepName == "Gate");
+
+        // Asserting on the parsed expression rather than the raw column. System.Text.Json's
+        // default encoder escapes apostrophes and comparison operators - the stored text holds
+        // ' and > - so matching the clause against the raw JSON would fail on the
+        // encoding rather than on the behaviour under test.
+        using var nodeConfig = JsonDocument.Parse(gateStep.NodeConfigJson);
+        var expression = nodeConfig.RootElement.GetProperty("expression").GetString();
+
+        // The engine resolves the prefix with Guid.TryParse, so an unmapped temporary id does not error - the
+        // clause just stops matching anything and the condition quietly becomes a constant.
+        expression.Should().NotContain("source:", "temporary ids must not survive into the stored definition");
+        expression.Should().Contain($"{sourceStep.Id}:@status == 'Completed'");
+
+        // Clauses without a prefix are left exactly as they were.
+        expression.Should().Contain("$.count > 0");
     }
 
     [Fact]

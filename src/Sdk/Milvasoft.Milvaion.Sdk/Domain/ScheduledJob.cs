@@ -38,10 +38,30 @@ public class ScheduledJob : AuditableEntity<Guid>
 
     /// <summary>
     /// Scheduled execution time (UTC). Dispatcher will trigger the job at or after this time.
-    /// For recurring jobs, this is automatically updated to the next execution time based on CronExpression.
     /// </summary>
+    /// <remarks>
+    /// This is the <em>configured</em> start time, written when the job is created or updated.
+    /// It is not the next run of a recurring job: the dispatcher advances that in memory and in
+    /// the Redis sorted set, and never writes it back here. For anything that needs the live
+    /// schedule, read Redis - this column will be in the past once the job has run.
+    /// </remarks>
     [Required]
     public DateTime ExecuteAt { get; set; }
+
+    /// <summary>
+    /// When a one-time job was dispatched (UTC). Null for recurring jobs and for one-time jobs that have not run yet.
+    /// </summary>
+    /// <remarks>
+    /// Marks a one-time job as finished so it is never scheduled again. Before this existed, the
+    /// only record that such a job had run was its absence from the Redis sorted set - and Redis
+    /// is a cache, so a flush or a restart lost that fact and startup recovery re-scheduled the
+    /// job, running it a second time.
+    ///
+    /// Kept separate from <see cref="IsActive"/> on purpose: "finished" and "switched off by a
+    /// user" are different states, and collapsing them would make a completed job look disabled
+    /// and let re-enabling it fire again.
+    /// </remarks>
+    public DateTime? CompletedAt { get; set; }
 
     /// <summary>
     /// Cron expression for recurring job scheduling (e.g., "0 9 * * MON" for every Monday at 9 AM).
@@ -199,6 +219,7 @@ public class ScheduledJob : AuditableEntity<Guid>
             WorkerId = s.WorkerId,
             RoutingPattern = s.RoutingPattern,
             ExecuteAt = s.ExecuteAt,
+            CompletedAt = s.CompletedAt,
             ZombieTimeoutMinutes = s.ZombieTimeoutMinutes,
             ExecutionTimeoutSeconds = s.ExecutionTimeoutSeconds,
             Version = s.Version,

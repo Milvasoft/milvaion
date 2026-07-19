@@ -1,4 +1,4 @@
-export { 
+export {
   default as Skeleton,
   SkeletonStatCard,
   SkeletonTableRow,
@@ -6,5 +6,8 @@ export {
   SkeletonCard,
   SkeletonDashboard,
   SkeletonJobList,
-  SkeletonDetail
+  SkeletonDetail,
+  SkeletonGrid,
+  SkeletonChart,
+  SkeletonForm
 } from './Skeleton'

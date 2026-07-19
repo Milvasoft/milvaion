@@ -166,3 +166,48 @@
   flex-direction: column;
   gap: 20px;
 }
+
+/* ── Kart ızgarası ─────────────────────────────────────────────────────────── */
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+/* ── Grafik ────────────────────────────────────────────────────────────────── */
+
+.skeleton-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.skeleton-chart-bar {
+  flex: 1;
+  min-width: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--bg-tertiary);
+}
+
+/* ── Form ──────────────────────────────────────────────────────────────────── */
+
+.skeleton-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.skeleton-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

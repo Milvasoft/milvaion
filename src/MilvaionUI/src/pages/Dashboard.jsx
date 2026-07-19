@@ -180,7 +180,23 @@ function Dashboard() {
   }
 
   return (
-    <div className="dashboard">
+    <div className="page dashboard">
+      <div className="page-header">
+        <h1><Icon name="dashboard" size={28} /> Dashboard</h1>
+        <div className="page-header-actions">
+          <AutoRefreshIndicator
+            enabled={autoRefreshEnabled}
+            onToggle={() => {
+              const newValue = !autoRefreshEnabled
+              setAutoRefreshEnabled(newValue)
+              localStorage.setItem('dashboard_autoRefresh', newValue.toString())
+            }}
+            lastRefreshTime={lastRefreshTime}
+            intervalSeconds={10}
+          />
+        </div>
+      </div>
+
       <div className="quick-stats">
         <div className="quick-stat-card primary">
           <div className="quick-stat-icon">
@@ -397,17 +413,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Auto-refresh indicator */}
-      <AutoRefreshIndicator
-        enabled={autoRefreshEnabled}
-        onToggle={() => {
-          const newValue = !autoRefreshEnabled
-          setAutoRefreshEnabled(newValue)
-          localStorage.setItem('dashboard_autoRefresh', newValue.toString())
-        }}
-        lastRefreshTime={lastRefreshTime}
-        intervalSeconds={10}
-      />
     </div>
   )
 }

@@ -4,8 +4,8 @@ using Milvaion.Application.Features.FailedOccurrences.DeleteFailedOccurrence;
 using Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceDetail;
 using Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceList;
 using Milvaion.Application.Features.FailedOccurrences.UpdateFailedOccurrence;
-using Milvasoft.Components.Rest.Enums;
-using Milvasoft.Components.Rest.Request;
+using Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList;
+using Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary;
 using Milvasoft.Types.Structs;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -27,6 +27,11 @@ public class MilvaionDiagnosticsTools(IMediator mediator, McpPermissionGuard gua
     private readonly McpPermissionGuard _guard = guard;
 
     private const int _maxPageSize = 100;
+
+    /// <summary>
+    /// Log lines are smaller than the other records, so a page can hold more of them.
+    /// </summary>
+    private const int _maxLogPageSize = 200;
 
     /// <summary>
     /// Gets failed occurrences that exhausted their retries.
@@ -208,5 +213,94 @@ public class MilvaionDiagnosticsTools(IMediator mediator, McpPermissionGuard gua
             pageNumber,
             activityLogs = response.Data
         };
+    }
+
+    /// <summary>
+    /// Aggregates execution logs across every job.
+    /// </summary>
+    /// <param name="jobId">Only executions of this job.</param>
+    /// <param name="level">Only lines at this severity.</param>
+    /// <param name="since">Start of the window, UTC.</param>
+    /// <param name="until">End of the window, UTC.</param>
+    /// <param name="searchTerm">Free text search over the message.</param>
+    /// <param name="topCount">Entries per breakdown.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>Counts by level, category, exception type, job and message.</returns>
+    [McpServerTool(Name = "summarize_logs", ReadOnly = true)]
+    [Description("Aggregates worker execution logs into counts - by severity, category, exception type, job and repeated message - over a time window. Start here rather than with search_logs whenever the question is about the whole system: 'what is going wrong', 'which job is noisiest', 'what errors are new today'. The response size does not grow with the log volume, so this is safe to call on a busy installation where reading the lines themselves would not be. Defaults to the last 24 hours. Times are UTC.")]
+    public async Task<object> SummarizeLogsAsync(
+        [Description("Only executions of this job, by GUID id from list_jobs.")] Guid? jobId = null,
+        [Description("Only lines at this severity, e.g. Error, Warning, Information.")] string level = null,
+        [Description("Start of the window, UTC. Defaults to 24 hours before the end.")] DateTime? since = null,
+        [Description("End of the window, UTC. Defaults to now.")] DateTime? until = null,
+        [Description("Optional free text search over the message.")] string searchTerm = null,
+        [Description("How many entries to return in each breakdown. Maximum 50.")] int topCount = 10,
+        CancellationToken cancellationToken = default)
+    {
+        _guard.Require(PermissionCatalog.ScheduledJobManagement.Detail);
+
+        var response = await _mediator.Send(new GetJobOccurrenceLogSummaryQuery
+        {
+            JobId = jobId,
+            Level = level,
+            Since = since,
+            Until = until,
+            SearchTerm = searchTerm,
+            TopCount = Math.Clamp(topCount, 1, 50)
+        }, cancellationToken);
+
+        return response.Data;
+    }
+
+    /// <summary>
+    /// Searches execution log lines.
+    /// </summary>
+    /// <param name="jobId">Only executions of this job.</param>
+    /// <param name="occurrenceId">Only this one execution.</param>
+    /// <param name="level">Only lines at this severity.</param>
+    /// <param name="category">Only lines in this category.</param>
+    /// <param name="exceptionType">Only lines recording this exception type.</param>
+    /// <param name="searchTerm">Free text search over the message.</param>
+    /// <param name="since">Only lines at or after this UTC time.</param>
+    /// <param name="until">Only lines at or before this UTC time.</param>
+    /// <param name="includeData">Whether to return the values of structured fields.</param>
+    /// <param name="pageNumber">Page number, starting at 1.</param>
+    /// <param name="pageSize">Lines per page.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>Matching log lines, newest first.</returns>
+    [McpServerTool(Name = "search_logs", ReadOnly = true)]
+    [Description("Searches individual worker execution log lines, newest first. Use this once summarize_logs has told you what to look for - it returns raw lines, so a broad search burns through a lot of output for little insight. Narrow it: jobId or occurrenceId for one job or run, level Error for failures only, searchTerm for a phrase seen in a message. Always pair searchTerm with since: message search is a substring scan and the time bound is what keeps it fast. Each line lists the names of its structured fields; set includeData true to also get their values, but note those values are written by the worker and can contain business data, so ask for them only when the names suggest they will answer the question. Times are UTC.")]
+    public async Task<object> SearchLogsAsync(
+        [Description("Only executions of this job, by GUID id from list_jobs.")] Guid? jobId = null,
+        [Description("Only this one execution, by GUID id from list_occurrences.")] Guid? occurrenceId = null,
+        [Description("Only lines at this severity, e.g. Error, Warning, Information.")] string level = null,
+        [Description("Only lines in this category, e.g. Dispatcher. Categories come back from summarize_logs.")] string category = null,
+        [Description("Only lines recording this exception type, as reported by summarize_logs.")] string exceptionType = null,
+        [Description("Free text search over the message text, case insensitive.")] string searchTerm = null,
+        [Description("Only lines at or after this UTC time, e.g. 2026-07-18T22:00:00Z.")] DateTime? since = null,
+        [Description("Only lines at or before this UTC time.")] DateTime? until = null,
+        [Description("True to include the values of the structured fields, not just their names. Worker-controlled content - request it deliberately.")] bool includeData = false,
+        [Description("Page number, starting at 1.")] int pageNumber = 1,
+        [Description("Lines per page. Maximum 200.")] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        _guard.Require(PermissionCatalog.ScheduledJobManagement.Detail);
+
+        var response = await _mediator.Send(new GetJobOccurrenceLogListQuery
+        {
+            JobId = jobId,
+            OccurrenceId = occurrenceId,
+            Level = level,
+            Category = category,
+            ExceptionType = exceptionType,
+            SearchTerm = searchTerm,
+            Since = since,
+            Until = until,
+            IncludeData = includeData,
+            PageNumber = pageNumber < 1 ? 1 : pageNumber,
+            RowCount = Math.Clamp(pageSize, 1, _maxLogPageSize)
+        }, cancellationToken);
+
+        return response.Data;
     }
 }

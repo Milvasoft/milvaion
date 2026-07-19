@@ -1452,6 +1452,156 @@
             </summary>
             <param name="entity"></param>
         </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.AlertingConfigDto">
+            <summary>
+            Uyarı gönderim ayarları.
+            </summary>
+            <remarks>
+            Kanal yapılandırmasının tamamı değil, yalnızca hangi kanalın açık olduğu ve
+            nereye gönderildiği. Webhook adresleri ve SMTP kimlik bilgileri bilerek
+            dışarıda: bu ekran yetkisi olan herkese açık ve bir webhook adresi, onu bilen
+            herkesin o kanala mesaj atabilmesi demek.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertingConfigDto.MilvaionAppUrl">
+            <summary> Uyarı mesajlarındaki bağlantılarda kullanılan adres. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertingConfigDto.DefaultChannel">
+            <summary> Kanal belirtilmemiş uyarıların gittiği yer. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertingConfigDto.SendOnlyInProduction">
+            <summary> Yalnızca üretim ortamında gönderim. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertingConfigDto.Channels">
+            <summary> Kanal başına durum. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertingConfigDto.ConfiguredAlertCount">
+            <summary> Tanımlı uyarı türü sayısı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertingConfigDto.EnabledAlertCount">
+            <summary> Bunlardan kaçı açık. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.AlertChannelStatusDto">
+            <summary>
+            Tek bir uyarı kanalının durumu.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertChannelStatusDto.Name">
+            <summary> Kanal adı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertChannelStatusDto.Enabled">
+            <summary> Kanal açık mı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertChannelStatusDto.SendOnlyInProduction">
+            <summary> Yalnızca üretimde mi gönderiyor. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.AlertChannelStatusDto.DefaultTarget">
+            <summary> Varsayılan hedef - kanal ya da alan adı. Adres değil, ad. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto">
+            <summary>
+            Arka planda çalışan servislerin ayarları.
+            </summary>
+            <remarks>
+            Bunlar appsettings içinde ayrı bölümler olarak duruyordu ama Configuration
+            ekranında hiç görünmüyordu. Bir işin neden dağıtılmadığını ya da logların
+            neden geç geldiğini araştıran biri, önce bu servislerin açık olup olmadığına
+            ve hangi aralıkla çalıştığına bakıyor.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto.WorkerAutoDiscovery">
+            <summary> Worker ve iş tiplerinin otomatik keşfi. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto.ZombieOccurrenceDetector">
+            <summary> Takılı kalmış çalışmaları tespit eden servis. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto.LogCollector">
+            <summary> Worker loglarını toplayıp veritabanına yazan servis. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto.StatusTracker">
+            <summary> Çalışma durumlarını toplu güncelleyen servis. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto.FailedOccurrenceHandler">
+            <summary> Dead letter kayıtlarını işleyen servis. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto.ExternalJobTracker">
+            <summary> Hangfire ve Quartz gibi dış zamanlayıcıları izleyen servis. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BackgroundServicesConfigDto.WorkflowEngine">
+            <summary> Workflow adımlarını yürüten servis. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.ToggleConfigDto">
+            <summary>
+            Yalnızca açık kapalı bilgisi taşıyan servisler için.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ToggleConfigDto.Enabled">
+            <summary> Servis çalışıyor mu. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.PollingServiceConfigDto">
+            <summary>
+            Belirli aralıkla yoklama yapan servisler için.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.PollingServiceConfigDto.Enabled">
+            <summary> Servis çalışıyor mu. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.PollingServiceConfigDto.PollingIntervalSeconds">
+            <summary> İki yoklama arasındaki süre. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.BatchServiceConfigDto">
+            <summary>
+            Kayıtları toplu işleyen servisler için.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BatchServiceConfigDto.Enabled">
+            <summary> Servis çalışıyor mu. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BatchServiceConfigDto.BatchSize">
+            <summary> Bir seferde işlenen kayıt sayısı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.BatchServiceConfigDto.BatchIntervalMs">
+            <summary> Toplu yazma aralığı. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.StatusTrackerConfigDto">
+            <summary>
+            Durum güncelleme servisi; toplu yazmanın yanında saklanan log sayısını da sınırlıyor.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.StatusTrackerConfigDto.ExecutionLogMaxCount">
+            <summary> Bir çalışma için saklanan en fazla log satırı. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.ZombieDetectorConfigDto">
+            <summary>
+            Takılı kalan çalışmaları tespit eden servis.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ZombieDetectorConfigDto.Enabled">
+            <summary> Servis çalışıyor mu. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ZombieDetectorConfigDto.CheckIntervalSeconds">
+            <summary> İki tarama arasındaki süre. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ZombieDetectorConfigDto.ZombieTimeoutMinutes">
+            <summary> Bu süreden uzun süredir ilerlemeyen çalışma ölü kabul ediliyor. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.ExternalJobTrackerConfigDto">
+            <summary>
+            Dış zamanlayıcı izleme servisi.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ExternalJobTrackerConfigDto.Enabled">
+            <summary> Servis çalışıyor mu. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ExternalJobTrackerConfigDto.RegistrationBatchSize">
+            <summary> Bir seferde işlenen kayıt bildirimi sayısı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ExternalJobTrackerConfigDto.OccurrenceBatchSize">
+            <summary> Bir seferde işlenen çalışma bildirimi sayısı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ExternalJobTrackerConfigDto.BatchIntervalMs">
+            <summary> Toplu yazma aralığı. </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.DatabaseConfigDto">
             <summary>
             Database configuration.
@@ -1547,6 +1697,51 @@
             Whether to perform zombie job recovery on startup.
             Default: true.
             </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.ObservabilityConfigDto">
+            <summary>
+            Log ve metrik dışa aktarım ayarları.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ObservabilityConfigDto.Seq">
+            <summary> Seq'e teknik log gönderimi. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.ObservabilityConfigDto.OpenTelemetry">
+            <summary> OpenTelemetry metrik dışa aktarımı. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.SeqConfigDto">
+            <summary>
+            Seq bağlantısı.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SeqConfigDto.Enabled">
+            <summary> Gönderim açık mı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SeqConfigDto.Uri">
+            <summary> Seq adresi. Kimlik bilgisi taşımıyor, o yüzden gösterilebiliyor. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.OpenTelemetryConfigDto">
+            <summary>
+            OpenTelemetry dışa aktarımı.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.OpenTelemetryConfigDto.Enabled">
+            <summary> Dışa aktarım açık mı. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.OpenTelemetryConfigDto.ExportPath">
+            <summary> Metriklerin sunulduğu yol. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.OpenTelemetryConfigDto.Service">
+            <summary> Servis adı etiketi. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.OpenTelemetryConfigDto.Environment">
+            <summary> Ortam etiketi. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.OpenTelemetryConfigDto.Job">
+            <summary> İş etiketi. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.OpenTelemetryConfigDto.Instance">
+            <summary> Örnek etiketi. </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.RabbitMQConfigDto">
             <summary>
@@ -1766,6 +1961,27 @@
         <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.JobAutoDisable">
             <summary>
             Job auto-disable configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.BackgroundServices">
+            <summary>
+            Arka plan servisleri.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.Observability">
+            <summary>
+            Log ve metrik dışa aktarımı.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.Alerting">
+            <summary>
+            Uyarı gönderimi.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.ApiKeyVersion">
+            <summary>
+            Api anahtarı imzalama sürümü. Anahtarın kendisi ve imzalama sırrı
+            gösterilmiyor; yalnızca hangi sürümün geçerli olduğu.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourcesDto">
@@ -3465,6 +3681,171 @@
             Projection expression for mapping ScheduledJob scheduledjob to ScheduledJobListDto.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto">
+            <summary>
+            One log line written during a job execution.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.Id">
+            <summary> Log line identifier. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.OccurrenceId">
+            <summary> Execution this line belongs to. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.JobId">
+            <summary> Job the execution belongs to. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.JobName">
+            <summary> Name the worker knows the job by. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.Timestamp">
+            <summary> When the line was written, UTC. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.Level">
+            <summary> Severity, as the worker reported it - Information, Warning, Error and so on. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.Category">
+            <summary> Grouping label, e.g. Dispatcher. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.Message">
+            <summary> The message text. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.ExceptionType">
+            <summary> Exception type name, when the line records one. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.DataKeys">
+            <summary>
+            Names of the structured fields attached to this line, without their values.
+            </summary>
+            <remarks>
+            Always present, so a caller can see what was logged and decide whether the values
+            are worth asking for. The values themselves are withheld unless explicitly requested,
+            because their content is decided by the worker rather than by Milvaion and can carry
+            business data.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogListDto.Data">
+            <summary>
+            The structured fields with their values. Populated only when explicitly requested.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSearchDto">
+            <summary>
+            A page of execution log lines, plus what it took to get there.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSearchDto.Logs">
+            <summary> The matching lines, newest first. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSearchDto.TotalCount">
+            <summary>
+            How many lines matched in total, or null when counting was skipped.
+            </summary>
+            <remarks>
+            Counting an unfiltered log table means scanning it. The count is produced only when
+            the search is bounded enough for it to be cheap; otherwise this is null and
+            <see cref="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSearchDto.HasMore"/> answers the question that actually matters - whether to keep
+            paging.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSearchDto.PageNumber">
+            <summary> Current page number. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSearchDto.HasMore">
+            <summary> Whether more lines match beyond this page. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSearchDto.DataIncluded">
+            <summary>
+            Whether the values of structured fields were included.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto">
+            <summary>
+            Aggregated shape of the execution logs over a time window.
+            </summary>
+            <remarks>
+            Exists so a question like "what is going wrong across all jobs" can be answered without
+            reading the log table line by line. Everything here is computed by the database and
+            returned as counts, so the size of the response does not grow with the size of the logs.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.Since">
+            <summary> Start of the window, UTC. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.Until">
+            <summary> End of the window, UTC. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.TotalCount">
+            <summary> Total lines in the window, after filters. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.ByLevel">
+            <summary> Line counts per severity, largest first. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.ByCategory">
+            <summary> Line counts per category, largest first. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.ByExceptionType">
+            <summary> Line counts per exception type, largest first. Only lines that record one. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.TopJobs">
+            <summary> The jobs producing the most lines in the window. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceLogSummaryDto.TopMessages">
+            <summary>
+            The most frequently repeated messages.
+            </summary>
+            <remarks>
+            Grouped on the exact message text. Messages that interpolate a value - an id, a
+            duration - therefore appear as many distinct entries rather than one, so a low count
+            here does not prove a problem is rare. Structured logging with the variable part in
+            the data fields is what would make this exact.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.LogCountDto">
+            <summary>
+            A label and how many lines carried it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogCountDto.Value">
+            <summary> The value being counted. Null when the column was empty. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogCountDto.Count">
+            <summary> How many lines. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.LogJobCountDto">
+            <summary>
+            Log volume for one job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogJobCountDto.JobId">
+            <summary> Job identifier. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogJobCountDto.JobName">
+            <summary> Name the worker knows the job by. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogJobCountDto.Count">
+            <summary> Total lines from this job in the window. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogJobCountDto.ErrorCount">
+            <summary> How many of those were errors. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.LogMessageCountDto">
+            <summary>
+            A repeated message.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogMessageCountDto.Message">
+            <summary> The message text. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogMessageCountDto.Level">
+            <summary> Severity it was logged at. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogMessageCountDto.Count">
+            <summary> How many times it appeared. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.LogMessageCountDto.LastSeen">
+            <summary> Most recent appearance, UTC. </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.JobStatisticsDto">
             <summary>
             Data transfer object for scheduledjob list.
@@ -3529,7 +3910,16 @@
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.ExecuteAt">
             <summary>
             Scheduled execution time (UTC). Dispatcher will trigger the job at or after this time.
-            For recurring jobs, this is automatically updated to the next execution time based on CronExpression.
+            </summary>
+            <remarks>
+            The configured start time, not the next run of a recurring job - the live schedule
+            lives in Redis. See the Upcoming Executions screen for what will actually run.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.CompletedAt">
+            <summary>
+            When a one-time job was dispatched (UTC). Null for recurring jobs and for one-time
+            jobs that have not run yet.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.CronExpression">
@@ -3649,6 +4039,17 @@
             Indicates whether the job is active and should be processed by the dispatcher.
             Inactive jobs are skipped during scheduling. Users can toggle this via dashboard.
             </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.CompletedAt">
+            <summary>
+            When a one-time job was dispatched (UTC). Null for recurring jobs and for one-time
+            jobs that have not run yet.
+            </summary>
+            <remarks>
+            Separate from <see cref="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.IsActive"/>: a finished one-time job is still active, it
+            simply has nothing left to run. Without this the list would show it as ready to go
+            forever.
+            </remarks>
         </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.ConcurrentExecutionPolicy">
             <summary>
@@ -4026,6 +4427,166 @@
             <summary>
             Projection expression for mapping MenuItem entity to MenuItem.
             </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto">
+             <summary>
+             A single upcoming execution - the next run of one job or one workflow.
+             </summary>
+             <remarks>
+             Jobs and workflows are scheduled by two different mechanisms and this type
+             flattens both onto one row so they can share a timeline:
+            
+             <list type="bullet">
+               <item>
+                 A job's next run lives in the Redis sorted set. That is the live value;
+                 the <c>ExecuteAt</c> column holds the originally configured start time and
+                 goes stale the moment a recurring job runs once.
+               </item>
+               <item>
+                 A workflow's next run is computed from its cron expression, because the
+                 workflow engine polls the database rather than using Redis. Nothing has
+                 committed to that time yet, which is why it is reported as a projection.
+               </item>
+             </list>
+            
+             The distinction matters when reading the screen: a job row is a promise, a
+             workflow row is an estimate.
+             </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.Id">
+            <summary> Identifier of the job or workflow this run belongs to. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.Kind">
+            <summary> Whether this row is a job or a workflow. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.DisplayName">
+            <summary> Display name of the job or workflow. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.ScheduledAt">
+            <summary>
+            When it is expected to run. Null when nothing has it scheduled - see <see cref="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.Health"/>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.Health">
+            <summary> How much to trust <see cref="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.ScheduledAt"/>. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.CronExpression">
+            <summary> Cron expression, or null for a one-time job. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.IsRecurring">
+            <summary> Whether this repeats, i.e. whether a cron expression is set. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.WorkerId">
+            <summary> Worker that will pick the job up. Empty for workflows. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.JobNameInWorker">
+            <summary> Name the worker knows the job by. Empty for workflows. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.Tags">
+            <summary> Comma separated tags. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.IsExternal">
+            <summary>
+            Whether the job belongs to an external scheduler such as Quartz or Hangfire.
+            </summary>
+            <remarks>
+            External jobs are never dispatched by Milvaion - they only report what they
+            already ran. They are absent from the Redis set by design, so their absence
+            is not a fault.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionKind">
+            <summary>
+            What kind of thing is going to run.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionKind.Job">
+            <summary> A scheduled job. </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionKind.Workflow">
+            <summary> A workflow. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionHealth">
+            <summary>
+            How much the scheduled time can be trusted.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionHealth.Scheduled">
+            <summary>
+            The dispatcher holds this time in Redis. It will fire unless something changes.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionHealth.Projected">
+            <summary>
+            Computed from the cron expression rather than read from a scheduler.
+            Applies to workflows, whose engine polls the database instead of Redis.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionHealth.NotScheduled">
+            <summary>
+            Active, has a schedule, but nothing holds a run time for it - so it will not run.
+            </summary>
+            <remarks>
+            For a job this means it is missing from the Redis sorted set: the dispatcher
+            does not know about it. This is the failure that is otherwise invisible, since
+            the job list still shows it as active and no occurrence is ever created to fail.
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionHealth.InvalidSchedule">
+            <summary>
+            The cron expression could not be parsed, so no future run can be derived.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto">
+            <summary>
+            The upcoming execution timeline plus the context needed to read it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto.AsOfUtc">
+            <summary>
+            Server time the timeline was built at.
+            </summary>
+            <remarks>
+            Relative labels - "in 4 minutes" - have to be measured against this rather than
+            the browser clock. A workstation a few minutes off would otherwise show a run
+            as overdue while the dispatcher considers it early.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto.Items">
+            <summary>
+            Upcoming runs, earliest first. Entries with no run time are sorted last.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto.NotScheduledCount">
+            <summary>
+            How many entries have a schedule but no run time - see <see cref="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionHealth.NotScheduled"/>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto.HasMore">
+            <summary>
+            Whether the result hit the requested limit, meaning there are more runs beyond it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto.HealthScanTruncated">
+            <summary>
+            Whether the check for unscheduled entries covered every recurring job.
+            </summary>
+            <remarks>
+            The check reads recurring jobs from the database and asks Redis whether each one
+            has a run time. That is bounded so a large installation cannot turn a page load
+            into a full table scan; when the bound is hit this is true and
+            <see cref="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto.NotScheduledCount"/> is a floor rather than a total.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionListDto.SchedulerReachable">
+            <summary>
+            Whether the Redis scheduler could be reached.
+            </summary>
+            <remarks>
+            The Redis client fails open through a circuit breaker, so an outage returns an
+            empty set rather than an error. Without this flag the screen would quietly claim
+            nothing is scheduled - the same output as a genuinely empty scheduler.
+            </remarks>
         </member>
         <member name="T:Milvaion.Application.Dtos.UserDtos.UserDetailDto">
             <summary>
@@ -5468,6 +6029,50 @@
         </member>
         <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.Handle(Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.ReadBackgroundServices">
+             <summary>
+             Reads the background service settings.
+             </summary>
+             <remarks>
+             These sections have no typed counterpart on <c>MilvaionConfig</c>, so they are read
+             straight from configuration. The indexer is used rather than the binder because
+             <c>Get&lt;T&gt;</c> lives in a separate package this project does not reference, and
+             twenty or so values are not worth taking a dependency for.
+            
+             A setting that was never written falls back to the service's own default - a missing
+             section means "not configured", not "switched off".
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.ReadObservability">
+            <summary>
+            Reads the log and metric export settings.
+            </summary>
+            <remarks>
+            The Seq address is exposed because it carries no credentials; Seq's API key is a
+            separate setting and never passes through here.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.ReadAlerting">
+            <summary>
+            Reads the alerting settings.
+            </summary>
+            <remarks>
+            Per channel this returns only the status and the <em>name</em> of the default target.
+            Webhook URLs and SMTP credentials are deliberately left out: anyone who can see this
+            screen would see the address too, and knowing a webhook URL is the same as being able
+            to post to that channel.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.Flag(Microsoft.Extensions.Configuration.IConfigurationSection,System.String,System.Boolean)">
+            <summary>
+            Reads a flag from a section, falling back to the default when it is absent or unparseable.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.Num(Microsoft.Extensions.Configuration.IConfigurationSection,System.String,System.Int32)">
+            <summary>
+            Reads a number from a section, falling back to the default when it is absent or unparseable.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Features.ContentManagement.Contents.CreateBulkContent.CreateBulkContentCommand">
             <summary>
@@ -7408,6 +8013,155 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery">
+            <summary>
+            Searches execution log lines across every job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.JobId">
+            <summary> Only lines from executions of this job. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.OccurrenceId">
+            <summary> Only lines from this one execution. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.Level">
+            <summary> Only lines at this severity, e.g. Error. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.Category">
+            <summary> Only lines in this category. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.ExceptionType">
+            <summary> Only lines recording this exception type. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.Since">
+            <summary> Only lines at or after this UTC time. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.Until">
+            <summary> Only lines at or before this UTC time. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.SearchTerm">
+            <summary> Free text search over the message. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.IncludeData">
+            <summary>
+            Whether to return the values of the structured fields, not just their names.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.PageNumber">
+            <summary> Page number, starting at 1. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery.RowCount">
+            <summary> Lines per page. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQueryHandler">
+            <summary>
+            Searches execution log lines.
+            </summary>
+            <remarks>
+            The log table is the largest in the system - one row per line per execution - so every
+            query here is bounded and ordered, and the total count is only computed when the filters
+            make it cheap. An unbounded <c>COUNT(*)</c> over this table is a full scan.
+            </remarks>
+            <param name="milvaionDbContextAccessor"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor)">
+            <summary>
+            Searches execution log lines.
+            </summary>
+            <remarks>
+            The log table is the largest in the system - one row per line per execution - so every
+            query here is bounded and ordered, and the total count is only computed when the filters
+            make it cheap. An unbounded <c>COUNT(*)</c> over this table is a full scan.
+            </remarks>
+            <param name="milvaionDbContextAccessor"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQueryHandler.IsNarrowEnoughToCount(Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery)">
+            <summary>
+            Whether the filters bound the scan enough for a count to be worth running.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQueryValidator">
+            <summary>
+            Log search query validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery">
+            <summary>
+            Aggregates execution log lines over a time window.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery.JobId">
+            <summary> Only executions of this job. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery.Level">
+            <summary> Only lines at this severity. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery.Since">
+            <summary>
+            Start of the window, UTC. Defaults to 24 hours before <see cref="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery.Until"/>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery.Until">
+            <summary> End of the window, UTC. Defaults to now. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery.SearchTerm">
+            <summary> Free text search over the message. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery.TopCount">
+            <summary> How many entries to return in each breakdown. </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQueryHandler">
+             <summary>
+             Aggregates execution logs so they can be reasoned about without being read.
+             </summary>
+             <remarks>
+             Every breakdown is a GROUP BY executed by the database. Nothing here loads log rows into
+             memory, which is the point: the log table is the largest in the system and the answer to
+             "what is going wrong" has to stay the same size whether there are a thousand lines or a
+             hundred million.
+            
+             The window is mandatory in effect - when the caller gives no bounds a day is assumed -
+             because these aggregates are only cheap when the time column narrows the scan first.
+             </remarks>
+             <param name="milvaionDbContextAccessor"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor)">
+             <summary>
+             Aggregates execution logs so they can be reasoned about without being read.
+             </summary>
+             <remarks>
+             Every breakdown is a GROUP BY executed by the database. Nothing here loads log rows into
+             memory, which is the point: the log table is the largest in the system and the answer to
+             "what is going wrong" has to stay the same size whether there are a thousand lines or a
+             hundred million.
+            
+             The window is mandatory in effect - when the caller gives no bounds a day is assumed -
+             because these aggregates are only cheap when the time column narrows the scan first.
+             </remarks>
+             <param name="milvaionDbContextAccessor"></param>
+        </member>
+        <member name="F:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQueryHandler._errorLevel">
+            <summary>
+            Severity treated as a failure when counting a job's errors.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQueryValidator">
+            <summary>
+            Log summary query validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQueryValidator"/>
+        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail.GetScheduledJobDetailQuery">
             <summary>
             Data transfer object for scheduledjob details.
@@ -7505,6 +8259,168 @@
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetTagList.GetTagListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetTagList.GetTagListQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.CronProjector">
+             <summary>
+             Works out when a cron schedule fires next.
+             </summary>
+             <remarks>
+             Only workflows need this. A job's next run is read from Redis, where the
+             dispatcher already committed to a time; a workflow's is not stored anywhere,
+             because the workflow engine re-derives it from the cron expression on every
+             poll and triggers when the derived time has passed.
+            
+             The rule below therefore has to match <c>WorkflowEngineService</c> exactly. If
+             it drifts, the screen shows one time and the engine fires at another - the kind
+             of disagreement nobody notices until an overnight job runs an hour late.
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.CronProjector.GetNextOccurrence(System.String,System.Nullable{System.DateTime},System.DateTime,System.Int32)">
+            <summary>
+            Returns the next fire time for a workflow, or null when the expression cannot be parsed.
+            </summary>
+            <remarks>
+            The result can be in the past, and that is meaningful rather than a bug: it means
+            the engine has not caught up yet and will trigger the workflow on its next poll.
+            Clamping it to <paramref name="now"/> would hide a workflow that is running behind.
+            </remarks>
+            <param name="cronExpression">Six part cron expression, seconds first.</param>
+            <param name="lastScheduledRunAt">When the engine last triggered it, if ever.</param>
+            <param name="now">Current time, UTC.</param>
+            <param name="pollingIntervalSeconds">Engine poll interval, used for the never-run case.</param>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery">
+            <summary>
+            Asks for the runs that are coming up next.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery.WithinHours">
+            <summary>
+            How far ahead to look, in hours. Defaults to a day.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery.Limit">
+            <summary>
+            Maximum number of runs to return.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery.SearchTerm">
+            <summary>
+            Filters by job or workflow name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery.Kind">
+            <summary>
+            Restricts the result to jobs or to workflows. Null returns both.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery.OnlyProblems">
+            <summary>
+            Returns only entries that will not run - see <see cref="F:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionHealth.NotScheduled"/>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler">
+             <summary>
+             Builds the upcoming execution timeline.
+             </summary>
+             <remarks>
+             Two sources, because jobs and workflows are scheduled by two different services:
+            
+             <list type="bullet">
+               <item>
+                 Jobs come from the Redis sorted set the dispatcher polls. That set holds one
+                 entry per job - the next run only - which is exactly what this screen needs.
+                 The <c>ExecuteAt</c> column is deliberately not used: it is the configured
+                 start time and stops matching reality as soon as a recurring job runs once.
+               </item>
+               <item>
+                 Workflows are projected from their cron expressions, since the workflow engine
+                 polls the database and never writes a next-run anywhere.
+               </item>
+             </list>
+            
+             A third group has no time at all: jobs that are active and recurring but missing
+             from the sorted set. They will never fire, and nothing else in the product shows
+             this - the job list still calls them active and no occurrence is created to fail.
+             </remarks>
+             <param name="milvaionDbContextAccessor"></param>
+             <param name="redisScheduler"></param>
+             <param name="adminService"></param>
+             <param name="workflowEngineOptions"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.IAdminService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkflowEngineOptions})">
+             <summary>
+             Builds the upcoming execution timeline.
+             </summary>
+             <remarks>
+             Two sources, because jobs and workflows are scheduled by two different services:
+            
+             <list type="bullet">
+               <item>
+                 Jobs come from the Redis sorted set the dispatcher polls. That set holds one
+                 entry per job - the next run only - which is exactly what this screen needs.
+                 The <c>ExecuteAt</c> column is deliberately not used: it is the configured
+                 start time and stops matching reality as soon as a recurring job runs once.
+               </item>
+               <item>
+                 Workflows are projected from their cron expressions, since the workflow engine
+                 polls the database and never writes a next-run anywhere.
+               </item>
+             </list>
+            
+             A third group has no time at all: jobs that are active and recurring but missing
+             from the sorted set. They will never fire, and nothing else in the product shows
+             this - the job list still calls them active and no occurrence is created to fail.
+             </remarks>
+             <param name="milvaionDbContextAccessor"></param>
+             <param name="redisScheduler"></param>
+             <param name="adminService"></param>
+             <param name="workflowEngineOptions"></param>
+        </member>
+        <member name="F:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler._healthScanLimit">
+            <summary>
+            Upper bound on how many recurring jobs the unscheduled check will look at.
+            </summary>
+            <remarks>
+            Two columns and one pipelined Redis call, so this is cheap - but it is a diagnostic
+            band on a page that reloads often, and it should not grow without limit.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.GetScheduledJobsAsync(Milvasoft.DataAccess.EfCore.Bulk.IMilvaBulkDbContextBase,Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery,System.DateTime,System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Jobs the dispatcher holds a run time for.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.GetUnscheduledJobsAsync(Milvasoft.DataAccess.EfCore.Bulk.IMilvaBulkDbContextBase,Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Recurring jobs that are active but absent from the sorted set, so nothing will run them.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.GetProjectedWorkflowsAsync(Milvasoft.DataAccess.EfCore.Bulk.IMilvaBulkDbContextBase,Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery,System.DateTime,System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Workflows, projected from their cron expressions.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.IsSchedulerReachable(System.Threading.CancellationToken)">
+            <summary>
+            Reads the Redis circuit breaker so an outage is not reported as an empty schedule.
+            </summary>
+            <remarks>
+            The Redis client fails open: when the circuit is tripped every read returns its
+            fallback, which for the sorted set is an empty list. Without this the page would
+            state that nothing is scheduled, which looks identical to a healthy but idle system.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryValidator">
+            <summary>
+            Upcoming execution list query validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryValidator"/>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommand">
             <summary>
@@ -8614,6 +9530,35 @@
             Extension methods for workflow step collections.
             </summary>
         </member>
+        <member name="M:Milvaion.Application.Features.Workflows.WorkflowStepExtensions.RemapConditionExpression(System.String,System.Collections.Generic.Dictionary{System.String,System.Guid})">
+            <summary>
+            Rewrites the temporary step ids inside a condition expression to the real ids the steps were saved with.
+            </summary>
+            <remarks>
+            Edges get this treatment through <c>tempIdToRealId</c> already, but the same temporary ids also appear
+            inside two payloads that used to be persisted verbatim: condition expressions
+            (<c>step-1:@status == 'Completed'</c>) and data mappings (<c>step-1:$.total</c>).
+            <para>
+            Leaving them unmapped fails quietly rather than loudly, which is what made it worth fixing. The engine
+            parses the prefix with <c>Guid.TryParse</c>; a value like <c>step-1</c> does not parse, so the whole
+            clause is treated as targeting every parent and matches nothing. The condition then silently evaluates
+            to a constant instead of erroring.
+            </para>
+            <para>
+            Only affects newly created steps. When an existing workflow is edited the temporary id already is the
+            real id, so the lookup maps it to itself and nothing changes.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.WorkflowStepExtensions.RemapDataMappings(System.String,System.Collections.Generic.Dictionary{System.String,System.Guid})">
+            <summary>
+            Rewrites the temporary step ids used as sources in a data mapping payload.
+            </summary>
+            <remarks>
+            The payload is <c>{ "sourceStepId:jsonPath": "targetJsonPath" }</c>, so the temporary id sits in the key
+            ahead of the first colon. See <see cref="M:Milvaion.Application.Features.Workflows.WorkflowStepExtensions.RemapConditionExpression(System.String,System.Collections.Generic.Dictionary{System.String,System.Guid})"/> for why this matters.
+            </remarks>
+        </member>
         <member name="M:Milvaion.Application.Features.Workflows.WorkflowStepExtensions.ValidateDAG(System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto})">
             <summary>
             Validates that the step graph contains no cycles using Kahn's topological sort.
@@ -9345,6 +10290,22 @@
             <param name="limit">Maximum number of jobs to retrieve</param>
             <param name="cancellationToken">Cancellation token</param>
             <returns>List of due job IDs</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.GetScheduledJobsInRangeAsync(System.DateTime,System.Nullable{System.DateTime},System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets jobs scheduled within a time range, ordered by execution time.
+            </summary>
+            <remarks>
+            The ZSET holds one entry per job - the next execution only - so this returns
+            each job at most once. It is the live schedule: the <c>ExecuteAt</c> column in
+            the database is the originally configured start time and goes stale as soon as
+            a recurring job runs for the first time.
+            </remarks>
+            <param name="from">Range start, inclusive</param>
+            <param name="to">Range end, inclusive. Null means no upper bound</param>
+            <param name="limit">Maximum number of jobs to retrieve</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Job identifiers mapped to their scheduled execution time, earliest first</returns>
         </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.RemoveFromScheduledSetAsync(System.Guid,System.Threading.CancellationToken)">
             <summary>

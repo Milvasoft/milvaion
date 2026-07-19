@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 function CronScheduleVsActualReport() {
   const navigate = useNavigate()
@@ -221,12 +222,9 @@ function CronScheduleVsActualReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="schedule" size={32} /> Cron Schedule vs Actual</h1>
+          <h1><Icon name="schedule" size={28} /> Cron Schedule vs Actual</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -238,7 +236,7 @@ function CronScheduleVsActualReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="schedule" size={32} /> Cron Schedule vs Actual</h1>
+          <h1><Icon name="schedule" size={28} /> Cron Schedule vs Actual</h1>
           <p className="page-description">Scheduled vs actual execution time deviation</p>
         </div>
         <div className="page-header-actions">

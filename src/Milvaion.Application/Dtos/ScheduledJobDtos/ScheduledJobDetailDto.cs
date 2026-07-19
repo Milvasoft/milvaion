@@ -43,9 +43,18 @@ public class ScheduledJobDetailDto : MilvaionBaseDto<Guid>
 
     /// <summary>
     /// Scheduled execution time (UTC). Dispatcher will trigger the job at or after this time.
-    /// For recurring jobs, this is automatically updated to the next execution time based on CronExpression.
     /// </summary>
+    /// <remarks>
+    /// The configured start time, not the next run of a recurring job - the live schedule
+    /// lives in Redis. See the Upcoming Executions screen for what will actually run.
+    /// </remarks>
     public DateTime? ExecuteAt { get; set; }
+
+    /// <summary>
+    /// When a one-time job was dispatched (UTC). Null for recurring jobs and for one-time
+    /// jobs that have not run yet.
+    /// </summary>
+    public DateTime? CompletedAt { get; set; }
 
     /// <summary>
     /// Cron expression for recurring job scheduling (e.g., "0 9 * * MON" for every Monday at 9 AM).
@@ -137,6 +146,7 @@ public class ScheduledJobDetailDto : MilvaionBaseDto<Guid>
         JobType = r.JobNameInWorker,
         JobData = r.JobData,
         ExecuteAt = r.ExecuteAt,
+        CompletedAt = r.CompletedAt,
         CronExpression = r.CronExpression,
         IsActive = r.IsActive,
         ConcurrentExecutionPolicy = r.ConcurrentExecutionPolicy,

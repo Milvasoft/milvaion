@@ -251,6 +251,21 @@
             Dispatches due jobs from Redis to RabbitMQ.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.MarkCompletedOneTimeJobsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+             <summary>
+             Stamps one-time jobs that were dispatched in this cycle as finished.
+             </summary>
+             <remarks>
+             A one-time job runs once and must never be scheduled again. Until this column
+             existed the only record of that was the job's absence from the Redis sorted set,
+             and Redis is a cache: a flush or a restart erased the fact and startup recovery
+             put the job back, running it a second time.
+            
+             One statement per dispatch cycle, and only for jobs without a cron expression -
+             so in a recurring-only installation it never runs at all. A one-time job is
+             stamped once in its life, so this does not grow with traffic.
+             </remarks>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.GetDueJobIdsFromRedisAsync(System.Threading.CancellationToken)">
             <summary>
             Gets due job IDs from Redis ZSET.
@@ -629,17 +644,13 @@
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ExtractConditionExpression(System.String)">
             <summary>
-            Evaluates a condition expression against parent step outputs and statuses.
-            Supports:
-              - Logical operators: &amp;&amp; (AND), || (OR)  — AND has higher precedence
-              - @status == 'Completed'       → all parent(s) StepStatus check
-              - $.field == 'value'           → all parent(s) result JSON field check
-              - stepId:@status != 'Skipped'  → specific parent status check
-              - stepId:$.price > 100         → specific parent result field check
-            </summary>
-            <summary>
             Extracts the condition expression from node config JSON.
             </summary>
+            <remarks>
+            The expression grammar itself lives in <see cref="T:Milvaion.Infrastructure.Workflows.ConditionExpression"/>. A clause is
+            <c>[stepId:](@status | $.field) &lt;operator&gt; &lt;value&gt;</c>, and clauses combine with
+            <c>&amp;&amp;</c>, <c>||</c> and parentheses.
+            </remarks>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.EvaluateCondition(Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowEdgeDefinition},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
             <summary>
@@ -1210,6 +1221,37 @@
             Checks whether the entity with the given id exists.
             </summary>
             <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Scheduling.StartupScheduleResolver">
+             <summary>
+             Decides what run time startup recovery should write to Redis for a job.
+             </summary>
+             <remarks>
+             Recovery used to take the <c>ExecuteAt</c> column as the answer. That column is
+             only written when a job is created or updated: once a recurring job has run,
+             <c>HandleRecurringJobAsync</c> advances the schedule in memory and pushes it to
+             Redis, and nothing writes it back to the database. So for any job that has been
+             running for a while the column sits in the past.
+            
+             Feeding that back into the sorted set on every restart put every recurring job
+             at a past score, and the next dispatcher poll saw all of them as due at once -
+             which is why a deploy fired the whole catalogue.
+            
+             The rule now: Redis holds the live schedule and recovery does not second-guess
+             it. Recovery only supplies a time when Redis has none, and for a recurring job
+             it derives that time the same way the dispatcher does rather than reading a
+             column that cannot be current.
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Scheduling.StartupScheduleResolver.Resolve(System.String,System.DateTime,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.DateTime)">
+            <summary>
+            Returns the time recovery should write, or null to leave the schedule untouched.
+            </summary>
+            <param name="cronExpression">Six part cron expression, or null for a one-time job.</param>
+            <param name="executeAt">The <c>ExecuteAt</c> column.</param>
+            <param name="completedAt">When a one-time job was dispatched, or null.</param>
+            <param name="existingScheduleTime">Current sorted set score, or null when absent.</param>
+            <param name="now">Current time, UTC.</param>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.AccountManager">
             <summary>
@@ -2236,6 +2278,9 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetDueJobsAsync(System.DateTime,System.Int32,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetScheduledJobsInRangeAsync(System.DateTime,System.Nullable{System.DateTime},System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RemoveFromScheduledSetAsync(System.Guid,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
@@ -2790,6 +2835,73 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Utils.OpenApi.ExampleSchemaTransformer.TransformAsync(Microsoft.OpenApi.OpenApiSchema,Microsoft.AspNetCore.OpenApi.OpenApiSchemaTransformerContext,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Workflows.ConditionExpression">
+            <summary>
+            Parses and evaluates workflow condition expressions.
+            </summary>
+            <remarks>
+            The grammar is the usual boolean one:
+            <code>
+              expression := term ( '||' term )*
+              term       := factor ( '&amp;&amp;' factor )*
+              factor     := '(' expression ')' | clause
+            </code>
+            <para>
+            This replaces an earlier implementation that split the string on <c>" || "</c> and then on <c>" &amp;&amp; "</c>.
+            That version had two problems worth naming, because both failed silently rather than loudly.
+            </para>
+            <para>
+            It could not express <c>(A || B) &amp;&amp; C</c> at all — there was no way to group, and precedence was fixed
+            at "and binds tighter". And because it matched the separators with their surrounding spaces, an expression
+            written as <c>A&amp;&amp;B</c> was not rejected: it collapsed into one unparseable clause, which evaluated to a
+            constant. A condition that always takes the same branch looks like working software until the day the branch
+            matters.
+            </para>
+            <para>
+            Parentheses are new, so no stored expression contains them. Everything written against the old rules parses
+            identically here, since the precedence is the same.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Workflows.ConditionExpression.Evaluate(System.String,System.Func{System.String,System.Boolean})">
+            <summary>
+            Evaluates <paramref name="expression"/>, deferring each individual clause to <paramref name="evaluateClause"/>.
+            </summary>
+            <remarks>
+            Returns <see langword="true"/> for an empty or malformed expression. The caller treats a condition it
+            cannot understand as "let the step run", which matches the previous behaviour: a broken condition should
+            not silently halt a pipeline.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Workflows.ConditionExpression.Tokenize(System.String)">
+            <summary>
+            Splits the expression into clauses, operators and parentheses.
+            </summary>
+            <remarks>
+            Quote aware, so a parenthesis or an operator inside a compared value - <c>$.label == '(draft)'</c> - stays
+            part of the clause instead of restructuring the expression around it.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Workflows.ConditionExpression.ParseExpression(System.Collections.Generic.List{Milvaion.Infrastructure.Workflows.ConditionExpression.Token},System.Int32@,System.Func{System.String,System.Boolean})">
+            <summary>
+            expression := term ( '||' term )*
+            </summary>
+            <remarks>
+            Both levels evaluate every operand rather than short circuiting. Clause evaluation is a pure lookup
+            against already loaded occurrences, so there is nothing to save, and evaluating all of them keeps the
+            result independent of operand order.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Workflows.ConditionExpression.ParseTerm(System.Collections.Generic.List{Milvaion.Infrastructure.Workflows.ConditionExpression.Token},System.Int32@,System.Func{System.String,System.Boolean})">
+            <summary>
+            term := factor ( '&amp;&amp;' factor )*
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Workflows.ConditionExpression.ParseFactor(System.Collections.Generic.List{Milvaion.Infrastructure.Workflows.ConditionExpression.Token},System.Int32@,System.Func{System.String,System.Boolean})">
+            <summary>
+            factor := '(' expression ')' | clause
+            </summary>
         </member>
         <member name="T:System.Text.RegularExpressions.Generated.DisplayFormatRegex_0">
             <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the DisplayFormatRegex method.</summary>

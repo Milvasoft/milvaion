@@ -1,6 +1,4 @@
 .wfr-page {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .wfr-loading {
@@ -218,32 +216,10 @@
 .wfr-status-partial { background: rgba(16, 185, 129, 0.15); color: #10b981 }
 
 /* DAG Section */
+/* Bölüm bir kart değil: başlık dışarıda, içerik kendi çerçevesini taşıyor.
+   İkisi birden kart olunca kart içinde kart görünüyordu. */
 .wfr-dag-section {
   margin-bottom: 32px;
-  background: var(--bg-card, var(--bg-secondary));
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.wfr-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.wfr-section-header h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--text-primary);
 }
 
 .wfr-dag-live-indicator {
@@ -270,31 +246,9 @@
   }
 }
 
-.wfr-dag-container {
-  margin-top: 16px;
-  background: var(--bg-primary);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
 /* Steps Table */
 .wfr-steps-section {
   margin-bottom: 24px;
-  background: var(--bg-card, var(--bg-secondary));
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.wfr-steps-section h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 16px;
-  color: var(--text-primary);
 }
 
 .wfr-table-container {
@@ -380,3 +334,111 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── Adım denetçisi ───────────────────────────────────────────────────────────
+   DAG'ın hemen altında duran log paneli. Bir adıma tıklandığında açılıyor;
+   grafikten ayrı bir sayfaya gitmeden logu görebilmek için. */
+
+.wfr-step-inspector {
+  margin-top: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.wfr-step-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.wfr-step-inspector-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wfr-step-inspector-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wfr-step-inspector-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.wfr-step-inspector-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.wfr-step-inspector-close:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+}
+
+.wfr-step-inspector-error {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: #ef4444;
+  background: #ef44440d;
+  border-bottom: 1px solid var(--border-color);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wfr-step-inspector-logs {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.wfr-step-inspector-empty {
+  display: block;
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  font-family: inherit;
+}
+
+.wfr-log-line {
+  display: grid;
+  grid-template-columns: 150px 70px 1fr;
+  gap: 10px;
+  padding: 2px 14px;
+}
+
+.wfr-log-line:hover {
+  background: var(--bg-secondary);
+}
+
+.wfr-log-time  { color: var(--text-secondary); white-space: nowrap; }
+.wfr-log-level { text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
+.wfr-log-message { white-space: pre-wrap; word-break: break-word; }
+
+.wfr-log-line--information .wfr-log-level { color: #3b82f6; }
+.wfr-log-line--warning     .wfr-log-level { color: #f59e0b; }
+.wfr-log-line--error       .wfr-log-level { color: #ef4444; }
+.wfr-log-line--error       .wfr-log-message { color: #ef4444; }
+.wfr-log-line--debug       .wfr-log-level { color: var(--text-secondary); }

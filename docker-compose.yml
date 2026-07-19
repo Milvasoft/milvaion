@@ -226,7 +226,19 @@
     labels:
       - "com.milvaion.service=grafana"
       - "com.milvaion.description=Grafana metrics dashboard"
-
+  pgweb:
+    image: sosedoff/pgweb:latest
+    container_name: milvaion-pgweb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://postgres:N4SQp.qW%3E6%3FxwWzg@postgres:5432/MilvaionDb?sslmode=disable"
+    ports:
+      - "8082:8081"
+    networks:
+      - milvaion-network
+    restart: unless-stopped
 volumes:
   postgres_data:
     driver: local

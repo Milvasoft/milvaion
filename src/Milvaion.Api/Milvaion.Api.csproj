@@ -9,9 +9,9 @@
 		<DocumentationFile>..\Milvaion.Api\Milvaion.Api.xml</DocumentationFile>
 		<Configurations>Debug;Release;TemplateTest</Configurations>
 		<UserSecretsId>e8781644-077d-4975-8b31-00179265b6b6</UserSecretsId>
-		<AssemblyVersion>1.2.0.0</AssemblyVersion>
-		<FileVersion>1.2.0.0</FileVersion>
-		<Version>1.2.0</Version>
+		<AssemblyVersion>1.2.1.0</AssemblyVersion>
+		<FileVersion>1.2.1.0</FileVersion>
+		<Version>1.2.1</Version>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">

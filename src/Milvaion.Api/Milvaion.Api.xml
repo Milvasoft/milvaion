@@ -874,6 +874,34 @@
             <param name="cancellation"></param>
             <returns></returns>
         </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetUpcomingExecutionsAsync(Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets the runs that are coming up next, for both jobs and workflows.
+            </summary>
+            <remarks>
+            Read-only and derived from the live schedule, so it reuses the job list permission
+            rather than introducing one that would need a migration to seed.
+            </remarks>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.SearchJobOccurrenceLogsAsync(Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Searches worker execution log lines across every job.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetJobOccurrenceLogSummaryAsync(Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary.GetJobOccurrenceLogSummaryQuery,System.Threading.CancellationToken)">
+            <summary>
+            Aggregates worker execution logs over a time window.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
         <member name="M:Milvaion.Api.Controllers.JobsController.GetFailedOccurrencesAsync(Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceList.GetFailedOccurrenceListQuery,System.Threading.CancellationToken)">
             <summary>
             Gets failed occurrences.
@@ -1367,6 +1395,11 @@
             beforehand. They delegate to the same MediatR queries the REST API uses.
             </remarks>
         </member>
+        <member name="F:Milvaion.Api.Mcp.MilvaionDiagnosticsTools._maxLogPageSize">
+            <summary>
+            Log lines are smaller than the other records, so a page can hold more of them.
+            </summary>
+        </member>
         <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.ListFailuresAsync(System.Nullable{System.Guid},System.Nullable{System.Boolean},System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Int32,System.Int32,System.Threading.CancellationToken)">
             <summary>
             Gets failed occurrences that exhausted their retries.
@@ -1424,6 +1457,37 @@
             <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionDiagnosticsTools._maxPageSize"/>.</param>
             <param name="cancellationToken"></param>
             <returns>Paged activity log with the total count.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.SummarizeLogsAsync(System.Nullable{System.Guid},System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.String,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Aggregates execution logs across every job.
+            </summary>
+            <param name="jobId">Only executions of this job.</param>
+            <param name="level">Only lines at this severity.</param>
+            <param name="since">Start of the window, UTC.</param>
+            <param name="until">End of the window, UTC.</param>
+            <param name="searchTerm">Free text search over the message.</param>
+            <param name="topCount">Entries per breakdown.</param>
+            <param name="cancellationToken"></param>
+            <returns>Counts by level, category, exception type, job and message.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionDiagnosticsTools.SearchLogsAsync(System.Nullable{System.Guid},System.Nullable{System.Guid},System.String,System.String,System.String,System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Boolean,System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Searches execution log lines.
+            </summary>
+            <param name="jobId">Only executions of this job.</param>
+            <param name="occurrenceId">Only this one execution.</param>
+            <param name="level">Only lines at this severity.</param>
+            <param name="category">Only lines in this category.</param>
+            <param name="exceptionType">Only lines recording this exception type.</param>
+            <param name="searchTerm">Free text search over the message.</param>
+            <param name="since">Only lines at or after this UTC time.</param>
+            <param name="until">Only lines at or before this UTC time.</param>
+            <param name="includeData">Whether to return the values of structured fields.</param>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Lines per page.</param>
+            <param name="cancellationToken"></param>
+            <returns>Matching log lines, newest first.</returns>
         </member>
         <member name="T:Milvaion.Api.Mcp.MilvaionInsightTools">
             <summary>
@@ -2107,6 +2171,18 @@
             <inheritdoc />
         </member>
         <member name="M:Milvaion.Api.Migrations.AddApiKey.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.AddScheduledJobCompletedAt">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddScheduledJobCompletedAt.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddScheduledJobCompletedAt.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddScheduledJobCompletedAt.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">

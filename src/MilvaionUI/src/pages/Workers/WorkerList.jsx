@@ -5,6 +5,7 @@ import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { formatDateTime, formatTimeSince } from '../../utils/dateUtils'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import './WorkerList.css'
+import { SkeletonGrid } from '../../components/Skeleton'
 
 function WorkerList() {
   const [workers, setWorkers] = useState([])
@@ -99,11 +100,20 @@ function WorkerList() {
     setExpandedWorker(expandedWorker === workerId ? null : workerId)
   }
 
-  if (loading) return <div className="loading">Loading workers...</div>
+  if (loading) {
+    return (
+      <div className="page worker-list-page">
+        <div className="page-header">
+          <h1><Icon name="engineering" size={28} /> Workers</h1>
+        </div>
+        <SkeletonGrid cards={4} lines={4} />
+      </div>
+    )
+  }
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="worker-list-page">
+    <div className="page worker-list-page">
       <div className="page-header">
         <h1>
           <Icon name="engineering" size={28} />

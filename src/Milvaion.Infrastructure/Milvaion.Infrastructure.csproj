@@ -21,6 +21,12 @@
 	  <Compile Remove="BackgroundServices\JobDispatcherService_MemoryTracked.cs" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <!-- ConditionExpression is internal but carries the whole condition grammar, so it is worth
+	       testing directly rather than only through the engine's private call site. -->
+	  <InternalsVisibleTo Include="Milvaion.UnitTests" />
+	</ItemGroup>
+
 
 	<ItemGroup>
 		<PackageReference Include="AsyncFixer" Version="2.1.0">

@@ -12,6 +12,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Telemetry;
+using Milvaion.Infrastructure.Workflows;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
@@ -651,17 +652,13 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Evaluates a condition expression against parent step outputs and statuses.
-    /// Supports:
-    ///   - Logical operators: &amp;&amp; (AND), || (OR)  — AND has higher precedence
-    ///   - @status == 'Completed'       → all parent(s) StepStatus check
-    ///   - $.field == 'value'           → all parent(s) result JSON field check
-    ///   - stepId:@status != 'Skipped'  → specific parent status check
-    ///   - stepId:$.price > 100         → specific parent result field check
-    /// </summary>
-    /// <summary>
     /// Extracts the condition expression from node config JSON.
     /// </summary>
+    /// <remarks>
+    /// The expression grammar itself lives in <see cref="ConditionExpression"/>. A clause is
+    /// <c>[stepId:](@status | $.field) &lt;operator&gt; &lt;value&gt;</c>, and clauses combine with
+    /// <c>&amp;&amp;</c>, <c>||</c> and parentheses.
+    /// </remarks>
     private static string ExtractConditionExpression(string nodeConfigJson)
     {
         if (string.IsNullOrWhiteSpace(nodeConfigJson))
@@ -707,19 +704,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             if (allDepIds.Count == 0)
                 return true;
 
-            // Split by || → OR groups; any group true → overall true (|| has lower precedence than &&)
-            var orGroups = condition.Split(" || ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            foreach (var orGroup in orGroups)
-            {
-                // Split by && → AND clauses; all must be true
-                var andClauses = orGroup.Split(" && ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                if (andClauses.All(clause => EvaluateClause(clause.Trim(), allDepIds, stepOccurrences)))
-                    return true;
-            }
-
-            return false;
+            return ConditionExpression.Evaluate(condition, clause => EvaluateClause(clause, allDepIds, stepOccurrences));
         }
         catch
         {

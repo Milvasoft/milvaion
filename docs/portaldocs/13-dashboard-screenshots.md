@@ -35,10 +35,27 @@ Browse all scheduled jobs with filtering and sorting capabilities.
 ![Jobs List](./images/jobs-list.png)
 
 **Features:**
-- Filter by status (Active, Disabled, Deleted)
-- Search by job name or type
-- Sort by next run time, last execution, or creation date
+- Search by job name or tag
+- Card and table views
 - Quick actions (Enable/Disable, Trigger, Edit, Delete)
+
+**Filters:**
+
+| Filter | Values |
+|--------|--------|
+| Status | Active / Inactive |
+| Type | Any job type registered by a worker |
+| Schedule | Recurring / One-time |
+| Worker | Any registered worker |
+| Source | Milvaion / External (Quartz, Hangfire) |
+
+Filters combine, and the active count appears next to a **Clear filters** button. The Type
+and Worker lists are built from the worker registry rather than from the jobs currently on
+screen, so an option does not disappear the moment you select it.
+
+A one-time job that has already run keeps its **Active** badge and gains a **Completed**
+badge — it is not disabled, it simply has nothing left to do. See
+**[Core Concepts](03-core-concepts.md)**.
 
 ### Job Details
 
@@ -102,6 +119,47 @@ Drill down into a specific execution for troubleshooting.
 View execution logs for debugging and monitoring.
 
 ![Occurrence Logs](./images/occurrence-logs.png)
+
+---
+
+## Upcoming Executions
+
+Shows what runs next — scheduled jobs and workflows on one timeline, earliest first.
+
+Unlike the job list, which shows how jobs are *configured*, this screen reads the live
+schedule the dispatcher polls. It is the place to look after a deploy, or when somebody
+asks why a job did not run.
+
+**Columns:**
+- When — a live countdown plus the absolute time
+- Name and tags
+- Type — Job or Workflow
+- Schedule — the cron expression, or "one-time"
+- Target — worker and job name
+- Status
+
+**Filters:** time window (1 hour to 7 days), jobs or workflows, name search, and an
+**Only problems** toggle.
+
+**Status values:**
+
+| Status | Meaning |
+|--------|---------|
+| Scheduled | The dispatcher holds this time. It will fire. |
+| Projected | Computed from the cron expression — workflows only. |
+| Not scheduled | Active and recurring, but nothing will run it. |
+| Invalid cron | The expression could not be parsed. |
+
+Entries with no run time sort to the bottom and are marked down the left edge, so they
+stay findable in a long list. A banner at the top reports how many there are, with a
+shortcut to filter down to just those.
+
+Two banners signal trouble rather than data: one when the Redis scheduler is unreachable —
+without it, an outage would look like an empty schedule — and one when there are more
+recurring jobs than the health check inspects, meaning the count is a floor rather than a
+total.
+
+See **[Monitoring](10-monitoring.md)** for the underlying endpoint.
 
 ---
 

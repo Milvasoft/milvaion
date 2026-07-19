@@ -44,6 +44,17 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
     public bool IsActive { get; set; }
 
     /// <summary>
+    /// When a one-time job was dispatched (UTC). Null for recurring jobs and for one-time
+    /// jobs that have not run yet.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="IsActive"/>: a finished one-time job is still active, it
+    /// simply has nothing left to run. Without this the list would show it as ready to go
+    /// forever.
+    /// </remarks>
+    public DateTime? CompletedAt { get; set; }
+
+    /// <summary>
     /// Defines behavior when a job is triggered while a previous occurrence is still running.
     /// </summary>
     public ConcurrentExecutionPolicy ConcurrentExecutionPolicy { get; set; }
@@ -73,6 +84,7 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
         JobData = r.JobData,
         JobType = r.JobNameInWorker,
         IsActive = r.IsActive,
+        CompletedAt = r.CompletedAt,
         ConcurrentExecutionPolicy = r.ConcurrentExecutionPolicy,
         Tags = r.Tags,
         IsExternal = r.IsExternal

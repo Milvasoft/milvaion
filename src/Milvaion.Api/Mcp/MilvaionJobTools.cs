@@ -11,8 +11,6 @@ using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList;
 using Milvaion.Application.Features.ScheduledJobs.GetTagList;
 using Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
-using Milvasoft.Components.Rest.Enums;
-using Milvasoft.Components.Rest.Request;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Types.Structs;
 using ModelContextProtocol;

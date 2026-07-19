@@ -447,6 +447,64 @@ Clear synced records after 7 days
 
 ---
 
+## Schedule Recovery on Restart
+
+### What Is It?
+
+The live schedule — when each job runs next — lives in a Redis sorted set that the
+dispatcher polls. When the API starts, it reconciles that set with the jobs in the
+database, so a deploy, a crash or a Redis flush does not lose the schedule.
+
+### The Rule: Redis Is Authoritative
+
+Recovery **fills gaps only**. It never overwrites a run time Redis already holds.
+
+| Situation | What recovery does |
+|-----------|--------------------|
+| Redis has a run time for the job | Leaves it alone |
+| Redis is empty, job is recurring | Derives the next run from the cron expression |
+| Redis is empty, job is one-time and never ran | Schedules it at `executeAt` |
+| Redis is empty, job is one-time and `completedAt` is set | Skips it — it is finished |
+| Cron expression cannot be parsed | Skips it, rather than scheduling in the past |
+
+The reason for the first row is the important one. The `executeAt` column is the
+*configured start time*, not the next run — see
+**[Core Concepts](03-core-concepts.md)**. For a recurring job that has been running for
+a while it sits in the past. Writing it back into the sorted set would put every such job
+at a due time, and the next dispatcher poll would fire the entire catalogue at once.
+
+:::note Upgrading
+If you are coming from a version where a deploy caused all recurring jobs to run at
+once, this is the change that fixes it. No migration or manual cleanup is needed —
+recovery simply stops overwriting the live schedule.
+:::
+
+### Verifying After a Deploy
+
+Open **Upcoming Executions** in the dashboard, or:
+
+```bash
+curl -H "X-ApiKey: $MILVAION_API_KEY" \
+  "https://milvaion.example.com/api/v1/jobs/upcoming?withinHours=24"
+```
+
+Every recurring job should show a future run time. The screen also flags jobs that are
+active and recurring but hold no run time at all — those will never fire, and nothing
+else in the product surfaces that.
+
+### Startup Log
+
+```
+Repopulating Redis with active jobs from database...
+Startup recovery (Redis) completed. ZSET: 3 added, 128 already scheduled. Cache: 131 warmed. Total active jobs: 131.
+```
+
+On a normal restart with Redis still up, expect **`already scheduled` to account for
+almost everything** and `added` to be near zero. A large `added` count means Redis lost
+its data and the schedule was rebuilt from cron expressions.
+
+---
+
 ## Best Practices
 
 ### 1. Set Appropriate Timeouts

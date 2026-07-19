@@ -1,6 +1,4 @@
 .job-form-container {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 /* Back Link (Consistent Style) */
@@ -35,13 +33,21 @@
 }
 
 /* Form Header */
+/* Form uzun; kaydet düğmesi başlıkta olduğu için aşağı kaydırınca ekrandan
+   çıkıyordu. Yapışkan konum, kaydetmek için başa dönmeyi gereksiz kılıyor. */
 .form-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 2rem;
   margin-bottom: 2rem;
+  padding: 1rem 0;
   flex-wrap: wrap;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .form-header-left {
@@ -151,8 +157,15 @@
   gap: 0.5rem;
 }
 
+/* Başlıklara ikon geldi; soldaki renk çubuğu artık ikonun yerini alıyordu ve
+   ikisi yan yana gereksiz duruyordu. */
+.form-section-title > svg {
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
 .form-section-title::before {
-  content: '';
+  content: none;
   width: 4px;
   height: 1.2rem;
   background: var(--accent-color);
@@ -312,14 +325,19 @@
 }
 
 /* Radio Group */
+/* Seçenekler kapsayıcı genişledikçe büyümüyor. `1fr` ile iki seçenek sayfanın
+   yarısını kaplıyordu; iki kelimelik bir etiket için ekranın yarısı kadar
+   tıklama alanı, kartların ne kadar geniş olduğunu gösteriyor ama neyin seçili
+   olduğunu göstermiyor. */
 .radio-group {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-top: 0.75rem;
 }
 
 .radio-option {
+  flex: 0 1 220px;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -333,16 +351,19 @@
   transition: all 0.2s;
 }
 
+/* Seçeneğin kendisi zaten çerçeveli bir kart. İçindeki metne ayrıca çerçeve ve
+   arka plan vermek kart içinde kart üretiyordu - üstelik `span` seçicisi ikonu da
+   yakalıyordu, çünkü Icon bileşeni de bir span render ediyor. Sonuç: ikon bir
+   kutuda, yazı başka bir kutuda, ikisi üçüncü bir kutunun içinde. */
+.radio-option span {
+  color: inherit;
 }
 
-.radio-option span {
-  display: inline-block;
-  padding: 10px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
+/* İkon metinden biraz geride dursun; kartın odağı etiket. */
+.radio-option .icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color 0.2s ease;
 }
 
 .radio-option:hover {
@@ -350,17 +371,36 @@
   background-color: var(--bg-hover);
 }
 
-  .radio-option input[type="radio"] {
-    cursor: pointer;
-    accent-color: var(--accent-color);
-    display: none;
-  }
+/* Radio görsel olarak gizli ama erişilebilirlik ağacında ve klavye sırasında
+   kalıyor: display:none onu sekmeyle seçilemez hale getirir ve ekran okuyucudan
+   siler, yani seçenek fareyle tıklanabilir bir kutuya dönüşür. */
+.radio-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
 
-    .radio-option input[type="radio"]:checked {
-      background: #2563eb;
-      color: #fff;
-      border-color: #2563eb;
-    }
+/* Seçili durum kartın kendisinde gösteriliyor. Önceki kural gizli input'u
+   boyuyordu, yani hiçbir şey yapmıyordu - hangi seçeneğin açık olduğu
+   ekranda görünmüyordu. */
+.radio-option:has(input[type="radio"]:checked) {
+  border-color: var(--accent-color);
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
+}
+
+.radio-option:has(input[type="radio"]:checked) .icon {
+  color: var(--accent-color);
+}
+
+/* Klavyeyle gezerken odağın nerede olduğu görünmeli; input gizli olduğu için
+   çerçeveyi kart taşıyor. */
+.radio-option:has(input[type="radio"]:focus-visible) {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
 
 
 
@@ -591,8 +631,9 @@
 }
 
 @media (max-width: 768px) {
-  .radio-group {
-    grid-template-columns: 1fr;
+  /* Artık grid değil; dar ekranda seçenekler tam genişliğe yayılsın. */
+  .radio-option {
+    flex: 1 1 100%;
   }
 
   .form-section {
@@ -900,4 +941,57 @@ textarea:disabled {
 
 .sidebar-card.disabled-card .sidebar-card-title {
   color: var(--text-muted);
+}
+
+/* ═══ Kaydedilmemiş değişiklik göstergesi ════════════════════════════════════
+   Kaydet düğmesinin yanında duruyor. Bir formun kirli olduğunu ancak sayfadan
+   ayrılmaya çalışınca öğrenmek geç bir bilgi. */
+
+.jf-dirty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  color: #f59e0b;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.jf-dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: jf-dirty-pulse 2s ease-in-out infinite;
+}
+
+@keyframes jf-dirty-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-dirty-dot { animation: none; }
+}
+
+/* Zorunlu alan yıldızı: kırmızı ve biraz daha belirgin, yoksa etiketin içinde
+   kayboluyordu. */
+.job-form-container .required {
+  color: var(--text-danger, #ef4444);
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+/* Değiştirilemeyen alanların etiketi neden kapalı olduğunu söylüyor. */
+.external-label {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
 }

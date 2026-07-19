@@ -83,3 +83,54 @@ WHERE "Status" = 1;
 CREATE INDEX IF NOT EXISTS "IX_JobOccurrences_RetryQueued"
 ON "JobOccurrences" ("NextDispatchRetryAt", "DispatchRetryCount")
 WHERE "Status" = 0 AND "NextDispatchRetryAt" IS NOT NULL;
+
+-- =================================================
+-- WorkflowRuns - Primary Access Patterns
+-- =================================================
+
+-- Workflow engine hot path: the engine repeatedly scans active runs by status.
+-- This keeps the Pending/Running iteration cheap as the table grows.
+CREATE INDEX IF NOT EXISTS "IX_WorkflowRuns_Status_CreatedAt_Covering"
+ON "WorkflowRuns" ("Status", "CreatedAt" DESC)
+INCLUDE (
+    "Id", "WorkflowId", "WorkflowVersion", "CorrelationId",
+    "StartTime", "EndTime", "DurationMs", "TriggerReason"
+);
+
+-- Workflow run list and details: filter by parent workflow and order by newest first.
+CREATE INDEX IF NOT EXISTS "IX_WorkflowRuns_WorkflowId_CreatedAt_Covering"
+ON "WorkflowRuns" ("WorkflowId", "CreatedAt" DESC)
+INCLUDE (
+    "Id", "WorkflowVersion", "CorrelationId", "Status",
+    "StartTime", "EndTime", "DurationMs", "TriggerReason"
+);
+-- =================================================
+-- JobOccurrenceLogs - Search and Aggregation
+-- =================================================
+-- This is the largest table in the system: one row per log line per execution.
+-- Until the log search and summary endpoints existed nothing queried it except by
+-- OccurrenceId through the navigation, so it carried no indexes of its own. Every
+-- new access path below would otherwise be a sequential scan over the whole table.
+
+-- Occurrence detail: all lines of one run, oldest to newest.
+-- Also the join path used when filtering logs by job.
+CREATE INDEX IF NOT EXISTS "IX_JobOccurrenceLogs_OccurrenceId_Timestamp"
+ON "JobOccurrenceLogs" ("OccurrenceId", "Timestamp");
+
+-- Log search and summary: both bound the scan by time first, newest first.
+CREATE INDEX IF NOT EXISTS "IX_JobOccurrenceLogs_Timestamp"
+ON "JobOccurrenceLogs" ("Timestamp" DESC);
+
+-- "Show me only the errors in this window" - the most common narrowing of the two
+-- above, and the one that has to stay fast during an incident.
+CREATE INDEX IF NOT EXISTS "IX_JobOccurrenceLogs_Level_Timestamp"
+ON "JobOccurrenceLogs" ("Level", "Timestamp" DESC);
+
+-- Free text search over messages uses ILIKE '%term%', which no B-tree can serve.
+-- A trigram index is what makes that sargable:
+--   CREATE EXTENSION IF NOT EXISTS pg_trgm;
+--   CREATE INDEX IF NOT EXISTS "IX_JobOccurrenceLogs_Message_Trgm"
+--   ON "JobOccurrenceLogs" USING gin ("Message" gin_trgm_ops);
+-- Left commented to match the extension above, which is also opt-in. Without it a
+-- message search still works, but only as fast as the time filter makes it - so
+-- searchTerm should be paired with since, and the tool description says so.

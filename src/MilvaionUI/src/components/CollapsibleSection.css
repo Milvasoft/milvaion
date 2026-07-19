@@ -1,0 +1,133 @@
+/* Başlığından katlanabilen bölüm. */
+
+.collapsible-section {
+  /* --transition-base "180ms ease" - süre ve yumuşatma birlikte. Geçiş
+     gecikmesi olarak yalnızca süre gerekiyor ve oraya "180ms ease"
+     yazılamıyor, o yüzden süre ayrıca duruyor. İkisi birlikte değişmeli. */
+  --collapsible-duration: 180ms;
+}
+
+.collapsible-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.collapsible-head h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.collapsible-head:hover h2 {
+  color: var(--accent-color);
+}
+
+/* Eylem düğmeleri imleci geri normale çeviriyor: çubuğun geri kalanı katlama
+   yüzeyi ama bunlar kendi işlerini yapıyor. */
+.collapsible-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.collapsible-chevron svg {
+  transition: transform var(--transition-fast);
+  transform: rotate(-90deg);
+}
+
+.collapsible-section.is-open .collapsible-chevron svg {
+  transform: rotate(0deg);
+}
+
+.collapsible-head:hover .collapsible-chevron {
+  background: var(--bg-hover);
+  color: var(--accent-color);
+}
+
+.collapsible-chevron:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* ── Açılma kapanma ──────────────────────────────────────────────────────────
+   İçerik yüksekliği önceden bilinmiyor - tablo kaç satır, DAG kaç düğüm belli
+   değil - o yüzden sabit bir max-height veremiyoruz; çok küçük seçilirse içerik
+   kesiliyor, çok büyük seçilirse animasyon kısa içerikte anlamsız hızlanıyor.
+
+   grid-template-rows 0fr → 1fr geçişi bu sorunu çözüyor: tarayıcı gerçek
+   yüksekliği kendisi hesaplıyor ve arada animasyon yapıyor. */
+
+.collapsible-outer {
+  display: grid;
+  grid-template-rows: 0fr;
+
+  /* Kapalıyken sekme sırasından ve ekran okuyucudan çıkıyor; aria-hidden tek
+     başına klavye erişimini kapatmıyor.
+
+     visibility ara değer almayan bir özellik, yani anında değişiyor. Geçiş
+     tanımlanmazsa kapanırken içerik kutu daralmaya başlamadan yok oluyor ve
+     geriye boş bir kutunun kapanışı kalıyor. Kapanışta gecikme süre kadar,
+     açılışta sıfır: içerik hemen görünüyor, kapanırken sona kadar duruyor. */
+  visibility: hidden;
+  transition: grid-template-rows var(--transition-base),
+              visibility 0s linear var(--collapsible-duration);
+}
+
+.collapsible-section.is-open .collapsible-outer {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows var(--transition-base),
+              visibility 0s linear 0s;
+}
+
+/* Grid alanı sıfıra inerken içeriğin taşmaması için. */
+.collapsible-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.collapsible-body {
+  margin-top: var(--space-4);
+  /* İçerik de solup görünüyor; yalnızca yükseklik değişimi, kapanırken metnin
+     sıkışarak yok olması gibi görünüyordu. */
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.collapsible-section.is-open .collapsible-body {
+  opacity: 1;
+  transition-delay: 60ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Gecikme de sıfırlanıyor: animasyon yokken içeriğin kapandıktan sonra bir
+     süre daha görünür kalması için sebep kalmıyor. */
+  .collapsible-outer,
+  .collapsible-section.is-open .collapsible-outer,
+  .collapsible-body,
+  .collapsible-chevron svg {
+    transition: none;
+  }
+}

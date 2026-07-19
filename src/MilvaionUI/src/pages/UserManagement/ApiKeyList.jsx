@@ -316,13 +316,13 @@ function ApiKeyList() {
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="role-list api-key-list">
+    <div className="page role-list api-key-list">
       <Modal {...modalProps} />
 
       <div className="page-header">
         <h1>
           <Icon name="key" size={28} />
-          <span style={{ margin: '0 0 0 1rem' }}>Api Keys</span>
+          <span>Api Keys</span>
           <span>({totalCount})</span>
         </h1>
         <button className="create-btn" onClick={handleCreate}>

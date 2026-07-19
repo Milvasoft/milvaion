@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 const STEP_COLORS = ['#6366f1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6']
 
@@ -172,12 +173,9 @@ function WorkflowStepBottleneckReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="troubleshoot" size={32} /> Workflow Step Bottleneck</h1>
+          <h1><Icon name="troubleshoot" size={28} /> Workflow Step Bottleneck</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -189,7 +187,7 @@ function WorkflowStepBottleneckReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="troubleshoot" size={32} /> Workflow Step Bottleneck</h1>
+          <h1><Icon name="troubleshoot" size={28} /> Workflow Step Bottleneck</h1>
           <p className="page-description">Step-level performance analysis per workflow</p>
         </div>
         <div className="page-header-actions">

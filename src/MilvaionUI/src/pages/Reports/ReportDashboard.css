@@ -2,6 +2,13 @@
   padding: 0;
 }
 
+  .report-dashboard .page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+  }
+
 .report-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -10,25 +17,27 @@
 }
 
 .report-card {
-  background: var(--surface-bg);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
-.report-card:hover:not(.no-data) {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
-  border-color: var(--primary-color);
-}
+  /* Hover'da yalnızca kenarlık: diğer sayfalardaki kartlar yükselmiyor ve gölge
+   almıyor, rapor kartlarının farklı davranması sayfayı başka bir üründen
+   gelmiş gibi gösteriyordu. */
+  .report-card:hover:not(.no-data) {
+    border-color: var(--accent-color);
+    background: var(--bg-hover);
+  }
 
-.report-card.no-data {
-  opacity: 0.6;
-}
+  .report-card.no-data {
+    opacity: 0.6;
+  }
 
 .report-card-header {
   display: flex;
@@ -59,24 +68,24 @@
   gap: 1rem;
 }
 
-.report-dashboard .page-header > div:first-child {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
+  .report-dashboard .page-header > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
 
-.report-dashboard .page-header .page-description {
-  width: 100%;
-  margin: -0.25rem 0 0 0;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
+  .report-dashboard .page-header .page-description {
+    width: 100%;
+    margin: -0.25rem 0 0 0;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
 
-.report-dashboard .page-header .btn {
-  max-width: 150px;
-  white-space: nowrap;
-}
+  .report-dashboard .page-header .btn {
+    max-width: 150px;
+    white-space: nowrap;
+  }
 
   .report-dashboard .page-header .page-description {
     text-align: left;
@@ -118,9 +127,9 @@
   color: var(--text-secondary);
 }
 
-.meta-item .icon {
-  color: var(--text-tertiary);
-}
+  .meta-item .icon {
+    color: var(--text-tertiary);
+  }
 
 .report-action {
   display: flex;
@@ -138,17 +147,17 @@
   gap: 0.5rem;
 }
 
-.report-card-empty p {
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin: 0;
-  color: var(--text-secondary);
-}
+  .report-card-empty p {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0;
+    color: var(--text-secondary);
+  }
 
-.report-card-empty small {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
+  .report-card-empty small {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+  }
 
 @media (max-width: 768px) {
   .report-grid {
@@ -158,14 +167,16 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spinning {
   animation: spin 1s linear infinite;
 }
 
-.dashboard-header-actions {
+.page-header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -179,11 +190,11 @@
   margin-top: 1rem;
 }
 
-.cleanup-input-group label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
+  .cleanup-input-group label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
 
 .cleanup-input {
   padding: 0.625rem 1rem;
@@ -196,11 +207,11 @@
   box-sizing: border-box;
 }
 
-.cleanup-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-}
+  .cleanup-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
 
 .cleanup-result {
   display: flex;
@@ -212,16 +223,14 @@
   font-size: 0.875rem;
 }
 
-.cleanup-result.success {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.2);
-}
+  .cleanup-result.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
 
-.cleanup-result.error {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-
+  .cleanup-result.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }

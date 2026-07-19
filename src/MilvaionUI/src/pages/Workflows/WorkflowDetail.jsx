@@ -4,13 +4,15 @@ import workflowService from '../../services/workflowService'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
-import WorkflowDAG from '../../components/WorkflowDAG'
+import WorkflowCanvas from './WorkflowCanvas'
 import CronDisplay from '../../components/CronDisplay'
 import { formatDate } from '../../utils/dateUtils'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import AuditInfoCard from '../../components/AuditInfoCard'
 import TriggerWorkflowModal from '../../components/TriggerWorkflowModal'
+import CollapsibleSection from '../../components/CollapsibleSection'
 import './WorkflowDetail.css'
+import { SkeletonDetail } from '../../components/Skeleton'
 
 const workflowStatusLabels = { 0: 'Pending', 1: 'Running', 2: 'Completed', 3: 'Failed', 4: 'Cancelled', 5: 'Partially Completed' }
 const workflowStatusColors = { 0: 'pending', 1: 'running', 2: 'completed', 3: 'failed', 4: 'cancelled', 5: 'partial' }
@@ -141,27 +143,25 @@ function WorkflowDetail() {
     }
   }
 
-  if (loading) {
-    return <div className="workflow-detail-loading"><Icon name="hourglass_empty" size={24} /> Loading...</div>
-  }
+  if (loading) return <SkeletonDetail />
 
   if (!workflow) {
     return <div className="workflow-detail-error">Workflow not found</div>
   }
 
   return (
-    <div className="workflow-detail-page">
+    <div className="page workflow-detail-page">
       {/* Header */}
-      <div className="wfd-header">
-        <div className="wfd-header-left">
-          <Link to="/workflows" className="wfd-back-btn" title="Back to Workflows">
+      <div className="dtl-header">
+        <div className="dtl-header-left">
+          <Link to="/workflows" className="dtl-back" title="Back to Workflows">
             <Icon name="arrow_back" size={24} />
           </Link>
-          <div className="wfd-header-content">
+          <div className="dtl-title">
             <h1>
               <Icon name="account_tree" size={28} />
               {workflow.name}
-              <span className={`wfd-badge ${workflow.isActive ? 'wfd-badge-success' : 'wfd-badge-muted'}`}>
+              <span className={`dtl-badge ${workflow.isActive ? 'dtl-badge--success' : 'dtl-badge--muted'}`}>
                 {workflow.isActive ? 'Active' : 'Inactive'}
               </span>
               <button
@@ -174,82 +174,94 @@ function WorkflowDetail() {
             </h1>
           </div>
         </div>
-        <div className="wfd-header-actions">
+        <div className="dtl-actions">
           <AutoRefreshIndicator
             enabled={autoRefresh}
             onToggle={() => setAutoRefresh(p => !p)}
             lastRefreshTime={lastRefreshTime}
             intervalSeconds={15}
           />
-          <Link to={`/workflows/${id}/builder`} className="wfd-btn wfd-btn-secondary" title="Open visual builder (experimental)">
+          <Link to={`/workflows/${id}/builder`} className="dtl-btn dtl-btn--secondary" title="Open visual builder (experimental)">
             <Icon name="account_tree" size={18} /> Edit via Workspace
           </Link>
-          <Link to={`/workflows/${id}/edit`} className="wfd-btn wfd-btn-secondary">
+          <Link to={`/workflows/${id}/edit`} className="dtl-btn dtl-btn--secondary">
             <Icon name="edit" size={18} /> Edit
           </Link>
-          <button className="wfd-btn wfd-btn-primary" onClick={handleTrigger} disabled={!workflow.isActive}>
+          <button className="dtl-btn dtl-btn--primary" onClick={handleTrigger} disabled={!workflow.isActive}>
             <Icon name="play_arrow" size={18} /> Run Workflow
           </button>
-          <button className="wfd-btn" onClick={handleDelete}>
+          <button className="dtl-btn dtl-btn--danger" onClick={handleDelete}>
             <Icon name="delete" size={18} /> Delete
           </button>
           <AuditInfoCard auditInfo={workflow.auditInfo} />
         </div>
       </div>
 
-      {/* Info Section */}
-
-      <div className="info-card">
-        <label>Description</label>
-        <span title={workflow.description || 'No description'}>
-          {workflow.description
-            ? (workflow.description.length > 300
-              ? `${workflow.description.substring(0, 300)}...`
-              : workflow.description)
-            : 'No description'}
-        </span>
-      </div>
-
-      <div className="workflow-info-grid">
+      {/* Configuration */}
+      <CollapsibleSection
+        className="workflow-config-section"
+        storageKey="milvaion.workflowDetail.configOpen"
+        icon="tune"
+        title="Configuration"
+      >
         <div className="info-card">
-          <label>Failure Strategy</label>
-          <span>{failureStrategyLabels[workflow.failureStrategy]}</span>
-        </div>
-        <div className="info-card">
-          <label>Max Step Retries</label>
-          <span>{workflow.maxStepRetries}</span>
-        </div>
-        <div className="info-card">
-          <label>Timeout</label>
-          <span>{workflow.timeoutSeconds ? `${workflow.timeoutSeconds}s` : 'No timeout'}</span>
-        </div>
-        <div className="info-card">
-          <label>Steps</label>
-          <span>{workflow.steps?.length || 0}</span>
-        </div>
-        <div className="info-card">
-          <label>Schedule</label>
-          <span>
-            {workflow.cronExpression ? (
-              <CronDisplay expression={workflow.cronExpression} showTooltip={true} />
-            ) : (
-              <span className="text-muted">Manual trigger only</span>
-            )}
+          <label>Description</label>
+          <span title={workflow.description || 'No description'}>
+            {workflow.description
+              ? (workflow.description.length > 300
+                ? `${workflow.description.substring(0, 300)}...`
+                : workflow.description)
+              : 'No description'}
           </span>
         </div>
-      </div>
+
+        <div className="workflow-info-grid">
+          <div className="info-card">
+            <label>Failure Strategy</label>
+            <span>{failureStrategyLabels[workflow.failureStrategy]}</span>
+          </div>
+          <div className="info-card">
+            <label>Max Step Retries</label>
+            <span>{workflow.maxStepRetries}</span>
+          </div>
+          <div className="info-card">
+            <label>Timeout</label>
+            <span>{workflow.timeoutSeconds ? `${workflow.timeoutSeconds}s` : 'No timeout'}</span>
+          </div>
+          <div className="info-card">
+            <label>Steps</label>
+            <span>{workflow.steps?.length || 0}</span>
+          </div>
+          <div className="info-card">
+            <label>Schedule</label>
+            <span>
+              {workflow.cronExpression ? (
+                <CronDisplay expression={workflow.cronExpression} showTooltip={true} />
+              ) : (
+                <span className="text-muted">Manual trigger only</span>
+              )}
+            </span>
+          </div>
+        </div>
+      </CollapsibleSection>
 
       {/* DAG Visualization */}
-      <div className="workflow-dag-section">
-        <h2><Icon name="schema" size={22} /> Workflow DAG</h2>
-        <div className="dag-container">
-          <WorkflowDAG steps={workflow.steps || []} edges={workflow.edges || []} />
-        </div>
-      </div>
+      <CollapsibleSection
+        className="workflow-dag-section"
+        storageKey="milvaion.workflowDetail.dagOpen"
+        icon="schema"
+        title="Workflow DAG"
+      >
+        <WorkflowCanvas steps={workflow.steps || []} edges={workflow.edges || []} />
+      </CollapsibleSection>
 
-      {/* Steps Table */}
-      <div className="workflow-steps-section">
-        <h2><Icon name="list" size={22} /> Steps ({workflow.steps?.length || 0})</h2>
+      {/* Steps */}
+      <CollapsibleSection
+        className="workflow-steps-section"
+        storageKey="milvaion.workflowDetail.stepsOpen"
+        icon="list"
+        title={`Steps (${workflow.steps?.length || 0})`}
+      >
         <div className="table-container">
           <table className="data-table">
             <thead>
@@ -300,16 +312,15 @@ function WorkflowDetail() {
             </tbody>
           </table>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Runs Section */}
-      <div className="workflow-runs-section">
-        <div className="section-header">
-          <h2><Icon name="history" size={22} /> Recent Runs</h2>
-          <button className="wfd-btn wfd-btn-secondary wfd-btn-sm" onClick={() => loadRuns(currentPage)} disabled={runsLoading}>
-            <Icon name="refresh" size={16} /> Refresh
-          </button>
-        </div>
+      <CollapsibleSection
+        className="workflow-runs-section"
+        storageKey="milvaion.workflowDetail.runsOpen"
+        icon="history"
+        title="Recent Runs"
+      >
         {runsLoading ? (
           <div className="loading-text">Loading runs...</div>
         ) : runs.length === 0 ? (
@@ -330,7 +341,23 @@ function WorkflowDetail() {
                 </thead>
                 <tbody>
                   {runs.map(run => (
-                    <tr key={run.id}>
+                    // Satırın tamamı tıklanabilir. Klavye için de erişilebilir olması gerekiyor,
+                    // yoksa fareyle yapılabilen bir şey klavyeyle yapılamaz hale gelir; satır
+                    // sonundaki View bağlantısı da bu yüzden duruyor.
+                    <tr
+                      key={run.id}
+                      className="clickable-row"
+                      onClick={() => navigate(`/workflows/${id}/runs/${run.id}`)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          navigate(`/workflows/${id}/runs/${run.id}`)
+                        }
+                      }}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Open run ${run.id.substring(0, 8)}`}
+                    >
                       <td><code className="run-id">{run.id.substring(0, 8)}...</code></td>
                       <td>
                         <span className={`status-badge status-${workflowStatusColors[run.status]}`}>
@@ -340,8 +367,10 @@ function WorkflowDetail() {
                       <td>{run.startTime ? formatDate(run.startTime) : '-'}</td>
                       <td>{run.durationMs ? `${(run.durationMs / 1000).toFixed(1)}s` : '-'}</td>
                       <td>{run.triggerReason || '-'}</td>
-                      <td>
-                        <Link to={`/workflows/${id}/runs/${run.id}`} className="wfd-btn wfd-btn-secondary wfd-btn-sm">
+                      {/* Satır zaten gidiyor, ama bağlantının kendisi orta tıklama ve
+                          "yeni sekmede aç" için gerekli. */}
+                      <td onClick={e => e.stopPropagation()}>
+                        <Link to={`/workflows/${id}/runs/${run.id}`} className="dtl-btn dtl-btn--secondary dtl-btn--sm">
                           <Icon name="visibility" size={14} /> View
                         </Link>
                       </td>
@@ -353,7 +382,7 @@ function WorkflowDetail() {
             {totalRunsCount > runsPerPage && (
               <div className="pagination">
                 <button
-                  className="wfd-btn wfd-btn-secondary wfd-btn-sm"
+                  className="dtl-btn dtl-btn--secondary dtl-btn--sm"
                   onClick={() => loadRuns(currentPage - 1)}
                   disabled={currentPage === 1 || runsLoading}
                 >
@@ -363,7 +392,7 @@ function WorkflowDetail() {
                   Page {currentPage} of {Math.ceil(totalRunsCount / runsPerPage)} ({totalRunsCount} total runs)
                 </span>
                 <button
-                  className="wfd-btn wfd-btn-secondary wfd-btn-sm"
+                  className="dtl-btn dtl-btn--secondary dtl-btn--sm"
                   onClick={() => loadRuns(currentPage + 1)}
                   disabled={currentPage >= Math.ceil(totalRunsCount / runsPerPage) || runsLoading}
                 >
@@ -373,7 +402,7 @@ function WorkflowDetail() {
             )}
           </>
         )}
-      </div>
+      </CollapsibleSection>
 
       {/* Trigger Modal */}
       {showTriggerModal && (

@@ -1120,6 +1120,9 @@ namespace Milvaion.Api.Migrations
                     b.Property<JobAutoDisableSettings>("AutoDisableSettings")
                         .HasColumnType("jsonb");
 
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("ConcurrentExecutionPolicy")
                         .HasColumnType("integer");
 

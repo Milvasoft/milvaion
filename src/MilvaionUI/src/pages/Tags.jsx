@@ -4,6 +4,7 @@ import Icon from '../components/Icon'
 import api from '../services/api'
 import { getApiErrorMessage } from '../utils/errorUtils'
 import './Tags.css'
+import { SkeletonGrid } from '../components/Skeleton'
 
 function Tags() {
   const [tags, setTags] = useState([])
@@ -38,11 +39,20 @@ function Tags() {
     })
   }
 
-  if (loading) return <div className="loading">Loading tags...</div>
+  if (loading) {
+    return (
+      <div className="page tags-page">
+        <div className="page-header">
+          <h1><Icon name="label" size={28} /> Job Tags</h1>
+        </div>
+        <SkeletonGrid cards={8} lines={2} />
+      </div>
+    )
+  }
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="tags-page">
+    <div className="page tags-page">
       <div className="page-header">
         <h1>
           <Icon name="label" size={28} />

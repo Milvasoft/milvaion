@@ -1,11 +1,9 @@
 .failed-job-list {
-  padding: 2rem;
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: 0;
 }
 
 /* Page Header */
-.page-header {
+.failed-job-list .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;

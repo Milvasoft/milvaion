@@ -1,6 +1,4 @@
 .workflow-detail-page {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 
@@ -176,14 +174,17 @@
   margin-top: 24px;
 }
 
-.info-card {
+/* Sayfaya kapsanmış: stil dosyaları global yükleniyor, kapsamsız bir .info-card
+   JobDetail'deki aynı adlı elemana da uyguluyordu ve orada ikinci bir çerçeve
+   çizerek kart içinde kart görüntüsü veriyordu. */
+.workflow-detail-page .info-card {
   background: var(--bg-card, var(--bg-secondary));
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 16px;
 }
 
-.info-card label {
+.workflow-detail-page .info-card label {
   display: block;
   font-size: 11px;
   text-transform: uppercase;
@@ -193,7 +194,7 @@
   font-weight: 500;
 }
 
-.info-card span {
+.workflow-detail-page .info-card span {
   font-size: 14px;
   color: var(--text-primary);
   font-weight: 600;
@@ -812,4 +813,32 @@
   padding: 3rem 1rem;
   text-align: center;
   color: var(--text-secondary);
+}
+
+/* ── Tıklanabilir run satırı ──────────────────────────────────────────────────
+   RoleList ve ApiKeyList ile aynı desen. Satır sonundaki View bağlantısı duruyor:
+   orta tıklama ve "yeni sekmede aç" satır tıklamasıyla yapılamıyor. */
+
+.workflow-runs-section .data-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.workflow-runs-section .data-table tbody tr.clickable-row:hover {
+  background: var(--bg-hover);
+  border-left: 2px solid var(--accent-color);
+}
+
+.workflow-runs-section .data-table tbody tr.clickable-row:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+/* Configuration bölümü: açıklama kartı ile altındaki ölçü kartları arasına biraz
+   boşluk. İkisi de aynı bölümün parçası ama farklı okuma birimleri. */
+.workflow-config-section {
+  margin-bottom: 24px;
+}
+
+.workflow-config-section .workflow-info-grid {
+  margin-top: 12px;
 }

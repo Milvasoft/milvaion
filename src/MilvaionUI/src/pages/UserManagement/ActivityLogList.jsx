@@ -127,11 +127,11 @@ function ActivityLogList() {
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="activity-log-list">
+    <div className="page activity-log-list">
       <div className="page-header">
         <h1>
           <Icon name="history" size={28} />
-          <span style={{ margin: '0 0 0 1rem' }}>Activity Logs</span>
+          <span>Activity Logs</span>
           <span>({totalCount})</span>
         </h1>
       </div>

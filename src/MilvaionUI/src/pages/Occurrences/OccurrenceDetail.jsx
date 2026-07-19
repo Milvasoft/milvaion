@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
@@ -9,6 +9,7 @@ import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonDetail } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
+import CollapsibleSection from '../../components/CollapsibleSection'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import './OccurrenceDetail.css'
 
@@ -26,6 +27,8 @@ const [autoScroll, setAutoScroll] = useState(true)
 const [showCancelModal, setShowCancelModal] = useState(false)
 const [cancelReason, setCancelReason] = useState('')
 const [lastRefreshTime, setLastRefreshTime] = useState(null)
+const [logLevelFilter, setLogLevelFilter] = useState('all')
+const [logSearch, setLogSearch] = useState('')
 
 const { modalProps, showModal } = useModal()
 
@@ -388,6 +391,41 @@ const { modalProps, showModal } = useModal()
     })
   }
 
+  // Seviye başına kayıt sayısı. Filtre düğmelerinde gösteriliyor ve sıfır olan
+  // seviyenin düğmesi hiç çizilmiyor - tıklanınca boş liste veren bir filtre,
+  // filtrenin bozuk olduğunu düşündürüyor.
+  const logCounts = useMemo(() => {
+    const counts = {}
+
+    for (const log of logs) {
+      const level = (log.level || 'information').toLowerCase()
+
+      // Backend bazı yerlerde 'Info', bazı yerlerde 'Information' yazıyor.
+      const key = level === 'info' ? 'information' : level
+
+      counts[key] = (counts[key] ?? 0) + 1
+    }
+
+    return counts
+  }, [logs])
+
+  const visibleLogs = useMemo(() => {
+    const search = logSearch.trim().toLowerCase()
+
+    return logs.filter(log => {
+      if (logLevelFilter !== 'all') {
+        const level = (log.level || 'information').toLowerCase()
+        const key = level === 'info' ? 'information' : level
+
+        if (key !== logLevelFilter) return false
+      }
+
+      if (search && !(log.message || '').toLowerCase().includes(search)) return false
+
+      return true
+    })
+  }, [logs, logLevelFilter, logSearch])
+
   const getStatusBadge = (status, noAnimate = false) => {
     const statusMap = {
       0: { icon: 'schedule', label: 'Queued', className: 'queued' },
@@ -436,8 +474,15 @@ const { modalProps, showModal } = useModal()
   if (error) return <div className="error">{error}</div>
   if (!occurrence) return <div className="error">Occurrence not found</div>
 
+  // Özet şeridinin kenar rengi. Durum kodu yerine tona indirgiyoruz: sekiz durum
+  // için sekiz ayrı renk, bakışta ayırt edilebilir olmaktan çıkıyor.
+  const statusTone = {
+    0: 'idle', 1: 'running', 2: 'success', 3: 'danger',
+    4: 'idle', 5: 'warning', 6: 'idle', 7: 'idle',
+  }[occurrence.status] ?? 'idle'
+
   return (
-    <div className="occurrence-detail">
+    <div className="page occurrence-detail">
       <Modal {...modalProps} />
 
       {/* Cancel Modal with Reason Input */}
@@ -472,18 +517,23 @@ const { modalProps, showModal } = useModal()
         />
       )}
 
-      <div className="page-header">
-        <div className="page-header-left">
+      <div className="dtl-header">
+        <div className="dtl-header-left">
           <Link
             to={occurrence.jobId ? `/jobs/${occurrence.jobId}` : '/jobs'}
-            className="back-icon-btn"
+            className="dtl-back"
             title="Back to Job"
           >
             <Icon name="arrow_back" size={24} />
           </Link>
-          <h1 >Occurrence Details</h1>
+          <div className="dtl-title">
+            <h1>
+              <Icon name="play_circle" size={28} />
+              {occurrence.jobName || 'Execution'}
+            </h1>
+          </div>
         </div>
-        <div className="header-actions">
+        <div className="dtl-actions">
           <div className={`signalr-status ${signalRConnected ? 'connected' : occurrence && isFinalStatus(occurrence.status) ? 'disconnected' : 'reconnecting'}`}>
             <span className="status-dot"></span>
             <span className="status-text">
@@ -500,7 +550,7 @@ const { modalProps, showModal } = useModal()
             <button
               onClick={handleCancel}
               disabled={deleting || occurrence.externalJobId}
-              className="btn btn-warning"
+              className="dtl-btn dtl-btn--warning"
               title={occurrence.externalJobId ? "External job occurrences cannot be cancelled from Milvaion" : "Cancel Occurrence"}
             >
               <Icon name="cancel" size={18} />
@@ -513,112 +563,181 @@ const { modalProps, showModal } = useModal()
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="btn btn-secondary"
+              className="dtl-btn dtl-btn--danger"
               title="Delete Occurrence"
             >
-              <Icon name="delete" size={18} className="me-1" style={{ color: '#fff' }} />
-
-              <span style={{ color: '#fff' }}>
-                {deleting ? 'Deleting...' : 'Delete'}
-              </span>
+              <Icon name="delete" size={18} />
+              {deleting ? 'Deleting...' : 'Delete'}
             </button>
           )}
         </div>
       </div>
 
-      <div className="occurrence-info-card">
-        <h2>Execution Information</h2>
+      {/* Özet şeridi: sayfanın cevapladığı ilk soru durum ve süre, o yüzden
+          ölçü kartlarının arasında değil en üstte duruyor. */}
+      <div className={`occ-summary occ-summary--${statusTone}`}>
+        <div className="occ-summary-status">
+          {getStatusBadge(occurrence.status)}
+          {occurrence.retryCount > 0 && (
+            <span className="occ-summary-retry" title="Retry attempts before this result">
+              <Icon name="replay" size={13} /> {occurrence.retryCount} {occurrence.retryCount === 1 ? 'retry' : 'retries'}
+            </span>
+          )}
+        </div>
+
+        <div className="occ-summary-timeline">
+          <div className="occ-summary-stat">
+            <label>Started</label>
+            <span>{occurrence.startTime ? formatDateTime(occurrence.startTime) : '—'}</span>
+          </div>
+          <Icon name="arrow_forward" size={16} className="occ-summary-arrow" />
+          <div className="occ-summary-stat">
+            <label>Duration</label>
+            <span className="occ-summary-duration">{getDuration()}</span>
+          </div>
+          <Icon name="arrow_forward" size={16} className="occ-summary-arrow" />
+          <div className="occ-summary-stat">
+            <label>Finished</label>
+            <span>{occurrence.endTime ? formatDateTime(occurrence.endTime) : '—'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Hata varsa ölçü kartlarının arasına gömmek yerine kendi bölümünde ve
+          en üstte: sayfaya gelinme sebebi genelde bu. */}
+      {occurrence.exception && (
+        <div className="occ-exception">
+          <div className="occ-exception-head">
+            <Icon name="error" size={18} />
+            <strong>Exception</strong>
+          </div>
+          <pre>{occurrence.exception}</pre>
+        </div>
+      )}
+
+      <CollapsibleSection
+        className="occurrence-info-card"
+        storageKey="milvaion.occurrenceDetail.infoOpen"
+        icon="info"
+        title="Execution Information"
+      >
         <div className="info-grid">
-          <div className="info-item">
-            <label>STATUS</label>
-            <div>{getStatusBadge(occurrence.status)}</div>
-          </div>
-          <div className="info-item">
-            <label>DURATION</label>
-            <span>{getDuration()}</span>
-          </div>
-          <div className="info-item">
-            <label>STARTED AT</label>
-            <span>{occurrence.startTime ? formatDateTime(occurrence.startTime) : '-'}</span>
-          </div>
-          <div className="info-item">
-            <label>COMPLETED AT</label>
-            <span>{occurrence.endTime ? formatDateTime(occurrence.endTime) : '-'}</span>
-          </div>
           {occurrence.workerId && (
             <div className="info-item">
-              <label>WORKER ID</label>
+              <label>Worker</label>
               <span>{occurrence.workerId}</span>
             </div>
           )}
-          {occurrence.correlationId && (
-            <div className="info-item">
-              <label>CORRELATION ID</label>
-              <span className="correlation-id">{occurrence.correlationId}</span>
-            </div>
-          )}
           <div className="info-item">
-            <label>JOB</label>
+            <label>Job</label>
             {occurrence.jobId ? (
-              <div className="job-info-container">
-                {occurrence.jobName && (
-                  <div className="job-name-display">{occurrence.jobName}</div>
-                )}
-                <Link to={`/jobs/${occurrence.jobId}`} className="job-link">
-                  View Job Details →
-                </Link>
-              </div>
+              <Link to={`/jobs/${occurrence.jobId}`} className="job-link">
+                {occurrence.jobName || 'View job'} <Icon name="arrow_forward" size={13} />
+              </Link>
             ) : (
-              <span>-</span>
+              <span className="text-muted">—</span>
             )}
           </div>
           <div className="info-item">
-            <label>JOB VERSION</label>
+            <label>Job version</label>
             <span className="version-badge">
               <Icon name="history" size={14} />
               v{occurrence.jobVersion || 1}
             </span>
           </div>
+          <div className="info-item">
+            <label>Execution id</label>
+            <span className="correlation-id">{occurrence.id}</span>
+          </div>
+          {occurrence.correlationId && (
+            <div className="info-item">
+              <label>Correlation id</label>
+              <span className="correlation-id">{occurrence.correlationId}</span>
+            </div>
+          )}
           {occurrence.externalJobId && (
             <div className="info-item">
-              <label>EXTERNAL ID</label>
+              <label>External id</label>
               <span className="external-badge-detail" title="This occurrence is from an external scheduler (Quartz, Hangfire, etc.)">
                 <Icon name="cloud_sync" size={14} />
                 {occurrence.externalJobId}
               </span>
             </div>
           )}
-          {occurrence.retryCount > 0 && (
-            <div className="info-item">
-              <label>RETRY COUNT</label>
-              <span>{occurrence.retryCount}</span>
-            </div>
-          )}
-          {occurrence.exception && (
-            <div className="info-item full-width error-box">
-              <label>EXCEPTION</label>
-              <pre>{occurrence.exception}</pre>
-            </div>
-          )}
-          {occurrence.result && (
-            <div className="info-item full-width">
-              <JsonViewer data={occurrence.result} title="Result Data" />
-            </div>
-          )}
         </div>
-      </div>
+
+        {occurrence.result && (
+          <div className="occ-result">
+            <JsonViewer data={occurrence.result} title="Result Data" />
+          </div>
+        )}
+      </CollapsibleSection>
 
       {logs.length > 0 && (
-        <div className="logs-section">
-          <div className="logs-header">
-            <h2>
-              <Icon name="article" size={20} />
-              Execution Logs
-            </h2>
-            <span className="log-count">{logs.length} entries</span>
+        <CollapsibleSection
+          className="logs-section"
+          storageKey="milvaion.occurrenceDetail.logsOpen"
+          icon="article"
+          title={`Execution Logs (${logs.length})`}
+        >
+          {/* Seviye sayıları filtrenin üstünde duruyor: kaç hata olduğunu görmek için
+              filtreyi denemek gerekmiyor. Sıfır olan seviye hiç gösterilmiyor. */}
+          <div className="occ-log-toolbar">
+            <div className="occ-log-levels">
+              <button
+                type="button"
+                className={`occ-log-level${logLevelFilter === 'all' ? ' is-active' : ''}`}
+                onClick={() => setLogLevelFilter('all')}
+              >
+                All <span className="occ-log-level-count">{logs.length}</span>
+              </button>
+
+              {['error', 'warning', 'information', 'debug'].map(level => {
+                const count = logCounts[level] ?? 0
+
+                if (count === 0) return null
+
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    className={`occ-log-level occ-log-level--${level}${logLevelFilter === level ? ' is-active' : ''}`}
+                    onClick={() => setLogLevelFilter(level)}
+                  >
+                    {level === 'information' ? 'Info' : level.charAt(0).toUpperCase() + level.slice(1)}
+                    <span className="occ-log-level-count">{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="occ-log-search">
+              <Icon name="search" size={15} />
+              <input
+                type="text"
+                value={logSearch}
+                onChange={e => setLogSearch(e.target.value)}
+                placeholder="Filter messages"
+                aria-label="Filter log messages"
+              />
+              {logSearch && (
+                <button type="button" onClick={() => setLogSearch('')} aria-label="Clear filter">
+                  <Icon name="close" size={14} />
+                </button>
+              )}
+            </div>
           </div>
+
+          {visibleLogs.length === 0 ? (
+            <p className="occ-log-empty">
+              No entries match this filter.{' '}
+              <button type="button" onClick={() => { setLogLevelFilter('all'); setLogSearch('') }}>
+                Clear it
+              </button>
+            </p>
+          ) : (
           <div className="logs-container" onScroll={handleScroll} ref={logsContainerRef}>
-            {logs.map((log, index) => {
+            {visibleLogs.map((log, index) => {
               // Generate unique key: timestamp + index (in case of duplicate timestamps)
               const logKey = `${log.timestamp || log.createdAt || 0}-${index}`
 
@@ -643,18 +762,17 @@ const { modalProps, showModal } = useModal()
               )
             })}
           </div>
-        </div>
+          )}
+        </CollapsibleSection>
       )}
 
       {occurrence.statusChangeLogs && occurrence.statusChangeLogs.length > 0 && (
-        <div className="status-history-section">
-          <div className="section-header">
-            <h2>
-              <Icon name="history" size={20} />
-              Status Change History
-            </h2>
-            <span className="history-count">{occurrence.statusChangeLogs.length} changes</span>
-          </div>
+        <CollapsibleSection
+          className="status-history-section"
+          storageKey="milvaion.occurrenceDetail.historyOpen"
+          icon="history"
+          title={`Status Change History (${occurrence.statusChangeLogs.length})`}
+        >
           <div className="status-history-timeline">
             {occurrence.statusChangeLogs
               .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
@@ -672,7 +790,7 @@ const { modalProps, showModal } = useModal()
                 </div>
               ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Auto-refresh indicator - only show when SignalR is connected */}

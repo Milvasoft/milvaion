@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 function PercentileDurationsReport() {
   const navigate = useNavigate()
@@ -126,12 +127,9 @@ function PercentileDurationsReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="show_chart" size={32} /> P50 / P95 / P99 Durations</h1>
+          <h1><Icon name="show_chart" size={28} /> P50 / P95 / P99 Durations</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -143,7 +141,7 @@ function PercentileDurationsReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="show_chart" size={32} /> P50 / P95 / P99 Durations</h1>
+          <h1><Icon name="show_chart" size={28} /> P50 / P95 / P99 Durations</h1>
           <p className="page-description">Percentile-based duration distribution</p>
         </div>
         <div className="page-header-actions">

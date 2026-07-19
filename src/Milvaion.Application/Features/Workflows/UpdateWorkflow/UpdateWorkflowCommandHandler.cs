@@ -208,8 +208,10 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
                     JobId = stepCmd.NodeType == WorkflowNodeType.Task && stepCmd.JobId.HasValue && stepCmd.JobId.Value != Guid.Empty ? stepCmd.JobId : null,
                     StepName = stepCmd.StepName,
                     Order = stepCmd.Order,
-                    NodeConfigJson = stepCmd.NodeConfigJson,
-                    DataMappings = stepCmd.DataMappings,
+                    // Newly added steps arrive with temporary ids; existing ones map to themselves, so this is
+                    // a no-op for anything already saved. See WorkflowStepExtensions.
+                    NodeConfigJson = WorkflowStepExtensions.RemapConditionExpression(stepCmd.NodeConfigJson, tempIdToRealId),
+                    DataMappings = WorkflowStepExtensions.RemapDataMappings(stepCmd.DataMappings, tempIdToRealId),
                     DelaySeconds = stepCmd.DelaySeconds,
                     JobDataOverride = ScheduledJob.FixJobData(stepCmd.JobDataOverride),
                     PositionX = stepCmd.PositionX,

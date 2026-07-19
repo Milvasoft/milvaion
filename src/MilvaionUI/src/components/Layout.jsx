@@ -165,6 +165,12 @@ const user = authService.getCurrentUser()
               {!isSidebarCollapsed && <span>Executions</span>}
             </Link>
           </li>
+          <li className={isActive('/upcoming') ? 'active' : ''}>
+            <Link to="/upcoming" title="Upcoming Executions">
+              <Icon name="schedule_send" size={20} />
+              {!isSidebarCollapsed && <span>Upcoming Executions</span>}
+            </Link>
+          </li>
           <li className={isActive('/failed-executions') ? 'active' : ''}>
             <Link to="/failed-executions" title="Failed Executions">
               <Icon name="error" size={20} />

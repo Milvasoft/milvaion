@@ -9,14 +9,14 @@ const [indexEfficiency, setIndexEfficiency] = useState(null)
 const [cacheHitRatio, setCacheHitRatio] = useState(null)
 const [tableBloat, setTableBloat] = useState(null)
 const [totalDbSize, setTotalDbSize] = useState({ bytes: 0, formatted: 'N/A' })
-  
+
 const [loading, setLoading] = useState({
   tables: true,
   indexes: true,
   cache: true,
   bloat: true
 })
-  
+
 const [errors, setErrors] = useState({
   tables: null,
   indexes: null,
@@ -42,7 +42,7 @@ const loadTableSizes = async () => {
     const response = await api.get('/admin/database-statistics/tables')
     const data = response?.data || response
     setTableSizes(data)
-      
+
     // Calculate total size
     if (data && data.length > 0) {
       const totalBytes = data.reduce((sum, t) => sum + t.sizeBytes, 0)
@@ -128,14 +128,8 @@ const loadTableBloat = async () => {
 
   if (isLoading) {
     return (
-      <div className="dashboard-card db-stats-card">
-        <div className="card-header">
-          <h3>
-            <Icon name="storage" size={20} />
-            Database Statistics
-          </h3>
-        </div>
-        <div className="card-content">
+      <div className="stats-body">
+                <div className="card-content">
           <div className="loading-spinner">Loading...</div>
         </div>
       </div>
@@ -143,16 +137,7 @@ const loadTableBloat = async () => {
   }
 
   return (
-    <div className="dashboard-card db-stats-card">
-      <div className="card-header">
-        <h3>
-          <Icon name="storage" size={20} />
-          Database Statistics
-        </h3>
-        <button className="refresh-btn-small" onClick={loadAllStatistics} title="Refresh">
-          <Icon name="refresh" size={18} />
-        </button>
-      </div>
+    <div className="stats-body">
       {/* Total Database Size */}
       <div className="db-stat-summary">
         <div className="stat-item-large">

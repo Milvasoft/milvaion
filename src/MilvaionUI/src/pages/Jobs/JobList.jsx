@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import jobService from '../../services/jobService'
+import workerService from '../../services/workerService'
 import CronDisplay from '../../components/CronDisplay'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
@@ -19,6 +20,25 @@ function JobList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filterTag, setFilterTag] = useState(location.state?.filterByTag || null)
+
+  /*
+   * Column filters. null means "no opinion" rather than false, so an unset boolean filter
+   * is distinguishable from one deliberately set to false - otherwise "Inactive only" and
+   * "don't care" would send the same request.
+   */
+  const [filterIsActive, setFilterIsActive] = useState(null)
+  const [filterIsExternal, setFilterIsExternal] = useState(null)
+  const [filterJobType, setFilterJobType] = useState(null)
+  const [filterWorkerId, setFilterWorkerId] = useState(null)
+  const [filterIsRecurring, setFilterIsRecurring] = useState(null)
+
+  /*
+   * Options come from the worker registry rather than from the jobs on screen: the jobs on
+   * screen are already filtered, so deriving the choices from them would make an option
+   * disappear the moment you used it.
+   */
+  const [workerOptions, setWorkerOptions] = useState([])
+  const [jobTypeOptions, setJobTypeOptions] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -63,13 +83,46 @@ function JobList() {
   const buildRequestBody = useCallback((pageNumber, rowCount) => {
     const requestBody = { pageNumber, rowCount }
     if (debouncedSearchTerm) requestBody.searchTerm = debouncedSearchTerm
-    if (filterTag) {
-      requestBody.filtering = {
-        criterias: [{ filterBy: 'Tags', value: filterTag, type: 1 }]
-      }
+
+    const criterias = []
+
+    // Tags is a comma separated column, so a tag is matched as a substring rather than
+    // by equality - filtering "billing" must also find a job tagged "billing,nightly".
+    if (filterTag) criterias.push({ filterBy: 'Tags', value: filterTag, type: 1 })
+
+    // filterBy names the entity property, not the DTO field: filtering runs against
+    // ScheduledJob before the list projection. The type column is JobNameInWorker there,
+    // even though the grid labels it Type.
+    if (filterIsActive !== null) criterias.push({ filterBy: 'IsActive', value: filterIsActive, type: 5 })
+    if (filterIsExternal !== null) criterias.push({ filterBy: 'IsExternal', value: filterIsExternal, type: 5 })
+    if (filterJobType) criterias.push({ filterBy: 'JobNameInWorker', value: filterJobType, type: 5 })
+    if (filterWorkerId) criterias.push({ filterBy: 'WorkerId', value: filterWorkerId, type: 5 })
+
+    // A job is one-time exactly when it has no cron expression, so the schedule kind is a
+    // null check on that column - no value to send, the operator is the whole condition.
+    // The NullOrWhiteSpace pair rather than plain IsNull/IsNotNull, so a job saved with an
+    // empty cron string is still counted as one-time instead of falling between the two.
+    if (filterIsRecurring !== null) {
+      criterias.push({ filterBy: 'CronExpression', type: filterIsRecurring ? 16 : 15 })
     }
+
+    if (criterias.length > 0) requestBody.filtering = { criterias }
+
     return requestBody
-  }, [debouncedSearchTerm, filterTag])
+  }, [debouncedSearchTerm, filterTag, filterIsActive, filterIsExternal, filterJobType, filterWorkerId, filterIsRecurring])
+
+  const activeFilterCount = [filterTag, filterIsActive, filterIsExternal, filterJobType, filterWorkerId, filterIsRecurring]
+    .filter(f => f !== null && f !== undefined).length
+
+  const clearFilters = () => {
+    setFilterTag(null)
+    setFilterIsActive(null)
+    setFilterIsExternal(null)
+    setFilterJobType(null)
+    setFilterWorkerId(null)
+    setFilterIsRecurring(null)
+    setCurrentPage(1)
+  }
 
   const loadJobs = useCallback(async (showLoading = false) => {
     try {
@@ -134,11 +187,43 @@ function JobList() {
     }
   }, [buildRequestBody])
 
+  // Filter choices, loaded once. Workers know both their own id and the job types they can
+  // run, which is the full set a job could legitimately be filtered by.
+  useEffect(() => {
+    let cancelled = false
+
+    const loadFilterOptions = async () => {
+      try {
+        const response = await workerService.getAll()
+        const workers = response?.data?.data ?? response?.data ?? []
+
+        if (cancelled) return
+
+        setWorkerOptions([...new Set(workers.map(w => w.workerId).filter(Boolean))].sort())
+        setJobTypeOptions([...new Set(workers.flatMap(w => w.jobNames ?? []).filter(Boolean))].sort())
+      } catch (err) {
+        // The page works without these - the selects just have nothing to offer. Not worth
+        // failing the whole job list over.
+        console.debug('Failed to load filter options:', err)
+      }
+    }
+
+    loadFilterOptions()
+
+    return () => { cancelled = true }
+  }, [])
+
+  // Any filter change invalidates the current page: page 4 of the old result set is
+  // meaningless against the new one, and often empty.
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterTag, filterIsActive, filterIsExternal, filterJobType, filterWorkerId, filterIsRecurring])
+
   // Reset card state when search/filter changes
   useEffect(() => {
     setCardPage(1)
     setCardJobs([])
-  }, [debouncedSearchTerm, filterTag])
+  }, [debouncedSearchTerm, filterTag, filterIsActive, filterIsExternal, filterJobType, filterWorkerId, filterIsRecurring])
 
   // Table view effect (pagination)
   useEffect(() => {
@@ -151,7 +236,7 @@ function JobList() {
 
     return () => clearInterval(refreshInterval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, filterTag, currentPage, pageSize, debouncedSearchTerm, autoRefreshEnabled])
+  }, [viewMode, filterTag, filterIsActive, filterIsExternal, filterJobType, filterWorkerId, filterIsRecurring, currentPage, pageSize, debouncedSearchTerm, autoRefreshEnabled])
 
   // Card view effect (infinite scroll)
   useEffect(() => {
@@ -164,7 +249,7 @@ function JobList() {
 
     return () => clearInterval(refreshInterval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, cardPage, debouncedSearchTerm, filterTag, autoRefreshEnabled])
+  }, [viewMode, cardPage, debouncedSearchTerm, filterTag, filterIsActive, filterIsExternal, filterJobType, filterWorkerId, filterIsRecurring, autoRefreshEnabled])
 
   // Infinite scroll sentinel observer
   useEffect(() => {
@@ -281,7 +366,7 @@ function JobList() {
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="job-list">
+    <div className="page job-list">
       <Modal {...deleteModalProps} />
       <Modal {...triggerModalProps} />
 
@@ -342,7 +427,7 @@ function JobList() {
         <div className="header-content">
           <h1>
             <Icon name="work" size={28}  />
-            <span style={{ margin: '0 0 0 1rem' }}>Scheduled Jobs</span>
+            <span>Scheduled Jobs</span>
             <span >({totalCount})</span>
           </h1>
         </div>
@@ -394,16 +479,91 @@ function JobList() {
         </div>
       </div>
 
-      {filterTag && (
-        <div className="filter-tag-display">
-          <Icon name="filter_alt" size={18} />
-          <span className="filter-label">Filtering by tag:</span>
-          <span className="tag-chip" title={filterTag}>{filterTag}</span>
-          <button onClick={() => setFilterTag(null)} className="clear-filter-btn" title="Clear filter">
-            <Icon name="close" size={16} />
-          </button>
+      <div className="job-filters">
+        <div className="job-filter">
+          <label htmlFor="filterIsActive">Status</label>
+          <select
+            id="filterIsActive"
+            value={filterIsActive === null ? '' : String(filterIsActive)}
+            onChange={(e) => setFilterIsActive(e.target.value === '' ? null : e.target.value === 'true')}
+          >
+            <option value="">All</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
         </div>
-      )}
+
+        <div className="job-filter">
+          <label htmlFor="filterJobType">Type</label>
+          <select
+            id="filterJobType"
+            value={filterJobType ?? ''}
+            onChange={(e) => setFilterJobType(e.target.value || null)}
+          >
+            <option value="">All types</option>
+            {jobTypeOptions.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="job-filter">
+          <label htmlFor="filterIsRecurring">Schedule</label>
+          <select
+            id="filterIsRecurring"
+            value={filterIsRecurring === null ? '' : String(filterIsRecurring)}
+            onChange={(e) => setFilterIsRecurring(e.target.value === '' ? null : e.target.value === 'true')}
+          >
+            <option value="">All schedules</option>
+            <option value="true">Recurring</option>
+            <option value="false">One-time</option>
+          </select>
+        </div>
+
+        <div className="job-filter">
+          <label htmlFor="filterWorkerId">Worker</label>
+          <select
+            id="filterWorkerId"
+            value={filterWorkerId ?? ''}
+            onChange={(e) => setFilterWorkerId(e.target.value || null)}
+          >
+            <option value="">All workers</option>
+            {workerOptions.map(worker => (
+              <option key={worker} value={worker}>{worker}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="job-filter">
+          <label htmlFor="filterIsExternal">Source</label>
+          <select
+            id="filterIsExternal"
+            value={filterIsExternal === null ? '' : String(filterIsExternal)}
+            onChange={(e) => setFilterIsExternal(e.target.value === '' ? null : e.target.value === 'true')}
+          >
+            <option value="">All sources</option>
+            <option value="false">Milvaion</option>
+            <option value="true">External</option>
+          </select>
+        </div>
+
+        {filterTag && (
+          <div className="job-filter-tag">
+            <Icon name="filter_alt" size={16} />
+            <span className="tag-chip" title={filterTag}>{filterTag}</span>
+            <button onClick={() => setFilterTag(null)} className="clear-filter-btn" title="Clear tag filter">
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
+
+        {activeFilterCount > 0 && (
+          <button className="job-filters-clear" onClick={clearFilters}>
+            <Icon name="filter_alt_off" size={16} />
+            Clear {activeFilterCount === 1 ? 'filter' : `${activeFilterCount} filters`}
+          </button>
+        )}
+      </div>
 
       {displayJobs.length === 0 && !loading ? (
         <div className="empty-state-card">
@@ -412,11 +572,19 @@ function JobList() {
           </div>
           <h3>No Jobs Found</h3>
           <p>
-            {filterTag
-              ? `No jobs found with tag "${filterTag}". Try clearing the filter.`
+            {/* Offering "create your first job" to someone who has simply filtered
+                everything out is misleading - the jobs exist, the filters hid them. */}
+            {activeFilterCount > 0 || debouncedSearchTerm
+              ? 'No jobs match the current filters. Try widening or clearing them.'
               : 'Get started by creating your first scheduled job.'}
           </p>
-          {!filterTag && (
+          {activeFilterCount > 0 && (
+            <button className="empty-action-btn" onClick={clearFilters}>
+              <Icon name="filter_alt_off" size={20} />
+              Clear filters
+            </button>
+          )}
+          {activeFilterCount === 0 && !debouncedSearchTerm && (
             <Link to="/jobs/new" className="empty-action-btn">
               Create Your First Job
             </Link>
@@ -442,6 +610,7 @@ function JobList() {
                       >
                         {job.displayName || job.name}
                         {job.isExternal && <span className="external-badge" title="External job (Quartz/Hangfire)">External</span>}
+                        {job.completedAt && <span className="completed-badge" title="One-time job that has already run. It will not be scheduled again.">Completed</span>}
                       </Link>
                     </div>
 
@@ -556,6 +725,7 @@ function JobList() {
                         >
                           {job.displayName || job.name}
                           {job.isExternal && <span className="external-badge" title="External job (Quartz/Hangfire)">External</span>}
+                        {job.completedAt && <span className="completed-badge" title="One-time job that has already run. It will not be scheduled again.">Completed</span>}
                         </Link>
                       </td>
                       <td>

@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 const LINE_COLORS = ['#6366f1', '#ef4444', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6']
 
@@ -141,12 +142,9 @@ function WorkflowDurationTrendReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="timeline" size={32} /> Workflow Duration Trend</h1>
+          <h1><Icon name="timeline" size={28} /> Workflow Duration Trend</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -158,7 +156,7 @@ function WorkflowDurationTrendReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="timeline" size={32} /> Workflow Duration Trend</h1>
+          <h1><Icon name="timeline" size={28} /> Workflow Duration Trend</h1>
           <p className="page-description">Workflow execution duration over time</p>
         </div>
         <div className="page-header-actions">

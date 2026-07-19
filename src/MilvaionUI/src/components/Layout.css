@@ -467,7 +467,7 @@
 .main-content {
   flex: 1;
   margin-left: 250px;
-  padding: 2rem;
+  padding: 1rem 1.5rem 2rem;
   width: calc(100% - 250px);
   max-width: calc(100% - 250px);
   overflow-x: hidden;
@@ -626,7 +626,7 @@
     margin-left: 220px;
     width: calc(100% - 220px);
     max-width: calc(100% - 220px);
-    padding: 1.5rem;
+    padding: 1rem 1.25rem;
   }
 
   .main-content.sidebar-collapsed {

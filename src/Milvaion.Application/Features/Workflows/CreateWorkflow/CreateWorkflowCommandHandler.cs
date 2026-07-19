@@ -84,8 +84,11 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
                 JobId = stepCmd.NodeType == WorkflowNodeType.Task && stepCmd.JobId.HasValue && stepCmd.JobId.Value != Guid.Empty ? stepCmd.JobId : null,
                 StepName = stepCmd.StepName,
                 Order = stepCmd.Order,
-                NodeConfigJson = stepCmd.NodeConfigJson,
-                DataMappings = stepCmd.DataMappings,
+                // Both carry temporary step ids that only mean something in the request. Mapping them here
+                // keeps the definition self-consistent; see WorkflowStepExtensions for why it fails silently
+                // when they are left alone.
+                NodeConfigJson = WorkflowStepExtensions.RemapConditionExpression(stepCmd.NodeConfigJson, tempIdToRealId),
+                DataMappings = WorkflowStepExtensions.RemapDataMappings(stepCmd.DataMappings, tempIdToRealId),
                 DelaySeconds = stepCmd.DelaySeconds,
                 JobDataOverride = ScheduledJob.FixJobData(stepCmd.JobDataOverride),
                 PositionX = stepCmd.PositionX,

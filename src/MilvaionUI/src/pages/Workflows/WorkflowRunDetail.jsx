@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import workflowService from '../../services/workflowService'
+import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
-import WorkflowDAG from '../../components/WorkflowDAG'
+import WorkflowCanvas from './WorkflowCanvas'
 import { useModal } from '../../hooks/useModal'
+import CollapsibleSection from '../../components/CollapsibleSection'
 import { formatDate } from '../../utils/dateUtils'
 import './WorkflowRunDetail.css'
+import { SkeletonDetail } from '../../components/Skeleton'
 
 const workflowStatusLabels = { 0: 'Pending', 1: 'Running', 2: 'Completed', 3: 'Failed', 4: 'Cancelled', 5: 'Partially Completed' }
 const workflowStatusColors = { 0: 'pending', 1: 'running', 2: 'completed', 3: 'failed', 4: 'cancelled', 5: 'partial' }
@@ -22,6 +25,11 @@ function WorkflowRunDetail() {
   const [run, setRun] = useState(null)
   const [loading, setLoading] = useState(true)
   const [signalRActive, setSignalRActive] = useState(false)
+
+  // DAG'da seçili adım ve o adımın logları. Bir adım patladığında logu görmek için
+  // ayrı bir sayfaya gitmek gerekiyordu; asıl aranan şey oysa bu gereksiz bir sıçrama.
+  const [selectedStep, setSelectedStep] = useState(null)
+  const [stepLogs, setStepLogs] = useState({ loading: false, lines: [], error: null })
 
   const subscribedRef = useRef(new Set())
   const pollingRef = useRef(null)
@@ -52,6 +60,29 @@ function WorkflowRunDetail() {
       console.error(err)
     }
   }
+
+  const handleStepClick = useCallback(async (step, stepRun) => {
+    setSelectedStep({ step, run: stepRun })
+
+    if (!stepRun?.occurrenceId) {
+      setStepLogs({ loading: false, lines: [], error: null })
+      return
+    }
+
+    setStepLogs({ loading: true, lines: [], error: null })
+
+    try {
+      const response = await occurrenceService.getById(stepRun.occurrenceId)
+
+      setStepLogs({
+        loading: false,
+        lines: response?.data?.logs ?? [],
+        error: response?.isSuccess ? null : 'Failed to load logs',
+      })
+    } catch {
+      setStepLogs({ loading: false, lines: [], error: 'Failed to load logs' })
+    }
+  }, [])
 
   const loadRun = useCallback(async (showSpinner = false) => {
     try {
@@ -171,23 +202,21 @@ function WorkflowRunDetail() {
     }
   }, [])
 
-  if (loading) {
-    return <div className="wfr-loading"><Icon name="hourglass_empty" size={24} /> Loading...</div>
-  }
+  if (loading) return <SkeletonDetail />
 
   if (!run) {
     return <div className="wfr-loading">Workflow run not found</div>
   }
 
   return (
-    <div className="wfr-page">
+    <div className="page wfr-page">
       {/* Header */}
-      <div className="wfr-header">
-        <div className="wfr-header-left">
-          <Link to={`/workflows/${id}`} className="wfr-back-btn" title="Back to Workflow">
+      <div className="dtl-header">
+        <div className="dtl-header-left">
+          <Link to={`/workflows/${id}`} className="dtl-back" title="Back to Workflow">
             <Icon name="arrow_back" size={24} />
           </Link>
-          <div className="wfr-header-content">
+          <div className="dtl-title">
             <h1>
               <Icon name="play_circle" size={28} />
               {run.workflowName || 'Workflow Run'}
@@ -206,13 +235,13 @@ function WorkflowRunDetail() {
             </p>
           </div>
         </div>
-        <div className="wfr-header-actions">
+        <div className="dtl-actions">
           {(run.status === 0 || run.status === 1) && (
-            <button className="wfr-btn wfr-btn-danger" onClick={handleCancelRun}>
+            <button className="dtl-btn dtl-btn--danger" onClick={handleCancelRun}>
               <Icon name="cancel" size={18} /> Cancel Run
             </button>
           )}
-          <button className="wfr-btn wfr-btn-secondary" onClick={() => loadRun(false)}>
+          <button className="dtl-btn dtl-btn--secondary" onClick={() => loadRun(false)}>
             <Icon name="refresh" size={18} /> Refresh
           </button>
         </div>
@@ -252,24 +281,91 @@ function WorkflowRunDetail() {
 
       {/* DAG Visualization */}
       {run.steps && run.steps.length > 0 && (
-        <div className="wfr-dag-section">
-          <div className="wfr-section-header">
-            <h2><Icon name="schema" size={22} /> Workflow DAG</h2>
-            {signalRActive && (
-              <span className="wfr-dag-live-indicator">
-                <Icon name="sensors" size={16} /> Real-time updates active
-              </span>
-            )}
-          </div>
-          <div className="wfr-dag-container">
-            <WorkflowDAG steps={run.steps || []} edges={run.edges || []} stepRuns={run.stepRuns || []} />
-          </div>
-        </div>
+        <CollapsibleSection
+          className="wfr-dag-section"
+          storageKey="milvaion.workflowRun.dagOpen"
+          icon="schema"
+          title="Workflow DAG"
+          actions={signalRActive && (
+            <span className="wfr-dag-live-indicator">
+              <Icon name="sensors" size={16} /> Real-time updates active
+            </span>
+          )}
+        >
+          <WorkflowCanvas
+            steps={run.steps || []}
+            edges={run.edges || []}
+            stepRuns={run.stepRuns || []}
+            selectedStepId={selectedStep?.step?.id ?? null}
+            onStepClick={handleStepClick}
+            height={480}
+          />
+
+          {selectedStep && (
+            <div className="wfr-step-inspector">
+              <div className="wfr-step-inspector-header">
+                <div className="wfr-step-inspector-title">
+                  <Icon name="terminal" size={16} />
+                  <strong>{selectedStep.step.stepName || 'Unnamed step'}</strong>
+                  {selectedStep.run && (
+                    <span className={`wfr-status-badge wfr-status-${stepStatusColors[selectedStep.run.status]}`}>
+                      {stepStatusLabels[selectedStep.run.status]}
+                    </span>
+                  )}
+                </div>
+
+                <div className="wfr-step-inspector-actions">
+                  {selectedStep.run?.occurrenceId && (
+                    <Link
+                      to={`/occurrences/${selectedStep.run.occurrenceId}`}
+                      className="dtl-btn dtl-btn--secondary dtl-btn--sm"
+                    >
+                      <Icon name="open_in_new" size={14} /> Occurrence
+                    </Link>
+                  )}
+                  <button
+                    className="wfr-step-inspector-close"
+                    onClick={() => setSelectedStep(null)}
+                    title="Close"
+                  >
+                    <Icon name="close" size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {selectedStep.run?.error && (
+                <div className="wfr-step-inspector-error">{selectedStep.run.error}</div>
+              )}
+
+              <div className="wfr-step-inspector-logs">
+                {!selectedStep.run
+                  ? <span className="wfr-step-inspector-empty">This step did not run.</span>
+                  : stepLogs.loading
+                    ? <span className="wfr-step-inspector-empty">Loading logs…</span>
+                    : stepLogs.error
+                      ? <span className="wfr-step-inspector-empty">{stepLogs.error}</span>
+                      : stepLogs.lines.length === 0
+                        ? <span className="wfr-step-inspector-empty">No logs recorded for this step.</span>
+                        : stepLogs.lines.map((line, index) => (
+                          <div key={line.id ?? index} className={`wfr-log-line wfr-log-line--${(line.level || 'information').toLowerCase()}`}>
+                            <span className="wfr-log-time">{line.timestamp ? formatDate(line.timestamp) : ''}</span>
+                            <span className="wfr-log-level">{line.level}</span>
+                            <span className="wfr-log-message">{line.message}</span>
+                          </div>
+                        ))}
+              </div>
+            </div>
+          )}
+        </CollapsibleSection>
       )}
 
       {/* Step Runs */}
-      <div className="wfr-steps-section">
-        <h2><Icon name="layers" size={22} /> Step Runs ({run.stepRuns?.length || 0})</h2>
+      <CollapsibleSection
+        className="wfr-steps-section"
+        storageKey="milvaion.workflowRun.stepRunsOpen"
+        icon="layers"
+        title={`Step Runs (${run.stepRuns?.length || 0})`}
+      >
         <div className="wfr-table-container">
           <table className="wfr-table">
             <thead>
@@ -306,7 +402,7 @@ function WorkflowRunDetail() {
                   <td className="wfr-error-cell">{step.error || '-'}</td>
                   <td>
                     {step.occurrenceId ? (
-                      <Link to={`/occurrences/${step.occurrenceId}`} className="wfr-btn wfr-btn-secondary wfr-btn-sm">
+                      <Link to={`/occurrences/${step.occurrenceId}`} className="dtl-btn dtl-btn--secondary dtl-btn--sm">
                         <Icon name="open_in_new" size={14} /> {step.occurrenceId.substring(0, 8)}...
                       </Link>
                     ) : '-'}
@@ -316,7 +412,7 @@ function WorkflowRunDetail() {
             </tbody>
           </table>
         </div>
-      </div>
+      </CollapsibleSection>
 
       <Modal {...modalProps} />
     </div>

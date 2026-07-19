@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import jobService from '../../services/jobService'
 import workerService from '../../services/workerService'
@@ -8,6 +8,7 @@ import JsonStringConverter from '../../components/JsonStringConverter'
 import JsonEditor from '../../components/JsonEditor'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import './JobForm.css'
+import { SkeletonForm } from '../../components/Skeleton'
 
 // Helper function to generate example JSON from JSON Schema
 function generateExampleFromSchema(schema) {
@@ -170,6 +171,33 @@ function JobForm() {
   const [selectedWorker, setSelectedWorker] = useState(null)
   const [tagInput, setTagInput] = useState('') // Input for new tag
 
+  // Formun sunucudan gelen hali. Kirlilik bununla karşılaştırılarak bulunuyor;
+  // her alana ayrı "değişti" bayrağı koymak, iç içe autoDisableSettings gibi
+  // alanlarda kaçak veriyordu.
+  const pristineRef = useRef(null)
+  const [savedJustNow, setSavedJustNow] = useState(false)
+
+  const isDirty = useMemo(() => {
+    if (!isEditMode || pristineRef.current === null || savedJustNow) return false
+
+    return JSON.stringify(formData) !== pristineRef.current
+  }, [formData, isEditMode, savedJustNow])
+
+  // Sekmeyi kapatma ya da adres çubuğuyla gitme. Router içi gezinme bunu
+  // yakalamıyor, onu handleCancel üstleniyor.
+  useEffect(() => {
+    if (!isDirty) return
+
+    const warn = (event) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', warn)
+
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [isDirty])
+
   const loadWorkers = useCallback(async () => {
     try {
       const response = await workerService.getAll()
@@ -200,7 +228,7 @@ function JobForm() {
       const response = await jobService.getById(id)
       const data = response.data
 
-      setFormData({
+      const nextForm = {
         displayName: data.displayName || '',
         workerId: data.workerId || '',
         selectedJobName: data.jobType || '',
@@ -219,9 +247,15 @@ function JobForm() {
           failureWindowMinutes: data.autoDisableSettings?.failureWindowMinutes || ''
         },
         externalJobInfo: data.externalJobInfo || null
-      })
+      }
+
+      setFormData(nextForm)
 
       setScheduleType(data.cronExpression ? 'cron' : 'once')
+
+      // Kirlilik karşılaştırmasının başlangıç noktası. Sunucudan gelen hali
+      // saklamazsak "değişti mi" sorusunun cevabı yok.
+      pristineRef.current = JSON.stringify(nextForm)
     } catch (err) {
       setError(getApiErrorMessage(err, 'Failed to load job'))
       console.error(err)
@@ -362,6 +396,9 @@ function JobForm() {
         return
       }
 
+      // Kayıt başarılı; ayrılma uyarısı artık çıkmamalı.
+      setSavedJustNow(true)
+
       navigate(isEditMode ? `/jobs/${id}` : '/jobs')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save job')
@@ -372,15 +409,24 @@ function JobForm() {
   }
 
   const handleCancel = () => {
+    if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return
+
     navigate(isEditMode ? `/jobs/${id}` : '/jobs')
   }
 
   if (loading && isEditMode) {
-    return <div className="loading">Loading job...</div>
+    return (
+      <div className="page job-form-container">
+        <div className="page-header">
+          <h1><Icon name="edit" size={28} /> Edit Job</h1>
+        </div>
+        <SkeletonForm fields={7} />
+      </div>
+    )
   }
 
   return (
-    <div className="job-form-container">
+    <div className="page job-form-container">
       <div className="form-header">
         <div className="form-header-left">
           <Link to={isEditMode ? `/jobs/${id}` : '/jobs'} className="back-icon-btn" title={isEditMode ? 'Back to Job Detail' : 'Back to Jobs'}>
@@ -389,7 +435,7 @@ function JobForm() {
           <div className="form-header-content">
             <h1>
               {/*<Icon name={isEditMode ? 'edit' : 'add'} size={28} />*/}
-              <span style={{ margin: '0 0 0 0.25rem' }}>  {isEditMode ? 'Edit Job' : 'Create New Job'}</span>
+              <span>{isEditMode ? 'Edit Job' : 'Create New Job'}</span>
 
             </h1>
             <p className="form-subtitle">
@@ -403,6 +449,12 @@ function JobForm() {
 
         {/* Form Actions - moved to header */}
         <div className="form-actions">
+          {isDirty && (
+            <span className="jf-dirty" title="This form has changes that have not been saved">
+              <span className="jf-dirty-dot" />
+              Unsaved changes
+            </span>
+          )}
           <button type="button" onClick={handleCancel} className="btn btn-secondary">
             <Icon name="close" size={18} />
             Cancel
@@ -453,7 +505,7 @@ function JobForm() {
           {/* Basic Information Card */}
           <div className="form-card">
             <div className="form-section">
-              <h3 className="form-section-title">Basic Information</h3>
+              <h3 className="form-section-title"><Icon name="badge" size={18} />Basic Information</h3>
 
               <div className="form-group">
                 <label htmlFor="displayName">
@@ -530,6 +582,7 @@ function JobForm() {
           <div className={`form-card ${isExternalJob || isEditMode ? 'disabled-section' : ''}`}>
             <div className="form-section">
               <h3 className="form-section-title">
+                <Icon name="engineering" size={18} />
                 Worker Configuration
                 {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
                 {!isExternalJob && isEditMode && <span className="external-label">Cannot be changed after creation</span>}
@@ -595,6 +648,7 @@ function JobForm() {
           <div className={`form-card ${isExternalJob ? 'disabled-section' : ''}`}>
             <div className="form-section">
               <h3 className="form-section-title">
+                <Icon name="schedule" size={18} />
                 Schedule
                 {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
               </h3>
@@ -663,6 +717,7 @@ function JobForm() {
           <div className={`form-card ${isExternalJob ? 'disabled-section' : ''}`}>
             <div className="form-section">
               <h3 className="form-section-title">
+                <Icon name="data_object" size={18} />
                 Job Data (JSON)
                 {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
               </h3>

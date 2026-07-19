@@ -1,6 +1,4 @@
 .execution-list {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .execution-list .pagination .btn-sm {
@@ -10,11 +8,11 @@
 }
 
 /* Page Header */
-.page-header {
+.execution-list .page-header {
   margin-bottom: 1rem;
 }
 
-.page-header h1 {
+.execution-list .page-header h1 {
   display: flex;
   align-items: center;
   gap: 0.75rem;

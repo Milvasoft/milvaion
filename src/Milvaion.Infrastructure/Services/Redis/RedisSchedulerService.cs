@@ -185,6 +185,49 @@ public class RedisSchedulerService : IRedisSchedulerService
         );
 
     /// <inheritdoc/>
+    public Task<List<KeyValuePair<Guid, DateTime>>> GetScheduledJobsInRangeAsync(DateTime from, DateTime? to = null, int limit = 100, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                try
+                {
+                    var minScore = GetUnixTimestamp(from);
+                    var maxScore = to.HasValue ? GetUnixTimestamp(to.Value) : double.PositiveInfinity;
+
+                    // ZRANGEBYSCORE scheduled_jobs {FROM} {TO} WITHSCORES LIMIT 0 {LIMIT}
+                    var entries = await _database.SortedSetRangeByScoreWithScoresAsync(_options.ScheduledJobsKey,
+                                                                                       start: minScore,
+                                                                                       stop: maxScore,
+                                                                                       take: limit,
+                                                                                       order: Order.Ascending);
+
+                    var result = new List<KeyValuePair<Guid, DateTime>>(entries.Length);
+
+                    foreach (var entry in entries)
+                    {
+                        if (!entry.Element.HasValue || !Guid.TryParse(entry.Element.ToString(), out var jobId))
+                            continue;
+
+                        var scheduledAt = DateTimeOffset.FromUnixTimeSeconds((long)entry.Score).UtcDateTime;
+
+                        result.Add(new KeyValuePair<Guid, DateTime>(jobId, scheduledAt));
+                    }
+
+                    _logger.Debug("Retrieved {Count} scheduled jobs from Redis in range {From} - {To}", result.Count, from, to);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to get scheduled jobs in range from Redis");
+                    throw;
+                }
+            },
+            fallback: async () => [],
+            operationName: "GetScheduledJobsInRange",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
     public Task<bool> RemoveFromScheduledSetAsync(Guid jobId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {

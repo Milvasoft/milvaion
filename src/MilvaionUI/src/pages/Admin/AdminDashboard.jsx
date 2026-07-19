@@ -5,6 +5,8 @@ import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import DatabaseStatistics from '../../components/DatabaseStatistics/DatabaseStatistics'
 import ServiceMemoryStats from '../../components/ServiceMemoryStats/ServiceMemoryStats'
 import './AdminDashboard.css'
+import { SkeletonDashboard } from '../../components/Skeleton'
+import CollapsibleSection from '../../components/CollapsibleSection'
 
 function AdminDashboard() {
   const [healthData, setHealthData] = useState(null)
@@ -144,12 +146,10 @@ function AdminDashboard() {
     return Math.min((messageCount / criticalThreshold) * 100, 100)
   }
 
-  if (loading) {
-    return <div className="loading">Loading monitoring dashboard...</div>
-  }
+  if (loading) return <SkeletonDashboard />
 
   return (
-    <div className="admin-dashboard">
+    <div className="page admin-dashboard">
       {/* Page Header */}
       <div className="page-header">
         <h1 >
@@ -180,16 +180,19 @@ function AdminDashboard() {
         </div>
       )}
 
-      <div className="dashboard-grid">
-        {/* System Status Card */}
+      <CollapsibleSection
+        className="admin-section"
+        storageKey="milvaion.monitoring.healthOpen"
+        icon="monitor_heart"
+        title="System Health"
+      >
+        <div className="dashboard-grid">
+          {/* System Status Card */}
         <div className="dashboard-card system-status">
-          <div className="card-header">
-            <h3 >
-              <Icon name={getHealthIcon(healthData?.overallHealth)} size={20} />
-              System Status
-            </h3>
-          </div>
-          <div className="card-content">
+            <div className="card-header">
+              <h3><Icon name={getHealthIcon(healthData?.overallHealth)} size={18} /> System Status</h3>
+            </div>
+            <div className="card-content">
             <div className="status-item">
               <span className="status-label">Overall Health</span>
               <span className={`badge badge-${getHealthColor(healthData?.overallHealth)}`}>
@@ -231,13 +234,10 @@ function AdminDashboard() {
 
         {/* Redis Circuit Breaker Card */}
         <div className="dashboard-card circuit-breaker">
-          <div className="card-header">
-            <h3>
-              <Icon name="security" size={20} />
-              Redis Circuit Breaker (Last 1h)
-            </h3>
-          </div>
-          <div className="card-content">
+            <div className="card-header">
+              <h3><Icon name="security" size={18} /> Redis Circuit Breaker (Last 1h)</h3>
+            </div>
+            <div className="card-content">
             <div className="circuit-status">
               <div className="circuit-state-item">
                 <span className="status-label">State</span>
@@ -308,13 +308,10 @@ function AdminDashboard() {
 
         {/* Job Statistics Card */}
         <div className="dashboard-card job-statistics">
-          <div className="card-header">
-            <h3>
-              <Icon name="assessment" size={20} />
-              Job Statistics
-            </h3>
-          </div>
-          <div className="card-content">
+            <div className="card-header">
+              <h3><Icon name="assessment" size={18} /> Job Statistics</h3>
+            </div>
+            <div className="card-content">
             <div className="stats-grid">
               <div className="stat-box">
                 <span className="stat-value primary">{jobStats?.totalJobs || 0}</span>
@@ -340,14 +337,16 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Queue Health Card */}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        className="admin-section"
+        storageKey="milvaion.monitoring.queueOpen"
+        icon="storage"
+        title="Queue Health"
+      >
         <div className="dashboard-card queue-health">
-          <div className="card-header">
-            <h3>
-              <Icon name="storage" size={20} />
-              Queue Health
-            </h3>
-          </div>
           <div className="card-content">
             <div className="queue-table">
               <div className="queue-table-header">
@@ -388,12 +387,25 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Database Statistics Card */}
-        <DatabaseStatistics />
+      </CollapsibleSection>
 
-        {/* Background Service Memory Statistics Card */}
+      <CollapsibleSection
+        className="admin-section"
+        storageKey="milvaion.monitoring.databaseOpen"
+        icon="database"
+        title="Database Statistics"
+      >
+        <DatabaseStatistics />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        className="admin-section"
+        storageKey="milvaion.monitoring.memoryOpen"
+        icon="memory"
+        title="Background Service Memory"
+      >
         <ServiceMemoryStats />
-      </div>
+      </CollapsibleSection>
 
       {/* Emergency Stop Dialog */}
       {emergencyStopDialogOpen && (

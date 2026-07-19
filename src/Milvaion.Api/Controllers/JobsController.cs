@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Milvaion.Application.Dtos.FailedOccurrenceDtos;
 using Milvaion.Application.Dtos.ScheduledJobDtos;
+using Milvaion.Application.Dtos.UpcomingExecutionDtos;
 using Milvaion.Application.Features.FailedOccurrences.DeleteFailedOccurrence;
 using Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceDetail;
 using Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceList;
@@ -14,9 +15,12 @@ using Milvaion.Application.Features.ScheduledJobs.DeleteScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail;
 using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList;
 using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor;
+using Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList;
+using Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogSummary;
 using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail;
 using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList;
 using Milvaion.Application.Features.ScheduledJobs.GetTagList;
+using Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList;
 using Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
 using Milvaion.Application.Utils.Attributes;
@@ -155,6 +159,40 @@ public class JobsController(IMediator mediator) : ControllerBase
     [Auth(PermissionCatalog.ScheduledJobManagement.Detail)]
     [HttpGet("tags")]
     public Task<Response<List<string>>> GetTagsAsync(CancellationToken cancellation) => _mediator.Send(new GetTagListQuery(), cancellation);
+
+    /// <summary>
+    /// Gets the runs that are coming up next, for both jobs and workflows.
+    /// </summary>
+    /// <remarks>
+    /// Read-only and derived from the live schedule, so it reuses the job list permission
+    /// rather than introducing one that would need a migration to seed.
+    /// </remarks>
+    /// <param name="request"></param>
+    /// <param name="cancellation"></param>
+    /// <returns></returns>
+    [Auth(PermissionCatalog.ScheduledJobManagement.List)]
+    [HttpGet("upcoming")]
+    public Task<Response<UpcomingExecutionListDto>> GetUpcomingExecutionsAsync([FromQuery] GetUpcomingExecutionListQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
+
+    /// <summary>
+    /// Searches worker execution log lines across every job.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="cancellation"></param>
+    /// <returns></returns>
+    [Auth(PermissionCatalog.ScheduledJobManagement.Detail)]
+    [HttpGet("logs")]
+    public Task<Response<JobOccurrenceLogSearchDto>> SearchJobOccurrenceLogsAsync([FromQuery] GetJobOccurrenceLogListQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
+
+    /// <summary>
+    /// Aggregates worker execution logs over a time window.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="cancellation"></param>
+    /// <returns></returns>
+    [Auth(PermissionCatalog.ScheduledJobManagement.Detail)]
+    [HttpGet("logs/summary")]
+    public Task<Response<JobOccurrenceLogSummaryDto>> GetJobOccurrenceLogSummaryAsync([FromQuery] GetJobOccurrenceLogSummaryQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     #region FailedOccurrences
 

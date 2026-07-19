@@ -1,0 +1,309 @@
+/* Condition node'ların kural editörü. */
+
+.wfb-cond {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wfb-cond-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wfb-cond-mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.wfb-cond-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.wfb-cond-mode-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
+
+/* ── Gruplar ─────────────────────────────────────────────────────────────────
+   Gruplar iç içe girebiliyor ve bağlantı operatörleri çocukların arasında ayrı ayrı
+   seçiliyor, motordaki dilbilgisiyle birebir. Kök grubun çerçevesi yok: çoğu koşul
+   tek düzeydir ve orada kutu yalnızca gürültü. */
+
+.wfb-cond-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 8px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-secondary) 45%, transparent);
+}
+
+.wfb-cond-group.is-root {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.wfb-cond-group-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  z-index: 1;
+}
+
+.wfb-cond-group-remove:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* ── Bağlantı operatörü ──────────────────────────────────────────────────────
+   Her bağlantı kendi AND/OR anahtarını taşıyor. OR daha belirgin çiziliyor: AND
+   önce uygulandığı için `A && B || C` görsel olarak da `(A && B)` ve `C` diye iki
+   parçaya ayrılmış görünmeli. */
+
+.wfb-cond-join {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 5px 0;
+}
+
+.wfb-cond-join-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.wfb-cond-join--and .wfb-cond-join-line {
+  opacity: 0.35;
+}
+
+.wfb-cond-join--or .wfb-cond-join-line {
+  background: color-mix(in srgb, var(--accent-color) 45%, transparent);
+}
+
+.wfb-cond-op {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.wfb-cond-op-btn {
+  padding: 2px 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.wfb-cond-op-btn:hover:not(.is-active) {
+  color: var(--text-primary);
+}
+
+.wfb-cond-op-btn.is-active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+/* ── Öncelik uyarısı ─────────────────────────────────────────────────────────
+   Yalnızca aynı grupta hem AND hem OR varken görünüyor; o durumda ifade göründüğü
+   sırayla okunmuyor. */
+
+.wfb-cond-precedence {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 0;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-color) 8%, transparent);
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.wfb-cond-precedence > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent-color);
+}
+
+/* ── Çocuklar ────────────────────────────────────────────────────────────── */
+
+.wfb-cond-children {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Alanlar sarmalanıyor: panel genişletildi ama beş kontrolü her durumda tek satıra
+   sığdırmak yine de hepsini okunmaz genişliğe indirirdi. */
+.wfb-cond-rule-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.wfb-cond-select,
+.wfb-cond-input {
+  flex: 1 1 118px;
+  min-width: 0;
+  font-size: 11.5px;
+  padding: 4px 6px;
+}
+
+/* Kaynak adım seçimi en uzun metni taşıyor, ilk sırada ve daha geniş dursun. */
+.wfb-cond-rule-body > .wfb-cond-select:first-child {
+  flex: 2 1 150px;
+}
+
+.wfb-cond-select--kind {
+  flex: 0 1 108px;
+}
+
+.wfb-cond-select--op {
+  flex: 0 1 104px;
+}
+
+.wfb-cond-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.wfb-cond-remove:hover {
+  background: #ef44441a;
+  color: #ef4444;
+}
+
+/* ── Ekleme düğmeleri ────────────────────────────────────────────────────── */
+
+.wfb-cond-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.wfb-cond-add {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px dashed var(--border-color);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.wfb-cond-add:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+/* ── Yardım ve önizleme ──────────────────────────────────────────────────── */
+
+.wfb-cond-empty,
+.wfb-cond-hint,
+.wfb-cond-warning {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.wfb-cond-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: #f59e0b12;
+  color: #f59e0b;
+}
+
+.wfb-cond-hint code,
+.wfb-cond-warning code {
+  font-size: 10.5px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--bg-primary);
+}
+
+/* Üretilen ifade görünür duruyor: builder'ı kullanan biri zamanla dili öğreniyor,
+   ham moda geçtiğinde ne yazacağını biliyor. */
+.wfb-cond-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+.wfb-cond-preview-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.wfb-cond-preview code {
+  font-size: 11px;
+  line-height: 1.5;
+  word-break: break-all;
+  color: var(--accent-color);
+}
+
+.wfb-cond-raw {
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+}

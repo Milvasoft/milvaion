@@ -1,6 +1,4 @@
 .occurrence-detail {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .back-link {
@@ -34,7 +32,7 @@
     transform: translateX(-2px);
   }
 
-.page-header {
+.occurrence-detail .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -42,14 +40,14 @@
   gap: 2rem;
 }
 
-.page-header-left {
+.occurrence-detail .page-header-left {
   flex: 1;
   display: flex;
   align-items: flex-start;
   gap: 1rem;
 }
 
-.page-header h1 {
+.occurrence-detail .page-header h1 {
   font-size: 2rem;
   margin: 0;
 }
@@ -183,39 +181,47 @@
   }
 }
 
+/* Bölüm bir kart değil; başlık CollapsibleSection'dan geliyor ve dışarıda duruyor.
+   Çerçeveyi içerideki grid taşıyor, yoksa kart içinde kart görünüyordu. */
 .occurrence-info-card {
-  /*background: var(--bg-tertiary);*/
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 0;
   margin-bottom: 2rem;
-  overflow: hidden;
 }
 
-  .occurrence-info-card h2 {
-    margin: 0;
-    padding: 1.25rem 1.5rem;
-    font-size: 1.2rem;
-    font-weight: 600;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-  }
-
+  
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0;
-  padding: 1.5rem;
-  /*background: var(--bg-tertiary);*/
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .info-item {
   display: flex;
   flex-direction: column;
+  gap: 4px;
   padding: 1rem;
   border-right: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color) !important;
-  /*background: var(--bg-tertiary);*/
+  border-bottom: 1px solid var(--border-color);
+  min-width: 0;
+}
+
+/* Izgaranın dış kenarındaki hücreler kendi kenarlığını çizmiyor; dış çerçeve
+   zaten grid'de. */
+.info-grid .info-item:nth-child(2n) {
+  border-right: none;
+}
+
+.info-grid .info-item:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+
+.info-item label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
 }
 
 .info-item:nth-child(2n) {
@@ -810,4 +816,236 @@
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ═══ Özet şeridi ════════════════════════════════════════════════════════════
+   Durum ve süre eskiden ölçü kartlarının arasında, diğer sekiz alanla aynı
+   ağırlıktaydı. Sayfaya gelen ilk olarak bunlara bakıyor, o yüzden kendi
+   şeritlerine çıktılar. */
+
+.occ-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--occ-tone, var(--text-muted));
+  border-radius: var(--radius-lg);
+}
+
+.occ-summary--success { --occ-tone: #22c55e; }
+.occ-summary--danger  { --occ-tone: #ef4444; }
+.occ-summary--running { --occ-tone: #3b82f6; }
+.occ-summary--warning { --occ-tone: #f59e0b; }
+.occ-summary--idle    { --occ-tone: #6b7280; }
+
+.occ-summary-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.occ-summary-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  color: #f59e0b;
+  font-size: var(--text-xs);
+}
+
+/* Başlangıç → süre → bitiş tek satırda okunuyor. Üç ayrı kart olduğunda
+   aralarındaki ilişki görünmüyordu. */
+.occ-summary-timeline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.occ-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.occ-summary-stat label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.occ-summary-stat span {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.occ-summary-duration {
+  font-weight: 500;
+  color: var(--occ-tone, var(--text-primary)) !important;
+}
+
+.occ-summary-arrow {
+  color: var(--border-color);
+  flex-shrink: 0;
+}
+
+/* ═══ Exception ══════════════════════════════════════════════════════════════
+   Ölçü kartlarının arasında tam genişlikte bir hücreydi. Sayfaya gelinme sebebi
+   çoğunlukla bu olduğu için kendi bloğunda ve şeridin hemen altında. */
+
+.occ-exception {
+  margin-bottom: var(--space-5);
+  border: 1px solid color-mix(in srgb, #ef4444 35%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, #ef4444 6%, transparent);
+  overflow: hidden;
+}
+
+.occ-exception-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid color-mix(in srgb, #ef4444 22%, transparent);
+  color: #ef4444;
+  font-size: var(--text-sm);
+}
+
+.occ-exception pre {
+  margin: 0;
+  padding: var(--space-4);
+  max-height: 320px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ═══ Başlık ═════════════════════════════════════════════════════════════════ */
+
+/* ═══ Log araç çubuğu ════════════════════════════════════════════════════════ */
+
+.occ-log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.occ-log-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.occ-log-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.occ-log-level:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.occ-log-level.is-active {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.occ-log-level--error       { color: #ef4444; }
+.occ-log-level--warning     { color: #f59e0b; }
+.occ-log-level--information { color: #3b82f6; }
+.occ-log-level--debug       { color: var(--text-muted); }
+
+.occ-log-level-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.occ-log-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-muted);
+}
+
+.occ-log-search:focus-within {
+  border-color: var(--accent-color);
+}
+
+.occ-log-search input {
+  width: 180px;
+  padding: 5px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.occ-log-search input:focus {
+  outline: none;
+}
+
+.occ-log-search button {
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.occ-log-search button:hover {
+  color: var(--text-primary);
+}
+
+.occ-log-empty {
+  margin: 0;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.occ-log-empty button {
+  border: none;
+  background: none;
+  color: var(--accent-color);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+}
+
+.occ-result {
+  margin-top: var(--space-4);
 }

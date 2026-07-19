@@ -6,6 +6,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 function WorkflowSuccessRateReport() {
   const navigate = useNavigate()
@@ -214,12 +215,9 @@ function WorkflowSuccessRateReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="account_tree" size={32} /> Workflow Success Rate</h1>
+          <h1><Icon name="account_tree" size={28} /> Workflow Success Rate</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -231,7 +229,7 @@ function WorkflowSuccessRateReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="account_tree" size={32} /> Workflow Success Rate</h1>
+          <h1><Icon name="account_tree" size={28} /> Workflow Success Rate</h1>
           <p className="page-description">Success and failure rates for each workflow</p>
         </div>
         <div className="page-header-actions">

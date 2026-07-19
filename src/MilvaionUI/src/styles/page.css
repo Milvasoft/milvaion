@@ -1,0 +1,231 @@
+/*
+ * Sayfa düzeni.
+ *
+ * Bu dosyadan önce her sayfa kendi `.page-header` tanımını yapıyordu - yedi ayrı
+ * stil dosyasında, farklı hizalama ve boşluklarla. Stil dosyaları global
+ * yüklendiği için de birbirlerinin üstüne biniyorlardı: hangi başlığın hangi
+ * kuralı aldığı, o sayfanın CSS'inin bundle'da nerede olduğuna bağlıydı.
+ *
+ * Referans olarak Workflows sayfaları alındı.
+ *
+ * Kullanımı:
+ *
+ *   <div className="page">
+ *     <div className="page-header">
+ *       <div className="page-title">
+ *         <Icon name="…" size={24} />
+ *         <h1>Başlık</h1>
+ *       </div>
+ *       <div className="page-header-actions">…</div>
+ *     </div>
+ *     …
+ *   </div>
+ */
+
+/* Genişlik sınırı yok ve ortalama yok: içerik kullanılabilir alanın tamamını
+   kaplıyor ve sola yaslanıyor. Sayfaların çoğu daha önce 1400px ile sınırlıydı,
+   bu da geniş ekranlarda başlığı ortaya itip iki yanda geniş boşluk bırakıyordu.
+   Workflows sayfası zaten böyle çalışıyordu; referans o. */
+.page {
+  width: 100%;
+}
+
+/* Başlığın üstünde ve altında nefes payı. Öncesinde içerik alanının kenarına ve
+   ilk karta yapışıktı; sayfa başlığı olduğu bile ayırt edilmiyordu. */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  margin: 0.5rem 0 2rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.page-title h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-title > svg {
+  flex-shrink: 0;
+  color: var(--accent-color);
+}
+
+/* Başlığın altına açıklama gerektiğinde: h1 ile aynı sütunda kalması için
+   page-title'ın kendisi sütuna dönüyor. */
+.page-title--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.page-subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+/* Geri düğmesi başlığın solunda; ikisi arasındaki boşluk her sayfada aynı olsun
+   diye burada tanımlı. */
+.page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ── Sarmalayıcısız başlıklar ────────────────────────────────────────────────
+   Sayfaların çoğunda h1, page-title sarmalayıcısı olmadan doğrudan başlık
+   çubuğunun çocuğu. Yirmi üç dosyanın yapısını değiştirmek yerine ikisi de
+   aynı sonucu veriyor: ikon ile metin arası boşluk, punto ve hizalama ortak. */
+
+.page-header > h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.page-header > h1 > svg {
+  flex-shrink: 0;
+  color: var(--accent-color);
+  align-self: center;
+}
+
+/* Başlık metnini saran span'lar - sayaç, ad - kendi boşluğunu getirmesin;
+   ikon ile metin arası yalnızca h1'in gap'inden gelsin. */
+.page-header > h1 > span {
+  margin: 0;
+}
+
+/* Başlığı saran ara div'ler - header-content, ya da adsız bir div - başlığın
+   soldaki yerini koruyabilmesi için esniyor. */
+.page-header > div:not([class*="header-actions"]):not(.page-title) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Eylem grubunun iki adı da kullanımda; ikisi de aynı hizada dursun. */
+/* Eylem grubu için sayfalarda üç ad kullanılmış; hepsi aynı hizada dursun ve
+   esnemesin, yoksa başlıkla aralarındaki boşluğu paylaşıp ortaya kayıyorlar. */
+.page-header [class*="header-actions"] {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* Başlık altındaki açıklama satırları. Sayfalarda subtitle, page-description ve
+   page-subtitle diye üç ad kullanılmış. */
+.page-header .subtitle,
+.page-header .page-description,
+.page-header .page-subtitle {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ── Bölümler arası boşluk ───────────────────────────────────────────────────
+   İki farklı içerik bloğu birbirine yapışık durduğunda nerede bittiği nerede
+   başladığı okunmuyor. Sayfanın doğrudan çocuğu olan bloklar arasında sabit bir
+   ayrım bırakılıyor; bunu her sayfanın kendi CSS'inde tekrar etmek yerine
+   burada tanımlamak, sayfalar arası tutarlılığı da sağlıyor. */
+
+.page > * + * {
+  margin-top: 1.5rem;
+}
+
+/* Başlığın kendi alt boşluğu var, üstüne bir de bu eklenmesin. */
+.page > .page-header + * {
+  margin-top: 0;
+}
+
+/* Katlanabilir bölümler kendi aralarında biraz daha ayrık: her biri bağımsız bir
+   okuma birimi. */
+.page > .collapsible-section + .collapsible-section {
+  margin-top: 1.75rem;
+}
+
+/* ── Yan yana kartların yüksekliği ───────────────────────────────────────────
+   Grid satırı zaten eşit yükseklik veriyor; eksik olan, kartın içeriğinin o
+   yüksekliği doldurmaması. Kart bir accordion olduğunda bu, dış kutudan iç
+   gövdeye kadar kesintisiz bir flex zinciri gerektiriyor - zincirin herhangi bir
+   halkası kırılırsa alt kenarlar yine şaşıyor. */
+
+.page .dashboard-grid > *,
+.page .content-grid > *,
+.page .detail-grid > *,
+.page .profile-grid > * {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.page .dashboard-grid > * > .collapsible-outer,
+.page .content-grid > * > .collapsible-outer,
+.page .detail-grid > * > .collapsible-outer,
+.page .profile-grid > * > .collapsible-outer {
+  flex: 1;
+}
+
+.page .dashboard-grid .collapsible-inner,
+.page .content-grid .collapsible-inner,
+.page .detail-grid .collapsible-inner,
+.page .profile-grid .collapsible-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.page .dashboard-grid .collapsible-body,
+.page .content-grid .collapsible-body,
+.page .detail-grid .collapsible-body,
+.page .profile-grid .collapsible-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Zincirin son halkası: kartın gövdesi kalan boşluğu alıyor. */
+.page .dashboard-grid .collapsible-body > *,
+.page .content-grid .collapsible-body > *,
+.page .detail-grid .collapsible-body > *,
+.page .profile-grid .collapsible-body > * {
+  flex: 1;
+}
+
+/* Accordion olmayan kartlar - Dashboard'daki gibi - için doğrudan son çocuk. */
+.page .dashboard-grid > *:not(.collapsible-section) > *:last-child,
+.page .content-grid > *:not(.collapsible-section) > *:last-child,
+.page .detail-grid > *:not(.collapsible-section) > *:last-child,
+.page .profile-grid > *:not(.collapsible-section) > *:last-child {
+  flex: 1;
+}

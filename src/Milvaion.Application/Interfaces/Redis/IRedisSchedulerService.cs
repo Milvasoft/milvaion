@@ -24,6 +24,22 @@ public interface IRedisSchedulerService
     Task<List<Guid>> GetDueJobsAsync(DateTime now, int limit = 100, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets jobs scheduled within a time range, ordered by execution time.
+    /// </summary>
+    /// <remarks>
+    /// The ZSET holds one entry per job - the next execution only - so this returns
+    /// each job at most once. It is the live schedule: the <c>ExecuteAt</c> column in
+    /// the database is the originally configured start time and goes stale as soon as
+    /// a recurring job runs for the first time.
+    /// </remarks>
+    /// <param name="from">Range start, inclusive</param>
+    /// <param name="to">Range end, inclusive. Null means no upper bound</param>
+    /// <param name="limit">Maximum number of jobs to retrieve</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Job identifiers mapped to their scheduled execution time, earliest first</returns>
+    Task<List<KeyValuePair<Guid, DateTime>>> GetScheduledJobsInRangeAsync(DateTime from, DateTime? to = null, int limit = 100, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Removes a job from the scheduled jobs ZSET.
     /// </summary>
     /// <param name="jobId">Job identifier</param>

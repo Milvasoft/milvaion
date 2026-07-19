@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 const WORKER_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -146,12 +147,9 @@ function WorkerUtilizationTrendReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="timeline" size={32} /> Worker Utilization Trend</h1>
+          <h1><Icon name="timeline" size={28} /> Worker Utilization Trend</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -163,7 +161,7 @@ function WorkerUtilizationTrendReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="timeline" size={32} /> Worker Utilization Trend</h1>
+          <h1><Icon name="timeline" size={28} /> Worker Utilization Trend</h1>
           <p className="page-description">Capacity vs actual utilization rate (time series)</p>
         </div>
         <div className="page-header-actions">

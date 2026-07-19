@@ -88,6 +88,45 @@ A **job** is a recurring or one-time task definition stored in PostgreSQL.
   }
 ```
 
+#### `executeAt` is the start time, not the next run
+
+This trips people up, so it is worth stating plainly: **`executeAt` is the time the job
+was configured to start.** It is written when the job is created or updated and is never
+touched again.
+
+For a recurring job it therefore goes stale the moment the job runs for the first time.
+The dispatcher advances the schedule in Redis, not in the database, so a job that has been
+running for months still shows an `executeAt` from months ago. That is correct and
+expected — it is history, not a forecast.
+
+To see when a job will actually run next, use the **Upcoming Executions** screen or
+`GET /jobs/upcoming`, both of which read the live schedule. Reading `executeAt` and
+presenting it as "next run" will be wrong for every recurring job in the system.
+
+For a one-time job there is no such drift: it runs once, is never rescheduled, and
+`executeAt` remains its whole schedule.
+
+#### One-time jobs and `completedAt`
+
+When a one-time job is dispatched, Milvaion stamps `completedAt`. From that point the job
+is finished and will never be scheduled again, even if the API restarts or Redis is
+flushed.
+
+`completedAt` is deliberately separate from `isActive`:
+
+| Field | Means |
+|-------|-------|
+| `isActive: false` | Somebody switched the job off |
+| `completedAt` set | The job ran and has nothing left to do |
+
+Collapsing the two would make a finished job look disabled, and re-enabling it would fire
+it a second time. In the dashboard a finished one-time job keeps its **Active** badge and
+gains a **Completed** badge next to it.
+
+A one-time job whose time has passed but which has no `completedAt` has genuinely never
+run — for example because the API was down when it was due — and will be scheduled on the
+next startup.
+
 ### Occurrence
 
 An **occurrence** is a single execution of a job.

@@ -243,13 +243,13 @@ function RoleList() {
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="role-list">
+    <div className="page role-list">
       <Modal {...modalProps} />
 
       <div className="page-header">
         <h1>
           <Icon name="shield" size={28} />
-          <span style={{ margin: '0 0 0 1rem' }}>Roles</span>
+          <span>Roles</span>
           <span>({totalCount})</span>
         </h1>
         <button className="create-btn" onClick={handleCreate}>

@@ -298,6 +298,8 @@ gap: 0.5rem;
 .gc-stat {
   text-align: center;
   flex: 1;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
 }
 
 .gc-stat-value {

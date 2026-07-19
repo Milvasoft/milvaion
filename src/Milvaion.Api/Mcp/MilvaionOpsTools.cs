@@ -12,8 +12,6 @@ using Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis;
 using Milvaion.Application.Features.Workflows.GetWorkflowRunList;
 using Milvaion.Application.Features.Workflows.TriggerWorkflow;
 using Milvaion.Application.Features.Workflows.UpdateWorkflow;
-using Milvasoft.Components.Rest.Enums;
-using Milvasoft.Components.Rest.Request;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Types.Structs;
 using ModelContextProtocol;

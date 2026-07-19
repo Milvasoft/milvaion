@@ -66,14 +66,8 @@ function ServiceMemoryStats() {
 
   if (loading) {
     return (
-      <div className="dashboard-card service-memory-stats">
-        <div className="card-header">
-          <h3>
-            <Icon name="memory" size={20} />
-            Background Service Memory
-          </h3>
-        </div>
-        <div className="card-content">
+      <div className="stats-body">
+                <div className="card-content">
           <div className="memory-stats-loading">
             <div className="spinner"></div>
             <span>Loading memory statistics...</span>
@@ -85,14 +79,8 @@ function ServiceMemoryStats() {
 
   if (error || !memoryStats) {
     return (
-      <div className="dashboard-card service-memory-stats">
-        <div className="card-header">
-          <h3>
-            <Icon name="memory" size={20} />
-            Background Service Memory
-          </h3>
-        </div>
-        <div className="card-content">
+      <div className="stats-body">
+                <div className="card-content">
           <div className="memory-stats-empty">
             <Icon name="error_outline" size={48} className="empty-icon" />
             <p>{error || 'No memory statistics available'}</p>
@@ -110,18 +98,8 @@ function ServiceMemoryStats() {
   const hasLeaks = memoryStats.servicesWithPotentialLeaks > 0
 
   return (
-    <div className="dashboard-card service-memory-stats">
-      <div className="card-header">
-        <h3>
-          <Icon name="memory" size={20} />
-          Background Service Memory
-        </h3>
-        <div className="header-actions">
-          <button className="refresh-btn-small" onClick={loadMemoryStats} title="Refresh">
-            <Icon name="refresh" size={16} />
-            Refresh
-          </button>
-        </div>
+    <div className="stats-body">
+        <div className="db-toolbar">
       </div>
       <div className="card-content">
         {/* Overview Stats */}

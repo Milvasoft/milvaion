@@ -120,6 +120,20 @@ export const jobService = {
   toggleStatus: async (id, isActive) => {
     return api.patch(`/jobs/${id}/status`, { isActive })
   },
+
+  // Upcoming runs for both jobs and workflows, read from the live schedule
+  getUpcoming: async (params = {}) => {
+    const query = {
+      withinHours: params.withinHours ?? 24,
+      limit: params.limit ?? 100,
+    }
+
+    if (params.searchTerm) query.searchTerm = params.searchTerm
+    if (params.kind !== undefined && params.kind !== null) query.kind = params.kind
+    if (params.onlyProblems) query.onlyProblems = true
+
+    return api.get('/jobs/upcoming', { params: query })
+  },
 }
 
 export default jobService

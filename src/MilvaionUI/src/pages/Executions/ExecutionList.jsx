@@ -190,13 +190,13 @@ function ExecutionList() {
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="execution-list">
+    <div className="page execution-list">
       <Modal {...modalProps} />
 
       <div className="page-header">
         <h1>
           <Icon name="play_circle" size={28} />
-          <span style={{ margin: '0 0 0 1rem' }}>Job Executions</span>
+          <span>Job Executions</span>
           <span>({totalCount})</span>
         </h1>
       </div>

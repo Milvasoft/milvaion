@@ -1,10 +1,8 @@
 .admin-dashboard {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 /* Page Header */
-.page-header {
+.admin-dashboard .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -13,7 +11,7 @@
   flex-wrap: wrap;
 }
 
-.page-header h1 {
+.admin-dashboard .page-header h1 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
@@ -141,7 +139,7 @@
 }
 
 /* Dashboard Grid */
-.dashboard-grid {
+.admin-dashboard .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
   gap: 1.5rem;
@@ -164,7 +162,7 @@
   grid-column: 1 / -1;
 }
 
-.card-header {
+.admin-dashboard .card-header {
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -172,7 +170,7 @@
   align-items: center;
 }
 
-.card-header h3 {
+.admin-dashboard .card-header h3 {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 600;
@@ -182,12 +180,12 @@
   color: var(--text-primary);
 }
 
-.card-content {
+.admin-dashboard .card-content {
   padding: 1.5rem;
 }
 
 /* System Status */
-.status-item {
+.admin-dashboard .status-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -199,11 +197,11 @@
   transition: border-color var(--transition-base);
 }
 
-.status-item:hover {
+.admin-dashboard .status-item:hover {
   border-color: var(--accent-color);
 }
 
-.status-label {
+.admin-dashboard .status-label {
   color: var(--text-muted);
   font-size: 0.9rem;
   text-transform: uppercase;

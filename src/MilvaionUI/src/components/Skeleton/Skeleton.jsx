@@ -171,3 +171,69 @@ export function SkeletonDetail() {
 }
 
 export default Skeleton
+
+/**
+ * Kart ızgarası. Workflows, Tags, Workers ve Reports gibi tablo yerine kart
+ * listeleyen sayfalar için.
+ */
+export function SkeletonGrid({ cards = 6, lines = 3 }) {
+  return (
+    <div className="skeleton-grid">
+      {Array.from({ length: cards }, (_, i) => (
+        <SkeletonCard key={i} lines={lines} />
+      ))}
+    </div>
+  )
+}
+
+SkeletonGrid.propTypes = {
+  cards: PropTypes.number,
+  lines: PropTypes.number
+}
+
+/**
+ * Grafik alanı.
+ *
+ * Çubuklar rastgele değil sabit bir dizi: her yüklemede farklı yükseklikler
+ * çizmek, veri geliyormuş izlenimi veriyor ve bakışı gereksiz meşgul ediyor.
+ */
+export function SkeletonChart({ bars = 12, height = 260 }) {
+  const heights = [45, 70, 55, 85, 60, 40, 75, 50, 90, 65, 35, 80]
+
+  return (
+    <div className="skeleton-chart" style={{ height }}>
+      {Array.from({ length: bars }, (_, i) => (
+        <div
+          key={i}
+          className="skeleton-chart-bar skeleton-pulse"
+          style={{ height: `${heights[i % heights.length]}%` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+SkeletonChart.propTypes = {
+  bars: PropTypes.number,
+  height: PropTypes.number
+}
+
+/**
+ * Form iskeleti: etiket ve alan çiftleri.
+ */
+export function SkeletonForm({ fields = 6 }) {
+  return (
+    <div className="skeleton-form">
+      {Array.from({ length: fields }, (_, i) => (
+        <div key={i} className="skeleton-form-field">
+          <Skeleton variant="text" width="25%" height={12} />
+          <Skeleton variant="rectangular" width="100%" height={38} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+SkeletonForm.propTypes = {
+  fields: PropTypes.number
+}

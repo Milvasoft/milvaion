@@ -273,6 +273,44 @@ CREATE INDEX IX_JobOccurrences_Status_EndTime
 ON "JobOccurrences" ("Status", "EndTime");
 ```
 
+### Execution Log Indexes
+
+`JobOccurrenceLogs` is the largest table in the system — one row per log line per
+execution. These support the occurrence detail view and the log search and summary
+endpoints described in **[Monitoring](10-monitoring.md)**:
+
+```sql
+-- All lines of one run; also the join path when filtering logs by job
+CREATE INDEX IX_JobOccurrenceLogs_OccurrenceId_Timestamp
+ON "JobOccurrenceLogs" ("OccurrenceId", "Timestamp");
+
+-- Log search and summary both bound the scan by time first
+CREATE INDEX IX_JobOccurrenceLogs_Timestamp
+ON "JobOccurrenceLogs" ("Timestamp" DESC);
+
+-- "Only the errors in this window" - the narrowing that has to stay fast during an incident
+CREATE INDEX IX_JobOccurrenceLogs_Level_Timestamp
+ON "JobOccurrenceLogs" ("Level", "Timestamp" DESC);
+```
+
+### Optional: Trigram Index for Message Search
+
+Message search uses `ILIKE '%term%'`, which no B-tree can serve. Without a trigram index
+the search still works, but only as fast as the time filter makes it — which is why
+`searchTerm` should be paired with `since`.
+
+If you search logs often and can afford the write overhead and disk:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IX_JobOccurrenceLogs_Message_Trgm
+ON "JobOccurrenceLogs" USING gin ("Message" gin_trgm_ops);
+```
+
+Left opt-in because a GIN index on a high-write table costs on every insert, and log
+inserts are the highest-volume writes Milvaion makes.
+
 ### Check for Missing Indexes
 
 ```sql

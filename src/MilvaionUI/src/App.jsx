@@ -10,6 +10,7 @@ import JobForm from './pages/Jobs/JobForm'
 import OccurrenceDetail from './pages/Occurrences/OccurrenceDetail'
 import WorkerList from './pages/Workers/WorkerList'
 import ExecutionList from './pages/Executions/ExecutionList'
+import UpcomingExecutions from './pages/UpcomingExecutions/UpcomingExecutions'
 import Tags from './pages/Tags'
 import AdminDashboard from './pages/Admin/AdminDashboard'
 import Configuration from './pages/Configuration'
@@ -59,6 +60,7 @@ function App() {
                     <Route path="/jobs/:id/edit" element={<JobForm />} />
                     <Route path="/occurrences/:id" element={<OccurrenceDetail />} />
                     <Route path="/executions" element={<ExecutionList />} />
+                    <Route path="/upcoming" element={<UpcomingExecutions />} />
                     <Route path="/workers" element={<WorkerList />} />
                     <Route path="/tags" element={<Tags />} />
                     <Route path="/failed-executions" element={<FailedOccurrenceList />} />

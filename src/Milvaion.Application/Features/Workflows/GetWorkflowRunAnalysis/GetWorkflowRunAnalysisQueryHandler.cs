@@ -2,7 +2,6 @@ using Milvaion.Application.Dtos.WorkflowDtos;
 using Milvasoft.Components.CQRS.Query;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
-using Milvasoft.Milvaion.Sdk.Domain.Enums;
 
 namespace Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis;
 

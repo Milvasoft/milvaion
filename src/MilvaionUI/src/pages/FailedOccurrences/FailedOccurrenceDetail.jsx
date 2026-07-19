@@ -4,6 +4,7 @@ import failedOccurrenceService from '../../services/failedOccurrenceService'
 import { formatDateTime } from '../../utils/dateUtils'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
+import CollapsibleSection from '../../components/CollapsibleSection'
 import { SkeletonDetail } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import { getApiErrorMessage } from '../../utils/errorUtils'
@@ -154,95 +155,109 @@ function FailedOccurrenceDetail() {
   const failureTypeInfo = failedOccurrenceService.getFailureTypeInfo(job.failureType)
 
   return (
-    <div className="failed-job-detail">
+    <div className="page failed-job-detail">
       <Modal {...modalProps} />
 
-      {/* Breadcrumb */}
-      <div className="breadcrumb">
-        <Link to="/failed-executions" className="breadcrumb-link">
-          <Icon name="error" size={18} />
-          Failed Executions
-        </Link>
-        <Icon name="chevron_right" size={18} />
-        <span>{job.jobDisplayName}</span>
-      </div>
-
       {/* Header */}
-      <div className="detail-header">
-        <div className="header-left">
-          <Link to="/failed-executions" className="back-icon-btn" title="Back to Failed Executions">
+      <div className="dtl-header">
+        <div className="dtl-header-left">
+          <Link to="/failed-executions" className="dtl-back" title="Back to Failed Executions">
             <Icon name="arrow_back" size={24} />
           </Link>
-          <div className="header-info">
-            <h1>{job.jobDisplayName}</h1>
-            {job.resolved ? (
-              <span className="status-badge resolved">
-                <Icon name="check_circle" size={20} />
-                Resolved
+          <div className="dtl-title">
+            <h1>
+              <Icon name="error" size={28} />
+              {job.jobDisplayName}
+              <span className={`dtl-badge ${job.resolved ? 'dtl-badge--success' : 'dtl-badge--danger'}`}>
+                <Icon name={job.resolved ? 'check_circle' : 'pending'} size={14} />
+                {job.resolved ? 'Resolved' : 'Unresolved'}
               </span>
-            ) : (
-              <span className="status-badge unresolved">
-                <Icon name="pending" size={20} />
-                Unresolved
-              </span>
-            )}
+            </h1>
           </div>
         </div>
-        <div className="header-actions">
+        <div className="dtl-actions">
           {!job.resolved && (
-            <button onClick={handleResolve} className="btn btn-success" >
-              <Icon name="check" size={18} />
-              Mark as Resolved
+            <button onClick={handleResolve} className="dtl-btn dtl-btn--success">
+              <Icon name="check" size={18} /> Mark as Resolved
             </button>
           )}
-          <button onClick={handleDelete} className="btn btn-secondary" style={{ opacity: 0.3, color: '#ffff' }}>
-            <Icon name="delete" size={18} />
-            Delete
+          {/* Silme düğmesi opacity 0.3 ile neredeyse görünmezdi; tıklanabilir bir
+              şeyin görünmemesi, yanlışlıkla basılmasını engellemenin yolu değil. */}
+          <button onClick={handleDelete} className="dtl-btn dtl-btn--danger">
+            <Icon name="delete" size={18} /> Delete
           </button>
         </div>
       </div>
 
+      {/* Özet şeridi: hata türü, ne zaman ve kaç denemeden sonra. Bunlar üç ayrı
+          satırda, ilk kartın içindeydi; sayfaya gelen önce bunlara bakıyor. */}
+      <div className={`fo-summary fo-summary--${job.resolved ? 'resolved' : 'open'}`}>
+        <div className="fo-summary-metric">
+          <label>Failure type</label>
+          <span className={`fo-summary-type ${failureTypeInfo.className}`}>
+            <Icon name={failureTypeInfo.icon} size={16} />
+            {failureTypeInfo.label}
+          </span>
+        </div>
+
+        <div className="fo-summary-metric">
+          <label>Failed at</label>
+          <span className="fo-summary-value">{formatDateTime(job.failedAt)}</span>
+        </div>
+
+        <div className="fo-summary-metric">
+          <label>Attempts</label>
+          <span className="fo-summary-value">
+            {job.retryCount}
+            <span className="fo-summary-unit">{job.retryCount === 1 ? 'try' : 'tries'}</span>
+          </span>
+        </div>
+
+        <div className="fo-summary-metric">
+          <label>Worker</label>
+          <span className="fo-summary-value fo-summary-value--text">{job.workerId || '—'}</span>
+        </div>
+      </div>
+
+      {/* Sayfaya gelinme sebebi bu; en alttaki üçüncü kart yerine burada. */}
+      <div className="fo-exception">
+        <div className="fo-exception-head">
+          <Icon name="bug_report" size={18} />
+          <strong>Exception</strong>
+        </div>
+        <pre>{job.exception}</pre>
+      </div>
+
       {/* Main Content Grid */}
       <div className="detail-grid">
-        {/* Failure Information Card */}
-        <div className="detail-card">
-          <div className="card-header">
-            <Icon name="error" size={24} />
-            <h2>Failure Information</h2>
-          </div>
+        <CollapsibleSection
+          className="detail-card"
+          storageKey="milvaion.failedDetail.failureOpen"
+          icon="error"
+          title="Failure Information"
+        >
           <div className="card-content">
             <div className="info-row">
-              <span className="label">Failure Type</span>
+              <span className="label">Original execute at</span>
+              <span className="value">{job.originalExecuteAt ? formatDateTime(job.originalExecuteAt) : 'N/A'}</span>
+            </div>
+            <div className="info-row">
+              <span className="label">Failure type</span>
               <span className={`value failure-type-badge ${failureTypeInfo.className}`}>
                 <Icon name={failureTypeInfo.icon} size={18} />
                 {failureTypeInfo.label}
               </span>
             </div>
-            <div className="info-row">
-              <span className="label">Failed At</span>
-              <span className="value">{formatDateTime(job.failedAt)}</span>
-            </div>
-            <div className="info-row">
-              <span className="label">Retry Count</span>
-              <span className="value">{job.retryCount} attempts</span>
-            </div>
-            <div className="info-row">
-              <span className="label">Worker ID</span>
-              <span className="value"><code>{job.workerId || 'N/A'}</code></span>
-            </div>
-            <div className="info-row">
-              <span className="label">Original Execute At</span>
-              <span className="value">{job.originalExecuteAt ? formatDateTime(job.originalExecuteAt) : 'N/A'}</span>
-            </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Job Information Card */}
-        <div className="detail-card">
-          <div className="card-header">
-            <Icon name="work" size={24} />
-            <h2>Job Information</h2>
-          </div>
+        <CollapsibleSection
+          className="detail-card"
+          storageKey="milvaion.failedDetail.jobOpen"
+          icon="work"
+          title="Job Information"
+        >
           <div className="card-content">
             <div className="info-row">
               <span className="label">Job ID</span>
@@ -271,43 +286,32 @@ function FailedOccurrenceDetail() {
               <span className="value"><code>{job.jobNameInWorker}</code></span>
             </div>
           </div>
-        </div>
-
-        {/* Exception Details Card */}
-        <div className="detail-card full-width">
-          <div className="card-header">
-            <Icon name="bug_report" size={24} />
-            <h2>Exception Details</h2>
-          </div>
-          <div className="card-content">
-            <div className="exception-content">
-              <pre>{job.exception}</pre>
-            </div>
-          </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Job Data Card */}
         {job.jobData && (
-          <div className="detail-card full-width">
-            <div className="card-header">
-              <Icon name="data_object" size={24} />
-              <h2>Job Data</h2>
-            </div>
+          <CollapsibleSection
+            className="detail-card full-width"
+            storageKey="milvaion.failedDetail.dataOpen"
+            icon="data_object"
+            title="Job Data"
+          >
             <div className="card-content">
               <div className="json-content">
                 <pre>{JSON.stringify(JSON.parse(job.jobData || '{}'), null, 2)}</pre>
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
         )}
 
         {/* Resolution Information Card */}
         {job.resolved && (
-          <div className="detail-card full-width resolution-card">
-            <div className="card-header">
-              <Icon name="check_circle" size={24} />
-              <h2>Resolution Information</h2>
-            </div>
+          <CollapsibleSection
+            className="detail-card full-width resolution-card"
+            storageKey="milvaion.failedDetail.resolutionOpen"
+            icon="check_circle"
+            title="Resolution Information"
+          >
             <div className="card-content">
               <div className="info-row">
                 <span className="label">Resolved By</span>
@@ -328,7 +332,7 @@ function FailedOccurrenceDetail() {
                 </div>
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
         )}
       </div>
     </div>

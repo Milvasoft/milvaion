@@ -18,6 +18,13 @@
 
 
 	<ItemGroup>
+		<!-- CronProjector is internal because nothing outside its feature should schedule
+		     workflows, but the projection rule has to match the workflow engine exactly
+		     and that is worth testing directly. -->
+		<InternalsVisibleTo Include="Milvaion.UnitTests" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="AsyncFixer" Version="2.1.0">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

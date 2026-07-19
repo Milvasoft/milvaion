@@ -6,6 +6,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
+import { SkeletonChart } from '../../components/Skeleton'
 
 function JobHealthScoreReport() {
   const navigate = useNavigate()
@@ -244,12 +245,9 @@ function JobHealthScoreReport() {
     return (
       <div className="page-container">
         <div className="page-header">
-          <h1><Icon name="favorite" size={32} /> Job Health Score</h1>
+          <h1><Icon name="favorite" size={28} /> Job Health Score</h1>
         </div>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading report...</p>
-        </div>
+        <SkeletonChart bars={14} height={300} />
       </div>
     )
   }
@@ -261,7 +259,7 @@ function JobHealthScoreReport() {
           <button className="btn-back" onClick={() => navigate('/reports')}>
             <Icon name="arrow_back" size={20} />
           </button>
-          <h1><Icon name="favorite" size={32} /> Job Health Score</h1>
+          <h1><Icon name="favorite" size={28} /> Job Health Score</h1>
           <p className="page-description">Success rate for last N executions per job</p>
         </div>
         <div className="page-header-actions">

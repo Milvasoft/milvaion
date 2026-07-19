@@ -1,6 +1,4 @@
 .job-detail {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 /* Trigger Job Modal Styles */
@@ -44,9 +42,6 @@
 
 .trigger-jobdata-input {
   margin-top: 1rem;
-}
-  color: var(--text-muted);
-  font-size: 0.8rem;
 }
 
 .trigger-current-data {
@@ -178,9 +173,7 @@
 }
 
 /* Header Section */
-.detail-header {
-  margin-bottom: 2rem;
-}
+/* Başlık stili styles/detail.css içinde. */
 
 .header-content {
   display: flex !important;
@@ -273,6 +266,18 @@
   border: 2px solid rgba(158, 158, 158, 0.4);
 }
 
+/* Aktiflikten bağımsız: tek seferlik job çalıştı ve bir daha zamanlanmayacak.
+   Bu yüzden Active rozetinin yerini almıyor, yanında duruyor. */
+.job-status-badge.completed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.5rem;
+  background-color: rgba(var(--info-color-rgb), 0.12);
+  color: var(--info-color);
+  border: 2px solid rgba(var(--info-color-rgb), 0.3);
+}
+
 .job-tags {
   display: flex;
   flex-wrap: wrap;
@@ -303,13 +308,20 @@
 /* Content Grid */
 .content-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+  align-items: start;
 }
 
 /* Info Cards */
 .info-card {
+  min-width: 0;
+}
+
+/* Çerçeveyi gövde taşıyor; başlık CollapsibleSection'dan geldiği ve kartın
+   dışında durduğu için bölümün kendisi kutu değil. */
+.info-card .card-body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -448,9 +460,7 @@
 
 /* Occurrences Card */
 .occurrences-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  margin-bottom: 2rem;
 }
 
 .status-filters {
@@ -1063,3 +1073,60 @@
   min-width: 80px !important;
   font-size: .8125rem;
 }
+
+/* ═══ Sağlık özeti ═══════════════════════════════════════════════════════════
+   Başarı oranı, süre, sonraki çalışma ve worker. Bunlar eskiden ya grid'in
+   üçüncü kartında ya da Configuration satırlarının arasındaydı; bir işin
+   sağlıklı olup olmadığına bakmak için önce doğru kartı bulmak gerekiyordu. */
+
+.jd-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1px;
+  margin-bottom: 1.5rem;
+  background: var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.jd-summary-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  min-width: 0;
+}
+
+.jd-summary-metric label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.jd-summary-value {
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+/* Zaman ve worker adı sayı değil; aynı puntoda gösterilince tablo gibi
+   okunuyor ve asıl ölçüleri bastırıyor. */
+.jd-summary-value--time {
+  font-size: 0.9375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jd-summary-note {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.jd-summary-metric--good .jd-summary-value { color: #22c55e; }
+.jd-summary-metric--warn .jd-summary-value { color: #f59e0b; }
+.jd-summary-metric--bad  .jd-summary-value { color: #ef4444; }

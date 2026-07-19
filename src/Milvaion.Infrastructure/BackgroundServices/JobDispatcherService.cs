@@ -11,6 +11,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Scheduling;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -264,7 +265,10 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         // 10. Handle failed dispatches
         await HandleFailedDispatchesAsync(scope2, jobsToDispatch, failedToDispatchOccurrences, logsToInsert, cancellationToken);
 
-        // 11. Insert logs and retry failed dispatches
+        // 11. Mark one-time jobs as finished
+        await MarkCompletedOneTimeJobsAsync(dbContext, jobsToDispatch, failedToDispatchOccurrences, cancellationToken);
+
+        // 12. Insert logs and retry failed dispatches
         var jobOccurrenceLogRepository = scope2.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
 
         if (!logsToInsert.IsEmpty)
@@ -274,6 +278,60 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         }
 
         await RetryFailedDispatchesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Stamps one-time jobs that were dispatched in this cycle as finished.
+    /// </summary>
+    /// <remarks>
+    /// A one-time job runs once and must never be scheduled again. Until this column
+    /// existed the only record of that was the job's absence from the Redis sorted set,
+    /// and Redis is a cache: a flush or a restart erased the fact and startup recovery
+    /// put the job back, running it a second time.
+    ///
+    /// One statement per dispatch cycle, and only for jobs without a cron expression -
+    /// so in a recurring-only installation it never runs at all. A one-time job is
+    /// stamped once in its life, so this does not grow with traffic.
+    /// </remarks>
+    private async Task MarkCompletedOneTimeJobsAsync(MilvaionDbContext dbContext,
+                                                     List<ScheduledJob> jobsToDispatch,
+                                                     ConcurrentBag<JobOccurrence> failedToDispatchOccurrences,
+                                                     CancellationToken cancellationToken)
+    {
+        if (jobsToDispatch.Count == 0)
+            return;
+
+        // A job whose publish failed has not run. It keeps its schedule and is retried,
+        // so stamping it here would silently drop it.
+        var failedJobIds = failedToDispatchOccurrences.Select(o => o.JobId).ToHashSet();
+
+        var completedIds = jobsToDispatch.Where(j => string.IsNullOrWhiteSpace(j.CronExpression) && !failedJobIds.Contains(j.Id))
+                                         .Select(j => j.Id)
+                                         .ToList();
+
+        if (completedIds.Count == 0)
+            return;
+
+        try
+        {
+            var stampedAt = DateTime.UtcNow;
+
+            // Guarded on CompletedAt being null so a re-dispatch cannot move the timestamp
+            // forward; the first run is the one that counts.
+            var stamped = await dbContext.ScheduledJobs
+                                         .Where(j => completedIds.Contains(j.Id) && j.CompletedAt == null)
+                                         .ExecuteUpdateAsync(setters => setters.SetProperty(j => j.CompletedAt, stampedAt), cancellationToken);
+
+            _logger.Debug("Marked {Count} one-time job(s) as completed", stamped);
+        }
+        catch (Exception ex)
+        {
+            // The jobs were dispatched successfully; failing the cycle over the bookkeeping
+            // would be worse than a late stamp. The next cycle does not retry this, but the
+            // job is already out of the sorted set, so the only exposure is a restart before
+            // it is stamped - which is the behaviour that existed before this method.
+            _logger.Error(ex, "Failed to mark one-time jobs as completed: {JobIds}", string.Join(", ", completedIds));
+        }
     }
 
     /// <summary>
@@ -1022,7 +1080,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             var activeJobs = await _getAllActiveJobsCompiled(dbContext).ToListAsync(cancellationToken);
 
             var addedCount = 0;
-            var updatedCount = 0;
+            var keptCount = 0;
             var cachedCount = 0;
 
             foreach (var job in activeJobs)
@@ -1032,25 +1090,25 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                     // Check if job already exists in Redis
                     var existingScheduleTime = await _redisScheduler.GetScheduledTimeAsync(job.Id, cancellationToken);
 
-                    if (existingScheduleTime.HasValue)
-                    {
-                        // Job exists, update if schedule time changed
-                        if (existingScheduleTime.Value != job.ExecuteAt)
-                        {
-                            await _redisScheduler.UpdateScheduleAsync(job.Id, job.ExecuteAt, cancellationToken);
+                    // Redis holds the live schedule. Recovery only fills a gap - it never
+                    // overwrites an existing score with the ExecuteAt column, which is
+                    // frozen at the last create or update and is in the past for any
+                    // recurring job that has run. Writing it back put every such job at a
+                    // due score and made a restart fire the entire catalogue at once.
+                    var scheduleTime = StartupScheduleResolver.Resolve(job.CronExpression, job.ExecuteAt, job.CompletedAt, existingScheduleTime, DateTime.UtcNow);
 
-                            updatedCount++;
-
-                            _logger.Debug("Updated schedule for job {JobId}: {OldTime} → {NewTime}", job.Id, existingScheduleTime.Value, job.ExecuteAt);
-                        }
-                    }
-                    else
+                    if (scheduleTime.HasValue)
                     {
-                        // Job doesn't exist, add it
-                        var added = await _redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt, cancellationToken);
+                        var added = await _redisScheduler.AddToScheduledSetAsync(job.Id, scheduleTime.Value, cancellationToken);
 
                         if (added)
                             addedCount++;
+
+                        _logger.Debug("Recovered schedule for job {JobId}: {ScheduleTime} (Cron: {CronExpression})", job.Id, scheduleTime.Value, job.CronExpression);
+                    }
+                    else if (existingScheduleTime.HasValue)
+                    {
+                        keptCount++;
                     }
 
                     // Cache job details
@@ -1065,7 +1123,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 }
             }
 
-            _logger.Information("Startup recovery (Redis) completed. ZSET: {Added} added, {Updated} updated. Cache: {Cached} warmed. Total active jobs: {Total}. Zombie cleanup running in background.", addedCount, updatedCount, cachedCount, activeJobs.Count);
+            _logger.Information("Startup recovery (Redis) completed. ZSET: {Added} added, {Kept} already scheduled. Cache: {Cached} warmed. Total active jobs: {Total}. Zombie cleanup running in background.", addedCount, keptCount, cachedCount, activeJobs.Count);
         }
         finally
         {

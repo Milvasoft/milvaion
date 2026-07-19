@@ -60,7 +60,6 @@
 
 /* Summary Section */
 .db-stat-summary {
-  margin-bottom: 2rem;
   padding: 1.5rem;
   background: var(--accent-glow);
   border-radius: 8px;

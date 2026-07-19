@@ -244,13 +244,13 @@ function UserList() {
   if (error) return <div className="error">{error}</div>
 
   return (
-    <div className="user-list-page">
+    <div className="page user-list-page">
       <Modal {...modalProps} />
 
       <div className="page-header">
         <h1>
           <Icon name="group" size={28} />
-          <span style={{ margin: '0 0 0 1rem' }}>Users</span>
+          <span>Users</span>
           <span>({totalCount})</span>
         </h1>
         <button className="create-btn" onClick={handleCreate}>

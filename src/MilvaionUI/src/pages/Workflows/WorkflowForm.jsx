@@ -9,6 +9,7 @@ import { useModal } from '../../hooks/useModal'
 import CronExpressionInput from '../../components/CronExpressionInput'
 import DataMappingEditor, { parseSchemaFields } from './DataMappingEditor'
 import './WorkflowForm.css'
+import { SkeletonForm } from '../../components/Skeleton'
 
 const failureStrategies = [
   { value: 0, label: 'Stop on First Failure' },
@@ -340,11 +341,18 @@ function WorkflowForm() {
   }
 
   if (loading) {
-    return <div className="workflow-form-loading"><Icon name="hourglass_empty" size={24} /> Loading workflow...</div>
+    return (
+      <div className="page workflow-form-page">
+        <div className="page-header">
+          <h1><Icon name="account_tree" size={28} /> Workflow</h1>
+        </div>
+        <SkeletonForm fields={6} />
+      </div>
+    )
   }
 
   return (
-    <div className="workflow-form-page">
+    <div className="page workflow-form-page">
       <div className="wf-form-header">
         <div className="wf-form-header-left">
           <Link to={isEditMode ? `/workflows/${id}` : "/workflows"} className="wf-back-btn" title="Back">

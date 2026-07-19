@@ -381,14 +381,6 @@
   height: 100%;
 }
 
-/* React Flow handle görünürlük düzeltmesi */
-.react-flow__handle {
-  width: 10px;
-  height: 10px;
-  background-color: var(--accent-color);
-  border: 2px solid var(--bg-primary);
-}
-
 /* ReactFlow background dot color */
 .wfb-reactflow .react-flow__background {
   background-color: var(--bg-primary);
@@ -408,115 +400,274 @@
   margin-top: 1rem !important;
 }
 
-/* ── Step Node ────────────────────────────────────────────────────────────── */
-.wfb-step-node {
+/* ── Node kartları ────────────────────────────────────────────────────────────
+   Üç node tipi tek iskeleti paylaşıyor: aynı genişlik, aynı köşe yarıçapı, aynı
+   başlık/gövde/meta sırası. Eskiden her tip kendi ölçülerini taşıyordu (180-220px,
+   140-180px, 100-140px) ve yan yana gelince grafik dağınık görünüyordu.
+
+   Tipi ayıran şey sol kenardaki renk şeridi ve başlıktaki ikon. Kenarlığın tamamını
+   renklendirmek, çalışma durumunu göstermek için kullanılan kenarlıkla çakışıyordu. */
+
+.wfb-node {
+  position: relative;
+  width: 210px;
+  padding: var(--space-2) var(--space-3);
+  padding-left: calc(var(--space-3) + 3px);
   background: var(--bg-secondary);
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.625rem 0.75rem;
-  min-width: 180px;
-  max-width: 220px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  overflow: visible; /* handle'ların node kenarından taşmasına izin ver */
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  overflow: visible;
 }
 
-.wfb-step-node:hover {
-  border-color: var(--accent-color);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+/* Tip şeridi. Kartın sol kenarına oturuyor, köşe yarıçapını takip ediyor. */
+.wfb-node::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: var(--wfb-node-accent, var(--accent-color));
 }
 
-.wfb-step-node--selected {
-  border-color: var(--accent-color) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 20%, transparent) !important;
+.wfb-step-node      { --wfb-node-accent: var(--accent-color); }
+.wfb-condition-node { --wfb-node-accent: #f59e0b; }
+.wfb-merge-node     { --wfb-node-accent: #10b981; }
+
+.wfb-node:hover {
+  border-color: var(--wfb-node-accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
 
-.wfb-step-node--invalid {
+.wfb-node--selected {
+  border-color: var(--wfb-node-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wfb-node-accent) 22%, transparent) !important;
+}
+
+.wfb-node--invalid {
   border-color: var(--border-danger);
-  background: rgba(220, 38, 38, 0.03);
+  background: color-mix(in srgb, var(--border-danger) 5%, var(--bg-secondary));
 }
 
-.wfb-step-node-header {
+/* ── Başlık ─────────────────────────────────────────────────────────────────
+   İkon, isim ve durum tek satırda. İsim esneyen tek öğe, diğer ikisi sabit. */
+
+.wfb-node-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.375rem;
-  margin-bottom: 0.5rem;
+  gap: var(--space-1);
+  min-height: 20px;
 }
 
-.wfb-step-node-title {
+.wfb-node-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--wfb-node-accent) 14%, transparent);
+  color: var(--wfb-node-accent);
+}
+
+.wfb-node-title {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
 }
 
-.wfb-step-node-delete {
+.wfb-node-title em {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wfb-node-delete {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
   flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
 }
 
-.wfb-step-node:hover .wfb-step-node-delete,
-.wfb-condition-node:hover .wfb-step-node-delete,
-.wfb-merge-node:hover .wfb-step-node-delete {
+.wfb-node:hover .wfb-node-delete {
   opacity: 1;
 }
 
-.wfb-step-node-delete:hover {
+.wfb-node-delete:hover {
   background: var(--bg-danger);
   color: var(--text-danger);
 }
 
-.wfb-step-node-body {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
+/* ── Gövde ──────────────────────────────────────────────────────────────────
+   İkinci satır: işin adı, koşul ifadesi ya da merge açıklaması. Tek satırda
+   kalıyor - kart yüksekliği değişken olursa hizalanmış bir grafik çizilemiyor. */
 
-.wfb-step-node-job {
+.wfb-node-body {
+  margin-top: 3px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.wfb-step-node-no-job {
-  color: var(--text-danger);
+.wfb-node-job {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wfb-node-placeholder {
+  color: var(--text-muted);
   font-style: italic;
 }
 
-.wfb-step-node-meta {
-  display: flex;
-  gap: 0.375rem;
-  margin-top: 0.375rem;
-  flex-wrap: wrap;
+.wfb-node-placeholder--danger {
+  color: var(--text-danger);
+  font-style: normal;
 }
 
-.wfb-step-meta-tag {
+.wfb-condition-expr {
+  display: block;
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Meta satırı ─────────────────────────────────────────────────────────────
+   İnce bir ayraçla ayrılıyor: süre ve retry, adımın tanımı değil sonucu. */
+
+.wfb-node-meta {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border-color);
+}
+
+.wfb-node-tag {
+  display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  font-size: 0.7rem;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
   background: var(--bg-tertiary);
   color: var(--text-secondary);
-  padding: 0.1rem 0.375rem;
-  border-radius: 8px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.wfb-node-tag--warn  { color: #f59e0b; }
+.wfb-node-tag--error { color: #ef4444; }
+
+/* ── Condition portları ─────────────────────────────────────────────────────
+   Etiketler kartın içinde, sağ kenarda. Eskiden mutlak konumla dışarı taşıyorlardı
+   ve uzaklaştırıldığında komşu kartların üstüne biniyorlardı. */
+
+.wfb-node-ports {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border-color);
+}
+
+.wfb-node-port {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: var(--radius-xs);
+}
+
+.wfb-node-port--true  { color: #22c55e; background: #22c55e1a; }
+.wfb-node-port--false { color: #ef4444; background: #ef44441a; }
+
+/* ── Handle'lar ─────────────────────────────────────────────────────────────
+   Üç tip de soldan girip sağdan çıkıyor, böylece grafik tek yönde okunuyor.
+
+   Noktanın görünen boyutu küçük kalıyor - büyük daireler kartın kenarını yiyor -
+   ama tıklama alanı ::before ile 22px'e genişletiliyor. Bağlantı kurmak, imleci
+   sekiz piksellik bir hedefe isabet ettirmeyi gerektirmemeli. */
+
+.react-flow__handle {
+  width: 11px;
+  height: 11px;
+  background-color: var(--accent-color);
+  border: 2px solid var(--bg-primary);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.react-flow__handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+/* Karta yaklaşıldığında noktalar büyüyor: nereye bağlanılacağı, bağlanmaya
+   çalışmadan önce görünür oluyor. */
+.wfb-node:hover .react-flow__handle {
+  transform: scale(1.25);
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.6);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-color) 25%, transparent);
+}
+
+/* Bağlantı sürüklenirken geçerli hedefler belirginleşiyor. */
+.react-flow__handle.connectingfrom,
+.react-flow__handle.connectingto {
+  transform: scale(1.6);
+}
+
+.react-flow__handle.wfb-handle--true  { background-color: #22c55e; }
+.react-flow__handle.wfb-handle--false { background-color: #ef4444; }
+
+.react-flow__handle.wfb-handle--true:hover {
+  box-shadow: 0 0 0 4px #22c55e40;
+}
+
+.react-flow__handle.wfb-handle--false:hover {
+  box-shadow: 0 0 0 4px #ef444440;
+}
+
+/* Sürükleme sırasında çizilen geçici kenar, kalıcı kenarlardan ayırt edilebilsin. */
+.react-flow__connectionline path {
+  stroke: var(--accent-color);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
 }
 
 /* ── ReactFlow Controls ───────────────────────────────────────────────────── */
@@ -581,146 +732,6 @@
 }
 
 
-/* ── Condition Node ───────────────────────────────────────────────────────── */
-.wfb-condition-node {
-  background: var(--bg-secondary);
-  border: 2px solid #f59e0b;
-  border-radius: 12px;
-  padding: 0.75rem;
-  min-width: 140px;
-  max-width: 180px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  overflow: visible;
-}
-
-.wfb-condition-node:hover {
-  border-color: #f59e0b;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
-}
-
-.wfb-condition-node--selected {
-  border-color: #f59e0b !important;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2) !important;
-}
-
-.wfb-condition-node-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.375rem;
-  margin-bottom: 0.5rem;
-}
-
-.wfb-condition-node-title {
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.wfb-condition-node-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.wfb-condition-expr {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-style: italic;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.wfb-port-label {
-  position: absolute;
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.wfb-port-label--true {
-  right: -45px;
-  top: 35%;
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  border: 1px solid #22c55e;
-}
-
-.wfb-port-label--false {
-  bottom: -25px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border: 1px solid #ef4444;
-}
-
-/* ── Merge Node ───────────────────────────────────────────────────────────── */
-.wfb-merge-node {
-  background: var(--bg-secondary);
-  border: 2px solid #10b981;
-  border-radius: 8px;
-  padding: 0.625rem 0.75rem;
-  min-width: 100px;
-  max-width: 140px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  overflow: visible;
-}
-
-.wfb-merge-node:hover {
-  border-color: #10b981;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
-}
-
-.wfb-merge-node--selected {
-  border-color: #10b981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
-}
-
-.wfb-merge-node-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.375rem;
-  margin-bottom: 0.5rem;
-}
-
-.wfb-merge-node-title {
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.wfb-merge-node-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
 /* ── ReactFlow Edge / Attribution ─────────────────────────────────────────── */
 .react-flow__attribution {
   background: var(--bg-secondary);
@@ -736,7 +747,8 @@
 
 /* ── Config Panel ─────────────────────────────────────────────────────────── */
 .wfb-config-panel {
-  width: 35rem;
+  /* Koşul kuralları beş kontrolü yan yana taşıyor; 35rem'de adım seçimi kesiliyordu. */
+  width: calc(35rem + 20px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1092,4 +1104,100 @@
 .wfb-edge-delete-btn:hover {
   background: #dc2626;
   transform: scale(1.1);
+}
+
+/* ── Node tipi seçimi ────────────────────────────────────────────────────────
+   Dropdown yerine kart: üç tipin farkı adlarından anlaşılmıyordu, özellikle
+   Condition ile Merge arasındaki fark. */
+
+.wfb-nodetype-options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.wfb-nodetype-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.wfb-nodetype-option:hover {
+  border-color: var(--accent-color);
+}
+
+.wfb-nodetype-option.is-active {
+  border-color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 10%, transparent);
+}
+
+.wfb-nodetype-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wfb-nodetype-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* ── Bilgi kutusu ────────────────────────────────────────────────────────── */
+
+.wfb-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-color) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 25%, transparent);
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.wfb-note > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent-color);
+}
+
+.wfb-note > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.wfb-note strong {
+  color: var(--text-primary);
+  font-size: 11.5px;
+}
+
+.wfb-note-list {
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  color: var(--accent-color);
+  word-break: break-word;
+}
+
+.wfb-note--warn {
+  background: #f59e0b12;
+  border-color: #f59e0b40;
+}
+
+.wfb-note--warn > svg {
+  color: #f59e0b;
 }

@@ -10,6 +10,7 @@ import JsonEditor from '../../components/JsonEditor'
 import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonDetail } from '../../components/Skeleton'
+import CollapsibleSection from '../../components/CollapsibleSection'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import { useTriggerJob } from '../../hooks/useTriggerJob'
 import { useModal } from '../../hooks/useModal'
@@ -412,11 +413,17 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
   if (error) return <div className="error">{error}</div>
   if (!job) return <div className="error">Job not found</div>
 
+  // Başarı oranının rengi. Hiç çalışmamış bir iş nötr kalıyor: %0 başarı ile
+  // "henüz veri yok" aynı şey değil ve kırmızı göstermek yanlış alarm veriyor.
+  const healthTone = job.totalExecutions > 0
+    ? (job.successRate ?? 0) >= 90 ? 'good' : (job.successRate ?? 0) >= 70 ? 'warn' : 'bad'
+    : 'idle'
+
   // Check if job was auto-disabled
   const isAutoDisabled = job.autoDisableSettings?.disabledAt && !job.isActive
 
   return (
-    <div className="job-detail">
+    <div className="page job-detail">
       <Modal {...modalProps} />
       <Modal {...versionModalProps} />
       <Modal {...deleteModalProps} />
@@ -496,22 +503,35 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
       )}
 
       {/* Header Section */}
-      <div className="detail-header">
-        <div className="header-content">
-          <div className="header-left">
-            <Link to="/jobs" className="back-icon-btn" title="Back to Jobs">
-              <Icon name="arrow_back" size={24} />
-            </Link>
+      <div className="dtl-header">
+        <div className="dtl-header-left">
+          <Link to="/jobs" className="dtl-back" title="Back to Jobs">
+            <Icon name="arrow_back" size={24} />
+          </Link>
+
+          <div className="dtl-title">
+            <h1>
+              <Icon name="work" size={28} />
+              {job.displayName || job.name}
+              <span className={`job-status-badge ${job.isActive ? 'active' : 'inactive'} ${isAutoDisabled ? 'auto-disabled' : ''}`}>
+                <Icon name={job.isActive ? 'check_circle' : isAutoDisabled ? 'power_off' : 'pause_circle'} size={16} />
+                {isAutoDisabled ? 'Auto-Disabled' : job.isActive ? 'Active' : 'Inactive'}
+              </span>
+              {/* Ayrı bir rozet: job hâlâ aktif, sadece çalışacak bir şeyi kalmadı.
+                  İkisini tek rozette birleştirmek "kullanıcı kapattı" ile "bitti"yi
+                  aynı şey gibi gösterirdi. */}
+              {job.completedAt && (
+                <span
+                  className="job-status-badge completed"
+                  title={`One-time job, dispatched ${formatDate(job.completedAt)}. It will not be scheduled again.`}
+                >
+                  <Icon name="task_alt" size={16} />
+                  Completed
+                </span>
+              )}
+            </h1>
 
             <div className="title-content">
-              <div className="title-section">
-                <h1 >{job.displayName || job.name}</h1>
-                <span className={`job-status-badge ${job.isActive ? 'active' : 'inactive'} ${isAutoDisabled ? 'auto-disabled' : ''}`}>
-                  <Icon name={job.isActive ? 'check_circle' : isAutoDisabled ? 'power_off' : 'pause_circle'} size={16} />
-                  {isAutoDisabled ? 'Auto-Disabled' : job.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-
               {job.tags && (
                 <div className="job-tags">
                   {job.tags.split(',').map((tag, index) => (
@@ -539,45 +559,87 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
               )}
             </div>
           </div>
+        </div>
 
-          <div className="header-actions">
-            <button
-              onClick={handleTrigger}
-              className="action-btn trigger-btn"
-              disabled={!job.isActive || triggering || job.externalJobInfo}
-              title={job.externalJobInfo ? "External jobs cannot be triggered from Milvaion" : "Trigger job now"}
-            >
-              <Icon name="play_arrow" size={20} />
-              <span>{triggering ? 'Triggering...' : 'Trigger Now'}</span>
-            </button>
-            <Link to={`/jobs/${id}/edit`} className="action-btn edit-btn">
-              <Icon name="edit" size={20} />
-              <span>Edit Job</span>
-            </Link>
-            <button
-              onClick={handleDeleteJob}
-              className="action-btn delete-btn"
-              disabled={job.externalJobInfo}
-              title={job.externalJobInfo ? "External jobs cannot be deleted from Milvaion" : "Delete job"}
-            >
-              <Icon name="delete" size={20} />
-              <span>Delete</span>
-            </button>
-          </div>
+        <div className="dtl-actions">
+          <Link to={`/jobs/${id}/edit`} className="dtl-btn dtl-btn--secondary">
+            <Icon name="edit" size={18} /> Edit Job
+          </Link>
+          <button
+            onClick={handleTrigger}
+            className="dtl-btn dtl-btn--primary"
+            disabled={!job.isActive || triggering || job.externalJobInfo}
+            title={job.externalJobInfo ? "External jobs cannot be triggered from Milvaion" : "Trigger job now"}
+          >
+            <Icon name="play_arrow" size={18} /> {triggering ? 'Triggering...' : 'Trigger Now'}
+          </button>
+          <button
+            onClick={handleDeleteJob}
+            className="dtl-btn dtl-btn--danger"
+            disabled={job.externalJobInfo}
+            title={job.externalJobInfo ? "External jobs cannot be deleted from Milvaion" : "Delete job"}
+          >
+            <Icon name="delete" size={18} /> Delete
+          </button>
           <AuditInfoCard auditInfo={job.auditInfo} />
+        </div>
+      </div>
+
+      {/* Sağlık özeti: bir işe bakan önce "sağlıklı mı, ne zaman çalışacak" diye
+          soruyor. Bu üç sayı grid'in üçüncü kartında gömülüydü. */}
+      <div className="jd-summary">
+        <div className={`jd-summary-metric jd-summary-metric--${healthTone}`}>
+          <label>Success rate</label>
+          <span className="jd-summary-value">
+            {job.successRate != null ? `${job.successRate}%` : '—'}
+          </span>
+          <span className="jd-summary-note">
+            {job.totalExecutions > 0
+              ? `over ${job.totalExecutions} ${job.totalExecutions === 1 ? 'run' : 'runs'}`
+              : 'no runs yet'}
+          </span>
+        </div>
+
+        <div className="jd-summary-metric">
+          <label>Average duration</label>
+          <span className="jd-summary-value">
+            {job.avarageDuration != null
+              ? job.avarageDuration >= 1000
+                ? `${(job.avarageDuration / 1000).toFixed(1)}s`
+                : `${Math.round(job.avarageDuration)}ms`
+              : '—'}
+          </span>
+          <span className="jd-summary-note">per execution</span>
+        </div>
+
+        <div className="jd-summary-metric">
+          <label>{job.cronExpression ? 'Next run' : 'Scheduled for'}</label>
+          <span className="jd-summary-value jd-summary-value--time">
+            {job.executeAt ? formatDate(job.executeAt) : '—'}
+          </span>
+          <span className="jd-summary-note">
+            {job.isActive
+              ? (job.cronExpression ? 'recurring' : 'one-time')
+              : 'job is paused'}
+          </span>
+        </div>
+
+        <div className="jd-summary-metric">
+          <label>Worker</label>
+          <span className="jd-summary-value jd-summary-value--time">{job.workerId || '—'}</span>
+          <span className="jd-summary-note">{job.jobType || 'no job type'}</span>
         </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="content-grid">
         {/* Job Configuration Card */}
-        <div className="info-card config-card">
-          <div className="card-header">
-            <h3>
-              <Icon name="settings" size={20} />
-              Configuration
-            </h3>
-          </div>
+        <CollapsibleSection
+          className="info-card config-card"
+          storageKey="milvaion.jobDetail.configOpen"
+          icon="settings"
+          title="Configuration"
+        >
           <div className="card-body">
             <div className="info-row">
               <span className="info-label">Job Type</span>
@@ -695,17 +757,16 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
               </div>
             )}
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Auto-Disable Settings Card */}
         {job.autoDisableSettings && (
-          <div className="info-card auto-disable-card">
-            <div className="card-header">
-              <h3>
-                <Icon name="power_off" size={20} />
-                Auto-Disable (Circuit Breaker)
-              </h3>
-            </div>
+          <CollapsibleSection
+            className="info-card auto-disable-card"
+            storageKey="milvaion.jobDetail.autoDisableOpen"
+            icon="power_off"
+            title="Auto-Disable (Circuit Breaker)"
+          >
             <div className="card-body">
               <div className="info-row">
                 <span className="info-label">Status</span>
@@ -758,60 +819,24 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
                 </>
               )}
             </div>
-          </div>
-        )}
-
-        {/* Statistics Card */}
-        {job.totalExecutions > 0 && (
-          <div className="info-card stats-card">
-            <div className="card-header">
-              <h3>
-                <Icon name="bar_chart" size={20} />
-                Statistics
-              </h3>
-            </div>
-            <div className="card-body">
-              <div className="stat-item">
-                <span className="stat-label">Total Runs</span>
-                <span className="stat-value">{job.totalExecutions}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Success Rate</span>
-                <span className={`stat-value ${(job.successRate || 0) >= 90 ? 'success' : (job.successRate || 0) >= 70 ? 'warning' : 'danger'}`}>
-                  {job.successRate != null ? `${job.successRate}%` : 'N/A'}
-                </span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Avg Duration</span>
-                <span className="stat-value">
-                  {job.avarageDuration != null
-                    ? job.avarageDuration >= 1000
-                      ? `${(job.avarageDuration / 1000).toFixed(2)}s`
-                      : `${Math.round(job.avarageDuration)}ms`
-                    : 'N/A'
-                  }
-                </span>
-              </div>
-            </div>
-          </div>
+          </CollapsibleSection>
         )}
 
       </div>
 
       {/* Occurrences Section */}
-      <div className="occurrences-card">
-        <div className="card-header">
-          <div>
-            <h3>
-              <Icon name="history" size={20} />
-              Execution History
-            </h3>
-          </div>
+      <CollapsibleSection
+        className="occurrences-card"
+        storageKey="milvaion.jobDetail.historyOpen"
+        icon="history"
+        title="Execution History"
+        actions={
           <div className={`signalr-indicator ${signalRConnected ? 'connected' : 'disconnected'}`}>
             <span className="indicator-dot"></span>
             <span>{signalRConnected ? 'Live' : 'Reconnecting...'}</span>
           </div>
-        </div>
+        }
+      >
 
         <OccurrenceTable
           occurrences={occurrences}
@@ -835,7 +860,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
           showJobName={false}
           onBulkDelete={handleBulkDelete}
         />
-      </div>
+      </CollapsibleSection>
 
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator

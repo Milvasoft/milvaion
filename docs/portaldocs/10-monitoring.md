@@ -437,6 +437,115 @@ Or in Seq/ELK:
 CorrelationId = "corr-789"
 ```
 
+### Searching Execution Logs
+
+Worker execution logs are queryable without leaving Milvaion. Two endpoints, and they are
+meant to be used in that order.
+
+**Summary first.** `GET /jobs/logs/summary` aggregates the logs into counts — by severity,
+category, exception type, job, and repeated message — over a time window. The response
+size does not grow with log volume, so this is safe on a busy installation where reading
+the lines themselves would not be.
+
+```bash
+curl -H "X-ApiKey: $MILVAION_API_KEY" \
+  "http://localhost:5000/api/v1/jobs/logs/summary?withinHours=24&level=Error"
+```
+
+```json
+{
+  "since": "2026-07-18T12:00:00Z",
+  "until": "2026-07-19T12:00:00Z",
+  "totalCount": 18422,
+  "byLevel": [{ "value": "Information", "count": 17980 }, { "value": "Error", "count": 442 }],
+  "byExceptionType": [{ "value": "HttpRequestException", "count": 389 }],
+  "topJobs": [{ "jobName": "SyncOrdersJob", "count": 9120, "errorCount": 401 }],
+  "topMessages": [{ "message": "Upstream timed out", "level": "Error", "count": 389, "lastSeen": "..." }]
+}
+```
+
+**Then search.** `GET /jobs/logs` returns individual lines, newest first, narrowed by what
+the summary pointed at.
+
+| Parameter | Purpose |
+|-----------|---------|
+| `jobId`, `occurrenceId` | One job, or one execution |
+| `level`, `category`, `exceptionType` | Narrow by classification |
+| `since`, `until` | Time bounds, UTC |
+| `searchTerm` | Substring match on the message |
+| `includeData` | Return the values of structured fields, not just their names |
+| `pageNumber`, `pageSize` | Paging, up to 200 lines per page |
+
+```bash
+curl -H "X-ApiKey: $MILVAION_API_KEY" \
+  "http://localhost:5000/api/v1/jobs/logs?level=Error&searchTerm=timeout&since=2026-07-19T00:00:00Z"
+```
+
+:::tip Pair `searchTerm` with `since`
+Message search is a substring scan. The time bound is what keeps it fast — see
+**[Scaling](09-scaling.md)** for the indexes involved.
+:::
+
+Each line reports the **names** of its structured fields in `dataKeys`; the values come
+back only when you ask for them with `includeData=true`. Those values are written by your
+worker code and can contain business data, so request them deliberately.
+
+The same two capabilities are exposed to AI assistants as the `summarize_logs` and
+`search_logs` tools — see **[MCP Server](25-mcp-server.md)**.
+
+---
+
+## Upcoming Executions
+
+The **Upcoming Executions** screen answers "what runs next", for scheduled jobs and
+workflows together. It reads the live schedule rather than the database, so it reflects
+what will actually happen.
+
+```bash
+curl -H "X-ApiKey: $MILVAION_API_KEY" \
+  "http://localhost:5000/api/v1/jobs/upcoming?withinHours=24"
+```
+
+| Parameter | Purpose |
+|-----------|---------|
+| `withinHours` | How far ahead to look. Default 24, maximum 720 |
+| `kind` | `0` jobs only, `1` workflows only. Omit for both |
+| `searchTerm` | Filter by name |
+| `onlyProblems` | Only entries that will not run |
+| `limit` | Maximum rows, up to 500 |
+
+### Reading the Status Column
+
+Each row carries a health value, and the distinction matters:
+
+| Status | Meaning |
+|--------|---------|
+| **Scheduled** | The dispatcher holds this time in Redis. It will fire unless something changes. |
+| **Projected** | Derived from the cron expression. Workflows only — the workflow engine works the time out on each poll rather than storing it. |
+| **Not scheduled** | Active and recurring, but nothing holds a run time for it. **It will not run.** |
+| **Invalid cron** | The expression could not be parsed, so no next run can be derived. |
+
+A job row is a promise; a workflow row is an estimate.
+
+:::warning "Not scheduled" is the one to act on
+Nothing else in the product surfaces this. The job list still shows the job as active, and
+because it never runs, no occurrence is ever created to fail. The count appears as a banner
+at the top of the screen.
+
+External jobs are excluded from this check — Milvaion never dispatches them, so their
+absence from the schedule is by design.
+:::
+
+### When the Scheduler Is Unreachable
+
+The Redis client fails open through a circuit breaker: during an outage, reads return
+empty rather than erroring. The response therefore carries `schedulerReachable`, and the
+screen shows a banner when it is false. Without it, a Redis outage would look identical to
+a healthy but idle system.
+
+Countdowns are measured against `asOfUtc` from the response, not the browser clock, so a
+workstation with a skewed clock does not report runs as overdue.
+
 ---
 
 ## OpenTelemetry Integration
