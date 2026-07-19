@@ -244,9 +244,9 @@ Every tool is gated by the permission in the right hand column. A key that lacks
 | `list_workflows` | Workflows | `WorkflowManagement.List` |
 | `get_workflow` | One workflow with its step graph | `WorkflowManagement.Detail` |
 | `list_workflow_runs` | Workflow runs and their status | `WorkflowManagement.List` |
-| `get_workflow_run` | One run with per step outcomes | `WorkflowManagement.Detail` |
+| `get_workflow_run` | One run, steps in order with dependencies by name | `WorkflowManagement.Detail` |
 | `list_activity_logs` | Who changed what, and when | `ActivityLogManagement.List` |
-| `list_reports` | Metric reports produced by the reporter worker | `ScheduledJobManagement.List` |
+| `list_reports` | Metric report metadata and freshness, without payloads | `ScheduledJobManagement.List` |
 | `get_latest_report` | Newest report of a metric type, with its data | `ScheduledJobManagement.Detail` |
 | `get_report` | One report by id, for comparing against an older one | `ScheduledJobManagement.Detail` |
 | `get_system_health` | Health of the scheduler, database, Redis and RabbitMQ | `SystemAdministration.List` |

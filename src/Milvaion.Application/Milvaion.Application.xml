@@ -2746,6 +2746,70 @@
             EF Core projection expression that maps a <see cref="T:Milvasoft.Milvaion.Sdk.Domain.MetricReport"/> entity to this DTO.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto">
+            <summary>
+            Metric report metadata without the report payload.
+            </summary>
+            <remarks>
+            <see cref="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto"/> carries the full jsonb <c>Data</c> for every row it returns, which is fine for
+            a dashboard that renders a chart per card and expensive for anything that only needs to know which reports exist.
+            A page of twenty throughput reports is a few hundred kilobytes of aggregated series, none of it read if the
+            caller is deciding which report to open.
+            <para>
+            This shape answers "what is there and how fresh is it" and leaves fetching the payload to the detail query.
+            <see cref="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.DataSizeBytes"/> is kept so the size of that follow-up call is known before it is made.
+            </para>
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.Id">
+            <summary> Unique identifier (Guid v7). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.MetricType">
+            <summary> Report type key (e.g. FailureRateTrend, WorkerThroughput, JobHealthScore). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.DisplayName">
+            <summary> Human-readable report title. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.Description">
+            <summary> Short description of what the report measures. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.PeriodStartTime">
+            <summary> Start of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.PeriodEndTime">
+            <summary> End of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.GeneratedAt">
+            <summary> Timestamp when the report was generated (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.Tags">
+            <summary> Comma-separated tags for categorization and filtering. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.DataSizeBytes">
+            <summary>
+            Size of the omitted report payload in characters.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.AgeMinutes">
+            <summary>
+            How long ago the report was generated, in minutes.
+            </summary>
+            <remarks>
+            Populated after materialisation rather than in the projection: the age is relative to now, and pushing
+            <c>DateTime.UtcNow</c> into the SQL translation is both fragile and pointless when the row is about to be
+            read in memory anyway.
+            <para>
+            It exists because a stale report is the single most common way to reach a confident wrong conclusion here.
+            A reader given only <see cref="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.GeneratedAt"/> has to know the current time to spot that the failure rate
+            trend it is quoting was computed six hours ago.
+            </para>
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.Projection">
+            <summary>
+            EF Core projection expression that maps a <see cref="T:Milvasoft.Milvaion.Sdk.Domain.MetricReport"/> entity to this DTO.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.MilvaionBaseDto`1">
             <summary>
             App pool base dto for attribute usage.
@@ -4363,6 +4427,204 @@
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.Projection">
             <summary>
             Projection expression.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto">
+            <summary>
+            A workflow run flattened into a form that can be read top to bottom without joining anything.
+            </summary>
+            <remarks>
+            <see cref="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto"/> exists to drive the DAG canvas, so it hands back three parallel collections -
+            step runs, step definitions and edges - keyed by GUID, plus layout coordinates. A UI resolves those references
+            with a lookup table. A reader without one has to hold every GUID in mind at once to answer a question as ordinary
+            as "what stopped the pipeline", and the answer is usually wrong.
+            <para>
+            This shape resolves the references up front. Dependencies are step names rather than ids, the definition and the
+            run outcome for a step live on the same object, layout coordinates are dropped, and the collapse of the run is
+            stated directly in <see cref="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.FailedSteps"/> and <see cref="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.NotReachedSteps"/> rather than left to be inferred
+            from the absence of a record.
+            </para>
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.RunId">
+            <summary>
+            Workflow run ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.WorkflowId">
+            <summary>
+            Parent workflow ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.WorkflowName">
+            <summary>
+            Workflow name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.WorkflowVersion">
+            <summary>
+            Version of the definition this run executed. A run always executes the version it started with, so an
+            older run may not match the workflow as it stands now.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.Status">
+            <summary>
+            Overall run status.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.StartTime">
+            <summary>
+            Run start time (UTC).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.EndTime">
+            <summary>
+            Run end time (UTC).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.DurationMs">
+            <summary>
+            Total run duration in milliseconds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.TriggerReason">
+            <summary>
+            Why the run started.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.Error">
+            <summary>
+            Run level error, when the orchestrator itself failed rather than a step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.Summary">
+            <summary>
+            One sentence describing what happened, so the headline does not have to be reconstructed from the steps.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.Steps">
+            <summary>
+            Every step in the definition, in execution order, each carrying its own outcome.
+            </summary>
+            <remarks>
+            Includes steps that never ran. A step missing from the list would be indistinguishable from a step that
+            was never defined, and "which steps did not get to run" is the more useful half of a failed run.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.FailedSteps">
+            <summary>
+            Names of the steps that failed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.SkippedSteps">
+            <summary>
+            Names of the steps that were skipped, either by a condition or because something upstream failed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.NotReachedSteps">
+            <summary>
+            Names of the steps the run never reached, so they have no outcome at all.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunAnalysisDto.SlowestStep">
+            <summary>
+            Name of the slowest completed step, which is the usual first suspect when a run is late rather than broken.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto">
+            <summary>
+            One step of a workflow run, with its definition and its outcome on the same object.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.Name">
+            <summary>
+            Step name. Unique within a workflow in practice, and used here in place of the step id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.NodeType">
+            <summary>
+            Whether the step runs a job, branches, or joins branches.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.JobName">
+            <summary>
+            Display name of the scheduled job this step runs, for Task nodes.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.JobId">
+            <summary>
+            Id of the scheduled job, so the job's own history can be looked up.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.OccurrenceId">
+            <summary>
+            Id of the occurrence this step produced, so its logs can be fetched.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.Status">
+            <summary>
+            Step outcome. Null when the run never reached this step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.Order">
+            <summary>
+            Execution order within the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.StartTime">
+            <summary>
+            Step start time (UTC).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.EndTime">
+            <summary>
+            Step end time (UTC).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.DurationMs">
+            <summary>
+            Step duration in milliseconds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.RetryCount">
+            <summary>
+            How many times the step was retried before reaching its final status.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.Error">
+            <summary>
+            Exception detail, when the step failed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.Output">
+            <summary>
+            Result the step produced, which is what downstream data mappings read from.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.DependsOn">
+            <summary>
+            Names of the steps that must finish before this one starts, resolved from the DAG edges.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.Blocks">
+            <summary>
+            Names of the steps waiting on this one. Reading this on a failed step gives the blast radius directly.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.IncomingBranches">
+            <summary>
+            Labels of the incoming branches, for a step reached through a condition's named port. Tells you which way
+            a decision went without having to evaluate the expression.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.NodeConfig">
+            <summary>
+            Node configuration, holding the expression for a Condition node.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunStepAnalysisDto.DelaySeconds">
+            <summary>
+            Delay in seconds applied before the step runs.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto">
@@ -6530,6 +6792,37 @@
         <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryValidator.#ctor">
             <inheritdoc />
         </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQuery">
+            <summary>
+            Gets metric report metadata without the report payloads, optionally filtered by metric type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQuery.MetricType">
+            <summary>
+            Type of metric.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQueryHandler">
+            <summary>
+            Gets metric report metadata without the report payloads, optionally filtered by metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Gets metric report metadata without the report payloads, optionally filtered by metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQuery,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQueryValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList.GetMetricReportSummaryListQueryValidator.#ctor">
+            <inheritdoc />
+        </member>
         <member name="T:Milvaion.Application.Features.Pages.GetPageAccessibilityForCurrentUser.GetPageAccessibilityForCurrentUserQuery">
             <summary>
             Data transfer object for page details.
@@ -8026,6 +8319,73 @@
         </member>
         <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQuery">
+            <summary>
+            Query to get a workflow run flattened for reading rather than for drawing.
+            </summary>
+            <remarks>
+            Same underlying data as <see cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery"/>. The two are kept apart
+            because the canvas needs the graph and everything else needs the narrative, and collapsing them would force one
+            of the two to work around the other's shape.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQuery.RunId">
+            <summary>
+            Workflow run ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQuery.MaxOutputLength">
+            <summary>
+            Maximum characters of a step's output to return. Zero omits outputs entirely.
+            </summary>
+            <remarks>
+            A step passing a large payload downstream can carry hundreds of kilobytes of JSON, and a run has many
+            steps. Truncating per step keeps one slow pipeline from producing a response nobody can use.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryHandler">
+            <summary>
+            Handles the workflow run analysis query.
+            </summary>
+            <remarks>
+            Reads the same three sources as the detail query - the run, the definition it executed, and the occurrences it
+            produced - and joins them here instead of handing the caller the pieces to join.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Handles the workflow run analysis query.
+            </summary>
+            <remarks>
+            Reads the same three sources as the detail query - the run, the definition it executed, and the occurrences it
+            produced - and joins them here instead of handing the caller the pieces to join.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryHandler.Handle(Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryHandler.Truncate(System.String,System.Int32)">
+            <summary>
+            Trims <paramref name="value"/> to <paramref name="maxLength"/>, marking it so the caller knows it is partial.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryHandler.BuildSummary(Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowStatus,System.Int32,System.Collections.Generic.List{System.String},System.Collections.Generic.List{System.String},System.Collections.Generic.List{System.String})">
+            <summary>
+            Describes the run in one sentence.
+            </summary>
+            <remarks>
+            The status alone does not say much - Failed is true of a pipeline that fell over on its first step and of one
+            that got to the last, and those call for different responses.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQuery"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQueryValidator"/>
         </member>
         <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery">
             <summary>

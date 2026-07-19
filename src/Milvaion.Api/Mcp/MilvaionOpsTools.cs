@@ -8,7 +8,7 @@ using Milvaion.Application.Features.Workflows.CreateWorkflow;
 using Milvaion.Application.Features.Workflows.DeleteWorkflow;
 using Milvaion.Application.Features.Workflows.GetWorkflowDetail;
 using Milvaion.Application.Features.Workflows.GetWorkflowList;
-using Milvaion.Application.Features.Workflows.GetWorkflowRunDetail;
+using Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis;
 using Milvaion.Application.Features.Workflows.GetWorkflowRunList;
 using Milvaion.Application.Features.Workflows.TriggerWorkflow;
 using Milvaion.Application.Features.Workflows.UpdateWorkflow;
@@ -243,21 +243,32 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     }
 
     /// <summary>
-    /// Gets a workflow run in full, including per step outcomes.
+    /// Gets a workflow run flattened for reading, with each step carrying its own outcome and dependencies.
     /// </summary>
+    /// <remarks>
+    /// Deliberately uses <see cref="GetWorkflowRunAnalysisQuery"/> rather than the detail query the dashboard uses.
+    /// The detail shape is a graph - separate step, edge and run collections keyed by GUID, plus canvas coordinates -
+    /// which is right for drawing a DAG and wrong for answering a question about one.
+    /// </remarks>
     /// <param name="runId">Workflow run id to access details.</param>
+    /// <param name="maxOutputLength">Maximum characters of each step's output to return.</param>
     /// <param name="cancellationToken"></param>
-    /// <returns>Workflow run detail.</returns>
+    /// <returns>Workflow run analysis.</returns>
     /// <exception cref="McpException">Thrown when no workflow run exists with the given id.</exception>
     [McpServerTool(Name = "get_workflow_run", ReadOnly = true)]
-    [Description("Gets one workflow run with the outcome of each step, so you can see exactly where a pipeline stopped and which branch it took.")]
+    [Description("Gets one workflow run with the outcome of each step, so you can see exactly where a pipeline stopped and which branch it took. Steps come back in execution order with their dependencies given as step names, so nothing has to be joined by id. failedSteps, skippedSteps and notReachedSteps give the shape of the collapse directly; a step with a null status never ran at all. Each step carries the id of the occurrence it produced - pass that to get_occurrence for the logs behind a failure.")]
     public async Task<object> GetWorkflowRunAsync(
         [Description("The run's GUID id, as returned by list_workflow_runs.")] Guid runId,
+        [Description("Maximum characters of each step's output data to return. Pass 0 to omit outputs, or raise it when a data mapping is the thing being diagnosed.")] int maxOutputLength = 2000,
         CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.WorkflowManagement.Detail);
 
-        var response = await _mediator.Send(new GetWorkflowRunDetailQuery { RunId = runId }, cancellationToken);
+        var response = await _mediator.Send(new GetWorkflowRunAnalysisQuery
+        {
+            RunId = runId,
+            MaxOutputLength = Math.Clamp(maxOutputLength, 0, 20000)
+        }, cancellationToken);
 
         if (response.Data == null)
             throw new McpException($"No workflow run found with id {runId}.");

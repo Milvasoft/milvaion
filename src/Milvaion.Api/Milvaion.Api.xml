@@ -1425,6 +1425,137 @@
             <param name="cancellationToken"></param>
             <returns>Paged activity log with the total count.</returns>
         </member>
+        <member name="T:Milvaion.Api.Mcp.MilvaionInsightTools">
+            <summary>
+            MCP tools for reports, infrastructure health and configuration.
+            </summary>
+            <remarks>
+            Everything here is read-only. These answer the questions that sit one level above an individual job - is the
+            queue backing up, is the database growing, what did the scheduler decide overnight - and they are usually
+            what turns "this job failed" into "the whole box is unhealthy".
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.#ctor(MediatR.IMediator,Milvaion.Application.Interfaces.IAdminService,Milvaion.Api.Mcp.McpPermissionGuard)">
+            <summary>
+            MCP tools for reports, infrastructure health and configuration.
+            </summary>
+            <remarks>
+            Everything here is read-only. These answer the questions that sit one level above an individual job - is the
+            queue backing up, is the database growing, what did the scheduler decide overnight - and they are usually
+            what turns "this job failed" into "the whole box is unhealthy".
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.ListReportsAsync(System.String,System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets generated metric reports.
+            </summary>
+            <param name="metricType">Only reports of this type.</param>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionInsightTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged report list with the total count.</returns>
+            <remarks>
+            Uses the summary query rather than the list query the dashboard uses. The list DTO carries each report's
+            full jsonb payload, so a single page of throughput reports is hundreds of kilobytes of aggregated series -
+            paid for on every call, and thrown away whenever the caller only wanted to know which reports exist.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetLatestReportAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets the most recent report of a given type.
+            </summary>
+            <param name="metricType">Metric type to fetch the latest report for.</param>
+            <param name="cancellationToken"></param>
+            <returns>The latest report of that type.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no report of that type exists yet.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetReportAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Gets one report by id.
+            </summary>
+            <param name="reportId">Report id.</param>
+            <param name="cancellationToken"></param>
+            <returns>Report detail.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when no report exists with the given id.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.Unwrap(Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto)">
+            <summary>
+            Returns a report with its <c>Data</c> payload parsed into real JSON rather than left as a string.
+            </summary>
+            <remarks>
+            The column is jsonb but the DTO types it as <c>string</c>, so serializing the DTO produces a JSON string
+            containing escaped JSON - <c>"{\"buckets\":[...]}"</c>. Reading a value out of that means unescaping and
+            parsing it by hand, and a report is exactly the kind of nested series where doing that by eye goes wrong
+            quietly: the number comes back plausible and belongs to the wrong bucket.
+            <para>
+            Parsing here costs one pass over a payload that is about to be sent anyway. A payload that is not valid
+            JSON is passed through untouched rather than failing the call - a malformed report is still worth seeing,
+            and the failure it points at is the reporter worker's, not this tool's.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetSystemHealthAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets overall system health.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns>Health of the scheduler and its dependencies.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetQueueStatsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets RabbitMQ queue statistics.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns>Depth and consumer counts per queue.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetQueueInfoAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets detail for one queue.
+            </summary>
+            <param name="queueName">Queue name, as returned by get_queue_stats.</param>
+            <param name="cancellationToken"></param>
+            <returns>Queue depth detail.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetJobStatisticsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets aggregate job statistics.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns>Job and execution counters.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetDatabaseStatisticsAsync(System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Gets database size, table sizes, index efficiency, cache hit ratio and bloat.
+            </summary>
+            <param name="includeTableDetail">Include per-table sizes as well as the summary.</param>
+            <param name="cancellationToken"></param>
+            <returns>Database statistics.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetConfigurationAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets the effective system configuration.
+            </summary>
+            <param name="cancellationToken"></param>
+            <returns>System configuration.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.ListNotificationsAsync(System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets internal notifications.
+            </summary>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionInsightTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged notification list with the total count.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.ListPermissionsAsync(System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Gets the permission catalog.
+            </summary>
+            <param name="pageNumber">Page number, starting at 1.</param>
+            <param name="pageSize">Results per page, capped at <see cref="F:Milvaion.Api.Mcp.MilvaionInsightTools._maxPageSize"/>.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paged permission list with the total count.</returns>
+        </member>
         <member name="T:Milvaion.Api.Mcp.MilvaionJobTools">
             <summary>
             MCP tools covering scheduled jobs and their executions.
@@ -1726,13 +1857,19 @@
             <returns>Workflow detail.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when no workflow exists with the given id.</exception>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetWorkflowRunAsync(System.Guid,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetWorkflowRunAsync(System.Guid,System.Int32,System.Threading.CancellationToken)">
             <summary>
-            Gets a workflow run in full, including per step outcomes.
+            Gets a workflow run flattened for reading, with each step carrying its own outcome and dependencies.
             </summary>
+            <remarks>
+            Deliberately uses <see cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunAnalysis.GetWorkflowRunAnalysisQuery"/> rather than the detail query the dashboard uses.
+            The detail shape is a graph - separate step, edge and run collections keyed by GUID, plus canvas coordinates -
+            which is right for drawing a DAG and wrong for answering a question about one.
+            </remarks>
             <param name="runId">Workflow run id to access details.</param>
+            <param name="maxOutputLength">Maximum characters of each step's output to return.</param>
             <param name="cancellationToken"></param>
-            <returns>Workflow run detail.</returns>
+            <returns>Workflow run analysis.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when no workflow run exists with the given id.</exception>
         </member>
         <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.CancelWorkflowRunAsync(System.Guid,System.String,System.Threading.CancellationToken)">

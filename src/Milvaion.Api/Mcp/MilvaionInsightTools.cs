@@ -1,15 +1,17 @@
 ﻿using MediatR;
+using Milvaion.Application.Dtos.MetricReportDtos;
 using Milvaion.Application.Features.Configuration.GetSystemConfiguration;
 using Milvaion.Application.Features.InternalNotifications.GetInternalNotificationList;
 using Milvaion.Application.Features.MetricReports.GetLatestMetricReport;
 using Milvaion.Application.Features.MetricReports.GetMetricReportDetail;
-using Milvaion.Application.Features.MetricReports.GetMetricReportList;
+using Milvaion.Application.Features.MetricReports.GetMetricReportSummaryList;
 using Milvaion.Application.Features.Permissions.GetPermissionList;
 using Milvasoft.Components.Rest.Enums;
 using Milvasoft.Components.Rest.Request;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
+using System.Text.Json;
 
 namespace Milvaion.Api.Mcp;
 
@@ -40,8 +42,13 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
     /// <param name="pageSize">Results per page, capped at <see cref="_maxPageSize"/>.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Paged report list with the total count.</returns>
+    /// <remarks>
+    /// Uses the summary query rather than the list query the dashboard uses. The list DTO carries each report's
+    /// full jsonb payload, so a single page of throughput reports is hundreds of kilobytes of aggregated series -
+    /// paid for on every call, and thrown away whenever the caller only wanted to know which reports exist.
+    /// </remarks>
     [McpServerTool(Name = "list_reports", ReadOnly = true)]
-    [Description("Lists metric reports produced by the reporter worker - failure rate trends, percentile durations, slowest jobs, worker throughput and utilisation. Use this to find which reports exist and when they were generated. For the current picture of one report type, get_latest_report is quicker.")]
+    [Description("Lists metric reports produced by the reporter worker - failure rate trends, percentile durations, slowest jobs, worker throughput and utilisation. Returns metadata only, so use it to discover what exists and how fresh it is, then fetch the numbers with get_latest_report or get_report. ageMinutes is worth checking before quoting a report: the reporter worker runs on a schedule, so the newest report of a type can still be hours old.")]
     public async Task<object> ListReportsAsync(
         [Description("Only reports of this metric type. Call once without it to discover the available types.")] string metricType = null,
         [Description("Page number, starting at 1.")] int pageNumber = 1,
@@ -50,7 +57,7 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
     {
         _guard.Require(PermissionCatalog.ScheduledJobManagement.List);
 
-        var response = await _mediator.Send(new GetMetricReportListQuery
+        var response = await _mediator.Send(new GetMetricReportSummaryListQuery
         {
             MetricType = metricType,
             PageNumber = pageNumber < 1 ? 1 : pageNumber,
@@ -62,7 +69,8 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
         {
             totalCount = response.TotalDataCount,
             pageNumber,
-            reports = response.Data
+            reports = response.Data,
+            note = "Report payloads are omitted here. Call get_report with an id, or get_latest_report with a metric type, to read the numbers."
         };
     }
 
@@ -86,7 +94,7 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
         if (response.Data == null)
             throw new McpException($"No report has been generated yet for metric type '{metricType}'. Call list_reports to see which types exist.");
 
-        return response.Data;
+        return Unwrap(response.Data);
     }
 
     /// <summary>
@@ -109,7 +117,56 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
         if (response.Data == null)
             throw new McpException($"No report found with id {reportId}.");
 
-        return response.Data;
+        return Unwrap(response.Data);
+    }
+
+    /// <summary>
+    /// Returns a report with its <c>Data</c> payload parsed into real JSON rather than left as a string.
+    /// </summary>
+    /// <remarks>
+    /// The column is jsonb but the DTO types it as <c>string</c>, so serializing the DTO produces a JSON string
+    /// containing escaped JSON - <c>"{\"buckets\":[...]}"</c>. Reading a value out of that means unescaping and
+    /// parsing it by hand, and a report is exactly the kind of nested series where doing that by eye goes wrong
+    /// quietly: the number comes back plausible and belongs to the wrong bucket.
+    /// <para>
+    /// Parsing here costs one pass over a payload that is about to be sent anyway. A payload that is not valid
+    /// JSON is passed through untouched rather than failing the call - a malformed report is still worth seeing,
+    /// and the failure it points at is the reporter worker's, not this tool's.
+    /// </para>
+    /// </remarks>
+    private static object Unwrap(MetricReportDetailDto report)
+    {
+        object data = report.Data;
+
+        if (!string.IsNullOrWhiteSpace(report.Data))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(report.Data);
+
+                // Clone detaches the element from the document's pooled buffers, so it stays valid past the dispose.
+                data = document.RootElement.Clone();
+            }
+            catch (JsonException)
+            {
+                // Left as the raw string, and flagged below so the shape change is not silent.
+            }
+        }
+
+        return new
+        {
+            report.Id,
+            report.MetricType,
+            report.DisplayName,
+            report.Description,
+            report.PeriodStartTime,
+            report.PeriodEndTime,
+            report.GeneratedAt,
+            report.Tags,
+            ageMinutes = Math.Round((DateTime.UtcNow - report.GeneratedAt).TotalMinutes, 1),
+            data,
+            dataIsRawString = data is string
+        };
     }
 
     #endregion

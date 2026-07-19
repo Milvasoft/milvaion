@@ -48,6 +48,8 @@ MapMcp endpoint  ──▶  tool method  ──▶  McpPermissionGuard.Require(.
 | `src/Milvaion.Api/Services/ApiKeyStore.cs` | Cached key lookup and cache invalidation |
 | `src/Milvaion.Api/Services/ApiKeyGenerator.cs` | `IApiKeyGenerator` implementation |
 | `src/Milvaion.Application/Features/ApiKeys/` | Api key CQRS features |
+| `src/Milvaion.Application/Features/Workflows/GetWorkflowRunAnalysis/` | Flattened workflow run, see [Design Decisions](#design-decisions) |
+| `src/Milvaion.Application/Features/MetricReports/GetMetricReportSummaryList/` | Report metadata without payloads |
 
 Dependency: `ModelContextProtocol.AspNetCore`.
 
@@ -215,6 +217,25 @@ Rather than mirroring the REST surface one-to-one, the write tools are named aft
 ### Why tools delegate to MediatR
 
 Every tool sends an existing query. This keeps filtering, projection, permission semantics and localisation identical across all three entry points, and means new tools are cheap — most are a permission check plus a `Send`.
+
+### Why two features exist only for MCP
+
+Delegating to the dashboard's queries is the default and holds for 41 of the 43 tools. Two responses were shaped for a canvas rather than a reader, and reusing them made the tool worse in a way no wording in the description could fix.
+
+| Tool | Dashboard query | MCP query | Problem with reuse |
+|------|-----------------|-----------|--------------------|
+| `get_workflow_run` | `GetWorkflowRunDetailQuery` | `GetWorkflowRunAnalysisQuery` | Three parallel collections cross-referenced by GUID, plus `PositionX`/`PositionY`. `WorkflowStepRunDto.DependsOnStepIds` is never populated, so dependencies are only recoverable by joining `Edges` by id. |
+| `list_reports` | `GetMetricReportListQuery` | `GetMetricReportSummaryListQuery` | Carries the full jsonb `Data` for every row. A page of twenty is hundreds of kilobytes of series data, discarded whenever the caller only wanted to know which reports exist. |
+
+`GetWorkflowRunAnalysisQuery` resolves the graph before returning it: steps come back in execution order, `dependsOn` and `blocks` hold step **names**, layout coordinates are dropped, and `failedSteps` / `skippedSteps` / `notReachedSteps` state the collapse directly. A step that never ran has a null `status` rather than `Pending` — conflating the two makes a halted run look like it is still going.
+
+`GetMetricReportSummaryListQuery` returns metadata plus `dataSizeBytes` and `ageMinutes`. Age matters more than it looks: the reporter worker runs on a schedule, so the newest report of a type is routinely hours old, and a caller given only `generatedAt` has to know the current time to notice.
+
+Both are ordinary features under `Milvaion.Application/Features` — nothing about them is MCP-specific beyond who currently calls them, and neither is wired to a controller. The REST endpoints still use the original queries.
+
+### Why `get_report` parses the payload
+
+`MetricReportDetailDto.Data` is a `string` over a jsonb column, so serializing the DTO produces a JSON string containing escaped JSON. `MilvaionInsightTools.Unwrap` parses it into a `JsonElement` so it arrives as real nested JSON. This is a serialization concern rather than a data-access one, which is why it lives in the tool and not in a third feature. A payload that fails to parse is passed through unchanged and flagged with `dataIsRawString`.
 
 ---
 
