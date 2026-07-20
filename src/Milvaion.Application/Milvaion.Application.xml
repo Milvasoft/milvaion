@@ -2034,6 +2034,147 @@
             Disk usage percentage (0-100).
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto">
+             <summary>
+             Live resource usage of the API host and process.
+             </summary>
+             <remarks>
+             A superset of <see cref="T:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourcesDto"/>, which stays as it is because it is part of the
+             configuration payload the dashboard already consumes. This one carries the extra fields worth having when the
+             question is specifically "how much memory is this using" rather than "what is this configured to do":
+             the process working set alongside the managed heap, the garbage collector's own accounting, and the thread
+             count.
+            
+             Reported by a query that touches nothing but the current process, so it is cheap enough to poll. The system
+             configuration endpoint returns this too, but only as one branch of a payload that also reads every
+             configuration section, the connection strings and the alerting channels - too much to fetch when all that is
+             wanted is a memory figure.
+             </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.SampledAt">
+            <summary>
+            UTC time the sample was taken.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.HostName">
+            <summary>
+            Machine or container name the API is running on.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.ProcessorCount">
+            <summary>
+            Logical processors visible to the process.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.CpuUsagePercent">
+            <summary>
+            Average CPU usage of this process since it started, as a percentage of one machine's worth of CPU.
+            </summary>
+            <remarks>
+            An average over the process lifetime, not an instantaneous reading: it is derived from total processor
+            time divided by wall clock time. A process that was busy an hour ago and idle now still reports a high
+            figure, so this answers "has this process been working hard" rather than "is it working hard right now".
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.TotalMemoryMB">
+            <summary>
+            Memory the runtime considers available to the process, in MB.
+            </summary>
+            <remarks>
+            From the garbage collector, so under a container memory limit this reflects the limit rather than the
+            physical memory of the host - which is the number that matters when the container is the thing being
+            killed for using too much.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.UsedMemoryMB">
+            <summary>
+            Managed heap in use, in MB.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.AvailableMemoryMB">
+            <summary>
+            Memory available to the process, in MB.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.MemoryUsagePercent">
+            <summary>
+            Managed heap as a percentage of what is available.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.ProcessMemoryMB">
+            <summary>
+            Resident memory of the whole process, in MB.
+            </summary>
+            <remarks>
+            The figure an operating system or an orchestrator reports, and the one a memory limit is enforced
+            against. Always larger than the managed heap: it also contains the runtime itself, native allocations,
+            loaded assemblies and thread stacks. A gap that keeps widening while the heap stays flat points at a
+            native leak rather than a managed one.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.PeakProcessMemoryMB">
+            <summary>
+            Largest resident memory this process has reached, in MB.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.TotalAllocatedMB">
+            <summary>
+            Bytes the garbage collector has allocated over the process lifetime, in MB.
+            </summary>
+            <remarks>
+            Cumulative and only ever rising. Useful as a rate - allocation per hour of uptime - rather than as a
+            level; a high number on a long-lived process is normal.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.Gen0Collections">
+            <summary>
+            Collections performed in each garbage collector generation.
+            </summary>
+            <remarks>
+            Gen 2 is the one to watch. Frequent gen 2 collections mean objects are surviving long enough to be
+            promoted, which is what memory pressure looks like before it becomes an out-of-memory failure.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.Gen1Collections">
+            <inheritdoc cref="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.Gen0Collections"/>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.Gen2Collections">
+            <inheritdoc cref="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.Gen0Collections"/>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.ThreadCount">
+            <summary>
+            Threads owned by the process.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.Uptime">
+            <summary>
+            How long the process has been running.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.TotalDiskGB">
+            <summary>
+            Total fixed disk space visible to the host, in GB.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.AvailableDiskGB">
+            <summary>
+            Free fixed disk space, in GB.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.DiskUsagePercent">
+            <summary>
+            Used disk space as a percentage of the total.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.CollectionError">
+            <summary>
+            Set when the sample could not be collected, explaining why the figures are zero.
+            </summary>
+            <remarks>
+            Reading process counters and drive information can be denied in a hardened container. Saying so is worth
+            more than silently returning zeros, which read as "nothing is being used".
+            </remarks>
+        </member>
         <member name="T:Milvaion.Application.Dtos.ContentManagementDtos.ContentDtos.ContentDetailDto">
             <summary>
             Response of namespace detail.
@@ -6073,6 +6214,41 @@
             <summary>
             Reads a number from a section, falling back to the default when it is absent or unparseable.
             </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.GetSystemResources">
+            <summary>
+            Reads live resource usage for the configuration payload.
+            </summary>
+            <remarks>
+            The collection itself lives in <see cref="T:Milvaion.Application.Utils.SystemResourceReader"/>, because the resource usage endpoint
+            needs the same numbers and two copies would have drifted apart the first time either was corrected. The
+            returned shape is unchanged - the reader's richer sample is mapped back down to the DTO this payload has
+            always carried.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Features.Configuration.GetSystemResourceUsage.GetSystemResourceUsageQuery">
+            <summary>
+            Query for getting live CPU, memory and disk usage of the API host and process.
+            </summary>
+            <remarks>
+            Separate from <c>GetSystemConfigurationQuery</c> on purpose. That query returns resource usage too, but only
+            as one branch of a payload that also walks every configuration section, parses the connection strings and
+            enumerates the alerting channels. Asking it for a memory figure means paying for all of that, which rules it
+            out for anything that polls - the dashboard meters, an assistant answering "how much memory is it using".
+            This one reads the current process and nothing else.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Features.Configuration.GetSystemResourceUsage.GetSystemResourceUsageQueryHandler">
+            <summary>
+            Handles the system resource usage query.
+            </summary>
+            <remarks>
+            Synchronous work wrapped in a completed task: the sample is taken from the current process, so there is
+            nothing to await. Making it look asynchronous would suggest an I/O cost that is not there.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemResourceUsage.GetSystemResourceUsageQueryHandler.Handle(Milvaion.Application.Features.Configuration.GetSystemResourceUsage.GetSystemResourceUsageQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Application.Features.ContentManagement.Contents.CreateBulkContent.CreateBulkContentCommand">
             <summary>
@@ -12183,6 +12359,49 @@
             Gets all permissions in the system as grouped by permission group.
             </summary>
             <returns> Permission group and group's permissions pair. </returns>
+        </member>
+        <member name="T:Milvaion.Application.Utils.SystemResourceReader">
+             <summary>
+             Reads live CPU, memory and disk usage of the API process and its host.
+             </summary>
+             <remarks>
+             Extracted so there is one implementation rather than two. The system configuration handler had this inline;
+             the resource usage query needs the same numbers, and a second copy would have drifted the first time either
+             was corrected.
+            
+             Every figure comes from the current process or from the drives already mounted. There is no database call,
+             no broker round trip and no cache, which is what makes the resource usage endpoint cheap enough to poll -
+             unlike the configuration endpoint, which returns this as one branch of a payload that also reads every
+             configuration section.
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Utils.SystemResourceReader.Read">
+            <summary>
+            Takes a sample of the current process and host.
+            </summary>
+            <returns>
+            A populated sample, or one with every figure at zero and <see cref="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto.CollectionError"/>
+            set. It never throws: this is called from a query handler on a monitoring path, and a hardened container
+            that denies access to process counters should degrade the answer rather than fail the request.
+            </returns>
+        </member>
+        <member name="M:Milvaion.Application.Utils.SystemResourceReader.ToSystemResources(Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto)">
+            <summary>
+            Maps a sample onto the shape the system configuration payload has always returned.
+            </summary>
+            <remarks>
+            Kept so the configuration endpoint's response is byte for byte what it was. Changing a payload the
+            dashboard already reads is not part of adding a new one.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Utils.SystemResourceReader.ReadDisk">
+            <summary>
+            Totals the fixed, ready drives.
+            </summary>
+            <remarks>
+            Enumerating drives can throw for a single unreadable mount, which would otherwise lose the memory
+            figures alongside the disk ones. Isolated here so a disk problem costs only the disk numbers.
+            </remarks>
         </member>
         <member name="T:System.Text.RegularExpressions.Generated.DataUriRegex_0">
             <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the DataUriRegex method.</summary>

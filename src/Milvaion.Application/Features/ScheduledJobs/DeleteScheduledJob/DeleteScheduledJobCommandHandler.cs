@@ -12,6 +12,7 @@ namespace Milvaion.Application.Features.ScheduledJobs.DeleteScheduledJob;
 [Log]
 [UserActivityTrack(UserActivity.DeleteScheduledJob)]
 public record DeleteScheduledJobCommandHandler(IMilvaionRepositoryBase<ScheduledJob> ScheduledJobRepository,
+                                               IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
                                                IRedisSchedulerService RedisSchedulerService,
                                                IRedisCancellationService RedisCancellationService,
                                                IJobOccurrenceEventPublisher EventPublisher) : IInterceptable, ICommandHandler<DeleteScheduledJobCommand, Guid>
@@ -19,12 +20,13 @@ public record DeleteScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
     /// <inheritdoc/>
     public async Task<Response<Guid>> Handle(DeleteScheduledJobCommand request, CancellationToken cancellationToken)
     {
+        var hasOccurrenceInFlight = await OccurrenceRepository.AnyAsync(o => o.JobId == request.JobId
+                                                                            && (o.Status == JobOccurrenceStatus.Running
+                                                                                || o.Status == JobOccurrenceStatus.Queued),
+                                                                       cancellationToken: cancellationToken);
 
-        var isRunning = await RedisSchedulerService.IsJobRunningAsync(request.JobId, cancellationToken);
-
-        if (isRunning)
-            return Response<Guid>.Error(default, "Cannot delete a running job");
-
+        if (hasOccurrenceInFlight)
+            return Response<Guid>.Error(default, "Cannot delete a running or queued job");
 
         var scheduledjob = await ScheduledJobRepository.GetByIdAsync(request.JobId, cancellationToken: cancellationToken);
 

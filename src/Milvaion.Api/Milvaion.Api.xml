@@ -407,6 +407,20 @@
             </summary>
             <returns>Success response</returns>
         </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetResourceUsageAsync(Milvaion.Application.Features.Configuration.GetSystemResourceUsage.GetSystemResourceUsageQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets live CPU, memory and disk usage of the API host and process.
+            </summary>
+            <param name="request">Query.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>Resource usage sample.</returns>
+            <remarks>
+            Deliberately narrow. <c>configuration</c> returns these numbers too, but only as one branch of a payload
+            that also walks every configuration section, parses the connection strings and enumerates the alerting
+            channels - too expensive to call when the question is just how much memory the process is using. This
+            reads the current process and nothing else, so it is cheap enough to poll.
+            </remarks>
+        </member>
         <member name="T:Milvaion.Api.Controllers.ApiKeysController">
             <summary>
             Api key endpoints.
@@ -1594,6 +1608,25 @@
             <param name="includeTableDetail">Include per-table sizes as well as the summary.</param>
             <param name="cancellationToken"></param>
             <returns>Database statistics.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetResourceUsageAsync(System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Gets live CPU, memory and disk usage of the API host and process.
+            </summary>
+            <param name="includeBackgroundServices">Also break memory down per background service.</param>
+            <param name="cancellationToken"></param>
+            <returns>Resource usage sample, optionally with per-service memory.</returns>
+            <remarks>
+            Backed by its own query rather than by <c>get_configuration</c>. That one returns the same figures, but
+            only as one branch of a payload that also walks every configuration section, parses the connection
+            strings and enumerates the alerting channels - far too much to fetch to answer "how much memory is it
+            using". This reads the current process and nothing else.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.Describe(Milvaion.Application.Dtos.ConfigurationDtos.SystemResourceUsageDto)">
+            <summary>
+            Turns a resource sample into a sentence.
+            </summary>
         </member>
         <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetConfigurationAsync(System.Threading.CancellationToken)">
             <summary>
