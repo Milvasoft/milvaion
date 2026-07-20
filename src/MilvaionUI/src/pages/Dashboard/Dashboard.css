@@ -1,0 +1,445 @@
+/*
+ * Dashboard - redesign.
+ *
+ * Prefixed `mvd-`, not imported globally.
+ *
+ * Three weights, in reading order: the health strip, the outcome block, then the tiles.
+ * The page it replaces had eight boxes of identical weight, which is the same as having
+ * no order at all - the eye starts wherever it happens to land.
+ *
+ * `.mvd-page` restates the alignment because `#root` still carries `text-align: center`
+ * from the Vite template, and a page of figures inherits it everywhere.
+ */
+
+.mvd-page {
+  text-align: left;
+}
+
+/* ── Period ──────────────────────────────────────────────────────────────── */
+
+/* The window the page is measured over, stated once beside the title. Quiet, because it
+   is a caption for everything below rather than a thing in its own right. */
+.mvd-period {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Health strip ────────────────────────────────────────────────────────── */
+
+/*
+ * A button, not a card: whether the system is up is the one thing on this page that leads
+ * somewhere specific when the answer is no.
+ */
+.mvd-health {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0.875rem 1.125rem;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--border-color);
+  border-radius: 13px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.mvd-health:hover {
+  background: var(--bg-hover);
+}
+
+.mvd-health-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mvd-health-text strong {
+  display: block;
+  font-size: 0.975rem;
+  font-weight: 600;
+}
+
+.mvd-health-text > span {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Healthy is the normal case, so it is marked but not celebrated - a green banner on every
+   load is a banner that stops being read. */
+.mvd-health.tone-success { border-left-color: rgba(var(--success-color-rgb), 0.6); }
+.mvd-health.tone-success > span:first-child { color: var(--success-color); }
+
+.mvd-health.tone-warning {
+  border-left-color: var(--warning-color);
+  background: linear-gradient(90deg, rgba(var(--warning-color-rgb), 0.08), transparent 50%), var(--bg-card);
+}
+
+.mvd-health.tone-warning > span:first-child { color: var(--warning-color); }
+
+.mvd-health.tone-danger {
+  border-left-color: var(--error-color);
+  background: linear-gradient(90deg, rgba(var(--error-color-rgb), 0.1), transparent 50%), var(--bg-card);
+}
+
+.mvd-health.tone-danger > span:first-child { color: var(--error-color); }
+
+.mvd-health.tone-idle > span:first-child { color: var(--text-muted); }
+
+/* ── Outcomes ────────────────────────────────────────────────────────────── */
+
+.mvd-outcomes {
+  padding: 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+}
+
+.mvd-outcomes-head {
+  margin-bottom: 0.875rem;
+}
+
+/*
+ * The rate and its denominator on one line. A percentage without the count it is a
+ * percentage of is not a fact - 100% of two executions and 100% of two hundred thousand
+ * are different situations, and the old page showed only the figure.
+ */
+.mvd-rate-value {
+  font-size: 2rem;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.mvd-rate-label {
+  margin-left: 0.55rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* ── Bar ─────────────────────────────────────────────────────────────────── */
+
+.mvd-bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.mvd-bar.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  padding: 1.25rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.mvd-bar-seg {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+
+.mvd-bar-seg:hover {
+  filter: brightness(1.25);
+}
+
+.mvd-bar-seg.tone-success { background: var(--success-color); }
+.mvd-bar-seg.tone-danger  { background: var(--error-color); }
+.mvd-bar-seg.tone-warning { background: var(--warning-color); }
+.mvd-bar-seg.tone-idle    { background: var(--text-muted); }
+.mvd-bar-seg.tone-active  { background: var(--accent-color); }
+.mvd-bar-seg.tone-queued  { background: var(--border-light); }
+
+/* ── Legend ──────────────────────────────────────────────────────────────── */
+
+.mvd-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.25rem 1rem;
+  margin-top: 1rem;
+}
+
+.mvd-legend-item {
+  display: grid;
+  grid-template-columns: 8px 1fr auto auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.25rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.mvd-legend-item:hover {
+  background: var(--bg-hover);
+}
+
+/* An outcome that did not happen still gets a row - its absence is information, and a
+   legend whose entries come and go cannot be scanned in the same place twice. */
+.mvd-legend-item.is-zero {
+  opacity: 0.45;
+}
+
+.mvd-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  align-self: center;
+}
+
+.mvd-legend-item.tone-success .mvd-dot { background: var(--success-color); }
+.mvd-legend-item.tone-danger .mvd-dot  { background: var(--error-color); }
+.mvd-legend-item.tone-warning .mvd-dot { background: var(--warning-color); }
+.mvd-legend-item.tone-idle .mvd-dot    { background: var(--text-muted); }
+.mvd-legend-item.tone-active .mvd-dot  { background: var(--accent-color); }
+.mvd-legend-item.tone-queued .mvd-dot  { background: var(--border-light); }
+
+.mvd-legend-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.mvd-legend-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mvd-legend-share {
+  min-width: 44px;
+  text-align: right;
+  font-size: 0.775rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ── Tiles ───────────────────────────────────────────────────────────────── */
+
+.mvd-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+.mvd-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.95rem 1.05rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  min-width: 0;
+}
+
+.mvd-tile.is-clickable {
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.mvd-tile.is-clickable:hover {
+  border-color: var(--accent-color);
+  background: var(--bg-hover);
+}
+
+.mvd-tile-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/*
+ * The period each figure covers, on the figure. Two of these four do not follow the page
+ * heading - worker capacity is live and total executions is all-time - and the previous
+ * design left that to be inferred, which is to say not known.
+ */
+.mvd-tile-scope {
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  font-size: 0.675rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mvd-tile-value {
+  font-size: 1.7rem;
+  font-weight: 650;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.mvd-tile.tone-warning .mvd-tile-value {
+  color: var(--warning-color);
+}
+
+.mvd-tile-foot {
+  font-size: 0.775rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Worker capacity: a bar where the old page had a 120px donut. A donut compares parts of
+   a whole; with a single value it is one number in an expensive frame. */
+.mvd-capacity-bar {
+  display: block;
+  height: 4px;
+  margin-bottom: 5px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.mvd-capacity-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-color);
+}
+
+.mvd-capacity-bar > span.is-high {
+  background: var(--warning-color);
+}
+
+/* ── Health checks ───────────────────────────────────────────────────────── */
+
+.mvd-checks h2 {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mvd-check-list {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.mvd-check {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  /* The failing check keeps a marker down its edge, the same way a failed row does in the
+     tables. */
+  box-shadow: inset 2px 0 0 transparent;
+}
+
+.mvd-check:last-child {
+  border-bottom: none;
+}
+
+.mvd-check > span:first-child {
+  color: var(--text-muted);
+}
+
+.mvd-check.tone-warning { box-shadow: inset 2px 0 0 var(--warning-color); }
+.mvd-check.tone-danger  { box-shadow: inset 2px 0 0 var(--error-color); }
+
+.mvd-check-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mvd-check-duration {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ── Narrow screens ──────────────────────────────────────────────────────── */
+
+@media (max-width: 1000px) {
+  .mvd-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .mvd-outcomes {
+    padding: 1rem;
+  }
+
+  /* The rate and its denominator stack: side by side at this width the sentence wraps
+     mid-phrase and reads worse than two lines. */
+  .mvd-rate-label {
+    display: block;
+    margin: 0.2rem 0 0;
+  }
+
+  .mvd-legend {
+    grid-template-columns: 1fr;
+  }
+
+  /* The share column goes: with one legend entry per row there is room for the label and
+     the count, and the percentage is the least useful of the three on a phone. */
+  .mvd-legend-item {
+    grid-template-columns: 8px 1fr auto;
+  }
+
+  .mvd-legend-share {
+    display: none;
+  }
+
+  .mvd-health {
+    align-items: flex-start;
+  }
+
+  /* The names of failing checks are the point of the strip, so on a narrow screen they
+     wrap rather than being cut off. */
+  .mvd-health-text > span {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 480px) {
+  .mvd-tiles {
+    grid-template-columns: 1fr;
+  }
+}

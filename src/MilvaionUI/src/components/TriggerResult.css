@@ -1,0 +1,44 @@
+/*
+ * The "job triggered" dialog body.
+ *
+ * These were inline styles with hard-coded colours - `#f5f5f5` behind the id, `#333` on
+ * it, `#666` on the note. On a dark theme that is a white strip across the middle of a
+ * black dialog, which is what it looked like. Theme variables instead, so the dialog is
+ * readable in both themes.
+ */
+
+.trigger-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.trigger-result-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.trigger-result-id {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  /* A guid has no spaces, so without this it pushes the dialog wider than the screen. */
+  word-break: break-all;
+}
+
+.trigger-result-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.825rem;
+  line-height: 1.5;
+}
+
+.trigger-result-note.is-info { color: var(--info-color); }
+.trigger-result-note.is-warning { color: var(--warning-color); }

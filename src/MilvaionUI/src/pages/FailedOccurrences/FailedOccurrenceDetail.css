@@ -234,22 +234,9 @@
   word-wrap: break-word;
 }
 
-/* JSON Content */
-.json-content {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 1rem;
-  overflow-x: auto;
-  border: 1px solid var(--border-color);
-}
-
-.json-content pre {
-  margin: 0;
-  font-family: 'Courier New', monospace;
-  font-size: 0.875rem;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
+/* Payload artık `JsonView` bileşeninde; kabuğu da o taşıyor. Buradaki kapsamsız
+   `.json-content` kuralı stil dosyaları global yüklendiği için başka sayfalara da
+   uygulanabiliyordu. */
 
 /* Resolution Card */
 /* Çözüm bilgisi diğer bölümlerle aynı kutuyu kullanıyor. Bölümü saran ayrı bir

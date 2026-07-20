@@ -2,7 +2,13 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
-  overflow-x: hidden;
+  /* `clip` rather than `hidden`.
+     `overflow-x: hidden` computes `overflow-y` to `auto`, which makes this element a
+     scroll container. Anything `position: sticky` inside it then sticks relative to a box
+     that never scrolls - the document does - so it simply never sticks. `clip` cuts the
+     overflow without creating a scroll container, which is what was wanted here all
+     along. */
+  overflow-x: clip;
   max-width: 100%;
 }
 
@@ -470,7 +476,8 @@
   padding: 1rem 1.5rem 2rem;
   width: calc(100% - 250px);
   max-width: calc(100% - 250px);
-  overflow-x: hidden;
+  /* See `.layout` above: `clip` keeps sticky children working. */
+  overflow-x: clip;
   transition: margin-left 0.3s ease, width 0.3s ease, background-color 0.3s ease;
   background-color: var(--bg-primary);
 }
@@ -484,7 +491,9 @@
 /* Responsive - Mobile */
 @media (max-width: 768px) {
   .layout {
-    overflow-x: hidden;
+    /* `clip`, for the same reason as the desktop rule above: `hidden` would make this a
+       scroll container and stop every sticky child from sticking. */
+    overflow-x: clip;
   }
 
   .sidebar {
@@ -523,7 +532,7 @@
     max-width: 100%;
     padding: 4.5rem 0.75rem 1rem 0.75rem;
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: clip;
     box-sizing: border-box;
   }
 

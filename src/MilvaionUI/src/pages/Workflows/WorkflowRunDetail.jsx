@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import workflowService from '../../services/workflowService'
 import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
@@ -23,9 +23,11 @@ const FINAL_STEP_STATUS = new Set([2, 3, 4, 5])  // Completed, Failed, Skipped, 
 
 function WorkflowRunDetail() {
   const { id, runId } = useParams()
+  const navigate = useNavigate()
   const [run, setRun] = useState(null)
   const [loading, setLoading] = useState(true)
   const [signalRActive, setSignalRActive] = useState(false)
+  const [copiedId, setCopiedId] = useState(false)
 
   // DAG'da seçili adım ve o adımın logları. Bir adım patladığında logu görmek için
   // ayrı bir sayfaya gitmek gerekiyordu; asıl aranan şey oysa bu gereksiz bir sıçrama.
@@ -209,6 +211,38 @@ function WorkflowRunDetail() {
     return <div className="wfr-loading">Workflow run not found</div>
   }
 
+  /*
+   * The full id is what gets pasted into a query or a ticket, and the header can only show
+   * the first eight characters without dominating the line. Copy bridges the two.
+   *
+   * The textarea fallback is there because `navigator.clipboard` needs a secure origin and
+   * this dashboard is routinely served over plain HTTP on an internal network.
+   */
+  const copyRunId = async (value) => {
+    if (!value) return
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value)
+      } else {
+        const field = document.createElement('textarea')
+
+        field.value = value
+        field.style.position = 'fixed'
+        field.style.opacity = '0'
+        document.body.appendChild(field)
+        field.select()
+        document.execCommand('copy')
+        document.body.removeChild(field)
+      }
+
+      setCopiedId(true)
+      setTimeout(() => setCopiedId(false), 1600)
+    } catch (err) {
+      console.error('Copy failed:', err)
+    }
+  }
+
   return (
     <div className="page wfr-page">
       {/* Header */}
@@ -230,10 +264,6 @@ function WorkflowRunDetail() {
                 </span>
               )}
             </h1>
-            <p className="wfr-subtitle">
-              Run <code>{run.id?.substring(0, 8)}...</code>
-              {run.triggerReason && <> &middot; {run.triggerReason}</>}
-            </p>
           </div>
         </div>
         <div className="dtl-actions">
@@ -248,25 +278,45 @@ function WorkflowRunDetail() {
         </div>
       </div>
 
-      {/* Run Info */}
+      {/*
+       * One horizontal band of facts, spanning the page.
+       *
+       * Two things were being said twice and both have gone. Status was a badge beside the
+       * title and a card of its own; the workflow name was the title and a third fact under
+       * it. What is left is what the header could not already tell you, spread across the
+       * width instead of crowded into the left third with the rest of the row empty.
+       *
+       * Run id leads, because it is the value that gets pasted into a query or a ticket -
+       * shown short, copied whole.
+       */}
       <div className="wfr-info-grid">
         <div className="wfr-info-card">
-          <label>Status</label>
-          <span className={`wfr-status-badge wfr-status-${workflowStatusColors[run.status]}`}>
-            {workflowStatusLabels[run.status]}
-          </span>
+          <label>Run id</label>
+          <button
+            type="button"
+            className="wfr-copy-id"
+            title={`${run.id} — click to copy`}
+            onClick={() => copyRunId(run.id)}
+          >
+            <code>{run.id?.substring(0, 8)}…</code>
+            <Icon name={copiedId ? 'check' : 'content_copy'} size={13} />
+          </button>
         </div>
         <div className="wfr-info-card">
-          <label>Start Time</label>
-          <span>{run.startTime ? formatDate(run.startTime) : '-'}</span>
+          <label>Triggered by</label>
+          <span>{run.triggerReason || 'not recorded'}</span>
         </div>
         <div className="wfr-info-card">
-          <label>End Time</label>
-          <span>{run.endTime ? formatDate(run.endTime) : '-'}</span>
+          <label>Started</label>
+          <span>{run.startTime ? formatDate(run.startTime) : '—'}</span>
+        </div>
+        <div className="wfr-info-card">
+          <label>Ended</label>
+          <span>{run.endTime ? formatDate(run.endTime) : '—'}</span>
         </div>
         <div className="wfr-info-card">
           <label>Duration</label>
-          <span>{run.durationMs ? `${(run.durationMs / 1000).toFixed(1)}s` : '-'}</span>
+          <span>{run.durationMs ? formatDurationMs(run.durationMs) : '—'}</span>
         </div>
         <div className="wfr-info-card">
           <label>Version</label>
@@ -383,13 +433,40 @@ function WorkflowRunDetail() {
             </thead>
             <tbody>
               {[...(run.stepRuns || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(step => (
-                <tr key={step.id} className="mv-table-row">
+                /*
+                 * The row opens the execution behind the step - the thing anyone reading
+                 * this table is on their way to. Only when there is one: a step that was
+                 * skipped, or that never got as far as being dispatched, has no
+                 * occurrence, and a row that looks clickable and does nothing is worse
+                 * than one that plainly is not.
+                 */
+                <tr
+                  key={step.id}
+                  className={'mv-table-row' + (step.occurrenceId ? ' is-clickable' : '')}
+                  onClick={step.occurrenceId ? () => navigate(`/occurrences/${step.occurrenceId}`) : undefined}
+                  onKeyDown={step.occurrenceId ? (e) => {
+                    // Keyboard parity: what the mouse can do here, Enter and Space can too.
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate(`/occurrences/${step.occurrenceId}`)
+                    }
+                  } : undefined}
+                  tabIndex={step.occurrenceId ? 0 : undefined}
+                  role={step.occurrenceId ? 'link' : undefined}
+                  aria-label={step.occurrenceId ? `Open execution for ${step.stepName}` : undefined}
+                >
                   <td className="mv-col-tight">{step.order ?? '-'}</td>
                   <td>
                     {/* The job runs the step, so it belongs with its name rather than in
-                        a column of its own. */}
+                        a column of its own. The row goes to the execution, this link goes
+                        to the job definition - two destinations, so the inner one stops
+                        the row handler. */}
                     <span className="mv-table-primary">{step.stepName}</span>
-                    <Link to={`/jobs/${step.jobId}`} className="mv-table-muted">
+                    <Link
+                      to={`/jobs/${step.jobId}`}
+                      className="mv-table-muted"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {step.jobDisplayName || step.jobId?.substring(0, 8)}
                     </Link>
                   </td>
@@ -410,7 +487,10 @@ function WorkflowRunDetail() {
                     {step.retryCount > 0 ? step.retryCount : <span className="mv-table-dim">—</span>}
                   </td>
                   <td className="wfr-error-cell">{step.error || <span className="mv-table-dim">—</span>}</td>
-                  <td className="mv-table-actions">
+                  {/* The row already navigates. This stays because it is a real link:
+                      middle click and "open in new tab" work here and cannot work on a
+                      row handler. */}
+                  <td className="mv-table-actions" onClick={(e) => e.stopPropagation()}>
                     {step.occurrenceId ? (
                       <TableActions>
                         <ActionButton

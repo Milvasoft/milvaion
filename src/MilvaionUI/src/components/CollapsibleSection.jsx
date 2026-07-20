@@ -53,7 +53,19 @@ function CollapsibleSection({
           aria-expanded={open}
           aria-label={open ? 'Collapse section' : 'Expand section'}
         >
-          <Icon name="expand_more" size={20} />
+          {/*
+            Açık ve kapalı için iki ayrı glif; tek glifi döndürmüyoruz.
+
+            Döndürme, ikon font'unun kendi geometrisiyle uğraşmak demek: span'in kutusu
+            metin ilerleme genişliği kadar geniş, satır yüksekliği kadar yüksek ve bu ikisi
+            eşit olmak zorunda değil. Kare olmayan bir kutuyu merkezinden -90° çevirince
+            glif yatayda kayıyor - hover zemininin ikona göre kaymış görünmesinin sebebi
+            buydu.
+
+            Uygulamadaki tablo satırları da zaten dönmeyen `chevron_right` kullanıyor,
+            yani bu aynı zamanda tutarlılık.
+          */}
+          <Icon name={open ? 'expand_more' : 'chevron_right'} size={20} />
         </button>
       </div>
 

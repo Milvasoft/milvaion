@@ -5,7 +5,7 @@ import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
 import { formatDate } from '../../utils/dateUtils'
 import Icon from '../../components/Icon'
-import JsonViewer from '../../components/JsonViewer'
+import JsonView from '../../components/JsonView'
 import JsonEditor from '../../components/JsonEditor'
 import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
@@ -45,6 +45,12 @@ const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
   return saved !== null ? saved === 'true' : true
 })
 const [lastRefreshTime, setLastRefreshTime] = useState(null)
+
+/* Deleting a job removes every occurrence and log line it ever produced, which on a job
+   with a short schedule is a lot of rows and takes real time. Without this the button sat
+   there looking untouched and the only honest reading was that the click had not
+   registered. */
+const [deleting, setDeleting] = useState(false)
 
 const subscribedOccurrences = useRef(new Set())
 
@@ -331,11 +337,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
                     </div>
                   </div>
                 ) : (
-                  <JsonViewer
-                    data={version.data}
-                    title={`Version ${version.version} Details`}
-                    defaultExpanded={index === 0}
-                  />
+                  <JsonView data={version.data} name={`version ${version.version}`} maxHeight={320} />
                 )}
               </div>
             </div>
@@ -382,6 +384,23 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
   }
 
   const handleDeleteJob = async () => {
+    /*
+     * The whole flow is guarded, not just the request.
+     *
+     * Only the `jobService.delete` call used to be inside a `try`, so anything that failed
+     * before it - opening the confirmation, resolving it - threw into nothing and the
+     * button simply appeared dead: no request, no message, no way to tell whether the
+     * click had even registered. A user-facing action should never fail silently.
+     */
+    try {
+      await runDelete()
+    } catch (err) {
+      console.error('Delete flow failed before the request was sent:', err)
+      await showError('Something went wrong before the delete request was sent. The console has the details.')
+    }
+  }
+
+  const runDelete = async () => {
     const confirmed = await showConfirm(
       `Are you sure you want to delete "${job.displayName || job.name}"? This action cannot be undone and will remove all associated data.`,
       'Delete Job',
@@ -390,6 +409,8 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
     )
 
     if (!confirmed) return
+
+    setDeleting(true)
 
     try {
       const response = await jobService.delete(id)
@@ -406,6 +427,8 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
     } catch (err) {
       await showError('Failed to delete job. Please try again.')
       console.error(err)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -576,10 +599,12 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
           <button
             onClick={handleDeleteJob}
             className="dtl-btn dtl-btn--danger"
-            disabled={job.externalJobInfo}
+            disabled={!!job.externalJobInfo || deleting}
             title={job.externalJobInfo ? "External jobs cannot be deleted from Milvaion" : "Delete job"}
           >
-            <Icon name="delete" size={18} /> Delete
+            {deleting
+              ? <><Icon name="progress_activity" size={18} className="dtl-spin" /> Deleting…</>
+              : <><Icon name="delete" size={18} /> Delete</>}
           </button>
           <AuditInfoCard auditInfo={job.auditInfo} />
         </div>
@@ -753,7 +778,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
 
             {job.jobData && (
               <div className="info-row full-width">
-                <JsonViewer data={job.jobData} title="Job Data (JSON)" />
+                <JsonView data={job.jobData} name="jobData" />
               </div>
             )}
           </div>

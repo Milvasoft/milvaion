@@ -1,6 +1,8 @@
 ﻿using MediatR;
 using Milvaion.Application.Dtos.MetricReportDtos;
+using Milvaion.Application.Dtos.ConfigurationDtos;
 using Milvaion.Application.Features.Configuration.GetSystemConfiguration;
+using Milvaion.Application.Features.Configuration.GetSystemResourceUsage;
 using Milvaion.Application.Features.InternalNotifications.GetInternalNotificationList;
 using Milvaion.Application.Features.MetricReports.GetLatestMetricReport;
 using Milvaion.Application.Features.MetricReports.GetMetricReportDetail;
@@ -273,6 +275,104 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
             tableBloat = bloat.Data,
             tableSizes
         };
+    }
+
+    /// <summary>
+    /// Gets live CPU, memory and disk usage of the API host and process.
+    /// </summary>
+    /// <param name="includeBackgroundServices">Also break memory down per background service.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>Resource usage sample, optionally with per-service memory.</returns>
+    /// <remarks>
+    /// Backed by its own query rather than by <c>get_configuration</c>. That one returns the same figures, but
+    /// only as one branch of a payload that also walks every configuration section, parses the connection
+    /// strings and enumerates the alerting channels - far too much to fetch to answer "how much memory is it
+    /// using". This reads the current process and nothing else.
+    /// </remarks>
+    [McpServerTool(Name = "get_resource_usage", ReadOnly = true)]
+    [Description("Gets how much CPU, memory and disk the Milvaion API is using right now: managed heap, process working set and its peak, GC collection counts per generation, thread count, uptime and free disk. This is the tool for any question about memory or resource consumption - there is no need to shell into the host. Set includeBackgroundServices to break memory down per background service and see which one is growing, which is what identifies a leak. Note that processMemoryMB is the figure a container memory limit is enforced against, and is always larger than usedMemoryMB - the managed heap - because it also holds the runtime, native allocations and thread stacks.")]
+    public async Task<object> GetResourceUsageAsync(
+        [Description("Also return per-service memory, including growth since start and whether a leak is suspected. Leave false for the host and process totals only.")] bool includeBackgroundServices = false,
+        CancellationToken cancellationToken = default)
+    {
+        _guard.Require(PermissionCatalog.SystemAdministration.List);
+
+        var response = await _mediator.Send(new GetSystemResourceUsageQuery(), cancellationToken);
+        var usage = response.Data;
+
+        // Per-service tracking is a list that grows with the number of background services, and most questions
+        // about memory are answered by the process total alone. Opt-in, like the table detail above.
+        var services = includeBackgroundServices
+            ? _adminService.GetBackgroundServiceMemoryDiagnostics().Data
+            : null;
+
+        return new
+        {
+            usage,
+
+            /*
+             * A written reading alongside the numbers.
+             *
+             * Without it an assistant has to decide on its own whether 1,400 MB is a lot, and the honest answer
+             * depends on the container limit - which is exactly what `totalMemoryMB` reports under a limit and
+             * what makes the percentage meaningful. Stating the interpretation here keeps every answer
+             * consistent instead of re-derived each time.
+             */
+            reading = Describe(usage),
+
+            backgroundServices = services == null ? null : new
+            {
+                totalManagedMemoryMB = Math.Round(services.TotalManagedMemoryMB, 1),
+                totalProcessMemoryMB = Math.Round(services.TotalProcessMemoryMB, 1),
+                runningServicesCount = services.RunningServicesCount,
+                servicesWithPotentialLeaks = services.ServicesWithPotentialLeaks,
+                gen0Collections = services.Gen0Collections,
+                gen1Collections = services.Gen1Collections,
+                gen2Collections = services.Gen2Collections,
+                services = services.ServiceStats.Select(stat => new
+                {
+                    stat.ServiceName,
+                    stat.IsRunning,
+                    currentMemoryMB = Math.Round(stat.CurrentMemoryMB, 1),
+                    initialMemoryMB = Math.Round(stat.InitialMemoryMB, 1),
+                    growthMB = Math.Round(stat.TotalGrowthMB, 1),
+                    stat.PotentialMemoryLeak,
+                    uptime = stat.Uptime.ToString(@"d\.hh\:mm\:ss"),
+                    stat.LastCheckTime
+                })
+            }
+        };
+    }
+
+    /// <summary>
+    /// Turns a resource sample into a sentence.
+    /// </summary>
+    private static string Describe(SystemResourceUsageDto usage)
+    {
+        if (usage == null)
+            return "No sample was returned.";
+
+        if (!string.IsNullOrWhiteSpace(usage.CollectionError))
+            return $"Resource counters could not be read on this host ({usage.CollectionError}), so the figures are zero rather than genuinely idle.";
+
+        var memoryNote = usage.MemoryUsagePercent >= 85
+            ? "the managed heap is close to the memory available to the process, so an out-of-memory failure is a real risk"
+            : usage.MemoryUsagePercent >= 60
+                ? "memory use is high but not yet at risk"
+                : "memory use is comfortable";
+
+        var diskNote = usage.TotalDiskGB == 0
+            ? "disk could not be measured"
+            : usage.DiskUsagePercent >= 90
+                ? $"disk is nearly full at {usage.DiskUsagePercent:0.#}% used"
+                : $"disk is {usage.DiskUsagePercent:0.#}% used with {usage.AvailableDiskGB} GB free";
+
+        return $"Process is holding {usage.ProcessMemoryMB} MB resident (peak {usage.PeakProcessMemoryMB} MB), "
+             + $"of which {usage.UsedMemoryMB} MB is managed heap against {usage.TotalMemoryMB} MB available "
+             + $"({usage.MemoryUsagePercent:0.#}%) - {memoryNote}. "
+             + $"CPU has averaged {usage.CpuUsagePercent:0.#}% of one machine over {usage.Uptime.TotalHours:0.#} hours of uptime "
+             + $"across {usage.ProcessorCount} logical processors, with {usage.ThreadCount} threads. "
+             + $"Gen 2 collections: {usage.Gen2Collections}. {diskNote}.";
     }
 
     #endregion

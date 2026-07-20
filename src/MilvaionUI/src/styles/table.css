@@ -705,6 +705,32 @@ a.mv-table-primary:hover {
   color: var(--error-color);
 }
 
+/* ── Work in progress ────────────────────────────────────────────────────────
+ *
+ * A turning icon, for an action that is still running.
+ *
+ * Defined here rather than per page because the actions that need it are the shared row
+ * buttons: deleting a job takes down every occurrence and log line it ever produced, which
+ * on a short schedule is seconds of real work. An icon-only button gives no other sign
+ * that anything is happening, and a button that looks untouched reads as a click that
+ * missed - which is exactly how the delete button was being read.
+ */
+
+.mv-spin {
+  animation: mv-spin 900ms linear infinite;
+}
+
+@keyframes mv-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The label and the disabled state still report progress; only the motion goes. */
+  .mv-spin {
+    animation: none;
+  }
+}
+
 /* ── Vertical rhythm ─────────────────────────────────────────────────────────
    Page-level spacing belongs to `page.css`, which already separates siblings. These
    wrappers each carried their own bottom margin as well, so the two stacked and the gap

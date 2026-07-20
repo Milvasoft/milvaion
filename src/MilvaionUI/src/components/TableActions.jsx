@@ -22,6 +22,10 @@ import Icon from './Icon'
  * @param {string} title Tooltip and accessible name. Required - these buttons are icon only.
  * @param {string} [label] Optional visible text next to the icon.
  * @param {string} [to] Route to link to, instead of an onClick.
+ * @param {boolean} [spinning] Turn the icon while the action is in flight.
+ *   Row actions here can take real time - deleting a job removes every occurrence and log
+ *   line it produced - and an icon button gives no other sign that anything is happening.
+ *   Without it the only reading available to the user is that the click missed.
  */
 export function ActionButton({
   intent = 'default',
@@ -31,12 +35,13 @@ export function ActionButton({
   to = null,
   onClick = null,
   disabled = false,
+  spinning = false,
 }) {
   const className = `mv-action-btn intent-${intent}` + (disabled ? ' is-disabled' : '')
 
   const content = (
     <>
-      <Icon name={icon} size={16} />
+      <Icon name={icon} size={16} className={spinning ? 'mv-spin' : ''} />
       {label && <span>{label}</span>}
     </>
   )

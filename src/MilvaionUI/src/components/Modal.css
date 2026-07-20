@@ -142,6 +142,27 @@
   color: var(--text-primary);
 }
 
+/*
+ * The optional second action - "go to occurrence", "go to run".
+ *
+ * Outlined rather than filled, so it reads as an offer beside the confirm button rather
+ * than competing with it. Dismissing the dialog is still the default; following the link
+ * is the thing you do when the id it just showed you is the reason you triggered anything.
+ */
+.modal-btn-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: transparent;
+  color: var(--accent-text);
+  border-color: rgba(var(--accent-color-rgb), 0.45);
+}
+
+.modal-btn-extra:hover {
+  background-color: var(--accent-glow);
+  border-color: var(--accent-color);
+}
+
 .modal-btn-confirm {
   background: var(--accent-gradient);
   color: white;

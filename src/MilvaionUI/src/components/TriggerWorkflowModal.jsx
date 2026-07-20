@@ -156,17 +156,47 @@ export default function TriggerWorkflowModal({ workflowId, workflow: workflowPro
       if (val.trim()) stepJobData[id] = val.trim()
     })
     setLoading(true)
+
+    let runId
+
     try {
       const result = await workflowService.trigger(workflow.id, reason || 'Manual trigger', stepJobData)
-      if (result?.isSuccess) {
-        onSuccess(result.data.id)
-      } else {
+
+      if (!result?.isSuccess) {
         onClose(result?.message || 'Failed to trigger workflow')
+        return
       }
-    } catch {
+
+      /*
+       * The trigger command returns `Response<Guid>` and the interceptor unwraps the
+       * envelope, so `data` is the run id itself - not an object with an `id` on it. This
+       * read `result.data.id`, which is undefined, so the run id never reached the caller.
+       */
+      runId = typeof result.data === 'string' ? result.data : result.data?.id
+    } catch (err) {
+      console.error('Workflow trigger failed:', err)
       onClose('Failed to trigger workflow')
+      return
     } finally {
       setLoading(false)
+    }
+
+    /*
+     * Outside the request's try, deliberately, and with its own handling.
+     *
+     * `onSuccess` used to sit inside that try, so anything the parent's handler threw was
+     * caught there and reported as "Failed to trigger workflow" - a request that succeeded,
+     * announced as a failure, with the real error swallowed. The request and the callback
+     * are separate concerns.
+     *
+     * If the callback does fail, the run was still started, so the message says so rather
+     * than blaming the trigger. The error itself goes to the console named for what it is.
+     */
+    try {
+      onSuccess(runId)
+    } catch (err) {
+      console.error('Workflow was triggered, but the page failed to handle the result:', err)
+      onClose('The workflow was triggered, but this page could not show the result. Check the runs list.')
     }
   }
 

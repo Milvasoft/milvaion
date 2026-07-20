@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Milvaion.Application.Dtos.AdminDtos;
 using Milvaion.Application.Dtos.ConfigurationDtos;
 using Milvaion.Application.Features.Configuration.GetSystemConfiguration;
+using Milvaion.Application.Features.Configuration.GetSystemResourceUsage;
 using Milvaion.Application.Utils.Attributes;
 using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
@@ -164,4 +165,22 @@ public class AdminController(IAdminService adminService,
     [HttpGet("diagnostics/services")]
     [ProducesResponseType(typeof(Response<AggregatedMemoryStats>), StatusCodes.Status200OK)]
     public Response<AggregatedMemoryStats> GetBackgrounServiceMemoryDiagnostics() => _adminService.GetBackgroundServiceMemoryDiagnostics();
+
+    /// <summary>
+    /// Gets live CPU, memory and disk usage of the API host and process.
+    /// </summary>
+    /// <param name="request">Query.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Resource usage sample.</returns>
+    /// <remarks>
+    /// Deliberately narrow. <c>configuration</c> returns these numbers too, but only as one branch of a payload
+    /// that also walks every configuration section, parses the connection strings and enumerates the alerting
+    /// channels - too expensive to call when the question is just how much memory the process is using. This
+    /// reads the current process and nothing else, so it is cheap enough to poll.
+    /// </remarks>
+    [Auth(PermissionCatalog.SystemAdministration.List)]
+    [HttpGet("resource-usage")]
+    [ProducesResponseType(typeof(Response<SystemResourceUsageDto>), StatusCodes.Status200OK)]
+    public Task<Response<SystemResourceUsageDto>> GetResourceUsageAsync([FromQuery] GetSystemResourceUsageQuery request, CancellationToken cancellationToken)
+        => _mediator.Send(request, cancellationToken);
 }

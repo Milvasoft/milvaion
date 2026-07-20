@@ -264,6 +264,16 @@ function JobList() {
     enabled: viewMode === 'list',
   })
 
+  /*
+   * Which row is being deleted, not just "a delete is running".
+   *
+   * Removing a job takes down every occurrence and log line it ever produced, so on a job
+   * with a short schedule the request runs for seconds. Holding the id means only the row
+   * that was clicked shows the spinner - a page-wide flag would freeze every delete button
+   * in the list and leave the user unable to tell which one they had actually hit.
+   */
+  const [deletingId, setDeletingId] = useState(null)
+
   const handleDelete = async (id) => {
     const confirmed = await showConfirm(
       'Are you sure you want to delete this job? This action cannot be undone.',
@@ -273,6 +283,8 @@ function JobList() {
     )
 
     if (!confirmed) return
+
+    setDeletingId(id)
 
     try {
       const response = await jobService.delete(id)
@@ -294,6 +306,8 @@ function JobList() {
     } catch (err) {
       await showError('Failed to delete job. Please try again.')
       console.error(err)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -619,9 +633,13 @@ function JobList() {
                         }}
                         className="action-btn delete"
                         title={job.isExternal ? "External jobs cannot be deleted from Milvaion" : "Delete"}
-                        disabled={job.isExternal}
+                        disabled={job.isExternal || deletingId === job.id}
                       >
-                        <Icon name="delete" size={18} />
+                        <Icon
+                          name={deletingId === job.id ? 'progress_activity' : 'delete'}
+                          size={18}
+                          className={deletingId === job.id ? 'mv-spin' : ''}
+                        />
                       </button>
                     </div>
                   </div>
@@ -745,10 +763,13 @@ function JobList() {
                           />
                           <ActionButton
                             intent="danger"
-                            icon="delete"
-                            title={job.isExternal ? 'External jobs cannot be deleted from Milvaion' : 'Delete'}
+                            icon={deletingId === job.id ? 'progress_activity' : 'delete'}
+                            spinning={deletingId === job.id}
+                            title={deletingId === job.id
+                              ? 'Deleting…'
+                              : job.isExternal ? 'External jobs cannot be deleted from Milvaion' : 'Delete'}
                             onClick={() => handleDelete(job.id)}
-                            disabled={job.isExternal}
+                            disabled={job.isExternal || deletingId === job.id}
                           />
                         </div>
                       </td>

@@ -52,13 +52,18 @@
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.collapsible-chevron svg {
-  transition: transform var(--transition-fast);
-  transform: rotate(-90deg);
-}
-
-.collapsible-section.is-open .collapsible-chevron svg {
-  transform: rotate(0deg);
+/*
+ * Chevron'un kendisi. Artık döndürülmüyor - açık ve kapalı için iki ayrı glif var,
+ * gerekçesi bileşenin içinde yazılı.
+ *
+ * Buradaki eski kural `.collapsible-chevron svg` idi ve hiç eşleşmiyordu, çünkü `Icon`
+ * bileşeni `<svg>` değil `<span>` üretiyor. Yani dönme zaten hiçbir zaman çalışmamıştı;
+ * bölüm açılıp kapanırken ok sabit kalıyordu. Seçiciyi düzeltmek dönmeyi devreye soktu ve
+ * asıl sorunu görünür hale getirdi: kare olmayan bir kutuyu çevirmek glifi yatayda
+ * kaydırıyor.
+ */
+.collapsible-chevron .icon {
+  line-height: 1;
 }
 
 .collapsible-head:hover .collapsible-chevron {
@@ -124,10 +129,11 @@
 @media (prefers-reduced-motion: reduce) {
   /* Gecikme de sıfırlanıyor: animasyon yokken içeriğin kapandıktan sonra bir
      süre daha görünür kalması için sebep kalmıyor. */
+  /* Chevron artık geçişsiz - glif değişiyor, dönmüyor - o yüzden burada yalnızca
+     katlanan gövde kalıyor. */
   .collapsible-outer,
   .collapsible-section.is-open .collapsible-outer,
-  .collapsible-body,
-  .collapsible-chevron svg {
+  .collapsible-body {
     transition: none;
   }
 }

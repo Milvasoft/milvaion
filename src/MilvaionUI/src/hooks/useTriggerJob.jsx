@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import jobService from '../services/jobService'
 import { useModal } from './useModal'
+import { triggerResultModal } from '../components/TriggerResult'
 
 /**
  * Custom hook for triggering jobs with modal feedback and force retry support.
@@ -11,6 +13,7 @@ import { useModal } from './useModal'
 export function useTriggerJob() {
   const [triggering, setTriggering] = useState(false)
   const { modalProps, showModal } = useModal()
+  const navigate = useNavigate()
 
   /**
    * Triggers a job with optional force parameter and custom job data.
@@ -32,44 +35,35 @@ export function useTriggerJob() {
       const response = await jobService.trigger(jobId, reason, force, jobData)
 
       if (response.success || response.isSuccess) {
-        const correlationId = response.data.id
+        /*
+         * The trigger command returns `Response<Guid>` and that Guid is the occurrence id -
+         * the backend even creates it as `occurrenceId` and copies it into `CorrelationId`
+         * because for a manual trigger the two are the same value.
+         *
+         * This read `response.data.id`, which is a property of an object that is not there:
+         * `data` is the Guid itself. So the dialog has been showing an empty box, and the
+         * `onSuccess` callback has been handing `undefined` to its callers. Both shapes are
+         * accepted now so it keeps working if the payload is ever wrapped.
+         */
+        const occurrenceId = typeof response.data === 'string' ? response.data : response.data?.id
 
-        showModal({
-          title: force ? '⚡ Force Trigger Successful' : '✅ Job Triggered Successfully',
-          message: (
-            <div style={{ textAlign: 'left' }}>
-              <p><strong>Correlation ID:</strong></p>
-              <code style={{
-                display: 'block',
-                padding: '8px',
-                background: '#f5f5f5',
-                color: '#333',
-                borderRadius: '4px',
-                marginBottom: '12px',
-                wordBreak: 'break-all'
-              }}>
-                {correlationId}
-              </code>
-              {jobData && (
-                <p style={{ color: '#2196f3', fontSize: '14px' }}>
-                  ℹ️ Custom job data was used for this execution.
-                </p>
-              )}
-              {force && (
-                <p style={{ color: '#ff9800', fontSize: '14px' }}>
-                  ⚠️ Concurrent policy checks were bypassed.
-                </p>
-              )}
-              <p style={{ fontSize: '14px', color: '#666' }}>
-                Check the execution history for progress.
-              </p>
-            </div>
-          ),
-          confirmText: 'OK',
+        showModal(triggerResultModal({
+          title: force ? 'Force trigger successful' : 'Job triggered',
+          // Named for what it is. It was labelled "Correlation ID" - the same value here,
+          // but that name sends people looking for a different kind of record.
+          label: 'Occurrence ID',
+          id: occurrenceId,
+          goToLabel: 'Go to occurrence',
+          to: `/occurrences/${occurrenceId}`,
+          navigate,
+          notes: [
+            jobData && { text: 'Custom job data was used for this execution.', tone: 'info' },
+            force && { text: 'Concurrent policy checks were bypassed.', tone: 'warning' },
+          ],
           onConfirm: () => {
-            if (onSuccess) onSuccess(correlationId)
+            if (onSuccess) onSuccess(occurrenceId)
           }
-        })
+        }))
 
         return true
       } else {

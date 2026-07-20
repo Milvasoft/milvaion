@@ -37,6 +37,9 @@ public static class McpExtensions
                 "which job is noisiest, what errors are new - call summarize_logs first: it returns counts " +
                 "whose size does not grow with the log volume. Only then use search_logs, narrowed by what " +
                 "the summary pointed at. " +
+                "For anything about resource consumption - memory, CPU, disk - call get_resource_usage. It reads " +
+                "the API process directly, so there is no need for host access and no reason to say you have " +
+                "none; pass includeBackgroundServices to see which background service is growing. " +
                 "trigger_job and trigger_workflow cause real work to run in the user's environment; ask before " +
                 "calling them. " +
                 "Tools whose id parameter is a list - delete_failures, resolve_failures, delete_occurrences - are " +

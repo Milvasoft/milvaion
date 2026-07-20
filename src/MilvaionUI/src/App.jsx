@@ -15,11 +15,16 @@ import Login from './pages/Login/Login'
  * them would only lengthen the blank screen.
  */
 const ActivityLogList = lazy(() => import('./pages/UserManagement/ActivityLogList'))
-const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'))
+/* `/admin` now serves the redesigned Monitoring page. `AdminDashboard` is left in the
+   tree so switching back is this one line. */
+const AdminDashboard = lazy(() => import('./pages/Admin/Monitoring'))
 const ApiKeyList = lazy(() => import('./pages/UserManagement/ApiKeyList'))
-const Configuration = lazy(() => import('./pages/Configuration'))
+/* The redesigned page lives in its own folder alongside the spec that drives it. The old
+   `pages/Configuration.jsx` is untouched; switching back is this one line. */
+const Configuration = lazy(() => import('./pages/Configuration/Configuration'))
 const CronScheduleVsActualReport = lazy(() => import('./pages/Reports/CronScheduleVsActualReport'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
+/* Redesigned dashboard. The old `pages/Dashboard.jsx` is untouched; this is the switch. */
+const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'))
 const ExecutionList = lazy(() => import('./pages/Executions/ExecutionList'))
 const FailedOccurrenceDetail = lazy(() => import('./pages/FailedOccurrences/FailedOccurrenceDetail'))
 const FailedOccurrenceList = lazy(() => import('./pages/FailedOccurrences/FailedOccurrenceList'))

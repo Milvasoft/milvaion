@@ -232,6 +232,7 @@
   background: var(--bg-hover);
 }
 
+/* İlk span zaten ikonun kendisi; `svg` dalı bir şey eşleştirmiyor ama zararsız. */
 .wfb-add-menu-item > svg,
 .wfb-add-menu-item > span:first-child {
   color: var(--accent-text);
@@ -1167,6 +1168,8 @@
   margin-bottom: 10px;
 }
 
+/* `Icon` span üretiyor; yalnızca `svg` yazılı olan kural hiç eşleşmiyordu. */
+.wfb-note > .icon,
 .wfb-note > svg {
   flex-shrink: 0;
   margin-top: 1px;
@@ -1198,6 +1201,7 @@
   border-color: #f59e0b40;
 }
 
+.wfb-note--warn > .icon,
 .wfb-note--warn > svg {
   color: #f59e0b;
 }

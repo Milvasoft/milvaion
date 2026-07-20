@@ -12,7 +12,6 @@ namespace Milvaion.Application.Features.ScheduledJobs.DeleteScheduledJob;
 [Log]
 [UserActivityTrack(UserActivity.DeleteScheduledJob)]
 public record DeleteScheduledJobCommandHandler(IMilvaionRepositoryBase<ScheduledJob> ScheduledJobRepository,
-                                               IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
                                                IRedisSchedulerService RedisSchedulerService,
                                                IRedisCancellationService RedisCancellationService,
                                                IJobOccurrenceEventPublisher EventPublisher) : IInterceptable, ICommandHandler<DeleteScheduledJobCommand, Guid>
@@ -20,16 +19,17 @@ public record DeleteScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
     /// <inheritdoc/>
     public async Task<Response<Guid>> Handle(DeleteScheduledJobCommand request, CancellationToken cancellationToken)
     {
-        var scheduledjob = await ScheduledJobRepository.GetForDeleteAsync(request.JobId, cancellationToken: cancellationToken);
+
+        var isRunning = await RedisSchedulerService.IsJobRunningAsync(request.JobId, cancellationToken);
+
+        if (isRunning)
+            return Response<Guid>.Error(default, "Cannot delete a running job");
+
+
+        var scheduledjob = await ScheduledJobRepository.GetByIdAsync(request.JobId, cancellationToken: cancellationToken);
 
         if (scheduledjob == null)
             return Response<Guid>.Error(default, MessageKey.JobNotFound);
-
-        //  Check if job is currently running (via latest occurrence)
-        var latestOccurrence = scheduledjob.Occurrences?.OrderByDescending(o => o.CreatedAt).FirstOrDefault();
-
-        if (latestOccurrence != null && (latestOccurrence.Status == JobOccurrenceStatus.Running || latestOccurrence.Status == JobOccurrenceStatus.Queued))
-            return Response<Guid>.Error(default, "Cannot delete a running or queued job");
 
         // 1. Remove from Redis ZSET
         await RedisSchedulerService.RemoveFromScheduledSetAsync(request.JobId, cancellationToken);

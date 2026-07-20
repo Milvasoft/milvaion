@@ -1,0 +1,627 @@
+/*
+ * System configuration - redesign.
+ *
+ * Prefixed `mvc-`, not imported globally.
+ *
+ * The page is a reference document, and it is styled like one rather than like a
+ * dashboard: no card around every value, one typographic rhythm down the whole page, and
+ * an index down the side. The old version drew ninety bordered rows, which is ninety
+ * borders carrying no information.
+ */
+
+/*
+ * `#root` still carries `text-align: center` from the Vite starter template, and on a page
+ * that is almost entirely label/value pairs the inherited centring is visible everywhere.
+ * Stated once here rather than on each of the dozen elements that would otherwise need it.
+ */
+.mvc-page {
+  text-align: left;
+}
+
+/* ── Identity ────────────────────────────────────────────────────────────── */
+
+/*
+ * The strip spreads: title on the left, labelled facts through the middle, meters on the
+ * right. The first version centred a single unlabelled string - a container id - and left
+ * the rest of a 1600px bar empty.
+ */
+.mvc-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem 2.5rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  text-align: left;
+}
+
+.mvc-identity-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+.mvc-identity-title h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+/* The facts take the room between the title and the meters, so the strip fills its width
+   instead of leaving a hole in the middle. */
+.mvc-facts {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem 2.5rem;
+  flex-wrap: wrap;
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+}
+
+.mvc-facts dt {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mvc-facts dd {
+  margin: 3px 0 0;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/*
+ * The environment is the one label on this page worth colouring: reading a production
+ * value while believing you are on staging is the mistake this page can actually cause.
+ */
+.mvc-env {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mvc-env.is-prod {
+  background: rgba(var(--error-color-rgb), 0.14);
+  border: 1px solid rgba(var(--error-color-rgb), 0.35);
+  color: var(--error-color);
+}
+
+.mvc-env.is-dev {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+/* ── Meters ──────────────────────────────────────────────────────────────── */
+
+/*
+ * CPU, memory and disk. Small, and in the header rather than in a section of their own:
+ * they describe the machine, not the configuration, and they are the only values on the
+ * page that move. The old design gave them three full cards at the top, which made the
+ * page open on live telemetry and pushed the actual settings below the fold.
+ */
+.mvc-meters {
+  display: flex;
+  gap: 1.25rem;
+  flex-shrink: 0;
+}
+
+.mvc-meter {
+  width: 108px;
+}
+
+.mvc-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 5px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.mvc-meter-head strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.mvc-meter-bar {
+  display: block;
+  height: 4px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.mvc-meter-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width var(--transition-base);
+}
+
+.mvc-meter-bar > span.tone-ok { background: var(--success-color); opacity: 0.7; }
+.mvc-meter-bar > span.tone-warning { background: var(--warning-color); }
+.mvc-meter-bar > span.tone-danger { background: var(--error-color); }
+
+/* ── Switches summary ────────────────────────────────────────────────────── */
+
+.mvc-switches {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  border-radius: 11px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.mvc-switches > span:first-child {
+  position: relative;
+  top: 3px;
+  flex-shrink: 0;
+}
+
+/* Nothing off is the normal case, so it is stated quietly - a green banner every time
+   the page loads is a banner nobody reads. */
+.mvc-switches.all-on {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.mvc-switches.has-off {
+  background: rgba(var(--warning-color-rgb), 0.08);
+  border: 1px solid rgba(var(--warning-color-rgb), 0.28);
+  color: var(--text-secondary);
+}
+
+.mvc-switches.has-off > span:first-child {
+  color: var(--warning-color);
+}
+
+.mvc-switches strong {
+  color: var(--text-primary);
+}
+
+/* Each name is a button that drops itself into the search box - the summary says what is
+   off, and one click says where it is configured. */
+.mvc-off-chip {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.mvc-off-chip:hover {
+  text-decoration-style: solid;
+}
+
+/* ── Search ──────────────────────────────────────────────────────────────── */
+
+.mvc-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mvc-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  transition: border-color var(--transition-fast);
+}
+
+.mvc-search:focus-within {
+  border-color: var(--accent-color);
+}
+
+.mvc-search > span:first-child {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.mvc-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.mvc-search button {
+  display: inline-flex;
+  padding: 3px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.mvc-search button:hover {
+  color: var(--text-primary);
+}
+
+.mvc-hits {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+
+.mvc-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+/* Only child when searching, so the column collapses on its own. */
+.mvc-layout > .mvc-body:only-child {
+  grid-column: 1 / -1;
+}
+
+/* ── Index ───────────────────────────────────────────────────────────────── */
+
+/*
+ * Sticky, because the point of it is to say where you are in a long document while you
+ * are somewhere in the middle of it. Sits below the page's own top padding.
+ */
+/*
+ * Sticky needs two things, and only one of them is this rule.
+ *
+ * The other is that no ancestor may be a scroll container that never scrolls. `.layout`,
+ * `.main-content` and `#root` all carried `overflow-x: hidden`, which computes
+ * `overflow-y` to `auto` and makes each of them exactly that - so this stuck to a box that
+ * stays still while the document moves, which looks identical to not being sticky at all.
+ * They are `overflow-x: clip` now, which clips without creating a scroll container.
+ */
+.mvc-index {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* If the list ever outgrows the screen it scrolls on its own rather than being cut off
+     at the bottom of the viewport. */
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.mvc-index-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.6rem;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 7px 7px 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.mvc-index-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mvc-index-item.is-active {
+  border-left-color: var(--accent-color);
+  background: var(--accent-glow);
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+
+.mvc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+  min-width: 0;
+}
+
+.mvc-section {
+  /* So a jump from the index does not land the heading flush against the top edge. */
+  scroll-margin-top: 1rem;
+}
+
+.mvc-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.mvc-section-title > span:first-child {
+  color: var(--accent-color);
+}
+
+.mvc-section-note {
+  margin: 0 0 1rem;
+  max-width: 68ch;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.mvc-group + .mvc-group {
+  margin-top: 1.25rem;
+}
+
+.mvc-group-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
+/*
+ * Two columns, hairline between rows, no border around anything. This is the shape of a
+ * spec sheet, and it is what lets ninety values sit on one page without the page reading
+ * as ninety things.
+ */
+.mvc-rows {
+  margin: 0;
+  border-top: 1px solid var(--border-color);
+  /*
+   * Capped. Left to fill a wide screen the value column ran to about 1,100px, which put
+   * the value most of a metre from its own label - the pair stopped reading as a pair and
+   * the middle of every row was empty. A measure this wide is already generous for a
+   * two-column list.
+   */
+  max-width: 780px;
+}
+
+.mvc-row {
+  display: grid;
+  /* The value column is sized to its content rather than given the remaining space, so
+     "1 s" sits just after the label instead of being stranded at the far edge. */
+  grid-template-columns: minmax(160px, 240px) minmax(0, max-content);
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.5rem 0.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* The whole row lifts on hover. On a dense list this is the only thing tying a label to
+   the value four hundred pixels away from it. */
+.mvc-row:hover {
+  background: var(--bg-hover);
+}
+
+.mvc-row dt {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.mvc-row dd {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mvc-hint {
+  display: inline-flex;
+  color: var(--text-muted);
+  opacity: 0.55;
+  cursor: help;
+}
+
+.mvc-hint:hover {
+  opacity: 1;
+}
+
+/* ── Values ──────────────────────────────────────────────────────────────── */
+
+.mvc-plain {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The unit is part of the value but not the part being compared, so it recedes. */
+.mvc-unit {
+  margin-left: 2px;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.mvc-code {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: 'Courier New', monospace;
+  font-size: 0.825rem;
+  overflow-wrap: anywhere;
+}
+
+.mvc-empty {
+  color: var(--text-muted);
+}
+
+/*
+ * A dot and a word, the same shape the tables use, rather than a filled chip. Twenty
+ * filled green chips down a page read as decoration, and the one red one among them does
+ * not stand out - which is exactly backwards for a page read to find the thing that is
+ * off.
+ */
+.mvc-bool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.mvc-bool.is-on { color: var(--success-color); }
+.mvc-bool.is-off { color: var(--error-color); }
+
+/* ── Empty / error ───────────────────────────────────────────────────────── */
+
+.mvc-nohits {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.mvc-nohits > span:first-child {
+  opacity: 0.4;
+}
+
+.mvc-nohits p {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.mvc-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid rgba(var(--error-color-rgb), 0.35);
+  border-radius: 12px;
+  background: rgba(var(--error-color-rgb), 0.08);
+  color: var(--error-color);
+}
+
+.mvc-error strong {
+  display: block;
+  color: var(--text-primary);
+}
+
+.mvc-retry {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.mvc-retry:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Narrow screens ──────────────────────────────────────────────────────── */
+
+@media (max-width: 1000px) {
+  /* The index goes first: a sticky column 200px wide leaves too little for the values,
+     and search covers what the index was for. */
+  .mvc-layout {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .mvc-index {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .mvc-index-item {
+    border-left: none;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    background: var(--bg-secondary);
+  }
+
+  .mvc-index-item.is-active {
+    background: var(--accent-glow);
+  }
+}
+
+@media (max-width: 700px) {
+  .mvc-identity {
+    padding: 1rem;
+    gap: 0.875rem 1.5rem;
+  }
+
+  .mvc-identity-title {
+    width: 100%;
+  }
+
+  .mvc-facts {
+    gap: 0.75rem 1.5rem;
+  }
+
+  .mvc-rows {
+    max-width: none;
+  }
+
+  /* Three meters in a row become three across the full width, still one line - they are
+     small enough to survive it and stacking them would push the settings down a screen. */
+  .mvc-meters {
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .mvc-meter {
+    flex: 1;
+    width: auto;
+  }
+
+  /* Label above value. Side by side at this width the label column is either too narrow
+     to read or leaves the value no room. */
+  .mvc-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    padding: 0.55rem 0.25rem;
+  }
+
+  .mvc-searchbar {
+    flex-wrap: wrap;
+  }
+}

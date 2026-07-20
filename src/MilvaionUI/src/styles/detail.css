@@ -72,11 +72,24 @@
   color: var(--text-primary);
 }
 
+/*
+ * Başlık ikonu.
+ *
+ * Seçici `.icon` üzerinden çünkü `Icon` bileşeni `<svg>` değil `<span>` üretiyor - burada
+ * yalnızca `> svg` yazılıydı ve hiçbir zaman eşleşmedi. Dolayısıyla ne accent rengi ne de
+ * `flex-shrink: 0` uygulanıyordu; hizalama notu da yazılmış ama etkisiz kalmıştı.
+ *
+ * Hizayı `align-self` ile değil, ikonun satır kutusunu metninkiyle eşitleyerek çözüyoruz.
+ * `line-height: 1` olan bir ikon kutusu 28px, yanındaki metin kutusu ise 1.3 × 1.5rem =
+ * 31.2px; ikisi ortalarından hizalanınca font'un taban çizgisi farkı gözle görülür bir
+ * kayma bırakıyor. `line-height: inherit` iki kutuyu aynı yüksekliğe getiriyor, böylece
+ * ortalar da çakışıyor.
+ */
+.dtl-title h1 > .icon,
 .dtl-title h1 > svg {
   flex-shrink: 0;
   color: var(--accent-color);
-  /* İkon metnin optik ortasına oturuyor; kutu ortası biraz yukarıda kalıyor. */
-  align-self: center;
+  line-height: inherit;
 }
 
 /* Başlığın altındaki kimlik satırı - execution id, correlation id gibi. */
@@ -216,4 +229,19 @@
     flex: 1;
     justify-content: center;
   }
+}
+
+/* Uzun süren bir eylem sırasında düğmenin ikonu. Dönme, isteğin hâlâ sürdüğünü söyleyen
+   tek işaret: silme, job'ın ürettiği tüm occurrence ve log satırlarını da kaldırdığı için
+   saniyeler sürebiliyor. */
+.dtl-spin {
+  animation: dtl-spin 900ms linear infinite;
+}
+
+@keyframes dtl-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dtl-spin { animation: none; }
 }

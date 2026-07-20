@@ -333,7 +333,9 @@ body {
   max-width: 100%;
   margin: 0 auto;
   text-align: center;
-  overflow-x: hidden;
+  /* `clip` instead of `hidden`: `hidden` turns this into a scroll container and breaks
+     every `position: sticky` descendant in the app. */
+  overflow-x: clip;
 }
 
 

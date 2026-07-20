@@ -1,0 +1,592 @@
+/*
+ * System monitoring - redesign.
+ *
+ * Every selector is prefixed `mvm-` and nothing here is imported globally, so this can be
+ * adopted or deleted without reaching into another page. The table on this screen is the
+ * shared one from `styles/table.css`; only what is specific to monitoring lives here.
+ *
+ * The page has three visual weights, and they are deliberately far apart:
+ *
+ *   1. the verdict     - one strip, coloured, the only thing that shouts
+ *   2. the signals      - four tiles, quiet, read at a glance
+ *   3. everything else  - flat surfaces, read only when something above sent you there
+ *
+ * The old page had one weight for all of it.
+ */
+
+/* ── Verdict ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Colour is carried by a thick left edge and a wash, not by a solid fill. A fully
+ * saturated banner across the top of a page that is usually healthy trains people to stop
+ * seeing it; this is legible at a glance and still recedes once read.
+ */
+.mvm-verdict {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.125rem 1.25rem;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+
+.mvm-verdict-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.mvm-verdict-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mvm-verdict-text strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mvm-verdict-text p {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.mvm-verdict-actions {
+  flex-shrink: 0;
+}
+
+.mvm-verdict.tone-success {
+  border-left-color: var(--success-color);
+  background: linear-gradient(90deg, rgba(var(--success-color-rgb), 0.07), transparent 55%), var(--bg-card);
+}
+
+.mvm-verdict.tone-success .mvm-verdict-icon { color: var(--success-color); }
+
+.mvm-verdict.tone-warning {
+  border-left-color: var(--warning-color);
+  background: linear-gradient(90deg, rgba(var(--warning-color-rgb), 0.09), transparent 55%), var(--bg-card);
+}
+
+.mvm-verdict.tone-warning .mvm-verdict-icon { color: var(--warning-color); }
+
+.mvm-verdict.tone-danger {
+  border-left-color: var(--error-color);
+  background: linear-gradient(90deg, rgba(var(--error-color-rgb), 0.1), transparent 55%), var(--bg-card);
+}
+
+.mvm-verdict.tone-danger .mvm-verdict-icon { color: var(--error-color); }
+
+.mvm-verdict.tone-idle .mvm-verdict-icon { color: var(--text-muted); }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.mvm-btn-danger,
+.mvm-btn-primary,
+.mvm-btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1rem;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mvm-btn-danger:disabled,
+.mvm-btn-primary:disabled,
+.mvm-btn-quiet:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
+ * Outlined rather than filled. A solid red button reads as the primary action of the
+ * screen, and stopping the dispatcher is not what anyone came here to do - it is what
+ * they do when something has gone wrong. It should be findable, not inviting.
+ */
+.mvm-btn-danger {
+  border: 1px solid rgba(var(--error-color-rgb), 0.45);
+  background: rgba(var(--error-color-rgb), 0.08);
+  color: var(--error-color);
+}
+
+.mvm-btn-danger:hover:not(:disabled) {
+  background: rgba(var(--error-color-rgb), 0.16);
+  border-color: var(--error-color);
+}
+
+/* Resuming is the safe direction, so it does get to be the filled one. */
+.mvm-btn-primary {
+  border: 1px solid var(--accent-color);
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.mvm-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.mvm-btn-quiet {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.mvm-btn-quiet:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Inline error ────────────────────────────────────────────────────────── */
+
+/* Failures from the control buttons are reported here rather than through `alert`: an
+   alert cannot be copied from and hides the state the message is about. */
+.mvm-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(var(--error-color-rgb), 0.35);
+  border-radius: 10px;
+  background: rgba(var(--error-color-rgb), 0.08);
+  color: var(--error-color);
+  font-size: 0.875rem;
+}
+
+/* ── Signals ─────────────────────────────────────────────────────────────── */
+
+.mvm-signals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.875rem;
+}
+
+.mvm-signal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.875rem 1rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.mvm-signal-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/*
+ * Tabular figures matter more here than anywhere else in the app: these numbers are
+ * redrawn every five seconds, and with proportional digits a 1 replacing a 4 shifts the
+ * whole value sideways. The eye reads that jitter as change even when nothing changed.
+ */
+.mvm-signal-value {
+  font-size: 1.75rem;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.mvm-signal-unit {
+  margin-left: 2px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.mvm-signal-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  min-height: 24px;
+}
+
+.mvm-signal.tone-warning .mvm-signal-value { color: var(--warning-color); }
+.mvm-signal.tone-danger .mvm-signal-value { color: var(--error-color); }
+
+/* ── Sparkline ───────────────────────────────────────────────────────────── */
+
+.mvm-spark {
+  flex: 1;
+  height: 24px;
+  min-width: 0;
+  overflow: visible;
+}
+
+/* Placeholder while fewer than two samples have been collected, so the tile does not
+   change height on the second poll. */
+.mvm-spark-empty {
+  flex: 1;
+  height: 24px;
+}
+
+.mvm-spark-line {
+  fill: none;
+  stroke-width: 1.5;
+  /* The line is drawn in a stretched viewBox, so a plain stroke would be scaled with it
+     and come out thicker at one end. This keeps it even. */
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.mvm-spark-area { stroke: none; }
+
+.mvm-spark.tone-accent .mvm-spark-line { stroke: var(--accent-color); }
+.mvm-spark.tone-accent .mvm-spark-area { fill: rgba(var(--accent-color-rgb), 0.16); }
+
+.mvm-spark.tone-success .mvm-spark-line { stroke: var(--success-color); }
+.mvm-spark.tone-success .mvm-spark-area { fill: rgba(var(--success-color-rgb), 0.14); }
+
+.mvm-spark.tone-warning .mvm-spark-line { stroke: var(--warning-color); }
+.mvm-spark.tone-warning .mvm-spark-area { fill: rgba(var(--warning-color-rgb), 0.14); }
+
+.mvm-spark.tone-danger .mvm-spark-line { stroke: var(--error-color); }
+.mvm-spark.tone-danger .mvm-spark-area { fill: rgba(var(--error-color-rgb), 0.14); }
+
+.mvm-spark.tone-idle .mvm-spark-line { stroke: var(--text-muted); }
+.mvm-spark.tone-idle .mvm-spark-area { fill: rgba(var(--text-muted-rgb), 0.12); }
+
+/*
+ * The delta is uncoloured on purpose. Rising queue depth is bad, rising success rate is
+ * good, and a component that does not know which metric it is drawing cannot colour the
+ * direction honestly. The arrow says which way; the tile's own tone says whether that
+ * matters.
+ */
+.mvm-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ── Toolbar bits shared with the table card ─────────────────────────────── */
+
+.mvm-toolbar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mvm-toolbar-note {
+  font-size: 0.825rem;
+  color: var(--text-muted);
+}
+
+/* ── Queue depth cell ────────────────────────────────────────────────────── */
+
+.mvm-depth {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 110px;
+  max-width: 220px;
+}
+
+.mvm-depth-value {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mvm-depth-bar {
+  display: block;
+  height: 4px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.mvm-depth-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+/* Filled against capacity rather than against the biggest queue on screen: for a queue,
+   unlike a duration, there is a real ceiling and being near it is the whole point. */
+.mvm-depth-bar > span.tone-success { background: var(--success-color); opacity: 0.55; }
+.mvm-depth-bar > span.tone-warning { background: var(--warning-color); }
+.mvm-depth-bar > span.tone-danger  { background: var(--error-color); }
+.mvm-depth-bar > span.tone-idle    { background: var(--text-muted); opacity: 0.4; }
+
+/* A queue with work and no worker. Not a health status the API reports, but the first
+   thing worth noticing when it happens. */
+.mvm-starved {
+  color: var(--warning-color);
+  font-weight: 600;
+}
+
+/* ── Panel ───────────────────────────────────────────────────────────────── */
+
+.mvm-panel {
+  padding: 1.125rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+}
+
+.mvm-panel.tone-warning { border-color: rgba(var(--warning-color-rgb), 0.35); }
+.mvm-panel.tone-danger  { border-color: rgba(var(--error-color-rgb), 0.4); }
+
+.mvm-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+  color: var(--text-muted);
+}
+
+.mvm-panel-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mvm-panel-line {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/*
+ * A definition list, not stat boxes. These three numbers exist to qualify the success
+ * rate shown above; drawn as boxes they compete with it, which is how the old page ended
+ * up stating Redis health four times on one screen.
+ */
+.mvm-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  margin: 0.875rem 0 0;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.mvm-facts dt {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mvm-facts dd {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.mvm-facts dd.is-bad {
+  color: var(--error-color);
+}
+
+.mvm-panel-advice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.875rem 0 0;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-secondary);
+  border-radius: 9px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.mvm-panel-advice > span:first-child {
+  flex-shrink: 0;
+  color: var(--warning-color);
+}
+
+/* ── Inventory ───────────────────────────────────────────────────────────── */
+
+/*
+ * How many jobs exist is not a health signal, so it is not drawn like one. One line, no
+ * card, no border - the visual weight of a footnote, which is what it is.
+ */
+.mvm-inventory {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  padding: 0.25rem 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.mvm-inventory > span:first-child {
+  color: var(--text-muted);
+}
+
+.mvm-inventory strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* ── Emergency stop dialog ───────────────────────────────────────────────── */
+
+.mvm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+}
+
+.mvm-dialog {
+  width: min(460px, 100%);
+  padding: 1.375rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-top: 3px solid var(--error-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+}
+
+.mvm-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--error-color);
+}
+
+.mvm-dialog-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mvm-dialog-body {
+  margin: 0.7rem 0 1.125rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.mvm-field {
+  display: block;
+}
+
+.mvm-field > span {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.mvm-field textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.mvm-field textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.mvm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.125rem;
+}
+
+/* ── Narrow screens ──────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  /* Four tiles across become two: below about 220px each, the value and the sparkline
+     start fighting for the same row. */
+  .mvm-signals {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .mvm-verdict {
+    flex-wrap: wrap;
+  }
+
+  /* The control moves to its own row and spans it - it is the one thing on this page
+     that must not be hit by accident, and a full-width target at the bottom of a block
+     is easier to aim at deliberately than a small one wedged beside text. */
+  .mvm-verdict-actions {
+    width: 100%;
+  }
+
+  .mvm-verdict-actions > button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .mvm-facts {
+    gap: 1rem 1.5rem;
+  }
+
+  .mvm-dialog-actions > button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .mvm-signals {
+    grid-template-columns: 1fr;
+  }
+
+  .mvm-signal {
+    /* One per row: the tile is now wide, so value and sparkline sit side by side rather
+       than stacked, and the row stays short. */
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'label label'
+      'value spark';
+    align-items: end;
+    gap: 0.25rem 1rem;
+  }
+
+  .mvm-signal-label { grid-area: label; }
+  .mvm-signal-value { grid-area: value; }
+
+  .mvm-signal-foot {
+    grid-area: spark;
+    width: 120px;
+  }
+}

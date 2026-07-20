@@ -87,17 +87,43 @@
   flex-wrap: wrap;
 }
 
-.wfr-subtitle {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  margin: 0;
+/*
+ * Run id, olgu şeridinin içinde.
+ *
+ * Kartta yalnızca ilk sekiz karakter gösterilebiliyor; sorguya ya da bilete yapıştırılan
+ * ise tamamı. Kopyalama ikisi arasındaki köprü - bu yüzden değer düz metin değil, düğme.
+ */
+.wfr-copy-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
 }
 
-.wfr-subtitle code {
-  font-size: 0.85rem;
-  background: var(--bg-secondary);
+.wfr-copy-id code {
   padding: 1px 6px;
   border-radius: 4px;
+  background: var(--bg-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* İkon üzerine gelinceye kadar görünmüyor: her kartta duran bir kopyalama simgesi,
+   şeridin taşıdığı asıl değerlerle yarışıyor. */
+.wfr-copy-id > span:last-child {
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.wfr-copy-id:hover > span:last-child,
+.wfr-copy-id:focus-visible > span:last-child {
+  opacity: 1;
 }
 
 .wfr-header-actions {
@@ -156,9 +182,20 @@
 }
 
 /* Info Grid */
+/*
+ * `auto-fit`, not `auto-fill` - and that one word is why the row did not span the page.
+ *
+ * `auto-fill` creates as many 200px tracks as the container can hold and keeps the empty
+ * ones. At this width that is eight tracks for six cards, so the cards stopped two thirds
+ * of the way across and the rest of the row sat blank. `auto-fit` collapses the tracks
+ * nothing occupies, and the `1fr` then shares the whole width between the cards that exist.
+ *
+ * The floor comes down to 180px so six facts still fit on one line at a typical desktop
+ * width rather than dropping one onto a row of its own.
+ */
 .wfr-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   margin-bottom: 24px;
 }

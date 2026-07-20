@@ -13,7 +13,19 @@ function Modal({
   confirmText = 'OK',
   cancelText = 'Cancel',
   showCancel = false,
-  className = '' // Add className prop
+  className = '', // Add className prop
+  /**
+   * An optional second action beside the confirm button.
+   *
+   * `{ label, icon?, onClick }`. It exists so a dialog that reports something the user
+   * created can offer to take them to it - "job triggered" leading to the execution it
+   * started. Without it those dialogs could only say an id out loud and leave the user to
+   * find the record themselves.
+   *
+   * The dialog closes after it runs, like confirm does; navigating away with the modal
+   * still mounted would leave the backdrop over the destination.
+   */
+  extraAction = null
 }) {
   useEffect(() => {
     const handleEscape = (e) => {
@@ -86,8 +98,20 @@ function Modal({
               {cancelText}
             </button>
           )}
-          <button 
-            className={`modal-btn modal-btn-confirm modal-btn-${type}`} 
+          {extraAction && (
+            <button
+              className="modal-btn modal-btn-extra"
+              onClick={() => {
+                extraAction.onClick?.()
+                onClose()
+              }}
+            >
+              {extraAction.icon && <Icon name={extraAction.icon} size={16} />}
+              {extraAction.label}
+            </button>
+          )}
+          <button
+            className={`modal-btn modal-btn-confirm modal-btn-${type}`}
             onClick={handleConfirm}
           >
             {confirmText}
@@ -108,7 +132,12 @@ Modal.propTypes = {
   confirmText: PropTypes.string,
   cancelText: PropTypes.string,
   showCancel: PropTypes.bool,
-  className: PropTypes.string
+  className: PropTypes.string,
+  extraAction: PropTypes.shape({
+    label: PropTypes.string.isRequired,
+    icon: PropTypes.string,
+    onClick: PropTypes.func
+  })
 }
 
 export default Modal

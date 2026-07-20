@@ -59,9 +59,13 @@
   text-overflow: ellipsis;
 }
 
+/* `Icon` bileşeni `<span class="icon">` üretiyor; burada yalnızca `svg` yazılıydı ve kural
+   hiç eşleşmiyordu. Satır kutusu eşitlemesi için detail.css'teki nota bakılabilir. */
+.page-title > .icon,
 .page-title > svg {
   flex-shrink: 0;
   color: var(--accent-color);
+  line-height: inherit;
 }
 
 /* Başlığın altına açıklama gerektiğinde: h1 ile aynı sütunda kalması için
@@ -112,10 +116,11 @@
   line-height: 1.3;
 }
 
+.page-header > h1 > .icon,
 .page-header > h1 > svg {
   flex-shrink: 0;
   color: var(--accent-color);
-  align-self: center;
+  line-height: inherit;
 }
 
 /* Başlık metnini saran span'lar - sayaç, ad - kendi boşluğunu getirmesin;

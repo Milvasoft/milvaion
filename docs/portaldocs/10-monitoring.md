@@ -328,6 +328,64 @@ curl http://localhost:5000/api/v1/dashboard
 }
 ```
 
+### Resource Usage
+
+How much CPU, memory and disk the API process itself is using. The system configuration endpoint
+returns these figures too, but only as one branch of a payload that also walks every configuration
+section, parses the connection strings and enumerates the alerting channels - so it is the wrong
+thing to poll. This endpoint reads the current process and nothing else.
+
+```bash
+curl http://localhost:5000/api/v1/admin/resource-usage
+```
+
+```json
+{
+  "data": {
+    "sampledAt": "2026-07-20T13:41:02Z",
+    "hostName": "e5af1cd44f73",
+    "processorCount": 8,
+    "cpuUsagePercent": 3.4,
+    "totalMemoryMB": 4096,
+    "usedMemoryMB": 612,
+    "availableMemoryMB": 3484,
+    "memoryUsagePercent": 14.94,
+    "processMemoryMB": 1180,
+    "peakProcessMemoryMB": 1342,
+    "totalAllocatedMB": 91422,
+    "gen0Collections": 4821,
+    "gen1Collections": 913,
+    "gen2Collections": 26,
+    "threadCount": 54,
+    "uptime": "0.04:42:11",
+    "totalDiskGB": 200,
+    "availableDiskGB": 150,
+    "diskUsagePercent": 25
+  }
+}
+```
+
+Three of these are worth reading together rather than separately:
+
+- **`usedMemoryMB`** is the managed heap. **`processMemoryMB`** is what the operating system - and a
+  container memory limit - sees, and is always larger: it also holds the runtime, native allocations,
+  loaded assemblies and thread stacks. A gap that keeps widening while the heap stays flat points at
+  a native leak rather than a managed one.
+- **`totalMemoryMB`** comes from the garbage collector, so under a container limit it reports the
+  limit rather than the host's physical memory. That is the number the process is actually judged
+  against, which is what makes `memoryUsagePercent` meaningful in a container.
+- **`gen2Collections`** rising quickly means objects are surviving long enough to be promoted, which
+  is what memory pressure looks like before it becomes an out-of-memory failure.
+
+`cpuUsagePercent` is an average over the process lifetime, not an instantaneous reading. A process
+that was busy an hour ago and is idle now still reports a high figure.
+
+If the counters cannot be read - which happens in a hardened container - every figure is zero and
+`collectionError` explains why, rather than the response implying the process is idle.
+
+To break memory down per background service, use `/admin/diagnostics/services`, which reports each
+service's current usage, its growth since start, and whether a leak is suspected.
+
 ### Worker Status
 
 ```bash

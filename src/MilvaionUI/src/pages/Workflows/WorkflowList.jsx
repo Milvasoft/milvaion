@@ -12,6 +12,7 @@ import Pagination from '../../components/Pagination'
 import useInfiniteScroll from '../../hooks/useInfiniteScroll'
 import TableActions, { ActionButton } from '../../components/TableActions'
 import { TableFooter } from '../../components/TableParts'
+import { triggerResultModal } from '../../components/TriggerResult'
 import ViewToggle from '../../components/ViewToggle'
 
 const failureStrategyLabels = {
@@ -46,7 +47,7 @@ function WorkflowList() {
   const [loadingMore, setLoadingMore] = useState(false)
 
   const navigate = useNavigate()
-  const { modalProps, showConfirm, showSuccess, showError } = useModal()
+  const { modalProps, showConfirm, showSuccess, showError, showModal } = useModal()
 
   const readList = (response) => ({
     items: response?.data?.data || response?.data || [],
@@ -377,9 +378,21 @@ function WorkflowList() {
             if (errMsg) showError(errMsg)
           }}
           onSuccess={(runId) => {
+            const workflowId = triggerTarget.id
+
             setTriggerTarget(null)
-            showSuccess('Workflow triggered! Run ID: ' + runId)
-            navigate(`/workflows/${triggerTarget.id}/runs/${runId}`)
+
+            /* The page no longer navigates on its own. It used to jump to the run and
+               raise a dialog on top of it, so the dialog reported an id for a page the
+               user was already looking at. Now the dialog leads and the button decides. */
+            showModal(triggerResultModal({
+              title: 'Workflow triggered',
+              label: 'Run ID',
+              id: runId,
+              goToLabel: 'Go to run',
+              to: `/workflows/${workflowId}/runs/${runId}`,
+              navigate,
+            }))
           }}
         />
       )}

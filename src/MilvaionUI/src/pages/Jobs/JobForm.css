@@ -159,6 +159,8 @@
 
 /* Başlıklara ikon geldi; soldaki renk çubuğu artık ikonun yerini alıyordu ve
    ikisi yan yana gereksiz duruyordu. */
+/* `Icon` span üretiyor; yalnızca `svg` yazılı olan kural hiç eşleşmiyordu. */
+.form-section-title > .icon,
 .form-section-title > svg {
   color: var(--accent-color);
   flex-shrink: 0;

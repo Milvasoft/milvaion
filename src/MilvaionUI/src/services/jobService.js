@@ -116,9 +116,16 @@ export const jobService = {
     return api.patch('/jobs/occurrences', requestBody)
   },
 
-  // Pause/Resume job (endpoint might not exist yet, keeping for future)
+  /*
+   * Pause/resume.
+   *
+   * There is no `/jobs/{id}/status` endpoint - this pointed at a route the API has never
+   * had, and would have returned 404 the first time anything called it. Nothing did; the
+   * comment above it said "endpoint might not exist yet". Active state is part of the job,
+   * so it goes through the update endpoint like every other field.
+   */
   toggleStatus: async (id, isActive) => {
-    return api.patch(`/jobs/${id}/status`, { isActive })
+    return api.put('/jobs/job', { jobId: id, isActive })
   },
 
   // Upcoming runs for both jobs and workflows, read from the live schedule

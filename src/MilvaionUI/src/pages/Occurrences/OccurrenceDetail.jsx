@@ -4,7 +4,7 @@ import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
 import { formatDateTime, formatDuration, formatTime } from '../../utils/dateUtils'
 import Icon from '../../components/Icon'
-import JsonViewer from '../../components/JsonViewer'
+import JsonView from '../../components/JsonView'
 import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonDetail } from '../../components/Skeleton'
@@ -668,7 +668,7 @@ const { modalProps, showModal } = useModal()
 
         {occurrence.result && (
           <div className="occ-result">
-            <JsonViewer data={occurrence.result} title="Result Data" />
+            <JsonView data={occurrence.result} name="result" />
           </div>
         )}
       </CollapsibleSection>
@@ -755,8 +755,11 @@ const { modalProps, showModal } = useModal()
                     {' '}{log.level || 'Info'}
                   </span>
                   <span className="log-message">{log.message || 'No message'}</span>
+                  {/* Collapsed by default: the log is a sequence of one-line messages, and a
+                      full viewer on every row that carries data made those rows several
+                      times taller than the ones without. */}
                   {log.data && (typeof log.data === 'object' || typeof log.data === 'string') && (
-                    <JsonViewer data={log.data} title="Log Data" />
+                    <JsonView data={log.data} name="log data" maxHeight={260} collapsible />
                   )}
                 </div>
               )

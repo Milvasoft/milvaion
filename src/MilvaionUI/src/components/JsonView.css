@@ -1,0 +1,485 @@
+/*
+ * JSON tree.
+ *
+ * Prefixed `mvj-`. Colours come from the theme rather than being hard-coded, so the viewer
+ * is readable in both themes - the stylesheet it replaces used fixed hex values chosen
+ * against a dark background.
+ */
+
+.mvj {
+  position: relative;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  overflow: hidden;
+  text-align: left;
+}
+
+/* ── Collapsed ───────────────────────────────────────────────────────────── */
+
+/*
+ * The one-line form, for lists where the payload is incidental to the row.
+ *
+ * The execution log is a sequence of one-line messages; giving every row that carries data
+ * a full panel made those rows several times taller than the ones without, and the log
+ * stopped reading as a sequence at all. This is the size of the line it belongs to.
+ */
+.mvj-peek {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mvj-peek:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.mvj-peek-name {
+  color: var(--accent-text);
+}
+
+.mvj-peek-summary {
+  color: var(--text-muted);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.mvj-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mvj-spacer {
+  margin-left: auto;
+}
+
+.mvj-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+  padding: 0.3rem 0.55rem;
+  background: var(--bg-card);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  transition: border-color var(--transition-fast);
+}
+
+.mvj-search:focus-within {
+  border-color: var(--accent-color);
+}
+
+.mvj-search > span:first-child {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.mvj-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.825rem;
+}
+
+.mvj-search button {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.mvj-search button:hover {
+  color: var(--text-primary);
+}
+
+.mvj-hits {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.mvj-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mvj-tool:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.mvj-tool.is-active {
+  border-color: var(--accent-color);
+  color: var(--accent-text);
+  background: var(--accent-glow);
+}
+
+.mvj-tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── View switch ─────────────────────────────────────────────────────────── */
+
+/*
+ * Edit / Tree / Raw. A segmented control rather than a toggle, because with editing there
+ * are three states and a two-state switch cannot express that - the read-only viewer got
+ * away with a single "Raw" toggle only because it had two.
+ */
+.mvj-views {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--bg-card);
+  border-radius: 7px;
+}
+
+.mvj-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.775rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.mvj-view:hover:not(.is-active):not(:disabled) {
+  color: var(--text-primary);
+}
+
+.mvj-view.is-active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Tree is unavailable while the document does not parse. Disabled rather than hidden: a
+   control that disappears makes people wonder where it went. */
+.mvj-view:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Validity ────────────────────────────────────────────────────────────── */
+
+.mvj-validity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.775rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mvj-validity.is-valid { color: var(--success-color); }
+.mvj-validity.is-invalid { color: var(--error-color); }
+
+/*
+ * A read-only value that is not JSON. Uncoloured on purpose: an execution result is
+ * whatever the job returned, and a line of text is a perfectly ordinary thing for it to
+ * be. Colouring it like a fault sends people looking for a problem that is not there.
+ */
+.mvj-validity.is-plain {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── Textarea ────────────────────────────────────────────────────────────── */
+
+.mvj-textarea {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  resize: vertical;
+  /* Tabs render as eight columns by default, which throws out the alignment of a document
+     indented with spaces the moment one sneaks in. */
+  tab-size: 2;
+}
+
+.mvj-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* The whole panel carries the error, not just the message strip: while typing, the field
+   border is where the eye already is. */
+.mvj.has-error {
+  border-color: rgba(var(--error-color-rgb), 0.45);
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+
+/*
+ * Bounded and scrolling on its own. Unbounded, a large payload pushes everything below it
+ * off the page, and on a detail screen the payload is rarely the last thing you want to
+ * read.
+ */
+.mvj-body {
+  overflow: auto;
+  padding: 0.6rem 0.5rem 0.75rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+
+.mvj-raw {
+  margin: 0;
+  white-space: pre-wrap;
+  /* Long single-token values - urls, base64, stack frames - wrap instead of forcing the
+     whole block sideways. */
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+}
+
+/* ── Nodes ───────────────────────────────────────────────────────────────── */
+
+/*
+ * Indent comes from a custom property on the node rather than nested padding, so a deep
+ * document does not accumulate containers, and the hover band still runs the full width.
+ */
+.mvj-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding-left: calc(var(--depth) * 1.1rem);
+  border-radius: 4px;
+}
+
+.mvj-line:hover {
+  background: var(--bg-hover);
+}
+
+.mvj-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.mvj-twisty:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+/* While a search is running the tree is opened by the search, so the twisties are inert
+   rather than misleadingly clickable. */
+.mvj-twisty:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.mvj-twisty.is-empty {
+  cursor: default;
+}
+
+.mvj-key {
+  color: var(--accent-text);
+}
+
+.mvj-colon {
+  color: var(--text-muted);
+  margin-right: 0.15rem;
+}
+
+.mvj-summary {
+  color: var(--text-muted);
+}
+
+/* Values wrap rather than stretching the block; a stack trace in a string field is common
+   here and used to make the whole panel scroll sideways. */
+.mvj-string,
+.mvj-number,
+.mvj-bool,
+.mvj-null {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mvj-string { color: var(--success-color); }
+.mvj-number { color: var(--info-color); }
+.mvj-bool   { color: var(--warning-color); }
+.mvj-null   { color: var(--text-muted); font-style: italic; }
+
+.mvj-close {
+  padding-left: calc(var(--depth) * 1.1rem + 1.3rem);
+  color: var(--text-muted);
+}
+
+/* ── Row actions ─────────────────────────────────────────────────────────── */
+
+/*
+ * Hidden until the row is hovered. Two buttons on every line of a hundred-line document
+ * is a column of icons competing with the data; none at all hides that copying a single
+ * field is possible.
+ */
+.mvj-actions {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 0.4rem;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.mvj-line:hover .mvj-actions,
+.mvj-actions:focus-within {
+  opacity: 1;
+}
+
+.mvj-actions button {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.mvj-actions button:hover {
+  color: var(--accent-text);
+  background: var(--bg-secondary);
+}
+
+/* ── Paging ──────────────────────────────────────────────────────────────── */
+
+.mvj-more {
+  display: block;
+  margin: 0.2rem 0 0 calc(var(--depth, 0) * 1.1rem + 1.3rem);
+  padding: 0.2rem 0.5rem;
+  border: 1px dashed var(--border-color);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.775rem;
+  cursor: pointer;
+}
+
+.mvj-more:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+/* ── Search hit ──────────────────────────────────────────────────────────── */
+
+.mvj-hit {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: rgba(var(--warning-color-rgb), 0.35);
+  color: inherit;
+}
+
+/* ── States ──────────────────────────────────────────────────────────────── */
+
+.mvj-invalid {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(var(--warning-color-rgb), 0.08);
+  color: var(--warning-color);
+  font-size: 0.825rem;
+}
+
+.mvj-nohits {
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.825rem;
+  color: var(--text-muted);
+}
+
+.mvj-empty {
+  padding: 1rem;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* The label sits in the corner of the panel rather than above it: it says which document
+   this is without spending a heading on it. */
+.mvj-name {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.35rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .mvj-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .mvj-search {
+    max-width: none;
+    width: 100%;
+  }
+
+  /* Touch has no hover, so the per-row actions would never appear. */
+  .mvj-actions {
+    opacity: 1;
+  }
+
+  .mvj-line {
+    padding-left: calc(var(--depth) * 0.75rem);
+  }
+}

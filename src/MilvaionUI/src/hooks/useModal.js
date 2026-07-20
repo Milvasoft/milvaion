@@ -10,7 +10,8 @@ export function useModal() {
     cancelText: 'Cancel',
     showCancel: false,
     onConfirm: null,
-    className: ''
+    className: '',
+    extraAction: null
   })
 
   const closeModal = useCallback(() => {
@@ -42,6 +43,8 @@ export function useModal() {
         cancelText: config.cancelText || 'Cancel',
         showCancel: config.showCancel !== undefined ? config.showCancel : !!config.cancelText,
         className: config.className || '',
+        // A second action beside OK - see the prop's note in Modal.jsx.
+        extraAction: config.extraAction || null,
         onConfirm: () => {
           if (config.onConfirm) config.onConfirm()
           resolve(true)
@@ -110,7 +113,8 @@ export function useModal() {
       confirmText: modal.confirmText,
       cancelText: modal.cancelText,
       showCancel: modal.showCancel,
-      className: modal.className // Pass className to modal
+      className: modal.className, // Pass className to modal
+      extraAction: modal.extraAction
     },
     showModal,
     showAlert,

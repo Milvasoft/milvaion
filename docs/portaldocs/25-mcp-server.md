@@ -256,6 +256,7 @@ Every tool is gated by the permission in the right hand column. A key that lacks
 | `get_queue_info` | Depth detail for one queue | `SystemAdministration.List` |
 | `get_job_statistics` | Aggregate counters across jobs and executions | `SystemAdministration.List` |
 | `get_database_statistics` | Size, index efficiency, cache hit ratio, bloat | `SystemAdministration.List` |
+| `get_resource_usage` | CPU, memory and disk of the API process, optionally per background service | `SystemAdministration.List` |
 | `get_configuration` | Effective scheduler configuration | `SystemAdministration.List` |
 | `list_notifications` | Alerts Milvaion itself raised | `InternalNotificationManagement.List` |
 | `list_permissions` | The permission catalog, for explaining what to grant | `PermissionManagement.List` |

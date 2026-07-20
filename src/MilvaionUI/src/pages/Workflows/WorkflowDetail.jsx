@@ -11,6 +11,7 @@ import TableActions, { ActionButton } from '../../components/TableActions'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import AuditInfoCard from '../../components/AuditInfoCard'
 import TriggerWorkflowModal from '../../components/TriggerWorkflowModal'
+import { triggerResultModal } from '../../components/TriggerResult'
 import CollapsibleSection from '../../components/CollapsibleSection'
 import './WorkflowDetail.css'
 import { SkeletonDetail } from '../../components/Skeleton'
@@ -33,7 +34,7 @@ function WorkflowDetail() {
   const [showVersionHistory, setShowVersionHistory] = useState(false)
   const [expandedVersions, setExpandedVersions] = useState({})
   const runsPerPage = 20
-  const { modalProps, showConfirm, showSuccess, showError } = useModal()
+  const { modalProps, showConfirm, showSuccess, showError, showModal } = useModal()
   const isInitialLoadRef = useRef(true)
 
   const [showTriggerModal, setShowTriggerModal] = useState(false)
@@ -432,7 +433,24 @@ function WorkflowDetail() {
           }}
           onSuccess={(runId) => {
             setShowTriggerModal(false)
-            showSuccess('Workflow triggered! Run ID: ' + runId)
+
+            /*
+             * The dialog first, the refresh after.
+             *
+             * With the refresh in between, anything it did to the page happened before the
+             * user was told what they had just started - and if it ever fails, reporting
+             * the result of their action should not go down with it. The list page has
+             * always done it in this order and has always worked.
+             */
+            showModal(triggerResultModal({
+              title: 'Workflow triggered',
+              label: 'Run ID',
+              id: runId,
+              goToLabel: 'Go to run',
+              to: `/workflows/${id}/runs/${runId}`,
+              navigate,
+            }))
+
             loadRuns(1)
           }}
         />

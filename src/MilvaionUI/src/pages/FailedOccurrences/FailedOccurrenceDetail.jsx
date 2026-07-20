@@ -5,6 +5,7 @@ import { formatDateTime } from '../../utils/dateUtils'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
 import CollapsibleSection from '../../components/CollapsibleSection'
+import JsonView from '../../components/JsonView'
 import { SkeletonDetail } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import { getApiErrorMessage } from '../../utils/errorUtils'
@@ -297,9 +298,12 @@ function FailedOccurrenceDetail() {
             title="Job Data"
           >
             <div className="card-content">
-              <div className="json-content">
-                <pre>{JSON.stringify(JSON.parse(job.jobData || '{}'), null, 2)}</pre>
-              </div>
+              {/* `JsonView` parses defensively. The previous version called `JSON.parse`
+                  inline, so a payload that would not parse threw during render and blanked
+                  the page - on the one screen whose whole purpose is to explain a failure,
+                  and where "invalid job data" is itself one of the recorded failure
+                  types. */}
+              <JsonView data={job.jobData} name="jobData" />
             </div>
           </CollapsibleSection>
         )}
