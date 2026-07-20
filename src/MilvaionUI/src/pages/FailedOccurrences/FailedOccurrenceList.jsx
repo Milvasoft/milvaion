@@ -1,14 +1,32 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import failedOccurrenceService from '../../services/failedOccurrenceService'
-import { formatDateTime } from '../../utils/dateUtils'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
+import Pagination from '../../components/Pagination'
+import TableActions, { ActionButton } from '../../components/TableActions'
+import {
+  TableToolbar,
+  TableSearch,
+  SegmentedFilter,
+  SelectionBar,
+  BulkDeleteButton,
+  TimeCell,
+  TableEmpty,
+  TableFooter,
+} from '../../components/TableParts'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonTable } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import './FailedOccurrenceList.css'
+
+/** The one thing this page is read for: what is still outstanding. */
+const RESOLVED_FILTERS = [
+  { value: null, label: 'All' },
+  { value: false, label: 'Unresolved' },
+  { value: true, label: 'Resolved' },
+]
 
 function FailedOccurrenceList() {
   const navigate = useNavigate()
@@ -280,78 +298,31 @@ function FailedOccurrenceList() {
             <span>({totalCount})</span>
           </h1>
         </div>
-        {selectedJobs.length > 0 && (
-          <div className="bulk-actions">
-            <button
-              onClick={() => handleResolve(null)}
-              className="bulk-resolve-btn"
-            >
-              <Icon name="check" size={20} />
-              Mark as Resolved ({selectedJobs.length})
-            </button>
-            <button
-              onClick={() => handleDelete(null)}
-              className="bulk-delete-btn"
-            >
-              <Icon name="delete" size={20} />
-              Delete Selected ({selectedJobs.length})
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search by job name or resolution note..."
+      <div className="mv-table-card">
+        <TableToolbar>
+          <TableSearch
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
+            onChange={setSearchTerm}
+            placeholder="Search by job name or resolution note…"
           />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="clear-search-btn"
-              title="Clear search"
-            >
-              <Icon name="close" size={16} />
-            </button>
-          )}
-        </div>
 
-        <div className="filter-buttons">
-          <button
-            className={`filter-btn ${filterResolved === null ? 'active' : ''}`}
-            onClick={() => setFilterResolved(null)}
-          >
-            All
-          </button>
-          <button
-            className={`filter-btn ${filterResolved === false ? 'active' : ''}`}
-            onClick={() => setFilterResolved(false)}
-          >
-            <Icon name="pending" size={16} />
-            Unresolved
-          </button>
-          <button
-            className={`filter-btn ${filterResolved === true ? 'active' : ''}`}
-            onClick={() => setFilterResolved(true)}
-          >
-            <Icon name="check_circle" size={16} />
-            Resolved
-          </button>
-        </div>
+          {/* Resolved vs unresolved is the whole point of a dead letter queue, so it gets
+              the one-click control rather than a dropdown. */}
+          <SegmentedFilter
+            options={RESOLVED_FILTERS}
+            value={filterResolved}
+            onChange={setFilterResolved}
+            label="Filter by resolution"
+          />
 
-        <div className="filter-select">
-          <label>Failure Type:</label>
           <select
             value={filterFailureType ?? ''}
             onChange={(e) => setFilterFailureType(e.target.value === '' ? null : parseInt(e.target.value))}
-            className="failure-type-select"
+            aria-label="Filter by failure type"
           >
-            <option value="">All Types</option>
+            <option value="">All failure types</option>
             <option value="1">Max Retries Exceeded</option>
             <option value="2">Timeout</option>
             <option value="3">Worker Crash</option>
@@ -361,209 +332,130 @@ function FailedOccurrenceList() {
             <option value="7">Cancelled</option>
             <option value="8">Zombie Detection</option>
           </select>
-        </div>
-      </div>
+        </TableToolbar>
 
-      {/* Failed Jobs Table */}
-      {jobs.length === 0 ? (
-        <div className="empty-state-card">
-          <div className="empty-icon">
-            <Icon name="check_circle" size={64} />
-          </div>
-          <h3>No Failed Jobs</h3>
-          <p>
-            {filterResolved !== null || filterFailureType !== null
-              ? 'No jobs match the selected filters. Try adjusting your filters.'
-              : 'All jobs are running successfully! 🎉'
-            }
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="failed-jobs-table-container">
-            <table className="failed-jobs-table">
-              <thead>
-                <tr>
-                  <th className="checkbox-column">
+        <SelectionBar count={selectedJobs.length} onClear={() => setSelectedJobs([])}>
+          <button type="button" className="mv-link" onClick={() => handleResolve(null)}>
+            Mark as resolved
+          </button>
+          <BulkDeleteButton onClick={() => handleDelete(null)} />
+        </SelectionBar>
+
+        <div className="mv-table-scroll">
+          <table className="mv-table">
+            <thead>
+              <tr>
+                <th className="mv-col-check">
+                  <input
+                    type="checkbox"
+                    checked={selectedJobs.length > 0 && selectedJobs.length === jobs.length}
+                    onChange={handleSelectAll}
+                    aria-label="Select all"
+                  />
+                </th>
+                <th>Job</th>
+                <th className="mv-col-tight">Status</th>
+                <th>Failure</th>
+                <th className="mv-col-tight">Failed</th>
+                <th className="mv-col-tight">Retries</th>
+                <th className="mv-table-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.length === 0 && (
+                <TableEmpty
+                  colSpan={7}
+                  icon="check_circle"
+                  message={
+                    filterResolved !== null || filterFailureType !== null || debouncedSearchTerm
+                      ? 'No failed executions match the current filters.'
+                      : 'No failed executions. Everything is running.'
+                  }
+                />
+              )}
+
+              {jobs.map((job) => (
+                <tr
+                  key={job.id}
+                  /* Unresolved failures keep a red edge; once resolved the row steps back,
+                     so what is still outstanding is visible without reading a column. */
+                  className={'mv-table-row is-clickable ' + (job.resolved ? 'tone-idle' : 'tone-danger')}
+                  onClick={() => navigate(`/failed-executions/${job.id}`)}
+                >
+                  <td className="mv-col-check" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
-                      checked={selectedJobs.length > 0 && selectedJobs.length === jobs.length}
-                      onChange={handleSelectAll}
+                      checked={selectedJobs.includes(job.id)}
+                      onChange={() => handleSelectJob(job.id)}
+                      aria-label="Select failed execution"
                     />
-                  </th>
-                  <th>Job Name</th>
-                  <th>Failure Type</th>
-                  <th>Failed At</th>
-                  <th>Retry Count</th>
-                  <th>Worker ID</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    className={job.resolved ? 'resolved-row' : ''}
-                    onClick={() => navigate(`/failed-executions/${job.id}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td className="checkbox-column" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedJobs.includes(job.id)}
-                        onChange={() => handleSelectJob(job.id)}
+                  </td>
+
+                  <td>
+                    <span className="mv-table-primary">{job.jobDisplayName}</span>
+                    <span className="mv-table-muted">
+                      {job.jobNameInWorker}
+                      {job.workerId ? ` · ${job.workerId}` : ''}
+                    </span>
+                  </td>
+
+                  <td className="mv-col-tight">
+                    <span className={'mv-status tone-' + (job.resolved ? 'success' : 'danger')}>
+                      <Icon name={job.resolved ? 'check_circle' : 'pending'} size={14} />
+                      {job.resolved ? 'Resolved' : 'Unresolved'}
+                    </span>
+                  </td>
+
+                  <td>{getFailureTypeBadge(job.failureType)}</td>
+
+                  <td className="mv-col-tight">
+                    <TimeCell value={job.failedAt} />
+                  </td>
+
+                  <td className="mv-col-tight">
+                    <span className="mv-table-dim">{job.retryCount ?? 0}</span>
+                  </td>
+
+                  <td className="mv-table-actions" onClick={(e) => e.stopPropagation()}>
+                    <TableActions>
+                      <ActionButton
+                        intent="primary"
+                        icon="visibility"
+                        title="View details"
+                        to={`/failed-executions/${job.id}`}
                       />
-                    </td>
-                    <td>
-                        <strong>{job.jobDisplayName}  </strong>
-                        <small>({job.jobNameInWorker})</small>
-                    </td>
-                    <td>{getFailureTypeBadge(job.failureType)}</td>
-                    <td>
-                      <span className="date-cell">{formatDateTime(job.failedAt)}</span>
-                    </td>
-                    <td>
-                      <span className="retry-count">{job.retryCount ?? 0} attempts</span>
-                    </td>
-                    <td>
-                      <code className="worker-id">{job.workerId || 'N/A'}</code>
-                    </td>
-                    <td>
-                      {job.resolved ? (
-                        <span className="status-badge resolved">
-                          <Icon name="check_circle" size={16} />
-                          Resolved
-                        </span>
-                      ) : (
-                        <span className="status-badge unresolved">
-                          <Icon name="pending" size={16} />
-                          Unresolved
-                        </span>
+                      {!job.resolved && (
+                        <ActionButton
+                          intent="success"
+                          icon="check"
+                          title="Mark as resolved"
+                          onClick={() => handleResolve(job)}
+                        />
                       )}
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div className="action-buttons">
-                        <Link
-                          to={`/failed-executions/${job.id}`}
-                          className="action-btn view"
-                          title="View details"
-                        >
-                          <Icon name="visibility" size={18} />
-                        </Link>
-                        {!job.resolved && (
-                          <button
-                            onClick={() => handleResolve(job)}
-                            className="action-btn resolve"
-                            title="Mark as resolved"
-                          >
-                            <Icon name="check" size={18} />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(job.id)}
-                          className="action-btn delete"
-                          title="Delete"
-                        >
-                          <Icon name="delete" size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <ActionButton
+                        intent="danger"
+                        icon="delete"
+                        title="Delete"
+                        onClick={() => handleDelete(job.id)}
+                      />
+                    </TableActions>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-            {/* Pagination */}
-            <div className="pagination-container">
-              <div className="pagination">
-                {(() => {
-                  const totalPages = Math.ceil(totalCount / pageSize)
-                  if (totalPages <= 1) return null
-
-                  const maxVisiblePages = 5
-                  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-                  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-                  if (endPage - startPage + 1 < maxVisiblePages) {
-                    startPage = Math.max(1, endPage - maxVisiblePages + 1)
-                  }
-
-                  return (
-                    <>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
-                      >
-                        <Icon name="first_page" size={18} />
-                      </button>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                      >
-                        <Icon name="chevron_left" size={18} />
-                      </button>
-
-                      {startPage > 1 && <span className="page-ellipsis">...</span>}
-
-                      {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => (
-                        <button
-                          key={page}
-                          className={'btn btn-sm' + (page === currentPage ? ' btn-primary' : '')}
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </button>
-                      ))}
-
-                      {endPage < totalPages && <span className="page-ellipsis">...</span>}
-
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <Icon name="chevron_right" size={18} />
-                      </button>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <Icon name="last_page" size={18} />
-                      </button>
-
-                      <span className="page-info">
-                        Page {currentPage} of {totalPages} ({totalCount} total)
-                      </span>
-                    </>
-                  )
-                })()}
-              </div>
-
-              <div className="page-size-selector">
-                <label htmlFor="pageSize">Rows per page:</label>
-                <select
-                  id="pageSize"
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(parseInt(e.target.value))
-                    setCurrentPage(1)
-                  }}
-                  className="page-size-select"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+        <TableFooter totalCount={totalCount} noun="failed executions">
+          <Pagination
+            page={currentPage}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+          />
+        </TableFooter>
+      </div>
 
       {/* Auto-refresh indicator */}
       <AutoRefreshIndicator

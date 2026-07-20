@@ -245,3 +245,30 @@
 .empty-state p {
   margin: 0;
 }
+
+/* Görünüm değiştirici ortak `components/ViewToggle` bileşeninde. */
+
+/* Tablo görünümü ortak `styles/table.css` kullanıyor; buradaki kopya kaldırıldı. */
+
+/* ── Sonsuz kaydırma ───────────────────────────────────────────────────────── */
+
+/* Görünmez tetikleyici: kaydırma bu öğeye yaklaşınca bir sonraki sayfa isteniyor. */
+.wf-scroll-sentinel {
+  height: 1px;
+}
+
+.wf-loading-more {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .wf-table th:nth-child(5),
+  .wf-table td:nth-child(5),
+  .wf-table th:nth-child(6),
+  .wf-table td:nth-child(6) {
+    display: none;
+  }
+}

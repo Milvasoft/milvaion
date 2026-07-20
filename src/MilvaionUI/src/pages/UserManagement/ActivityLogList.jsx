@@ -3,6 +3,8 @@ import activityLogService from '../../services/activityLogService'
 import Icon from '../../components/Icon'
 import { SkeletonTable } from '../../components/Skeleton'
 import { getApiErrorMessage } from '../../utils/errorUtils'
+import Pagination from '../../components/Pagination'
+import { TableToolbar, TableSearch, TableFooter, TimeCell } from '../../components/TableParts'
 import './ActivityLogList.css'
 
 const activityLabels = {
@@ -106,15 +108,6 @@ function ActivityLogList() {
     loadLogs(true)
   }, [loadLogs])
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '—'
-    const date = new Date(dateStr)
-    return date.toLocaleString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', second: '2-digit'
-    })
-  }
-
   const totalPages = Math.ceil(totalCount / pageSize)
 
   const handlePageChange = (newPage) => {
@@ -136,23 +129,6 @@ function ActivityLogList() {
         </h1>
       </div>
 
-      <div className="search-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search by username..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="clear-search-btn" title="Clear search">
-              <Icon name="close" size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
       {logs.length === 0 ? (
         <div className="empty-state-card">
           <div className="empty-icon">
@@ -162,67 +138,51 @@ function ActivityLogList() {
           <p>{searchTerm ? 'No logs match your search.' : 'No user activity has been recorded yet.'}</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>User</th>
-                <th>Activity</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map(log => (
-                <tr key={log.id}>
-                  <td className="id-col">{log.id}</td>
-                  <td>
-                    <div className="user-cell">
-                      <Icon name="person" size={16} />
-                      <span>{log.userName}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`activity-badge ${getActivityColor(log.activity)}`}>
-                      <Icon name={activityIcons[log.activity] || 'info'} size={14} />
-                      <span>{log.activityDescription || activityLabels[log.activity] || `Activity ${log.activity}`}</span>
-                    </span>
-                  </td>
-                  <td className="date-col">{formatDate(log.activityDate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mv-table-card">
+          <TableToolbar>
+            <TableSearch value={searchTerm} onChange={setSearchTerm} placeholder="Search by username…" />
+          </TableToolbar>
 
-          {/* Pagination */}
-          <div className="pagination">
-            <div className="pagination-info">
-              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
-            </div>
-            <div className="pagination-controls">
-              <button onClick={() => handlePageChange(1)} disabled={currentPage <= 1} className="page-btn">
-                <Icon name="first_page" size={18} />
-              </button>
-              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1} className="page-btn">
-                <Icon name="chevron_left" size={18} />
-              </button>
-              <span className="page-indicator">Page {currentPage} of {totalPages || 1}</span>
-              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages} className="page-btn">
-                <Icon name="chevron_right" size={18} />
-              </button>
-              <button onClick={() => handlePageChange(totalPages)} disabled={currentPage >= totalPages} className="page-btn">
-                <Icon name="last_page" size={18} />
-              </button>
-            </div>
-            <div className="page-size-selector">
-              <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
-                <option value={10}>10 / page</option>
-                <option value={20}>20 / page</option>
-                <option value={50}>50 / page</option>
-                <option value={100}>100 / page</option>
-              </select>
-            </div>
+          <div className="mv-table-scroll">
+            <table className="mv-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Activity</th>
+                  <th className="mv-col-tight">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map(log => (
+                  <tr key={log.id} className="mv-table-row">
+                    <td>
+                      <span className="mv-table-primary">{log.userName}</span>
+                      <span className="mv-table-muted">#{log.id}</span>
+                    </td>
+                    <td>
+                      <span className={`activity-badge ${getActivityColor(log.activity)}`}>
+                        <Icon name={activityIcons[log.activity] || 'info'} size={14} />
+                        <span>{log.activityDescription || activityLabels[log.activity] || `Activity ${log.activity}`}</span>
+                      </span>
+                    </td>
+                    <td className="mv-col-tight">
+                      <TimeCell value={log.activityDate} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
+          <TableFooter totalCount={totalCount} noun="activity records">
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={handlePageChange}
+              onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+            />
+          </TableFooter>
         </div>
       )}
     </div>

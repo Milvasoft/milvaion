@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import workflowService from '../../services/workflowService'
 import jobService from '../../services/jobService'
 import workerService from '../../services/workerService'
+import JobSelect from '../../components/JobSelect'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -51,15 +52,30 @@ function WorkflowForm() {
   const [steps, setSteps] = useState([])
   const [edges, setEdges] = useState([])
 
-  // Load available jobs
+  /*
+   * A first page only. This used to request every job in the system to fill one dropdown;
+   * the picker now searches the server, and jobs it returns are merged into this array so
+   * the lookups elsewhere on the page keep resolving.
+   */
   const loadJobs = useCallback(async () => {
     try {
-      const [jobsRes, workersRes] = await Promise.all([jobService.getAll(), workerService.getAll()])
-      setJobs(jobsRes?.data || [])
+      const [jobsRes, workersRes] = await Promise.all([
+        jobService.getAll({ pageNumber: 1, rowCount: 50 }),
+        workerService.getAll(),
+      ])
+      setJobs(jobsRes?.data?.data || jobsRes?.data || [])
       setWorkers(workersRes?.data || [])
     } catch {
       // ignore
     }
+  }, [])
+
+  // Keeps a job the picker returned available to the rest of the page - node labels and
+  // schema previews look their job up in this array.
+  const rememberJob = useCallback((job) => {
+    if (!job) return
+
+    setJobs(current => current.some(j => j.id === job.id) ? current : [...current, job])
   }, [])
 
   const schemasMap = useMemo(() => {
@@ -566,15 +582,14 @@ function WorkflowForm() {
                         <>
                           <div className="form-group">
                             <label>Job *</label>
-                            <select
-                              value={step.jobId}
-                              onChange={e => updateStep(index, 'jobId', e.target.value)}
-                            >
-                              <option value="">Select a job...</option>
-                              {jobs.map(j => (
-                                <option key={j.id} value={j.id}>{j.displayName || j.jobNameInWorker}</option>
-                              ))}
-                            </select>
+                            <JobSelect
+                              value={step.jobId || ''}
+                              knownJobs={jobs}
+                              onChange={(jobId, job) => {
+                                rememberJob(job)
+                                updateStep(index, 'jobId', jobId)
+                              }}
+                            />
                           </div>
                           <div className="form-group">
                             <label>Delay (seconds)</label>

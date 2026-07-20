@@ -82,6 +82,30 @@ export const formatDuration = (startDate, endDate = null) => {
 }
 
 /**
+ * Format a span of milliseconds as a short duration.
+ *
+ * Deliberately shorter than `formatDuration`: in a table column the value has to be read
+ * at a glance and compared with the rows around it, so it stops at two units and drops to
+ * one decimal for sub-minute runs rather than listing every part.
+ *
+ * @param {number} ms
+ * @returns {string|null} Null when there is nothing sensible to show.
+ */
+export const formatDurationMs = (ms) => {
+  if (ms === null || ms === undefined || Number.isNaN(ms)) return null
+
+  if (ms < 1000) return `${Math.max(0, Math.round(ms))}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+
+  const minutes = Math.floor(ms / 60000)
+  const seconds = Math.round((ms % 60000) / 1000)
+
+  if (minutes < 60) return `${minutes}m ${seconds}s`
+
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+}
+
+/**
  * Format date to short format (e.g., "Dec 20, 2025")
  * @param {string|Date} date - Date string or Date object
  * @returns {string} Short date string

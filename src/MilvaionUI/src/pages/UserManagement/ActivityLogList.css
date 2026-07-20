@@ -81,64 +81,6 @@
     -webkit-overflow-scrolling: touch;
   }
 
-.activity-log-list .data-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 700px;
-}
-
-.activity-log-list .data-table thead {
-  /*background: var(--bg-tertiary);*/
-}
-
-  .activity-log-list .data-table th {
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid var(--border-color);
-    white-space: nowrap;
-    background: none !important;
-  }
-
-.activity-log-list .data-table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  white-space: nowrap;
-}
-
-.activity-log-list .data-table tbody tr:hover {
-  background: var(--bg-hover);
-}
-
-.activity-log-list .data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.activity-log-list .id-col {
-  width: 80px;
-  color: var(--text-muted) !important;
-  font-family: monospace;
-}
-
-.activity-log-list .date-col {
-  color: var(--text-secondary);
-  white-space: nowrap;
-  font-size: 0.875rem;
-}
-
-.activity-log-list .user-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-}
-
 /* Activity Badge */
 .activity-log-list .activity-badge {
   display: inline-flex;
@@ -185,12 +127,6 @@
   color: var(--text-muted);
 }
 
-.activity-log-list .pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
 .activity-log-list .page-btn {
   display: flex;
   align-items: center;
@@ -214,12 +150,6 @@
 .activity-log-list .page-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.activity-log-list .page-indicator {
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
 }
 
 .activity-log-list .page-size-selector select {

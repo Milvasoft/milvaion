@@ -1,0 +1,106 @@
+/*
+ * Pagination.
+ *
+ * Every selector is prefixed with `mv-`. The unprefixed names this replaces - `.pagination`,
+ * `.page-info`, `.page-size-selector` - are declared in ten different stylesheets, all
+ * loaded globally, so which definition won depended on bundle order. A component meant to
+ * be reused cannot rest on that.
+ */
+
+.mv-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 0 0;
+}
+
+.mv-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.mv-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 0.5rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color var(--transition-base), background-color var(--transition-base);
+}
+
+.mv-page-btn:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  background-color: var(--bg-hover);
+}
+
+.mv-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mv-page-btn.is-current {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+  font-weight: 600;
+}
+
+.mv-page-ellipsis {
+  padding: 0 0.25rem;
+  color: var(--text-muted);
+}
+
+/* Pushed away from the buttons: it is a status readout, not a control. */
+.mv-page-info {
+  margin-left: 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mv-page-size {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.mv-page-size select {
+  padding: 0.4rem 0.6rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.mv-page-size select:hover,
+.mv-page-size select:focus {
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .mv-pagination {
+    justify-content: center;
+  }
+
+  /* The page count is the first thing to go when space is tight; the buttons
+     still say where you are. */
+  .mv-page-info {
+    display: none;
+  }
+}

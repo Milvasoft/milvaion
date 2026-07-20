@@ -8,7 +8,8 @@ import Modal from '../../components/Modal'
 import WorkflowCanvas from './WorkflowCanvas'
 import { useModal } from '../../hooks/useModal'
 import CollapsibleSection from '../../components/CollapsibleSection'
-import { formatDate } from '../../utils/dateUtils'
+import { formatDate, formatDurationMs } from '../../utils/dateUtils'
+import TableActions, { ActionButton } from '../../components/TableActions'
 import './WorkflowRunDetail.css'
 import { SkeletonDetail } from '../../components/Skeleton'
 
@@ -366,46 +367,60 @@ function WorkflowRunDetail() {
         icon="layers"
         title={`Step Runs (${run.stepRuns?.length || 0})`}
       >
-        <div className="wfr-table-container">
-          <table className="wfr-table">
+        <div className="wfr-table-container mv-table-wrap">
+          <table className="mv-table">
             <thead>
               <tr>
-                <th>#</th>
+                <th className="mv-col-tight">#</th>
                 <th>Step</th>
-                <th>Job</th>
-                <th>Status</th>
-                <th>Start</th>
-                <th>Duration</th>
-                <th>Retries</th>
+                <th className="mv-col-tight">Status</th>
+                <th className="mv-col-tight">Started</th>
+                <th className="mv-col-tight">Duration</th>
+                <th className="mv-col-tight">Retries</th>
                 <th>Error</th>
-                <th>Occurrence</th>
+                <th className="mv-table-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {[...(run.stepRuns || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(step => (
-                <tr key={step.id}>
-                  <td>{step.order ?? '-'}</td>
-                  <td><strong>{step.stepName}</strong></td>
+                <tr key={step.id} className="mv-table-row">
+                  <td className="mv-col-tight">{step.order ?? '-'}</td>
                   <td>
-                    <Link to={`/jobs/${step.jobId}`} className="wfr-link">
+                    {/* The job runs the step, so it belongs with its name rather than in
+                        a column of its own. */}
+                    <span className="mv-table-primary">{step.stepName}</span>
+                    <Link to={`/jobs/${step.jobId}`} className="mv-table-muted">
                       {step.jobDisplayName || step.jobId?.substring(0, 8)}
                     </Link>
                   </td>
-                  <td>
+                  <td className="mv-col-tight">
                     <span className={`wfr-status-badge wfr-status-${stepStatusColors[step.status]}`}>
                       {stepStatusLabels[step.status]}
                     </span>
                   </td>
-                  <td>{step.startTime ? formatDate(step.startTime) : '-'}</td>
-                  <td>{step.durationMs ? `${(step.durationMs / 1000).toFixed(1)}s` : '-'}</td>
-                  <td>{step.retryCount > 0 ? step.retryCount : '-'}</td>
-                  <td className="wfr-error-cell">{step.error || '-'}</td>
-                  <td>
+                  <td className="mv-col-tight">
+                    {step.startTime ? formatDate(step.startTime) : <span className="mv-table-dim">—</span>}
+                  </td>
+                  <td className="mv-col-tight">
+                    {step.durationMs
+                      ? <span className="mv-duration-text">{formatDurationMs(step.durationMs)}</span>
+                      : <span className="mv-table-dim">—</span>}
+                  </td>
+                  <td className="mv-col-tight">
+                    {step.retryCount > 0 ? step.retryCount : <span className="mv-table-dim">—</span>}
+                  </td>
+                  <td className="wfr-error-cell">{step.error || <span className="mv-table-dim">—</span>}</td>
+                  <td className="mv-table-actions">
                     {step.occurrenceId ? (
-                      <Link to={`/occurrences/${step.occurrenceId}`} className="dtl-btn dtl-btn--secondary dtl-btn--sm">
-                        <Icon name="open_in_new" size={14} /> {step.occurrenceId.substring(0, 8)}...
-                      </Link>
-                    ) : '-'}
+                      <TableActions>
+                        <ActionButton
+                          intent="primary"
+                          icon="open_in_new"
+                          title="Open execution"
+                          to={`/occurrences/${step.occurrenceId}`}
+                        />
+                      </TableActions>
+                    ) : <span className="mv-table-dim">—</span>}
                   </td>
                 </tr>
               ))}

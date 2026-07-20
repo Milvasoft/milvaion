@@ -1,0 +1,819 @@
+/*
+ * Tables.
+ *
+ * One definition for every table in the app. Before this there were nine different table
+ * class names across sixteen tables, `.data-table` was declared in four stylesheets and
+ * `.action-btn` in six - all loaded globally, so which rules applied came down to bundle
+ * order and two tables could look different for no reason anyone could point at.
+ *
+ * The layout is a single card: toolbar, table, footer. Search and filters used to sit in
+ * their own bordered card above the table, each page giving it a different margin, and
+ * because `page.css` also spaces siblings the gaps stacked - which is what made the space
+ * above a table look arbitrary and different on every screen. One card, one rhythm.
+ *
+ *   <div className="mv-table-card">
+ *     <div className="mv-table-toolbar">…search, filters…</div>
+ *     <div className="mv-table-selection">…bulk actions, while rows are selected…</div>
+ *     <div className="mv-table-scroll">
+ *       <table className="mv-table">…</table>
+ *     </div>
+ *     <div className="mv-table-footer">…count, page size, pager…</div>
+ *   </div>
+ *
+ * `mv-table-wrap` remains as a plain bordered container for tables that have no toolbar.
+ *
+ * Two ideas run through the visual side:
+ *
+ * 1. The card is the surface. Toolbar, table and footer live inside one border with
+ *    dividers between them - no floating boxes stacked with guessed margins.
+ *
+ * 2. Status is carried by a coloured edge on the row, not only by a badge. Finding the
+ *    failures in a screenful becomes peripheral vision rather than reading.
+ */
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+
+.mv-table-card,
+.mv-table-wrap {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* Horizontal scroll lives on an inner element so the card's rounded corners and the
+   sticky header both survive. Putting `overflow` on the card would clip one and break
+   the other. */
+.mv-table-scroll,
+.mv-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mv-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.mv-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* The search field takes the room left over; filters keep their natural width. */
+.mv-table-toolbar > .mv-table-search {
+  flex: 1;
+  min-width: 220px;
+}
+
+/*
+ * Quiet until touched. A search box with a permanent border reads as one more thing
+ * competing with the data; here it is a filled field that only draws an outline once the
+ * cursor is in it.
+ */
+.mv-table-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.mv-table-search:focus-within {
+  background-color: var(--bg-card);
+  border-color: var(--accent-color);
+}
+
+.mv-table-search > span:first-child {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mv-table-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+/* The clear button that sits inside the field. */
+.mv-table-search button {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.mv-table-search button:hover {
+  color: var(--text-primary);
+}
+
+.mv-table-toolbar select {
+  padding: 0.4rem 0.65rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.mv-table-toolbar select:hover,
+.mv-table-toolbar select:focus {
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+/* Pushes whatever follows to the right edge. */
+.mv-table-toolbar .mv-spacer,
+.mv-table-selection .mv-spacer,
+.mv-table-footer .mv-spacer {
+  margin-left: auto;
+}
+
+/* ── Segmented filter ────────────────────────────────────────────────────── */
+
+/*
+ * For the one filter a page is mostly used through - status, usually. A dropdown costs
+ * open-then-choose and hides its options until then; a segmented control shows the whole
+ * set and switches in one click. Worth it up to about six options.
+ */
+.mv-segmented {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.mv-segment {
+  padding: 0.35rem 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.825rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.mv-segment:hover:not(.is-active) {
+  color: var(--text-primary);
+}
+
+.mv-segment.is-active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Selection bar ───────────────────────────────────────────────────────── */
+
+/*
+ * Replaces the toolbar rather than sitting beside it: while rows are selected, the only
+ * actions that matter are the ones acting on them.
+ */
+.mv-table-selection {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.875rem;
+  background: var(--accent-glow);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.mv-table-selection .mv-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.mv-table-selection .mv-link:hover {
+  text-decoration: underline;
+}
+
+.mv-bulk-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(var(--error-color-rgb), 0.4);
+  border-radius: 8px;
+  background: rgba(var(--error-color-rgb), 0.1);
+  color: var(--error-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.mv-bulk-danger:hover {
+  background: rgba(var(--error-color-rgb), 0.18);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+/*
+ * Sticky, so the column names stay put while a long list scrolls. Sentence case rather
+ * than the uppercase the old tables used: uppercase is slower to read and, at this size,
+ * mostly reads as decoration. The header sits on the card background rather than a grey
+ * band - the divider separates it well enough, and the band only added weight.
+ */
+.mv-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+/* ── Cells ───────────────────────────────────────────────────────────────── */
+
+.mv-table td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+/* No rule under the final row - the card's own edge closes the list. */
+.mv-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/*
+ * Two lines in one cell: a value with its qualifier underneath. Anything that only
+ * describes the value above it - a worker, an owner, a type - belongs here rather than in
+ * a column of its own.
+ *
+ * Only these helpers stack. An earlier version targeted `td > span`, which also caught
+ * every badge and chip in the table - they are inline-flex, and forcing them to block made
+ * each one stretch to the full width of its column.
+ *
+ * Block rather than flex on the cell itself: `display: flex` on a `td` takes it out of the
+ * table layout, which breaks column alignment and stops the row background painting across.
+ */
+.mv-table-primary,
+.mv-table-muted {
+  display: block;
+}
+
+.mv-table-primary + .mv-table-muted,
+.mv-table-muted + .mv-table-muted {
+  margin-top: 1px;
+}
+
+.mv-table-primary {
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+a.mv-table-primary:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
+.mv-table-muted {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.mv-table-dim {
+  color: var(--text-muted);
+}
+
+.mv-table-code {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: var(--text-xs);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
+.mv-table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+.mv-table-row.is-clickable {
+  cursor: pointer;
+}
+
+/* Applied to the cells, not the row: a `tr` background sits behind any background a cell
+   sets for itself, which makes the highlight look patchy. */
+.mv-table tbody tr:hover td {
+  background-color: var(--bg-hover);
+}
+
+/*
+ * The status edge. Two pixels down the left of each row, coloured by outcome - enough to
+ * find the failures in a screenful without reading a single word, quiet enough not to
+ * stripe the table.
+ */
+.mv-table-row td:first-child {
+  box-shadow: inset 2px 0 0 transparent;
+}
+
+.mv-table-row.tone-success td:first-child { box-shadow: inset 2px 0 0 rgba(var(--success-color-rgb), 0.5); }
+.mv-table-row.tone-danger  td:first-child { box-shadow: inset 2px 0 0 var(--error-color); }
+.mv-table-row.tone-warning td:first-child { box-shadow: inset 2px 0 0 var(--warning-color); }
+.mv-table-row.tone-active  td:first-child { box-shadow: inset 2px 0 0 var(--accent-color); }
+.mv-table-row.tone-info    td:first-child { box-shadow: inset 2px 0 0 var(--info-color); }
+.mv-table-row.tone-idle    td:first-child { box-shadow: inset 2px 0 0 var(--border-color); }
+
+/* The older names, kept so call sites written before the tones still mark their rows. */
+.mv-table-row.is-warning td:first-child { box-shadow: inset 2px 0 0 var(--warning-color); }
+.mv-table-row.is-danger  td:first-child { box-shadow: inset 2px 0 0 var(--error-color); }
+
+/* ── Status ──────────────────────────────────────────────────────────────── */
+
+/*
+ * A dot-and-label rather than a filled chip. The row edge already carries the colour, so
+ * the label only has to name it - a column of solid chips turns into a colour chart and
+ * stops anything else on the row being seen.
+ */
+.mv-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mv-status.tone-success { color: var(--success-color); }
+.mv-status.tone-danger  { color: var(--error-color); }
+.mv-status.tone-warning { color: var(--warning-color); }
+.mv-status.tone-active  { color: var(--accent-text); }
+.mv-status.tone-info    { color: var(--info-color); }
+.mv-status.tone-idle    { color: var(--text-muted); }
+
+/* Running is the one state that changes while you watch it. */
+.mv-status.is-spinning > span:first-child {
+  animation: mv-status-spin 2s linear infinite;
+}
+
+@keyframes mv-status-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Duration ────────────────────────────────────────────────────────────── */
+
+/*
+ * A bar under the number, scaled to the slowest row on screen. Reading durations as
+ * numbers means comparing them one at a time; the bar makes the outlier obvious without
+ * reading anything.
+ */
+.mv-duration {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 72px;
+}
+
+.mv-duration-text {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mv-duration-bar {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.mv-duration-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent-color);
+  opacity: 0.55;
+}
+
+/* ── Columns ─────────────────────────────────────────────────────────────── */
+
+/* `width: 1%` on a cell means "as narrow as the content allows" - the auto layout hands
+   the leftover width to the unconstrained columns. */
+.mv-col-check {
+  width: 1%;
+  padding-right: 0 !important;
+}
+
+.mv-col-check input {
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+.mv-col-tight {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* The chevron that says a row opens. Only on hover: one on every row is noise, none at
+   all hides the fact that the row is clickable at all. */
+.mv-col-open {
+  width: 1%;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.mv-table-row .mv-col-open {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.mv-table-row:hover .mv-col-open,
+.mv-table-row:focus-within .mv-col-open {
+  opacity: 1;
+}
+
+/*
+ * Optional columns, dropped in order as the viewport narrows.
+ *
+ * A table with a horizontal scrollbar hides the columns on the right and gives no sign
+ * they are there, so the narrow view sheds the supporting detail instead. The order is by
+ * how often the column is the reason someone opened the page: created goes first,
+ * completed next, duration last - by then the status edge and label still say how the run
+ * ended, which is what the narrow view is for.
+ */
+.mv-col-created,
+.mv-col-completed {
+  color: var(--text-muted);
+}
+
+@media (max-width: 1180px) {
+  .mv-col-created,
+  .mv-table thead th.mv-col-created {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .mv-col-completed,
+  .mv-table thead th.mv-col-completed {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .mv-col-duration,
+  .mv-table thead th.mv-col-duration {
+    display: none;
+  }
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.mv-table-empty {
+  padding: 3.5rem 1rem !important;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.mv-table-empty > span:first-child {
+  opacity: 0.4;
+}
+
+.mv-table-empty p {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.mv-table-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.875rem;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.825rem;
+  color: var(--text-muted);
+}
+
+.mv-table-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.mv-table-pagesize {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mv-table-pagesize select {
+  padding: 0.3rem 0.45rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.825rem;
+  cursor: pointer;
+}
+
+/* Cursor paging has no page count to show, only whether more exists either way. */
+.mv-table-pager {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.mv-table-pager button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.mv-table-pager button:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  color: var(--accent-text);
+}
+
+.mv-table-pager button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Pagination dropped straight into the card gets the same treatment. */
+.mv-table-card > .mv-pagination {
+  padding: 0.6rem 0.875rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.mv-table-footer > .mv-pagination {
+  padding: 0;
+  flex: 1;
+}
+
+/* ── Row actions ─────────────────────────────────────────────────────────── */
+
+.mv-table-actions {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.mv-table-actions-inner,
+.action-buttons,
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+/*
+ * One shape for every row action. They were a mix of bordered, borderless and text-only
+ * across pages, each stylesheet defining `.action-btn` differently.
+ *
+ * Quiet by default - no border until hovered - because a dense list of bordered icons
+ * turns the right-hand column into a wall of boxes. Intent shows in the colour, and the
+ * button only asserts itself under the cursor.
+ */
+.mv-action-btn,
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.45rem;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.mv-action-btn:disabled,
+.mv-action-btn.is-disabled,
+.action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mv-action-btn:hover:not(:disabled):not(.is-disabled),
+.action-btn:hover:not(:disabled) {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+/* Intent colours. The legacy class names carry the same meanings, so they are mapped
+   here rather than rewritten across sixteen call sites for a purely visual change. */
+
+.mv-action-btn.intent-primary,
+.action-btn.trigger,
+.action-btn.view {
+  color: var(--accent-text);
+}
+
+.mv-action-btn.intent-primary:hover:not(:disabled),
+.action-btn.trigger:hover:not(:disabled),
+.action-btn.view:hover:not(:disabled) {
+  border-color: rgba(var(--accent-color-rgb), 0.4);
+  background-color: var(--accent-glow);
+  color: var(--accent-text);
+}
+
+.mv-action-btn.intent-edit,
+.action-btn.edit {
+  color: var(--info-color);
+}
+
+.mv-action-btn.intent-edit:hover:not(:disabled),
+.action-btn.edit:hover:not(:disabled) {
+  border-color: rgba(var(--info-color-rgb), 0.4);
+  background-color: rgba(var(--info-color-rgb), 0.1);
+  color: var(--info-color);
+}
+
+.mv-action-btn.intent-success,
+.action-btn.resolve {
+  color: var(--success-color);
+}
+
+.mv-action-btn.intent-success:hover:not(:disabled),
+.action-btn.resolve:hover:not(:disabled) {
+  border-color: rgba(var(--success-color-rgb), 0.4);
+  background-color: rgba(var(--success-color-rgb), 0.1);
+  color: var(--success-color);
+}
+
+.mv-action-btn.intent-danger,
+.action-btn.delete,
+.action-btn.revoke {
+  color: var(--error-color);
+}
+
+.mv-action-btn.intent-danger:hover:not(:disabled),
+.action-btn.delete:hover:not(:disabled),
+.action-btn.revoke:hover:not(:disabled) {
+  border-color: rgba(var(--error-color-rgb), 0.4);
+  background-color: rgba(var(--error-color-rgb), 0.1);
+  color: var(--error-color);
+}
+
+/* ── Vertical rhythm ─────────────────────────────────────────────────────────
+   Page-level spacing belongs to `page.css`, which already separates siblings. These
+   wrappers each carried their own bottom margin as well, so the two stacked and the gap
+   above a table came out different on every page depending on which margin that page
+   happened to set. */
+
+.page .search-section,
+.page .filters-section,
+.page .table-container,
+.page .mv-table-card,
+.page .mv-table-wrap {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .mv-table thead th,
+  .mv-table td {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .mv-table-toolbar {
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  /*
+   * Toolbar controls each take a full row. Side by side at this width they end up
+   * around 140px apiece - too narrow to read a job name in, and too narrow to hit
+   * reliably.
+   */
+  .mv-table-toolbar > * {
+    width: 100%;
+  }
+
+  .mv-table-toolbar select {
+    width: 100%;
+  }
+
+  /* The segmented filter keeps its row and scrolls sideways within it, rather than
+     wrapping into three stacked rows of buttons. */
+  .mv-segmented {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .mv-segmented::-webkit-scrollbar {
+    height: 0;
+  }
+
+  /*
+   * The footer is a count, a page-size selector and a pager. On a phone the count is
+   * the one part that is only informative, so it takes the first row on its own and
+   * the two controls share the second.
+   */
+  .mv-table-footer {
+    gap: 0.5rem 0.75rem;
+  }
+
+  .mv-table-count {
+    flex: 1 0 100%;
+  }
+
+  .mv-table-footer .mv-spacer {
+    display: none;
+  }
+
+  .mv-table-pager {
+    margin-left: auto;
+  }
+
+  .mv-table-pager button {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Row actions are the smallest touch targets in the app; on a touch screen they
+     need the room. */
+  .mv-action-btn,
+  .action-btn {
+    min-width: 38px;
+    height: 38px;
+  }
+
+  .mv-table-selection {
+    flex-wrap: wrap;
+  }
+}
+
+/*
+ * Very narrow phones. The card loses its side border and corners and runs to the edge
+ * of the screen: at 360px a 1rem gutter on each side costs a tenth of the width, and a
+ * table is the one thing on these pages that can actually use it.
+ */
+@media (max-width: 480px) {
+  /* Only a table that is the page's own child. One nested inside a detail card would
+     otherwise pull itself out through that card's padding. The offset matches the
+     0.75rem gutter `Layout.css` gives `.main-content` at this width. */
+  .page > .mv-table-card,
+  .page > .mv-table-wrap {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    width: auto;
+  }
+
+  .mv-table thead th,
+  .mv-table td {
+    padding: 0.6rem;
+  }
+}

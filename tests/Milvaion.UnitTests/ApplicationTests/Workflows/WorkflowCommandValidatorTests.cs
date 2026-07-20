@@ -154,8 +154,8 @@ public class WorkflowCommandValidatorTests
 
     private static UpdateProperty<T> Updated<T>(T value) => new() { Value = value, IsUpdated = true };
 
-    private static List<CreateWorkflowStepDto> OneValidStep() =>
-    [
+    private static List<CreateWorkflowStepDto> OneValidStep()
+    => [
         new CreateWorkflowStepDto
         {
             TempId = "step1",

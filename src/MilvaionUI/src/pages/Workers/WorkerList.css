@@ -187,7 +187,7 @@
 }
 
 /* Status Badge */
-.status-badge {
+.worker-list-page .status-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -198,25 +198,25 @@
   border: 2px solid;
 }
 
-.status-badge.active {
+.worker-list-page .status-badge.active {
   background-color: rgba(16, 185, 129, 0.1);
   color: #10b981;
   border-color: rgba(16, 185, 129, 0.25);
 }
 
-.status-badge.inactive {
+.worker-list-page .status-badge.inactive {
   background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border-color: rgba(239, 68, 68, 0.25);
 }
 
-.status-badge.zombie {
+.worker-list-page .status-badge.zombie {
   background-color: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
   border-color: rgba(245, 158, 11, 0.25);
 }
 
-.status-badge.unknown {
+.worker-list-page .status-badge.unknown {
   background-color: rgba(113, 113, 122, 0.1);
   color: #71717a;
   border-color: rgba(113, 113, 122, 0.25);
@@ -380,85 +380,9 @@
   font-weight: 500;
 }
 
-/* Tables */
-.table-container {
-  overflow-x: auto;
-  overflow-y: hidden;
-  margin: 0 -0.5rem;
-  padding: 0 0.5rem;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Custom scrollbar for table container */
-.table-container::-webkit-scrollbar {
-  height: 8px;
-}
-
-.table-container::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 4px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-  background: var(--accent-color);
-  border-radius: 4px;
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-hover);
-}
-
-.job-configs-table,
-.instances-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  min-width: 600px; /* Minimum width to trigger horizontal scroll */
-}
-
-.job-configs-table th,
-.job-configs-table td,
-.instances-table th,
-.instances-table td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border-color);
-  white-space: nowrap; /* Prevent cell content wrapping */
-}
-
-.job-configs-table th,
-.instances-table th {
-  background-color: var(--bg-tertiary);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.5px;
-}
-
-.job-configs-table td,
-.instances-table td {
-  color: var(--text-primary);
-}
-
-.job-configs-table tbody tr:hover,
-.instances-table tbody tr:hover {
-  background-color: var(--bg-hover);
-}
-
-.job-configs-table code,
-.instances-table code {
-  background-color: var(--accent-glow);
-  padding: 0.2rem 0.4rem;
-  border-radius: var(--radius-xs);
-  font-size: var(--text-xs);
-  color: var(--accent-text);
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
-}
+/* Tablo kabuğu ortak `styles/table.css` içindeki `mv-table-wrap`'ten geliyor.
+   Buradaki kapsamsız `.table-container` WorkflowDetail'deki aynı adlı kaba da
+   uyguluyordu - stil dosyaları global yükleniyor. */
 
 /* Empty State */
 .empty-state {
@@ -506,35 +430,8 @@
     grid-template-columns: 1fr;
   }
 
-  .table-container {
-    margin-left: -1rem;
-    margin-right: -1rem;
-    border-radius: 0;
-  }
-
-  .job-configs-table,
-  .instances-table {
-    font-size: 0.8rem;
-    min-width: 800px; /* Wider on mobile to ensure all columns visible */
-  }
-
-  .job-configs-table th,
-  .job-configs-table td,
-  .instances-table th,
-  .instances-table td {
-    padding: 0.5rem;
-  }
-
-  /* Show scroll indicator hint */
-  .table-container::after {
-    content: '← Swipe to see more →';
-    display: block;
-    text-align: center;
-    padding: 0.5rem;
-    font-size: 0.75rem;
-    color: #666;
-    background: linear-gradient(90deg, transparent, #1a1a1a 20%, #1a1a1a 80%, transparent);
-  }
+  /* Kaydırma ipucu kaldırıldı: kaydırma çubuğu artık her yüzeyde görünür ve
+     ortak, ayrıca metin sabit `#1a1a1a` arka planla açık temada okunmuyordu. */
 }
 
 /* External Worker Styles */

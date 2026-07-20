@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Icon from '../../components/Icon'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonTable } from '../../components/Skeleton'
+import { TableToolbar, TableSearch, TableEmpty } from '../../components/TableParts'
 import jobService from '../../services/jobService'
 import { formatDateTime } from '../../utils/dateUtils'
 import { getApiErrorMessage } from '../../utils/errorUtils'
@@ -26,27 +27,29 @@ const KIND = {
 
 const normalize = (map, value) => (typeof value === 'number' ? map[value] : value)
 
+/* `tone` is the shared vocabulary from `table.css` - it colours the status label and the
+   row's left edge together, so a problem is visible before the column is read. */
 const HEALTH_META = {
   Scheduled: {
-    className: 'ok',
+    tone: 'success',
     icon: 'check_circle',
     label: 'Scheduled',
     title: 'The dispatcher is holding this time. It will fire unless something changes.',
   },
   Projected: {
-    className: 'projected',
+    tone: 'info',
     icon: 'calculate',
     label: 'Projected',
     title: 'Derived from the cron expression. The workflow engine works the time out on each poll rather than storing it.',
   },
   NotScheduled: {
-    className: 'problem',
+    tone: 'danger',
     icon: 'error',
     label: 'Not scheduled',
     title: 'Active and recurring, but the dispatcher holds no run time for it, so it will not run.',
   },
   InvalidSchedule: {
-    className: 'problem',
+    tone: 'danger',
     icon: 'report',
     label: 'Invalid cron',
     title: 'The cron expression could not be parsed, so no next run can be worked out.',
@@ -272,63 +275,55 @@ function UpcomingExecutions() {
         </div>
       )}
 
-      <div className="upcoming-filters">
-        <div className="upcoming-search">
-          <Icon name="search" size={18} />
-          <input
-            type="text"
-            placeholder="Search by name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+      <div className="mv-table-card">
+        <TableToolbar>
+          <TableSearch value={searchTerm} onChange={setSearchTerm} placeholder="Search by name…" />
 
-        <select value={withinHours} onChange={(e) => setWithinHours(Number(e.target.value))}>
-          {WINDOWS.map(w => (
-            <option key={w.hours} value={w.hours}>Next {w.label}</option>
-          ))}
-        </select>
+          <select value={withinHours} onChange={(e) => setWithinHours(Number(e.target.value))} aria-label="Time window">
+            {WINDOWS.map(w => (
+              <option key={w.hours} value={w.hours}>Next {w.label}</option>
+            ))}
+          </select>
 
-        <select value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="">Jobs and workflows</option>
-          <option value="0">Jobs only</option>
-          <option value="1">Workflows only</option>
-        </select>
+          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Filter by type">
+            <option value="">Jobs and workflows</option>
+            <option value="0">Jobs only</option>
+            <option value="1">Workflows only</option>
+          </select>
 
-        <label className="upcoming-toggle">
-          <input
-            type="checkbox"
-            checked={onlyProblems}
-            onChange={(e) => setOnlyProblems(e.target.checked)}
-          />
-          <span>Only problems</span>
-        </label>
-      </div>
+          <label className="upcoming-toggle">
+            <input
+              type="checkbox"
+              checked={onlyProblems}
+              onChange={(e) => setOnlyProblems(e.target.checked)}
+            />
+            <span>Only problems</span>
+          </label>
+        </TableToolbar>
 
-      {items.length === 0 ? (
-        <div className="upcoming-empty">
-          <Icon name="event_available" size={48} />
-          <h3>Nothing scheduled in this window</h3>
-          <p>
-            {onlyProblems
-              ? 'Every recurring job has a run time.'
-              : 'Try widening the window, or check that the jobs you expect are active.'}
-          </p>
-        </div>
-      ) : (
-        <div className="upcoming-table-wrapper">
-          <table className="upcoming-table">
+        <div className="mv-table-scroll">
+          <table className="mv-table">
             <thead>
               <tr>
-                <th>When</th>
+                <th className="mv-col-tight">When</th>
                 <th>Name</th>
-                <th>Type</th>
+                <th className="mv-col-tight">Type</th>
                 <th>Schedule</th>
                 <th>Target</th>
-                <th>Status</th>
+                <th className="mv-col-tight">Status</th>
               </tr>
             </thead>
             <tbody>
+              {items.length === 0 && (
+                <TableEmpty
+                  colSpan={6}
+                  icon="event_available"
+                  message={onlyProblems
+                    ? 'Every recurring job has a run time.'
+                    : 'Nothing scheduled in this window. Try widening it, or check that the jobs you expect are active.'}
+                />
+              )}
+
               {items.map((item, index) => {
                 const health = normalize(HEALTH, item.health)
                 const meta = HEALTH_META[health] ?? HEALTH_META.Scheduled
@@ -338,60 +333,66 @@ function UpcomingExecutions() {
                 return (
                   <tr
                     key={`${item.id}-${index}`}
-                    className={`upcoming-row ${meta.className}`}
+                    /* A run the dispatcher is not holding is the reason to read this page,
+                       so it is marked down the row edge rather than only in the last
+                       column. */
+                    className={`mv-table-row is-clickable tone-${meta.tone}`}
                     onClick={() => openItem(item)}
                   >
-                    <td className="upcoming-when">
+                    <td className="mv-col-tight">
                       {item.scheduledAt ? (
                         <>
-                          <span className={`upcoming-countdown ${overdue ? 'overdue' : ''}`}>
+                          <span
+                            className={'mv-table-primary' + (overdue ? ' upcoming-overdue' : '')}
+                            title={formatDateTime(item.scheduledAt)}
+                          >
                             {formatCountdown(item.scheduledAt)}
                           </span>
-                          <span className="upcoming-absolute">{formatDateTime(item.scheduledAt)}</span>
+                          <span className="mv-table-muted">{formatDateTime(item.scheduledAt)}</span>
                         </>
                       ) : (
-                        <span className="upcoming-countdown none">never</span>
+                        <span className="mv-table-dim">never</span>
                       )}
                     </td>
 
-                    <td className="upcoming-name">
-                      <span>{item.displayName}</span>
-                      {item.tags && <span className="upcoming-tags">{item.tags}</span>}
+                    <td>
+                      <span className="mv-table-primary">{item.displayName}</span>
+                      {item.tags && <span className="mv-table-muted">{item.tags}</span>}
                     </td>
 
-                    <td>
-                      <span className={`upcoming-kind ${itemKind === 'Workflow' ? 'workflow' : 'job'}`}>
-                        <Icon name={itemKind === 'Workflow' ? 'account_tree' : 'work'} size={15} />
+                    <td className="mv-col-tight">
+                      <span className="mv-status tone-idle">
+                        <Icon name={itemKind === 'Workflow' ? 'account_tree' : 'work'} size={14} />
                         {itemKind}
                       </span>
                     </td>
 
                     <td>
                       {item.cronExpression
-                        ? <code className="upcoming-cron">{item.cronExpression}</code>
-                        : <span className="upcoming-muted">one-time</span>}
+                        ? <code className="mv-table-code">{item.cronExpression}</code>
+                        : <span className="mv-table-dim">one-time</span>}
                     </td>
 
-                    <td className="upcoming-target">
+                    <td>
                       {itemKind === 'Workflow'
-                        ? <span className="upcoming-muted">—</span>
+                        ? <span className="mv-table-dim">—</span>
                         : (
                           <>
-                            <span>{item.workerId || '—'}</span>
+                            <span className="mv-table-primary">{item.workerId || '—'}</span>
                             {item.jobNameInWorker && (
-                              <span className="upcoming-muted">{item.jobNameInWorker}</span>
+                              <span className="mv-table-muted">{item.jobNameInWorker}</span>
                             )}
                           </>
                         )}
                     </td>
 
-                    <td>
-                      <span className={`upcoming-health ${meta.className}`} title={meta.title}>
-                        <Icon name={meta.icon} size={15} />
+                    <td className="mv-col-tight">
+                      <span className={`mv-status tone-${meta.tone}`} title={meta.title}>
+                        <Icon name={meta.icon} size={14} />
                         {meta.label}
                       </span>
                       {item.isExternal && (
-                        <span className="upcoming-external" title="Runs on an external scheduler. Milvaion only records what it ran.">
+                        <span className="mv-table-muted" title="Runs on an external scheduler. Milvaion only records what it ran.">
                           external
                         </span>
                       )}
@@ -401,14 +402,14 @@ function UpcomingExecutions() {
               })}
             </tbody>
           </table>
-
-          {data?.hasMore && (
-            <div className="upcoming-more">
-              More runs fall inside this window than are shown. Narrow the window or search to see the rest.
-            </div>
-          )}
         </div>
-      )}
+
+        {data?.hasMore && (
+          <div className="mv-table-footer">
+            More runs fall inside this window than are shown. Narrow the window or search to see the rest.
+          </div>
+        )}
+      </div>
     </div>
   )
 }

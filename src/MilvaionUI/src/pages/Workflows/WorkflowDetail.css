@@ -1,8 +1,6 @@
 .workflow-detail-page {
 }
 
-
-
 .workflow-detail-loading,
 .workflow-detail-error {
   display: flex;
@@ -250,41 +248,6 @@
   border-radius: 10px;
 }
 
-.workflow-detail-page .data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.workflow-detail-page .data-table thead {
-  background: var(--bg-secondary);
-}
-
-.workflow-detail-page .data-table th {
-  text-align: left;
-  padding: 10px 14px;
-  font-size: 12px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.workflow-detail-page .data-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-primary);
-}
-
-.workflow-detail-page .data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.workflow-detail-page .data-table tbody tr:hover {
-  background: var(--bg-hover);
-}
-
 /* Links */
 .job-link {
   color: var(--accent-text);
@@ -301,16 +264,8 @@
   font-style: italic;
 }
 
-.run-id {
-  font-size: 12px;
-  background: var(--bg-secondary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-}
-
 /* Status badges */
-.status-badge {
+.workflow-detail-page .status-badge {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
@@ -319,10 +274,12 @@
   font-weight: 600;
 }
 
-.status-pending { background: var(--bg-secondary); color: var(--text-secondary); }
-.status-running { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-.status-completed { background: rgba(16, 185, 129, 0.15); color: #10b981; }
-.status-failed { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+/* Scoped with the badge above them. `.status-running` and friends are names any page
+   could reasonably use, and every stylesheet here loads globally. */
+.workflow-detail-page .status-pending { background: var(--bg-secondary); color: var(--text-secondary); }
+.workflow-detail-page .status-running { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.workflow-detail-page .status-completed { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.workflow-detail-page .status-failed { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 .status-cancelled { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
 .status-partial { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 
@@ -813,24 +770,6 @@
   padding: 3rem 1rem;
   text-align: center;
   color: var(--text-secondary);
-}
-
-/* ── Tıklanabilir run satırı ──────────────────────────────────────────────────
-   RoleList ve ApiKeyList ile aynı desen. Satır sonundaki View bağlantısı duruyor:
-   orta tıklama ve "yeni sekmede aç" satır tıklamasıyla yapılamıyor. */
-
-.workflow-runs-section .data-table tbody tr.clickable-row {
-  cursor: pointer;
-}
-
-.workflow-runs-section .data-table tbody tr.clickable-row:hover {
-  background: var(--bg-hover);
-  border-left: 2px solid var(--accent-color);
-}
-
-.workflow-runs-section .data-table tbody tr.clickable-row:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: -2px;
 }
 
 /* Configuration bölümü: açıklama kartı ile altındaki ölçü kartları arasına biraz

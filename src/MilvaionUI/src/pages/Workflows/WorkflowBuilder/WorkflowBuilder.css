@@ -1201,3 +1201,69 @@
 .wfb-note--warn > svg {
   color: #f59e0b;
 }
+
+/* ── Dar ekranlar ─────────────────────────────────────────────────────────────
+ *
+ * Görsel bir DAG düzenleyicisi telefonda rahat bir deneyim değil - düğüm sürüklemek
+ * ve kenar çizmek isabet gerektiriyor. Yine de erişilemez olmaması gerekiyor: bir
+ * workflow'u telefondan açıp yapısına bakmak, adını ya da aktifliğini değiştirmek
+ * makul. Bu yüzden düzen daralıyor ama gizlenmiyor.
+ */
+
+@media (max-width: 768px) {
+  /* Sabit 52px'lik tek satır, içindekiler sığmadığı için taşıyordu. Sarmalı bir
+     çubuk yüksekliğini içeriğinden alıyor. */
+  .wfb-toolbar {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .wfb-toolbar-left,
+  .wfb-toolbar-right {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Ad alanı kendi satırını alıyor: 200px'lik alt sınırıyla butonların yanında
+     kalırsa ikisi de sıkışıyor. */
+  .wfb-toolbar-left {
+    width: 100%;
+  }
+
+  .wfb-name-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .wfb-toolbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Ayar alanları sabit genişliklerini bırakıp iki sütuna diziliyor. */
+  .wfb-settings-row {
+    flex-wrap: wrap;
+  }
+
+  .wfb-setting-field--sm,
+  .wfb-setting-field--xs {
+    flex: 1 1 140px;
+  }
+
+  .wfb-setting-field--full {
+    flex: 1 1 100%;
+  }
+
+  /* Kalan dikey alan zaten az; tuval sabit 500px yerine ekranın yarısını alıyor. */
+  .wfb-canvas-wrapper {
+    min-height: 55vh;
+  }
+
+  .wfb-add-menu-dropdown {
+    min-width: 0;
+    width: calc(100vw - 1.5rem);
+    max-width: 320px;
+  }
+}

@@ -1,10 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import jobService from '../../services/jobService'
 import workerService from '../../services/workerService'
+import useInfiniteScroll from '../../hooks/useInfiniteScroll'
+import ViewToggle from '../../components/ViewToggle'
 import CronDisplay from '../../components/CronDisplay'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
+import Pagination from '../../components/Pagination'
+import { ActionButton } from '../../components/TableActions'
+import { TableFooter } from '../../components/TableParts'
 import JsonEditor from '../../components/JsonEditor'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonJobList } from '../../components/Skeleton'
@@ -59,7 +64,6 @@ function JobList() {
   const [cardPage, setCardPage] = useState(1)
   const [cardHasMore, setCardHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const sentinelRef = useRef(null)
 
   // Trigger modal state
   const [showTriggerModal, setShowTriggerModal] = useState(false)
@@ -251,24 +255,14 @@ function JobList() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, cardPage, debouncedSearchTerm, filterTag, filterIsActive, filterIsExternal, filterJobType, filterWorkerId, filterIsRecurring, autoRefreshEnabled])
 
-  // Infinite scroll sentinel observer
-  useEffect(() => {
-    if (viewMode !== 'list') return
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && cardHasMore && !loadingMore) {
-          setCardPage(prev => prev + 1)
-        }
-      },
-      { root: null, rootMargin: '200px', threshold: 0 }
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [viewMode, cardHasMore, loadingMore])
+  // Infinite scroll for the card view. The observer logic lives in the hook, shared with
+  // the workflow list and the job picker.
+  const sentinelRef = useInfiniteScroll({
+    hasMore: cardHasMore,
+    loading: loadingMore,
+    onLoadMore: () => setCardPage(prev => prev + 1),
+    enabled: viewMode === 'list',
+  })
 
   const handleDelete = async (id) => {
     const confirmed = await showConfirm(
@@ -432,6 +426,14 @@ function JobList() {
           </h1>
         </div>
         <div className="header-actions">
+          <ViewToggle
+            value={viewMode}
+            onChange={(mode) => { if (mode !== viewMode) toggleViewMode() }}
+            options={[
+              { value: 'list', icon: 'view_list', label: 'Cards' },
+              { value: 'table', icon: 'table_rows', label: 'Table' },
+            ]}
+          />
           <div className="search-box">
             <input
               type="text"
@@ -449,28 +451,6 @@ function JobList() {
                 <Icon name="close" size={16} />
               </button>
             )}
-          </div>
-          <div className="view-mode-selector">
-            <button
-              className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => {
-                if (viewMode !== 'list') toggleViewMode()
-              }}
-              title="Card View"
-            >
-              <Icon name="view_list" size={20} />
-              <span>Cards</span>
-            </button>
-            <button
-              className={`view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
-              onClick={() => {
-                if (viewMode !== 'table') toggleViewMode()
-              }}
-              title="Table View"
-            >
-              <Icon name="table_rows" size={20} />
-              <span>Table</span>
-            </button>
           </div>
           <Link to="/jobs/new" className="create-job-btn">
             <Icon name="add" size={20} />
@@ -691,186 +671,102 @@ function JobList() {
               )}
             </div>
           ) : (
-            <div className="jobs-table-container">
-              <table className="jobs-table">
+            <div className="mv-table-card">
+              <div className="mv-table-scroll">
+              <table className="mv-table">
                 <thead>
                   <tr>
-                    <th>Status</th>
-                    <th>Name</th>
-                    <th>Type</th>
+                    <th className="mv-col-tight">Status</th>
+                    <th>Job</th>
                     <th>Schedule</th>
                     <th>Description</th>
-                    <th>Concurrent Policy</th>
-                    <th>Actions</th>
+                    <th className="mv-col-tight">Concurrency</th>
+                    <th className="mv-table-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobs.map((job) => (
                     <tr
                       key={job.id}
-                      className={`job-table-row ${job.isActive ? 'active' : 'inactive'}`}
+                      /* A job that is switched off, or a one-time job that has already
+                         run, is marked down the row edge - it is the thing someone is
+                         usually looking for when a job "isn't running". */
+                      className={'mv-table-row is-clickable' + (job.isActive && !job.completedAt ? '' : ' tone-idle')}
                       onClick={() => navigate(`/jobs/${job.id}`)}
-                      style={{ cursor: 'pointer' }}
                     >
-                      <td>
-                        <div className={`job-status-indicator`}>
-                          <Icon name={job.isActive ? 'check_circle' : 'cancel'} size={20} />
-                        </div>
+                      <td className="mv-col-tight">
+                        <span className={'mv-status tone-' + (job.isActive ? 'success' : 'idle')}>
+                          <Icon name={job.isActive ? 'check_circle' : 'cancel'} size={14} />
+                          {job.isActive ? 'Active' : 'Inactive'}
+                        </span>
                       </td>
                       <td>
+                        {/* Type sits under the name rather than in a column of its own:
+                            it describes the job, it is not a fact you scan a list by. */}
                         <Link
                           to={`/jobs/${job.id}`}
-                          className="job-name-link"
+                          className="mv-table-primary"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {job.displayName || job.name}
                           {job.isExternal && <span className="external-badge" title="External job (Quartz/Hangfire)">External</span>}
-                        {job.completedAt && <span className="completed-badge" title="One-time job that has already run. It will not be scheduled again.">Completed</span>}
+                          {job.completedAt && <span className="completed-badge" title="One-time job that has already run. It will not be scheduled again.">Completed</span>}
                         </Link>
-                      </td>
-                      <td>
-                        <span className="job-type-badge">{job.jobType}</span>
+                        <span className="mv-table-muted">{job.jobType}</span>
                       </td>
                       <td>
                         <CronDisplay expression={job.cronExpression} showTooltip={false} />
                       </td>
                       <td>
                         <span className="job-description-cell" title={job.description || 'No description'}>
-                          {job.description ? truncateText(job.description, 20) : <span className="no-description">-</span>}
+                          {job.description ? truncateText(job.description, 20) : <span className="mv-table-dim">—</span>}
                         </span>
                       </td>
-                      <td>
-                        <span className="concurrent-policy-text">
+                      <td className="mv-col-tight">
+                        <span className="mv-table-dim">
                           {job.concurrentExecutionPolicy === 0 ? 'Skip' :
                             job.concurrentExecutionPolicy === 1 ? 'Queue' : 'Unknown'}
                         </span>
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <div className="table-actions">
-                          <button
+                      <td className="mv-table-actions" onClick={(e) => e.stopPropagation()}>
+                        <div className="mv-table-actions-inner">
+                          <ActionButton
+                            intent="primary"
+                            icon="play_arrow"
+                            title={job.isExternal ? 'External jobs cannot be triggered from Milvaion' : 'Trigger now'}
                             onClick={(e) => handleTrigger(job, e)}
-                            className="action-btn trigger"
-                            title={job.isExternal ? "External jobs cannot be triggered from Milvaion" : "Trigger now"}
                             disabled={!job.isActive || triggering || job.isExternal}
-                          >
-                            <Icon name="play_arrow" size={18} />
-                          </button>
-                          <Link
-                            to={`/jobs/${job.id}/edit`}
-                            className="action-btn edit"
+                          />
+                          <ActionButton
+                            intent="edit"
+                            icon="edit"
                             title="Edit"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Icon name="edit" size={18} />
-                          </Link>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleDelete(job.id)
-                            }}
-                            className="action-btn delete"
-                            title={job.isExternal ? "External jobs cannot be deleted from Milvaion" : "Delete"}
+                            to={`/jobs/${job.id}/edit`}
+                          />
+                          <ActionButton
+                            intent="danger"
+                            icon="delete"
+                            title={job.isExternal ? 'External jobs cannot be deleted from Milvaion' : 'Delete'}
+                            onClick={() => handleDelete(job.id)}
                             disabled={job.isExternal}
-                          >
-                            <Icon name="delete" size={18} />
-                          </button>
+                          />
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-
-              {/* Pagination - inside table container */}
-              <div className="pagination-container">
-                <div className="pagination">
-                  {(() => {
-                    const totalPages = Math.ceil(totalCount / pageSize)
-                    if (totalPages <= 1) return null
-
-                    const maxVisiblePages = 5
-                    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-                    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-                    if (endPage - startPage + 1 < maxVisiblePages) {
-                      startPage = Math.max(1, endPage - maxVisiblePages + 1)
-                    }
-
-                    return (
-                      <>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => setCurrentPage(1)}
-                          disabled={currentPage === 1}
-                        >
-                          <Icon name="first_page" size={18} />
-                        </button>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => setCurrentPage(currentPage - 1)}
-                          disabled={currentPage === 1}
-                        >
-                          <Icon name="chevron_left" size={18} />
-                        </button>
-
-                        {startPage > 1 && <span className="page-ellipsis">...</span>}
-
-                        {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => (
-                          <button
-                            key={page}
-                            className={'btn btn-sm' + (page === currentPage ? ' btn-primary' : '')}
-                            onClick={() => setCurrentPage(page)}
-                          >
-                            {page}
-                          </button>
-                        ))}
-
-                        {endPage < totalPages && <span className="page-ellipsis">...</span>}
-
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => setCurrentPage(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                        >
-                          <Icon name="chevron_right" size={18} />
-                        </button>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => setCurrentPage(totalPages)}
-                          disabled={currentPage === totalPages}
-                        >
-                          <Icon name="last_page" size={18} />
-                        </button>
-
-                        <span className="page-info">
-                          Page {currentPage} of {totalPages} ({totalCount} total)
-                        </span>
-                      </>
-                    )
-                  })()}
-                </div>
-
-                <div className="page-size-selector">
-                  <label htmlFor="pageSize">Rows per page:</label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(parseInt(e.target.value))
-                      setCurrentPage(1)
-                    }}
-                    className="page-size-select"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={500}>500</option>
-                    <option value={1000}>1000</option>
-                  </select>
-                </div>
               </div>
+
+              <TableFooter totalCount={totalCount} noun="jobs">
+                <Pagination
+                  page={currentPage}
+                  pageSize={pageSize}
+                  totalCount={totalCount}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+                />
+              </TableFooter>
             </div>
           )}
         </>

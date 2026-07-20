@@ -112,104 +112,6 @@
     -webkit-overflow-scrolling: touch;
   }
 
-.role-list .data-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 400px;
-}
-
-.role-list .data-table thead {
-  /*background: var(--bg-tertiary);*/
-}
-
-  .role-list .data-table th {
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid var(--border-color);
-    white-space: nowrap;
-    background: none !important;
-  }
-
-.role-list .data-table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  white-space: nowrap;
-}
-
-.role-list .data-table tbody tr:hover {
-  background: var(--bg-hover);
-}
-
-.role-list .data-table tbody tr.clickable-row {
-  cursor: pointer;
-}
-
-.role-list .data-table tbody tr.clickable-row:hover {
-  background: var(--bg-hover);
-  border-left: 2px solid var(--accent-color);
-}
-
-.role-list .data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.role-list .id-col {
-  width: 80px;
-  color: var(--text-muted) !important;
-  font-family: monospace;
-}
-
-.role-list .actions-col {
-  width: 120px;
-  text-align: right !important;
-}
-
-.role-list .role-name {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-}
-
-.role-list .row-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-.role-list .action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.role-list .action-btn.edit:hover {
-  background: var(--accent-color);
-  color: white;
-  border-color: var(--accent-color);
-}
-
-.role-list .action-btn.delete:hover {
-  background: #dc2626;
-  color: white;
-  border-color: #dc2626;
-}
-
 /* Pagination */
 .role-list .pagination {
   display: flex;
@@ -224,12 +126,6 @@
 .role-list .pagination-info {
   font-size: 0.875rem;
   color: var(--text-muted);
-}
-
-.role-list .pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
 }
 
 .role-list .page-btn {
@@ -255,12 +151,6 @@
 .role-list .page-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.role-list .page-indicator {
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
 }
 
 .role-list .page-size-selector select {

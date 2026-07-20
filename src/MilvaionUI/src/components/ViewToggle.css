@@ -1,0 +1,70 @@
+/*
+ * View mode switch.
+ *
+ * Follows the job list's version, which was the more finished of the two that existed.
+ * Prefixed so adopting it does not collide with the per-page `.view-mode-*` rules it
+ * replaces, and pages can move over one at a time.
+ */
+
+.mv-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.mv-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 34px;
+  padding: 0.4rem 0.85rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--transition-base), color var(--transition-base);
+}
+
+.mv-view-btn:hover:not(.is-active) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mv-view-btn.is-active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+/*
+ * On a narrow screen the icons carry the meaning; the labels are what has to give.
+ *
+ * Only `.mv-view-label` is hidden. An earlier version hid `.mv-view-btn span`, and since
+ * `Icon` renders a span as well, that emptied the buttons completely - two blank boxes
+ * where the switch used to be.
+ *
+ * The buttons share the row evenly, because the toggle itself is stretched to full width
+ * by the page header's mobile rules; left to themselves the two icons would huddle at one
+ * end of a wide, empty control.
+ */
+@media (max-width: 640px) {
+  .mv-view-label {
+    display: none;
+  }
+
+  .mv-view-toggle {
+    display: flex;
+  }
+
+  .mv-view-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0.4rem 0.6rem;
+  }
+}

@@ -8,6 +8,11 @@ import CronDisplay from '../../components/CronDisplay'
 import TriggerWorkflowModal from '../../components/TriggerWorkflowModal'
 import './WorkflowList.css'
 import { SkeletonGrid } from '../../components/Skeleton'
+import Pagination from '../../components/Pagination'
+import useInfiniteScroll from '../../hooks/useInfiniteScroll'
+import TableActions, { ActionButton } from '../../components/TableActions'
+import { TableFooter } from '../../components/TableParts'
+import ViewToggle from '../../components/ViewToggle'
 
 const failureStrategyLabels = {
   0: 'Stop on First Failure',
@@ -21,24 +26,106 @@ function WorkflowList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [triggerTarget, setTriggerTarget] = useState(null) // workflow to trigger
+
+  /*
+   * Server-side paging. The list used to ask for everything in one request, which is
+   * fine until an installation has more workflows than fit comfortably in one payload -
+   * and by then the page is already slow for everyone who opens it.
+   */
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalCount, setTotalCount] = useState(0)
+
+  // Card view scrolls, table view pages. Both read the same server pages; only the way
+  // they are presented differs, so the preference is worth remembering per user.
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('workflowListViewMode') || 'card')
+
+  const [cardWorkflows, setCardWorkflows] = useState([])
+  const [cardPage, setCardPage] = useState(1)
+  const [cardHasMore, setCardHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+
   const navigate = useNavigate()
   const { modalProps, showConfirm, showSuccess, showError } = useModal()
+
+  const readList = (response) => ({
+    items: response?.data?.data || response?.data || [],
+    total: response?.data?.totalDataCount ?? response?.totalDataCount ?? 0,
+  })
 
   const loadWorkflows = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await workflowService.getAll()
-      setWorkflows(response?.data || [])
+      const { items, total } = readList(await workflowService.getAll({ pageNumber: page, rowCount: pageSize }))
+
+      setWorkflows(items)
+      setTotalCount(total)
     } catch (err) {
       setError('Failed to load workflows')
+      console.error(err)
     } finally {
       setLoading(false)
+    }
+  }, [page, pageSize])
+
+  const cardPageSize = 20
+
+  const loadCardWorkflows = useCallback(async (targetPage) => {
+    try {
+      if (targetPage === 1) setLoading(true)
+      else setLoadingMore(true)
+
+      const { items, total } = readList(await workflowService.getAll({ pageNumber: targetPage, rowCount: cardPageSize }))
+
+      // Appending rather than replacing is what makes this infinite scroll; page 1 still
+      // replaces, so a refresh after a delete does not duplicate rows.
+      setCardWorkflows(prev => targetPage === 1 ? items : [...prev, ...items])
+      setTotalCount(total)
+      setCardHasMore(targetPage * cardPageSize < total)
+    } catch (err) {
+      setError('Failed to load workflows')
+      console.error(err)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
     }
   }, [])
 
   useEffect(() => {
-    loadWorkflows()
-  }, [loadWorkflows])
+    if (viewMode === 'table') loadWorkflows()
+  }, [viewMode, loadWorkflows])
+
+  useEffect(() => {
+    if (viewMode === 'card') loadCardWorkflows(cardPage)
+  }, [viewMode, cardPage, loadCardWorkflows])
+
+  const sentinelRef = useInfiniteScroll({
+    hasMore: cardHasMore,
+    loading: loadingMore || loading,
+    onLoadMore: () => setCardPage(p => p + 1),
+    enabled: viewMode === 'card',
+  })
+
+  const toggleViewMode = (mode) => {
+    setViewMode(mode)
+    localStorage.setItem('workflowListViewMode', mode)
+
+    // Each view keeps its own position; resetting avoids showing a stale half-loaded list.
+    setCardPage(1)
+    setPage(1)
+  }
+
+  // What the current view is showing, so the card markup and the table can share helpers.
+  const visibleWorkflows = viewMode === 'card' ? cardWorkflows : workflows
+
+  const reload = useCallback(() => {
+    if (viewMode === 'card') {
+      setCardPage(1)
+      loadCardWorkflows(1)
+    } else {
+      loadWorkflows()
+    }
+  }, [viewMode, loadCardWorkflows, loadWorkflows])
 
   const handleTrigger = (workflow) => setTriggerTarget(workflow)
 
@@ -61,7 +148,14 @@ function WorkflowList() {
         return
       }
 
-      await loadWorkflows()
+      // Deleting the last row of the last page would otherwise leave the user on an
+      // empty page with no indication of why.
+      if (viewMode === 'table' && workflows.length === 1 && page > 1) {
+        setPage(page - 1)
+      } else {
+        reload()
+      }
+
       await showSuccess('Workflow deleted successfully')
     } catch (err) {
       await showError('Failed to delete workflow. Please try again.')
@@ -88,9 +182,17 @@ function WorkflowList() {
       <div className="page-header">
         <div className="page-title">
           <Icon name="account_tree" size={28} />
-          <h1>Workflows ({workflows.length})</h1>
+          <h1>Workflows ({totalCount || workflows.length})</h1>
         </div>
         <div className="page-header-actions">
+          <ViewToggle
+            value={viewMode}
+            onChange={toggleViewMode}
+            options={[
+              { value: 'card', icon: 'view_list', label: 'Cards' },
+              { value: 'table', icon: 'table_rows', label: 'Table' },
+            ]}
+          />
           <Link to="/workflows/new/builder" className="create-workflow-btn create-workflow-btn--builder" title="Create with visual builder (experimental)">
             <Icon name="account_tree" size={18} />
             Create via Workspace
@@ -104,8 +206,9 @@ function WorkflowList() {
 
       {error && <div className="error-banner">{error}</div>}
 
+      {viewMode === 'card' ? (
       <div className="workflow-grid">
-        {workflows.length === 0 ? (
+        {visibleWorkflows.length === 0 && !loading ? (
           <div className="empty-state">
             <Icon name="account_tree" size={48} />
             <h3>No workflows yet</h3>
@@ -113,7 +216,7 @@ function WorkflowList() {
             <Link to="/workflows/new" className="create-workflow-btn">Create Workflow</Link>
           </div>
         ) : (
-          workflows.map(workflow => (
+          visibleWorkflows.map(workflow => (
             <div key={workflow.id} className="workflow-card" onClick={() => navigate(`/workflows/${workflow.id}`)}>
               <div className="workflow-card-header">
                 <Link to={`/workflows/${workflow.id}`} className="workflow-name">
@@ -157,6 +260,114 @@ function WorkflowList() {
           ))
         )}
       </div>
+      ) : (
+        <div className="mv-table-card">
+          <div className="mv-table-scroll">
+          <table className="mv-table">
+            <thead>
+              <tr>
+                <th className="mv-col-tight">Status</th>
+                <th>Workflow</th>
+                <th className="mv-col-tight">Steps</th>
+                <th>Schedule</th>
+                <th className="mv-col-tight">On failure</th>
+                <th className="mv-table-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleWorkflows.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={6} className="mv-table-empty">No workflows found.</td>
+                </tr>
+              ) : (
+                visibleWorkflows.map(workflow => (
+                  <tr
+                    key={workflow.id}
+                    className={'mv-table-row is-clickable' + (workflow.isActive ? '' : ' tone-idle')}
+                    onClick={() => navigate(`/workflows/${workflow.id}`)}
+                  >
+                    <td className="mv-col-tight">
+                      <span className={'mv-status tone-' + (workflow.isActive ? 'success' : 'idle')}>
+                        <Icon name={workflow.isActive ? 'check_circle' : 'cancel'} size={14} />
+                        {workflow.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td>
+                      {/* Version moves under the name: it identifies this workflow, it is
+                          not something anyone scans a column of. */}
+                      <span className="mv-table-primary">{workflow.name}</span>
+                      <span className="mv-table-muted">
+                        v{workflow.version}
+                        {workflow.description ? ` · ${workflow.description}` : ''}
+                      </span>
+                    </td>
+                    <td className="mv-col-tight">{workflow.stepCount}</td>
+                    <td>
+                      {workflow.cronExpression
+                        ? <CronDisplay expression={workflow.cronExpression} showTooltip={false} />
+                        : <span className="mv-table-dim">Manual</span>}
+                    </td>
+                    <td className="mv-col-tight">
+                      <span className="mv-table-dim">{failureStrategyLabels[workflow.failureStrategy]}</span>
+                    </td>
+                    <td className="mv-table-actions">
+                      <TableActions>
+                        <ActionButton
+                          intent="primary"
+                          icon="play_arrow"
+                          title="Run workflow"
+                          onClick={() => handleTrigger(workflow)}
+                          disabled={!workflow.isActive}
+                        />
+                        <ActionButton
+                          intent="edit"
+                          icon="visibility"
+                          title="View workflow"
+                          to={`/workflows/${workflow.id}`}
+                        />
+                        <ActionButton
+                          intent="danger"
+                          icon="delete"
+                          title="Delete workflow"
+                          onClick={() => handleDelete(workflow)}
+                        />
+                      </TableActions>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          </div>
+
+          {visibleWorkflows.length > 0 && (
+            <TableFooter totalCount={totalCount} noun="workflows">
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                totalCount={totalCount}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size)
+                  setPage(1)
+                }}
+              />
+            </TableFooter>
+          )}
+        </div>
+      )}
+
+      {/* Card view streams; table view pages. Mixing the two would mean the scroll
+          position and the page number disagreeing about where the user is. */}
+      {viewMode === 'card' && (
+        <>
+          <div ref={sentinelRef} className="wf-scroll-sentinel" />
+          {loadingMore && <div className="wf-loading-more">Loading more…</div>}
+          {!cardHasMore && visibleWorkflows.length > 0 && (
+            <div className="wf-loading-more">All {totalCount} workflows loaded.</div>
+          )}
+        </>
+      )}
 
       {triggerTarget && (
         <TriggerWorkflowModal

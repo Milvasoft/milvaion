@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import Icon from '../../../components/Icon'
 import DataMappingEditor from '../DataMappingEditor'
 import ConditionBuilder from './ConditionBuilder'
+import JobSelect from '../../../components/JobSelect'
 
 /* eslint-disable react/prop-types */
 
@@ -58,7 +59,7 @@ function SchemaSection({ label, icon, fields, color }) {
   )
 }
 
-function StepConfigPanel({ step, jobs, allSteps, edges = [], schemasMap = {}, onChange, onClose }) {
+function StepConfigPanel({ step, jobs, allSteps, edges = [], schemasMap = {}, onChange, onClose, onJobResolved = null }) {
   // Bu adıma bağlanan adımlar. Condition kuralları ve Merge açıklaması ikisi de
   // bunu kullanıyor - "hangi adımı kontrol ediyorum" sorusunun cevabı burası.
   const parentSteps = useMemo(() => {
@@ -160,12 +161,15 @@ function StepConfigPanel({ step, jobs, allSteps, edges = [], schemasMap = {}, on
         {isTask && (
           <div className="wfb-field">
             <label>Job</label>
-            <select className="wfb-select" value={step.jobId} onChange={e => update('jobId', e.target.value)}>
-              <option value="">— Select Job —</option>
-              {jobs.map(j => (
-                <option key={j.id} value={j.id}>{j.displayName || j.jobNameInWorker}</option>
-              ))}
-            </select>
+            <JobSelect
+              value={step.jobId || ''}
+              knownJobs={jobs}
+              onChange={(jobId, job) => {
+                onJobResolved?.(job)
+                update('jobId', jobId)
+              }}
+              placeholder="— Select Job —"
+            />
           </div>
         )}
 

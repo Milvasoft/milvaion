@@ -112,60 +112,6 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .user-list-page .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 600px;
-  }
-
-    .user-list-page .data-table thead {
-      /*background: var(--bg-tertiary);*/
-    }
-
-    .user-list-page .data-table th {
-      padding: 1rem;
-      text-align: left;
-      font-weight: 600;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 2px solid var(--border-color);
-      white-space: nowrap;
-      background: none !important;
-    }
-
-    .user-list-page .data-table td {
-      padding: 1rem;
-      border-bottom: 1px solid var(--border-color);
-      color: var(--text-primary);
-      font-size: 0.9375rem;
-      white-space: nowrap;
-    }
-
-    .user-list-page .data-table tbody tr:hover {
-      background: var(--bg-hover);
-    }
-
-    .user-list-page .data-table tbody tr.clickable-row {
-      cursor: pointer;
-    }
-
-      .user-list-page .data-table tbody tr.clickable-row:hover {
-        background: var(--bg-hover);
-        border-left: 2px solid var(--accent-color);
-      }
-
-    .user-list-page .data-table tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-  .user-list-page .id-col {
-    width: 80px;
-    color: var(--text-muted) !important;
-    font-family: monospace;
-  }
-
   .user-list-page .email-col {
     color: var(--text-secondary);
   }
@@ -174,51 +120,7 @@
     color: var(--text-muted);
   }
 
-  .user-list-page .actions-col {
-    width: 120px;
-    text-align: right !important;
-  }
-
-  .user-list-page .user-name-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 500;
-  }
-
-  .user-list-page .row-actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-  }
-
-  .user-list-page .action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-    .user-list-page .action-btn.edit:hover {
-      background: var(--accent-color);
-      color: white;
-      border-color: var(--accent-color);
-    }
-
-    .user-list-page .action-btn.delete:hover {
-      background: #dc2626;
-      color: white;
-      border-color: #dc2626;
-    }
-
-  /* Pagination */
+/* Pagination */
   .user-list-page .pagination {
     display: flex;
     align-items: center;
@@ -232,12 +134,6 @@
   .user-list-page .pagination-info {
     font-size: 0.875rem;
     color: var(--text-muted);
-  }
-
-  .user-list-page .pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
   }
 
   .user-list-page .page-btn {
@@ -264,12 +160,6 @@
       opacity: 0.4;
       cursor: not-allowed;
     }
-
-  .user-list-page .page-indicator {
-    padding: 0 0.75rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
 
   .user-list-page .page-size-selector select {
     padding: 0.5rem 0.75rem;

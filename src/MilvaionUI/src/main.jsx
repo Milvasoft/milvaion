@@ -3,6 +3,7 @@ import App from './App.jsx'
 import './index.css'
 import './styles/page.css'
 import './styles/detail.css'
+import './styles/table.css'
 import { registerSW } from 'virtual:pwa-register'
 
 const updateSW = registerSW({

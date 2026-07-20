@@ -285,8 +285,8 @@ function WorkerList() {
                           <Icon name="settings" size={18} />
                           Job Configurations
                         </h4>
-                        <div className="table-container">
-                          <table className="job-configs-table">
+                        <div className="table-container mv-table-wrap">
+                          <table className="mv-table">
                             <thead>
                               <tr>
                                 <th>Job Type</th>
@@ -299,7 +299,7 @@ function WorkerList() {
                               {(metadata.jobConfigs || metadata.JobConfigs).map((config) => (
                                 <tr key={config.jobType || config.JobType}>
                                   <td>{config.jobType || config.JobType}</td>
-                                  <td><code>{config.consumerId || config.ConsumerId}</code></td>
+                                  <td><code className="mv-table-code">{config.consumerId || config.ConsumerId}</code></td>
                                   <td>{config.maxParallelJobs || config.MaxParallelJobs}</td>
                                   <td>
                                     {(config.executionTimeoutSeconds || config.ExecutionTimeoutSeconds)
@@ -320,29 +320,33 @@ function WorkerList() {
                           <Icon name="computer" size={18} />
                           Instances ({worker.instances.length})
                         </h4>
-                        <div className="table-container">
-                          <table className="instances-table">
+                        <div className="table-container mv-table-wrap">
+                          <table className="mv-table">
                             <thead>
                               <tr>
-                                <th>Instance ID</th>
-                                <th>Hostname</th>
-                                <th>IP Address</th>
-                                <th>Jobs</th>
-                                <th>Status</th>
-                                <th>Registered At</th>
-                                <th>Last Heartbeat</th>
+                                <th>Instance</th>
+                                <th className="mv-col-tight">Jobs</th>
+                                <th className="mv-col-tight">Status</th>
+                                <th className="mv-col-tight">Registered</th>
+                                <th className="mv-col-tight">Last heartbeat</th>
                               </tr>
                             </thead>
                             <tbody>
                               {worker.instances.map((instance) => (
-                                <tr key={instance.instanceId}>
-                                  <td><code>{instance.instanceId}</code></td>
-                                  <td>{instance.hostName}</td>
-                                  <td>{instance.ipAddress}</td>
-                                  <td>{instance.currentJobs}</td>
-                                  <td>{getStatusBadge(instance.status)}</td>
-                                  <td>{formatTimeSince(instance.registeredAt)}</td>
-                                  <td>{formatTimeSince(instance.lastHeartbeat)}</td>
+                                <tr key={instance.instanceId} className="mv-table-row">
+                                  <td>
+                                    {/* Hostname under the id, for the same reason worker
+                                        sits under job name in the executions table. */}
+                                    <code className="mv-table-code">{instance.instanceId}</code>
+                                    <span className="mv-table-muted">
+                                      {instance.hostName}
+                                      {instance.ipAddress ? ` · ${instance.ipAddress}` : ''}
+                                    </span>
+                                  </td>
+                                  <td className="mv-col-tight">{instance.currentJobs}</td>
+                                  <td className="mv-col-tight">{getStatusBadge(instance.status)}</td>
+                                  <td className="mv-col-tight">{formatTimeSince(instance.registeredAt)}</td>
+                                  <td className="mv-col-tight">{formatTimeSince(instance.lastHeartbeat)}</td>
                                 </tr>
                               ))}
                             </tbody>

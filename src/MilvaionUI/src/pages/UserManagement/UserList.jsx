@@ -7,6 +7,9 @@ import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import AuditInfoCard from '../../components/AuditInfoCard'
+import Pagination from '../../components/Pagination'
+import TableActions, { ActionButton } from '../../components/TableActions'
+import { TableToolbar, TableSearch, TableFooter } from '../../components/TableParts'
 import './UserList.css'
 
 function UserList() {
@@ -259,23 +262,6 @@ function UserList() {
         </button>
       </div>
 
-      <div className="search-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search by username..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="clear-search-btn" title="Clear search">
-              <Icon name="close" size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
       {users.length === 0 ? (
         <div className="empty-state-card">
           <div className="empty-icon">
@@ -288,74 +274,57 @@ function UserList() {
           )}
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th className="actions-col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr key={user.id} className="clickable-row" onClick={() => handleEdit(user)}>
-                  <td className="id-col">{user.id}</td>
-                  <td>
-                    <div className="user-name-cell">
-                      <Icon name="person" size={16} />
-                      <span>{user.userName}</span>
-                    </div>
-                  </td>
-                  <td>{user.name} {user.surname}</td>
-                  <td className="email-col">{user.email || <span className="text-muted">—</span>}</td>
-                  <td className="actions-col">
-                    <div className="row-actions">
-                      <button onClick={(e) => { e.stopPropagation(); handleEdit(user) }} className="action-btn edit" title="Edit">
-                        <Icon name="edit" size={16} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(user.id) }} className="action-btn delete" title="Delete">
-                        <Icon name="delete" size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mv-table-card">
+          <TableToolbar>
+            <TableSearch value={searchTerm} onChange={setSearchTerm} placeholder="Search by username…" />
+          </TableToolbar>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="pagination">
-              <div className="pagination-info">
-                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
-              </div>
-              <div className="pagination-controls">
-                <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} className="page-btn">
-                  <Icon name="first_page" size={18} />
-                </button>
-                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="page-btn">
-                  <Icon name="chevron_left" size={18} />
-                </button>
-                <span className="page-indicator">Page {currentPage} of {totalPages}</span>
-                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="page-btn">
-                  <Icon name="chevron_right" size={18} />
-                </button>
-                <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} className="page-btn">
-                  <Icon name="last_page" size={18} />
-                </button>
-              </div>
-              <div className="page-size-selector">
-                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                </select>
-              </div>
-            </div>
-          )}
+          <div className="mv-table-scroll">
+            <table className="mv-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th className="mv-col-tight">ID</th>
+                  <th className="mv-table-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(user => (
+                  <tr key={user.id} className="mv-table-row is-clickable" onClick={() => handleEdit(user)}>
+                    <td>
+                      {/* Real name under the username: it identifies the same person, so
+                          it does not need a column of its own. */}
+                      <span className="mv-table-primary">{user.userName}</span>
+                      <span className="mv-table-muted">
+                        {[user.name, user.surname].filter(Boolean).join(' ') || 'no name set'}
+                      </span>
+                    </td>
+                    <td>{user.email || <span className="mv-table-dim">—</span>}</td>
+                    <td className="mv-col-tight">
+                      <code className="mv-table-code">{user.id}</code>
+                    </td>
+                    <td className="mv-table-actions">
+                      <TableActions>
+                        <ActionButton intent="edit" icon="edit" title="Edit" onClick={() => handleEdit(user)} />
+                        <ActionButton intent="danger" icon="delete" title="Delete" onClick={() => handleDelete(user.id)} />
+                      </TableActions>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <TableFooter totalCount={totalCount} noun="users">
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={handlePageChange}
+              onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+            />
+          </TableFooter>
         </div>
       )}
 

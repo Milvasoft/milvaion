@@ -6,7 +6,8 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import WorkflowCanvas from './WorkflowCanvas'
 import CronDisplay from '../../components/CronDisplay'
-import { formatDate } from '../../utils/dateUtils'
+import { formatDate, formatDurationMs } from '../../utils/dateUtils'
+import TableActions, { ActionButton } from '../../components/TableActions'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import AuditInfoCard from '../../components/AuditInfoCard'
 import TriggerWorkflowModal from '../../components/TriggerWorkflowModal'
@@ -262,16 +263,15 @@ function WorkflowDetail() {
         icon="list"
         title={`Steps (${workflow.steps?.length || 0})`}
       >
-        <div className="table-container">
-          <table className="data-table">
+        <div className="table-container mv-table-wrap">
+          <table className="mv-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Step Name</th>
+                <th className="mv-col-tight">#</th>
+                <th>Step</th>
                 <th>Job</th>
-                <th>Dependencies</th>
-                <th>Type</th>
-                <th>Delay</th>
+                <th>Runs after</th>
+                <th className="mv-col-tight">Delay</th>
               </tr>
             </thead>
             <tbody>
@@ -283,29 +283,31 @@ function WorkflowDetail() {
                 }).join(', ')
 
                 return (
-                  <tr key={step.id}>
-                    <td>{step.order}</td>
-                    <td><strong>{step.stepName}</strong></td>
+                  <tr key={step.id} className="mv-table-row">
+                    <td className="mv-col-tight">{step.order}</td>
+                    <td>
+                      {/* Node type under the name: only condition nodes have one worth
+                          saying, so a whole column would be mostly dashes. */}
+                      <span className="mv-table-primary">{step.stepName}</span>
+                      {step.nodeType === 1 && <span className="mv-table-muted">condition node</span>}
+                    </td>
                     <td>
                       {step.jobId ? (
-                        <Link to={`/jobs/${step.jobId}`} className="job-link">
+                        <Link to={`/jobs/${step.jobId}`} className="mv-table-primary">
                           {step.jobDisplayName || step.jobId}
                         </Link>
                       ) : (
-                        <span className="text-muted">Virtual Node</span>
+                        <span className="mv-table-dim">Virtual node</span>
                       )}
                     </td>
                     <td>
-                      {dependencies || <span className="text-muted">Root</span>}
+                      {dependencies || <span className="mv-table-dim">Root</span>}
                     </td>
-                    <td>
-                      {step.nodeType === 1 ? (
-                        <span className="condition-badge">Condition Node</span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
+                    <td className="mv-col-tight">
+                      {step.delaySeconds > 0
+                        ? `${step.delaySeconds}s`
+                        : <span className="mv-table-dim">—</span>}
                     </td>
-                    <td>{step.delaySeconds > 0 ? `${step.delaySeconds}s` : '-'}</td>
                   </tr>
                 )
               })}
@@ -327,16 +329,15 @@ function WorkflowDetail() {
           <div className="empty-runs">No runs yet. Click &quot;Run Workflow&quot; to trigger the first execution.</div>
         ) : (
           <>
-            <div className="table-container">
-              <table className="data-table">
+            <div className="table-container mv-table-wrap">
+              <table className="mv-table">
                 <thead>
                   <tr>
-                    <th>Run ID</th>
-                    <th>Status</th>
-                    <th>Start Time</th>
-                    <th>Duration</th>
-                    <th>Reason</th>
-                    <th>Actions</th>
+                    <th>Run</th>
+                    <th className="mv-col-tight">Status</th>
+                    <th className="mv-col-tight">Started</th>
+                    <th className="mv-col-tight">Duration</th>
+                    <th className="mv-table-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -346,7 +347,7 @@ function WorkflowDetail() {
                     // sonundaki View bağlantısı da bu yüzden duruyor.
                     <tr
                       key={run.id}
-                      className="clickable-row"
+                      className="mv-table-row is-clickable"
                       onClick={() => navigate(`/workflows/${id}/runs/${run.id}`)}
                       onKeyDown={e => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -358,21 +359,38 @@ function WorkflowDetail() {
                       role="link"
                       aria-label={`Open run ${run.id.substring(0, 8)}`}
                     >
-                      <td><code className="run-id">{run.id.substring(0, 8)}...</code></td>
                       <td>
+                        {/* Why the run started sits under its id - it explains that run
+                            rather than being something you scan a column of. */}
+                        <code className="mv-table-code">{run.id.substring(0, 8)}…</code>
+                        <span className="mv-table-muted">{run.triggerReason || 'no reason recorded'}</span>
+                      </td>
+                      <td className="mv-col-tight">
                         <span className={`status-badge status-${workflowStatusColors[run.status]}`}>
                           {workflowStatusLabels[run.status]}
                         </span>
                       </td>
-                      <td>{run.startTime ? formatDate(run.startTime) : '-'}</td>
-                      <td>{run.durationMs ? `${(run.durationMs / 1000).toFixed(1)}s` : '-'}</td>
-                      <td>{run.triggerReason || '-'}</td>
+                      <td className="mv-col-tight">
+                        {run.startTime
+                          ? <span title={formatDate(run.startTime)}>{formatDate(run.startTime)}</span>
+                          : <span className="mv-table-dim">—</span>}
+                      </td>
+                      <td className="mv-col-tight">
+                        {run.durationMs
+                          ? <span className="mv-duration-text">{formatDurationMs(run.durationMs)}</span>
+                          : <span className="mv-table-dim">—</span>}
+                      </td>
                       {/* Satır zaten gidiyor, ama bağlantının kendisi orta tıklama ve
                           "yeni sekmede aç" için gerekli. */}
-                      <td onClick={e => e.stopPropagation()}>
-                        <Link to={`/workflows/${id}/runs/${run.id}`} className="dtl-btn dtl-btn--secondary dtl-btn--sm">
-                          <Icon name="visibility" size={14} /> View
-                        </Link>
+                      <td className="mv-table-actions" onClick={e => e.stopPropagation()}>
+                        <TableActions>
+                          <ActionButton
+                            intent="primary"
+                            icon="visibility"
+                            title="View run"
+                            to={`/workflows/${id}/runs/${run.id}`}
+                          />
+                        </TableActions>
                       </td>
                     </tr>
                   ))}

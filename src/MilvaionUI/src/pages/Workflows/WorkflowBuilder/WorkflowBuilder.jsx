@@ -218,9 +218,20 @@ function WorkflowBuilderInner() {
   }, [steps, jobsMap, handleDeleteStep, incomingCounts])
 
   // ── Load jobs ────────────────────────────────────────────────────────────────
+  // A first page only; the step panel's picker searches the server for the rest. Loading
+  // every job here meant the canvas could not open until the whole catalogue had arrived.
   useEffect(() => {
-    jobService.getAll().then(r => setJobs(r?.data || [])).catch(() => {})
+    jobService.getAll({ pageNumber: 1, rowCount: 50 })
+      .then(r => setJobs(r?.data?.data || r?.data || []))
+      .catch(() => {})
     workerService.getAll().then(r => setWorkers(r?.data || [])).catch(() => {})
+  }, [])
+
+  // Node labels read from `jobsMap`, so a job chosen through search has to land here too.
+  const rememberJob = useCallback((job) => {
+    if (!job) return
+
+    setJobs(current => current.some(j => j.id === job.id) ? current : [...current, job])
   }, [])
 
   // ── Load workflow (edit mode) ─────────────────────────────────────────────────
@@ -741,6 +752,7 @@ function WorkflowBuilderInner() {
           <StepConfigPanel
             step={selectedStep}
             jobs={jobs}
+            onJobResolved={rememberJob}
             allSteps={steps}
             edges={edges}
             schemasMap={schemasMap}

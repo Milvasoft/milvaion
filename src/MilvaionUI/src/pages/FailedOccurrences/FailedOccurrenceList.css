@@ -1,3 +1,4 @@
+/* Aksiyon butonları ortak `styles/table.css` içinde tanımlı. */
 .failed-job-list {
   padding: 0;
 }
@@ -21,54 +22,6 @@
   letter-spacing: -0.02em;
   color: var(--text-primary);
   margin: 0;
-}
-
-.bulk-actions {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.bulk-resolve-btn {
-  padding: 0.4rem 0.875rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  background-color: rgba(16, 185, 129, 0.08);
-  color: #10b981;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--transition-base), box-shadow var(--transition-base);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-}
-
-.bulk-resolve-btn:hover {
-  background-color: rgba(16, 185, 129, 0.14);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
-}
-
-.bulk-delete-btn {
-  padding: 0.4rem 0.875rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background-color: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--transition-base), box-shadow var(--transition-base);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-}
-
-.bulk-delete-btn:hover {
-  background-color: rgba(239, 68, 68, 0.14);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
 /* Statistics Grid */
@@ -193,37 +146,6 @@
   color: var(--text-secondary);
 }
 
-.filter-buttons {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* Smooth scrolling */
-  scroll-behavior: smooth;
-  /* Hide scrollbar for cleaner look (optional) */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-text) var(--bg-secondary);
-}
-
-/* Webkit browsers (Chrome, Safari, Edge) scrollbar styling */
-.filter-buttons::-webkit-scrollbar {
-  height: 6px;
-}
-
-.filter-buttons::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 3px;
-}
-
-.filter-buttons::-webkit-scrollbar-thumb {
-  background: var(--accent-color);
-  border-radius: 3px;
-}
-
-.filter-buttons::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-hover);
-}
-
 /* Prevent buttons from shrinking */
 .filter-btn {
   flex-shrink: 0;
@@ -253,206 +175,14 @@
   border-color: var(--accent-color);
 }
 
-.filter-select {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.filter-select label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.failure-type-select {
-  padding: 0.625rem 2rem 0.625rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 0.875rem;
-  background: var(--bg-secondary);
-  cursor: pointer;
-  min-width: 200px;
-  color: var(--text-primary);
-}
-
-.failure-type-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-/* Failed Jobs Table */
-.failed-jobs-table-container {
-  background: var(--bg-card);
-  border-radius: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--border-color);
-  /* Smooth horizontal scrolling */
-  scroll-behavior: smooth;
-  /* Custom scrollbar for mobile */
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Custom scrollbar for table container */
-.failed-jobs-table-container::-webkit-scrollbar {
-  height: 8px;
-}
-
-.failed-jobs-table-container::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 4px;
-}
-
-.failed-jobs-table-container::-webkit-scrollbar-thumb {
-  background: var(--accent-color);
-  border-radius: 4px;
-}
-
-.failed-jobs-table-container::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-hover);
-}
-
-.failed-jobs-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 800px; /* Minimum width to trigger horizontal scroll on mobile */
-  margin-top: 0 !important;
-}
-
-.failed-jobs-table thead {
-  /*background: var(--bg-tertiary);*/
-}
-
-  .failed-jobs-table th {
-    padding: 1rem;
-    text-align: left;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid var(--border-color);
-    white-space: nowrap; /* Prevent header text wrapping */
-    background: none !important;
-  }
-
-.failed-jobs-table th.checkbox-column {
-  width: 50px;
-  text-align: center;
-}
-
-.failed-jobs-table td.checkbox-column {
-  width: 50px;
-  text-align: center;
-}
-
-.failed-jobs-table td.checkbox-column input[type="checkbox"],
-.failed-jobs-table th.checkbox-column input[type="checkbox"] {
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent-color);
-}
-
-.failed-jobs-table tbody tr {
-  border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.15s;
-  cursor: pointer;
-}
-
-.failed-jobs-table tbody tr:hover {
-  background-color: var(--bg-hover);
-}
-
-.failed-jobs-table tbody tr.resolved-row {
-  opacity: 0.6;
-}
-
-.failed-jobs-table tbody tr.resolved-row:hover {
-  opacity: 0.75;
-}
-
-.failed-jobs-table td {
-  padding: 1rem;
-  font-size: 0.9375rem;
-  white-space: nowrap; /* Prevent cell content wrapping */
-}
-
-/* Mobile-specific table adjustments */
-@media (max-width: 768px) {
-  .failed-jobs-table-container {
-    margin-left: -1rem;
-    margin-right: -1rem;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-  }
-
-  .failed-jobs-table {
-    min-width: 1000px; /* Even wider on mobile to ensure all columns visible */
-  }
-
-  .failed-jobs-table th,
-  .failed-jobs-table td {
-    padding: 0.75rem 0.5rem; /* Reduce padding on mobile */
-  }
-
-  /* Show scroll indicator hint */
-  .failed-jobs-table-container::after {
-    content: '← Swipe to see more →';
-    display: block;
-    text-align: center;
-    padding: 0.5rem;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    background: var(--bg-card);
-  }
-}
+/* Tablo artık ortak `styles/table.css` üzerinden geliyor; dar ekran davranışı da
+   orada. Buradaki blok 1000px'lik bir `min-width` dayatıyordu - telefonda daha da
+   geniş yapmak, hepsi görünsün diye - ki bu sadece yatay kaydırmayı uzatıyordu. */
 
 /* Action Buttons */
 .action-buttons {
   display: flex;
   gap: 0.5rem;
-}
-
-.action-btn {
-  padding: 0.5rem;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  color: inherit;
-}
-
-.action-btn.view {
-  color: var(--accent-text);
-}
-
-.action-btn.view:hover {
-  background: var(--accent-glow);
-}
-
-.action-btn.resolve {
-  color: #10b981;
-}
-
-.action-btn.resolve:hover {
-  background: rgba(16, 185, 129, 0.12);
-}
-
-.action-btn.delete {
-  color: #ef4444;
-}
-
-.action-btn.delete:hover {
-  background: rgba(244, 67, 54, 0.15);
 }
 
 /* Resolve Form */
@@ -548,12 +278,6 @@
   border: 1px solid var(--border-color);
   gap: 1rem;
   margin-top: 0 !important;
-}
-
-.failed-jobs-table-container .pagination-container {
-  border: none;
-  border-radius: 0;
-  background: none;
 }
 
 .pagination {

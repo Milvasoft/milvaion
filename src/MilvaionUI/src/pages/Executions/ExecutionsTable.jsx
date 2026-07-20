@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import Pagination from './Pagination'
 import {
   TableToolbar,
+  TableSearch,
   SegmentedFilter,
   SelectionBar,
   BulkDeleteButton,
@@ -12,46 +12,54 @@ import {
   OpenCell,
   TableEmpty,
   TableFooter,
-} from './TableParts'
-import { formatDurationMs } from '../utils/dateUtils'
-import { statusOf, occurrenceDurationMs, OCCURRENCE_STATUS_FILTERS } from '../utils/occurrenceStatus'
+} from '../../components/TableParts'
+import { formatDurationMs } from '../../utils/dateUtils'
+import { statusOf, occurrenceDurationMs, OCCURRENCE_STATUS_FILTERS } from '../../utils/occurrenceStatus'
 
 /* eslint-disable react/prop-types */
 
 /**
- * A list of executions, for embedding in a detail page.
+ * The executions list.
  *
- * Same design as the executions screen - the columns, the tone-marked rows, the relative
- * timestamps - so a run looks the same wherever it is read. What differs is that this one
- * sits inside a section that already has its own heading, and that it can page either by
- * cursor or by number depending on where it is used.
+ * This is where the shared table design was worked out, so it is the fullest example of
+ * it: toolbar, segmented status filter, selection bar, tone-marked rows, relative
+ * timestamps, a scaled duration bar and cursor paging in the footer.
  *
- * The status filter used to be nine chips laid out above the table, one per status
- * including the ones almost nobody filters by. It is now the shared segmented control over
- * the six that get used.
+ * The columns are:
+ *
+ *   selection · what ran (job + worker) · how it went · created · started · completed ·
+ *   how long · open
+ *
+ * Worker sits under the job name because it qualifies the job rather than standing on its
+ * own - that is the rule the `mv-table-primary` / `mv-table-muted` pair exists for, and
+ * it is what keeps the table from growing a column per attribute.
+ *
+ * Separate from `OccurrenceTable`, which the job detail page renders inside a card that
+ * already has its own header and filters.
  */
-function OccurrenceTable({
+
+function ExecutionsTable({
   occurrences = [],
   loading,
   totalCount,
-  currentPage,
-  pageSize,
   filterStatus,
   onFilterChange,
-  onPageChange,
+  searchTerm,
+  onSearchChange,
+  pageSize,
   onPageSizeChange,
-  onBulkDelete,
-  showJobName = false,
-  useCursorPagination = false,
-  hasNextPage = false,
-  hasPreviousPage = false,
+  hasNextPage,
+  hasPreviousPage,
   onNextPage,
   onPreviousPage,
+  onBulkDelete,
 }) {
   const navigate = useNavigate()
   const [selected, setSelected] = useState([])
 
-  // Running rows count up, so the clock has to move - but only while something is running.
+  // Running rows show a duration counting up, so the clock has to move. Only while
+  // something is actually running - otherwise this would re-render the whole table once a
+  // second for nothing.
   const [now, setNow] = useState(Date.now())
   const hasRunning = occurrences.some(o => o.status === 1)
 
@@ -63,11 +71,6 @@ function OccurrenceTable({
     return () => clearInterval(timer)
   }, [hasRunning])
 
-  // A selection made on one page means nothing on the next one.
-  useEffect(() => {
-    setSelected([])
-  }, [currentPage, filterStatus])
-
   // Queued and running rows cannot be deleted, so they are not selectable either.
   const selectable = occurrences.filter(o => o.status !== 0 && o.status !== 1)
   const allSelected = selectable.length > 0 && selected.length === selectable.length
@@ -77,14 +80,18 @@ function OccurrenceTable({
   const toggleOne = (id) =>
     setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
 
+  // Scale for the duration bars, recomputed per page so they compare what is on screen
+  // rather than against an absolute the user cannot see.
   const maxMs = Math.max(0, ...occurrences.map(o => occurrenceDurationMs(o, now) ?? 0))
-  const columnCount = showJobName ? 8 : 7
-
-  if (loading) return <div className="loading">Loading executions…</div>
 
   return (
     <div className="mv-table-card">
       <TableToolbar>
+        <TableSearch
+          value={searchTerm}
+          onChange={onSearchChange}
+          placeholder="Search by id or name…"
+        />
         <SegmentedFilter
           options={OCCURRENCE_STATUS_FILTERS}
           value={filterStatus}
@@ -93,11 +100,9 @@ function OccurrenceTable({
         />
       </TableToolbar>
 
-      {onBulkDelete && (
-        <SelectionBar count={selected.length} onClear={() => setSelected([])}>
-          <BulkDeleteButton onClick={() => { onBulkDelete(selected); setSelected([]) }} />
-        </SelectionBar>
-      )}
+      <SelectionBar count={selected.length} onClear={() => setSelected([])}>
+        <BulkDeleteButton onClick={() => { onBulkDelete?.(selected); setSelected([]) }} />
+      </SelectionBar>
 
       <div className="mv-table-scroll">
         <table className="mv-table">
@@ -112,7 +117,7 @@ function OccurrenceTable({
                   aria-label="Select all"
                 />
               </th>
-              {showJobName && <th>Job</th>}
+              <th>Job</th>
               <th className="mv-col-tight">Status</th>
               <th className="mv-col-tight mv-col-created">Created</th>
               <th className="mv-col-tight">Started</th>
@@ -123,13 +128,14 @@ function OccurrenceTable({
           </thead>
 
           <tbody>
-            {occurrences.length === 0 && (
-              <TableEmpty colSpan={columnCount} message="No executions match the current filter." />
+            {occurrences.length === 0 && !loading && (
+              <TableEmpty colSpan={8} message="No executions match the current filters." />
             )}
 
             {occurrences.map(occurrence => {
               const status = statusOf(occurrence.status)
               const ms = occurrenceDurationMs(occurrence, now)
+              const name = occurrence.jobDisplayName || occurrence.jobName || 'Unknown job'
 
               return (
                 <tr
@@ -147,32 +153,25 @@ function OccurrenceTable({
                     />
                   </td>
 
-                  {showJobName && (
-                    <td>
-                      {/* The name links to the job; the row opens the execution. */}
-                      {occurrence.jobId ? (
-                        <Link
-                          to={`/jobs/${occurrence.jobId}`}
-                          className="mv-table-primary"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {occurrence.jobDisplayName || occurrence.jobName || 'Unknown job'}
-                        </Link>
-                      ) : (
-                        <span className="mv-table-primary">
-                          {occurrence.jobDisplayName || occurrence.jobName || 'Unknown job'}
-                        </span>
-                      )}
-                      <span className="mv-table-muted">{occurrence.workerId || 'no worker'}</span>
-                    </td>
-                  )}
+                  <td>
+                    {/* The name links to the job; the row opens the execution. Two
+                        destinations, so the inner one stops the row handler. */}
+                    {occurrence.jobId ? (
+                      <Link
+                        to={`/jobs/${occurrence.jobId}`}
+                        className="mv-table-primary"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {name}
+                      </Link>
+                    ) : (
+                      <span className="mv-table-primary">{name}</span>
+                    )}
+                    <span className="mv-table-muted">{occurrence.workerId || 'no worker'}</span>
+                  </td>
 
                   <td className="mv-col-tight">
                     <StatusCell status={status} spinning={occurrence.status === 1} />
-                    {/* With no job column there is nowhere else for the worker to go. */}
-                    {!showJobName && (
-                      <span className="mv-table-muted">{occurrence.workerId || 'no worker'}</span>
-                    )}
                   </td>
 
                   <td className="mv-col-tight mv-col-created">
@@ -202,30 +201,18 @@ function OccurrenceTable({
         </table>
       </div>
 
-      {useCursorPagination ? (
-        <TableFooter
-          totalCount={totalCount}
-          noun="executions"
-          pageSize={pageSize}
-          onPageSizeChange={onPageSizeChange}
-          hasNext={hasNextPage}
-          hasPrevious={hasPreviousPage}
-          onNext={onNextPage}
-          onPrevious={onPreviousPage}
-        />
-      ) : (
-        <TableFooter totalCount={totalCount} noun="executions">
-          <Pagination
-            page={currentPage}
-            totalCount={totalCount}
-            pageSize={pageSize}
-            onPageChange={onPageChange}
-            onPageSizeChange={onPageSizeChange}
-          />
-        </TableFooter>
-      )}
+      <TableFooter
+        totalCount={totalCount}
+        noun="executions"
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+        hasNext={hasNextPage}
+        hasPrevious={hasPreviousPage}
+        onNext={onNextPage}
+        onPrevious={onPreviousPage}
+      />
     </div>
   )
 }
 
-export default OccurrenceTable
+export default ExecutionsTable

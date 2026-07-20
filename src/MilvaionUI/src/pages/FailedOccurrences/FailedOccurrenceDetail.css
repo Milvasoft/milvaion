@@ -147,23 +147,23 @@
 }
 
 /* Info Row */
-.info-row {
+.failed-job-detail .info-row {
   display: flex;
   align-items: center;
   padding: 0.875rem 0;
   border-bottom: 1px solid var(--border-color);
 }
 
-.info-row:last-child {
+.failed-job-detail .info-row:last-child {
   border-bottom: none;
 }
 
-.info-row.full-width {
+.failed-job-detail .info-row.full-width {
   flex-direction: column;
   gap: 0.5rem;
 }
 
-  .info-row .label {
+  .failed-job-detail .info-row .label {
     flex: 0 0 180px;
     font-size: 0.875rem;
     font-weight: 600;
@@ -171,14 +171,14 @@
     text-align: left;
   }
 
-  .info-row .value {
+  .failed-job-detail .info-row .value {
     flex: 1;
     font-size: 0.9375rem;
     color: var(--text-primary);
     text-align: left;
   }
 
-.info-row .value code {
+.failed-job-detail .info-row .value code {
   font-family: 'Courier New', monospace;
   font-size: 0.875rem;
   padding: 0.25rem 0.5rem;
@@ -203,7 +203,7 @@
 }
 
 /* Failure Type Badge in Detail */
-.info-row .failure-type-badge {
+.failed-job-detail .info-row .failure-type-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;

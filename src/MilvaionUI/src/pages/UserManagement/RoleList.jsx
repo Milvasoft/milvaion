@@ -7,6 +7,9 @@ import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import AuditInfoCard from '../../components/AuditInfoCard'
+import Pagination from '../../components/Pagination'
+import TableActions, { ActionButton } from '../../components/TableActions'
+import { TableToolbar, TableSearch, TableFooter } from '../../components/TableParts'
 import './RoleList.css'
 
 function RoleList() {
@@ -258,23 +261,6 @@ function RoleList() {
         </button>
       </div>
 
-      <div className="search-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search by role name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="clear-search-btn" title="Clear search">
-              <Icon name="close" size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
       {roles.length === 0 ? (
         <div className="empty-state-card">
           <div className="empty-icon">
@@ -287,70 +273,50 @@ function RoleList() {
           )}
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th className="actions-col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roles.map(role => (
-                <tr key={role.id} className="clickable-row" onClick={() => handleEdit(role)}>
-                  <td className="id-col">{role.id}</td>
-                  <td>
-                    <div className="role-name">
-                      <Icon name="shield" size={16} />
-                      <span>{role.name}</span>
-                    </div>
-                  </td>
-                  <td className="actions-col">
-                    <div className="row-actions">
-                      <button onClick={(e) => { e.stopPropagation(); handleEdit(role) }} className="action-btn edit" title="Edit">
-                        <Icon name="edit" size={16} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(role.id) }} className="action-btn delete" title="Delete">
-                        <Icon name="delete" size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mv-table-card">
+          <TableToolbar>
+            <TableSearch value={searchTerm} onChange={setSearchTerm} placeholder="Search by role name…" />
+          </TableToolbar>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="pagination">
-              <div className="pagination-info">
-                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
-              </div>
-              <div className="pagination-controls">
-                <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} className="page-btn">
-                  <Icon name="first_page" size={18} />
-                </button>
-                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="page-btn">
-                  <Icon name="chevron_left" size={18} />
-                </button>
-                <span className="page-indicator">Page {currentPage} of {totalPages}</span>
-                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="page-btn">
-                  <Icon name="chevron_right" size={18} />
-                </button>
-                <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} className="page-btn">
-                  <Icon name="last_page" size={18} />
-                </button>
-              </div>
-              <div className="page-size-selector">
-                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                </select>
-              </div>
-            </div>
-          )}
+          <div className="mv-table-scroll">
+            <table className="mv-table">
+              <thead>
+                <tr>
+                  <th>Role</th>
+                  <th className="mv-col-tight">ID</th>
+                  <th className="mv-table-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {roles.map(role => (
+                  <tr key={role.id} className="mv-table-row is-clickable" onClick={() => handleEdit(role)}>
+                    <td>
+                      <span className="mv-table-primary">{role.name}</span>
+                    </td>
+                    <td className="mv-col-tight">
+                      <code className="mv-table-code">{role.id}</code>
+                    </td>
+                    <td className="mv-table-actions">
+                      <TableActions>
+                        <ActionButton intent="edit" icon="edit" title="Edit" onClick={() => handleEdit(role)} />
+                        <ActionButton intent="danger" icon="delete" title="Delete" onClick={() => handleDelete(role.id)} />
+                      </TableActions>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <TableFooter totalCount={totalCount} noun="roles">
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={handlePageChange}
+              onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+            />
+          </TableFooter>
         </div>
       )}
 

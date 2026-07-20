@@ -229,3 +229,87 @@
 .page .profile-grid > *:not(.collapsible-section) > *:last-child {
   flex: 1;
 }
+
+/* ── Dar ekranlar ────────────────────────────────────────────────────────────
+ *
+ * Uygulamadaki kart ızgaralarının neredeyse tamamı
+ * `repeat(auto-fit, minmax(NNNpx, 1fr))` kalıbıyla yazılmış. Bu kalıbın bilinen
+ * bir açığı var: `minmax`'in alt sınırı kabın kendisinden genişse auto-fit tek
+ * sütuna düşer ama sütun o alt sınırda kalır, yani kap taşar. 320px'lik bir
+ * minimum, 360px'lik bir telefonda kenar boşlukları düşünce zaten sığmıyor -
+ * sayfa yana kayıyor.
+ *
+ * Bunu kırk ayrı dosyada tek tek `min(NNNpx, 100%)` yaparak düzeltmek yerine,
+ * telefon genişliğinde hepsini tek sütuna indiriyoruz: o ölçüde iki sütun zaten
+ * okunabilir bir seçenek değil.
+ *
+ * Sayfa CSS'leri gecikmeli chunk olarak yüklendiği için buradaki kural cascade'de
+ * onların arkasında kalıyor; `!important` bu yüzden var, üstünlük yarışını
+ * kazanmak için değil - sıra yarışını kaybetmemek için.
+ */
+
+/* Kart ızgaraları: içerik taşıyan, geniş alt sınırlı olanlar. Bunlar telefonda
+   zaten iki sütun olamaz. */
+@media (max-width: 700px) {
+  [class*="-grid"],
+  .content-grid,
+  .dashboard-grid,
+  .health-summary,
+  .memory-overview,
+  .job-card-body,
+  .jd-summary,
+  .fo-summary,
+  .worker-summary {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/*
+ * Sayı ızgaraları - istatistik kutucukları - daha geç bırakıyor. Yan yana iki küçük
+ * sayı telefonda hâlâ okunabiliyor, hatta tek sütuna indirmek sayfayı gereksiz
+ * uzatıyor. Ancak 480px altında iki sütun her kutucuğu 150px'e düşürüyor; orada
+ * bırakıyorlar.
+ */
+@media (max-width: 480px) {
+  [class*="-stats"],
+  [class*="-cards"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 700px) {
+  /* Başlık ile eylemler yan yana sığmıyor: eylemler alta iniyor ve tam genişlik
+     alıyor, böylece dokunma hedefleri daralmak yerine büyüyor. */
+  .page-header {
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0.25rem 0 1.25rem;
+    padding-bottom: 0.875rem;
+  }
+
+  .page-header > h1,
+  .page-title h1 {
+    font-size: 1.25rem;
+  }
+
+  .page-header [class*="header-actions"] {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  /* Tek başına duran bir eylem satırı kaplasın; iki ve fazlası yan yana paylaşsın. */
+  .page-header [class*="header-actions"] > * {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  /* Bloklar arası nefes payı masaüstünde 1.5rem; telefonda ekranın önemli bir
+     kısmı ediyor. */
+  .page > * + * {
+    margin-top: 1rem;
+  }
+
+  .page > .collapsible-section + .collapsible-section {
+    margin-top: 1.25rem;
+  }
+}

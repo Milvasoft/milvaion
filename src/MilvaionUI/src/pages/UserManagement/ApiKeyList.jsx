@@ -7,6 +7,9 @@ import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import AuditInfoCard from '../../components/AuditInfoCard'
+import Pagination from '../../components/Pagination'
+import TableActions, { ActionButton } from '../../components/TableActions'
+import { TableToolbar, TableSearch, TableFooter, TimeCell, StatusCell } from '../../components/TableParts'
 // RoleList.css carries the shared list-page styling (header, table, pagination, form modal), all scoped under
 // .role-list. This page reuses that class alongside its own so the two screens cannot drift apart visually.
 // ApiKeyList.css only adds what is specific to api keys.
@@ -20,16 +23,15 @@ const EXPIRY_OPTIONS = [
   { label: 'Never expires', days: null }
 ]
 
-const formatDate = (value) => {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-}
-
+/* `tone` is the shared vocabulary from `table.css`: it colours the status label and the
+   row's left edge together, so a dead key is visible before the column is read. */
 const getStatus = (apiKey) => {
-  if (apiKey.revokedAt) return { label: 'Revoked', className: 'revoked' }
-  if (apiKey.expiresAt && new Date(apiKey.expiresAt) <= new Date()) return { label: 'Expired', className: 'expired' }
-  return { label: 'Active', className: 'active' }
+  if (apiKey.revokedAt) return { label: 'Revoked', tone: 'danger', icon: 'block' }
+  if (apiKey.expiresAt && new Date(apiKey.expiresAt) <= new Date()) {
+    return { label: 'Expired', tone: 'warning', icon: 'schedule' }
+  }
+
+  return { label: 'Active', tone: 'success', icon: 'check_circle' }
 }
 
 function ApiKeyList() {
@@ -331,23 +333,6 @@ function ApiKeyList() {
         </button>
       </div>
 
-      <div className="search-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search by api key name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="clear-search-btn" title="Clear search">
-              <Icon name="close" size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
       {apiKeys.length === 0 ? (
         <div className="empty-state-card">
           <div className="empty-icon">
@@ -364,87 +349,74 @@ function ApiKeyList() {
           )}
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Key</th>
-                <th>Status</th>
-                <th>Expires</th>
-                <th>Last Used</th>
-                <th className="actions-col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {apiKeys.map(apiKey => {
-                const status = getStatus(apiKey)
+        <div className="mv-table-card">
+          <TableToolbar>
+            <TableSearch value={searchTerm} onChange={setSearchTerm} placeholder="Search by api key name…" />
+          </TableToolbar>
 
-                return (
-                  <tr key={apiKey.id} className="clickable-row" onClick={() => handleEdit(apiKey)}>
-                    <td className="id-col">{apiKey.id}</td>
-                    <td>
-                      <div className="api-key-name">
-                        <Icon name="key" size={16} />
-                        <span>{apiKey.name}</span>
-                      </div>
-                    </td>
-                    <td><code className="masked-key">{apiKey.maskedKey || '—'}</code></td>
-                    <td><span className={`status-badge ${status.className}`}>{status.label}</span></td>
-                    <td className="muted-col">{apiKey.expiresAt ? formatDate(apiKey.expiresAt) : 'Never'}</td>
-                    <td className="muted-col">{formatDate(apiKey.lastUsedAt)}</td>
-                    <td className="actions-col">
-                      <div className="row-actions">
-                        <button onClick={(e) => { e.stopPropagation(); handleEdit(apiKey) }} className="action-btn edit" title="Edit">
-                          <Icon name="edit" size={16} />
-                        </button>
-                        {!apiKey.revokedAt && (
-                          <button onClick={(e) => { e.stopPropagation(); handleRevoke(apiKey) }} className="action-btn revoke" title="Revoke">
-                            <Icon name="block" size={16} />
-                          </button>
-                        )}
-                        <button onClick={(e) => { e.stopPropagation(); handleDelete(apiKey.id) }} className="action-btn delete" title="Delete">
-                          <Icon name="delete" size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="mv-table-scroll">
+            <table className="mv-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th className="mv-col-tight">Status</th>
+                  <th className="mv-col-tight">Expires</th>
+                  <th className="mv-col-tight">Last used</th>
+                  <th className="mv-table-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {apiKeys.map(apiKey => {
+                  const status = getStatus(apiKey)
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="pagination">
-              <div className="pagination-info">
-                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
-              </div>
-              <div className="pagination-controls">
-                <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} className="page-btn">
-                  <Icon name="first_page" size={18} />
-                </button>
-                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="page-btn">
-                  <Icon name="chevron_left" size={18} />
-                </button>
-                <span className="page-indicator">Page {currentPage} of {totalPages}</span>
-                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="page-btn">
-                  <Icon name="chevron_right" size={18} />
-                </button>
-                <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} className="page-btn">
-                  <Icon name="last_page" size={18} />
-                </button>
-              </div>
-              <div className="page-size-selector">
-                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                </select>
-              </div>
-            </div>
-          )}
+                  return (
+                    <tr
+                      key={apiKey.id}
+                      className={'mv-table-row is-clickable' + (status.tone === 'success' ? '' : ` tone-${status.tone}`)}
+                      onClick={() => handleEdit(apiKey)}
+                    >
+                      <td>
+                        {/* The masked key belongs under the name - it identifies the same
+                            key, and nobody scans a column of masked strings. */}
+                        <span className="mv-table-primary">{apiKey.name}</span>
+                        <span className="mv-table-muted">{apiKey.maskedKey || '—'}</span>
+                      </td>
+                      <td className="mv-col-tight">
+                        <StatusCell status={status} />
+                      </td>
+                      <td className="mv-col-tight">
+                        {apiKey.expiresAt
+                          ? <TimeCell value={apiKey.expiresAt} />
+                          : <span className="mv-table-dim">Never</span>}
+                      </td>
+                      <td className="mv-col-tight">
+                        <TimeCell value={apiKey.lastUsedAt} placeholder="never used" />
+                      </td>
+                      <td className="mv-table-actions">
+                        <TableActions>
+                          <ActionButton intent="edit" icon="edit" title="Edit" onClick={() => handleEdit(apiKey)} />
+                          {!apiKey.revokedAt && (
+                            <ActionButton intent="danger" icon="block" title="Revoke" onClick={() => handleRevoke(apiKey)} />
+                          )}
+                          <ActionButton intent="danger" icon="delete" title="Delete" onClick={() => handleDelete(apiKey.id)} />
+                        </TableActions>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <TableFooter totalCount={totalCount} noun="api keys">
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={handlePageChange}
+              onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+            />
+          </TableFooter>
         </div>
       )}
 

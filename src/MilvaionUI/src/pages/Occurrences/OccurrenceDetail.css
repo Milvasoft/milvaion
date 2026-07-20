@@ -567,20 +567,6 @@
     box-shadow: var(--shadow-lg);
   }
 
-    .log-data-inline pre::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    .log-data-inline pre::-webkit-scrollbar-track {
-      background: var(--bg-secondary);
-    }
-
-    .log-data-inline pre::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 3px;
-    }
-
 .correlation-id {
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;

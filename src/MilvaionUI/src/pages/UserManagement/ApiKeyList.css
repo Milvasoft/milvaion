@@ -10,23 +10,6 @@
   color: var(--text-primary);
 }
 
-.api-key-list .masked-key {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-  border-radius: 6px;
-  padding: 0.15rem 0.5rem;
-  white-space: nowrap;
-}
-
-.api-key-list .muted-col {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  white-space: nowrap;
-}
-
 /* Status */
 
 .api-key-list .status-badge {
@@ -55,11 +38,6 @@
   color: var(--warning, #eab308);
   background: rgba(234, 179, 8, 0.12);
   border: 1px solid rgba(234, 179, 8, 0.25);
-}
-
-.api-key-list .action-btn.revoke:hover {
-  color: var(--warning, #eab308);
-  background: rgba(234, 179, 8, 0.12);
 }
 
 /* Field hints */

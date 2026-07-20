@@ -8,7 +8,7 @@ import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import './ExecutionList.css'
-import OccurrenceTable from '../../components/OccurrenceTable'
+import ExecutionsTable from './ExecutionsTable'
 
 function ExecutionList() {
   const location = useLocation()
@@ -201,47 +201,23 @@ function ExecutionList() {
         </h1>
       </div>
 
-      <div className="search-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search by id or name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="clear-search-btn"
-              title="Clear search"
-            >
-              <Icon name="close" size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <OccurrenceTable
+      <ExecutionsTable
         occurrences={occurrences}
         loading={loading}
         totalCount={totalCount}
-        currentPage={paginationState.cursorHistory.length + 1}
         pageSize={pageSize}
         filterStatus={filterStatus}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
         onFilterChange={(status) => {
           setFilterStatus(status)
           setPaginationState({ cursor: null, cursorHistory: [], hasNextPage: false, nextCursor: null })
         }}
-        onPageChange={() => {}}
         onPageSizeChange={(newSize) => {
           setPageSize(newSize)
           setPaginationState({ cursor: null, cursorHistory: [], hasNextPage: false, nextCursor: null })
         }}
         onBulkDelete={handleBulkDelete}
-        showJobName={true}
-        useCursorPagination={true}
         hasNextPage={paginationState.hasNextPage}
         hasPreviousPage={paginationState.cursorHistory.length > 0}
         onNextPage={handleNextPage}

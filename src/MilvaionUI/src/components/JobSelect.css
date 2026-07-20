@@ -1,0 +1,154 @@
+/*
+ * Server-backed job picker.
+ *
+ * Prefixed throughout: this renders inside the workflow form and the builder's config
+ * panel, two places with their own dropdown and option styling, and stylesheets here load
+ * globally.
+ */
+
+.mv-jobselect {
+  position: relative;
+  width: 100%;
+}
+
+.mv-jobselect-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.925rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-base);
+}
+
+.mv-jobselect-control:hover:not(:disabled),
+.mv-jobselect-control:focus-visible {
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+.mv-jobselect-control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Nothing chosen yet: the text is a prompt, not a value. */
+.mv-jobselect-control.is-empty .mv-jobselect-label {
+  color: var(--text-muted);
+}
+
+.mv-jobselect-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mv-jobselect-clear {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+}
+
+.mv-jobselect-clear:hover {
+  color: var(--error-color);
+}
+
+/* ── Menu ────────────────────────────────────────────────────────────────── */
+
+.mv-jobselect-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.mv-jobselect-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mv-jobselect-search > span:first-child {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mv-jobselect-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.mv-jobselect-results {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.mv-jobselect-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mv-jobselect-option:last-child {
+  border-bottom: none;
+}
+
+.mv-jobselect-option:hover {
+  background-color: var(--bg-hover);
+}
+
+.mv-jobselect-option.is-selected {
+  background-color: var(--accent-glow);
+}
+
+.mv-jobselect-option-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.mv-jobselect-option-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.mv-jobselect-hint {
+  padding: 0.7rem;
+  font-size: 0.825rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Görünmez tetikleyici: açılır listenin sonuna yaklaşınca sonraki sayfa isteniyor. */
+.mv-jobselect-sentinel {
+  height: 1px;
+}

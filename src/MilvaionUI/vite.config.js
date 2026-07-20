@@ -130,9 +130,18 @@ export default defineConfig(({ mode }) => {
     // Optimize chunks
     rollupOptions: {
       output: {
+        // Heavy libraries get their own chunks so they are cached independently of
+        // application code, and - because only a few lazily loaded routes import
+        // them - are never fetched by someone who does not open those routes.
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'signalr': ['@microsoft/signalr'],
+          // Workflow builder and canvas only.
+          'reactflow': ['reactflow'],
+          // Reports and dashboard charts only.
+          'charts': ['recharts'],
+          // Large, and pulled in by date formatting used across most pages.
+          'moment': ['moment'],
         }
       }
     },
