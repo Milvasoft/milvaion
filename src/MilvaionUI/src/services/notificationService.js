@@ -12,6 +12,10 @@ const notificationService = {
       userId: user?.id,
       pageIndex,
       itemCount,
+      sorting: {
+        sortBy: "Id",
+        type: 1 // 1 = Descending
+      }
     })
     return response
   },

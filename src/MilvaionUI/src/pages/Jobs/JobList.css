@@ -226,6 +226,12 @@
   margin-bottom: 1.5rem;
 }
 
+/* The mobile filter toggle does not exist on desktop; the strip above is always shown
+   there. Hidden here, revealed only in the phone media query. */
+.job-filters-toggle {
+  display: none;
+}
+
 .job-filter {
   display: flex;
   flex-direction: column;
@@ -767,14 +773,21 @@
     padding: 0 0.75rem;
   }
 
-  .page-header {
-    flex-direction: column;
+  /* Scoped and marked, so it beats the desktop `.job-list .page-header` row rule that
+     otherwise won on source order and kept the header a wrapping row - which pushed the
+     title off the top and let the actions line up to the right and run off-screen. */
+  .job-list .page-header {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
     gap: 1rem;
     margin-bottom: 1.5rem;
   }
 
-  .header-content {
+  .job-list .header-content {
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     text-align: left;
   }
 
@@ -784,17 +797,24 @@
     flex-wrap: wrap;
   }
 
-  .header-actions {
+  /*
+   * Stacked, not wrapped. The create button carried a nowrap label and a min-width, so
+   * whenever the row it landed on was narrower than that minimum it ran off the right edge
+   * - which is the "sometimes off-screen" the button was doing. One control per row can
+   * never overflow. Scoped and marked for the same source-order reason as the header above.
+   */
+  .job-list .header-actions {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 0.625rem;
   }
 
   .search-box {
-    flex: 1;
-    min-width: 200px;
-    max-width: 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
   }
 
   .search-input {
@@ -802,12 +822,61 @@
   }
 
   .create-job-btn {
-    flex: 1;
-    min-width: 200px;
+    width: 100%;
+    min-width: 0;
     justify-content: center;
   }
 
-  /* Dar ekranda seçimler yan yana sıkışmak yerine tam genişlikte alt alta. */
+  /* ── Filters, behind a toggle ──────────────────────────────────────────────
+     Five selects at full width push the list a screenful down. The strip collapses to a
+     single button and opens on tap; on desktop the button does not exist and the strip is
+     always visible. */
+  .job-filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin-bottom: 1rem;
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .job-filters-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--accent-color);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  /* Pushes the chevron to the far end. */
+  .job-filters-toggle-chevron {
+    margin-left: auto;
+  }
+
+  /* Collapsed unless the toggle opened it. */
+  .job-filters {
+    display: none;
+  }
+
+  .job-filters.is-open {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .job-filter {
     flex: 1 1 100%;
     min-width: 0;
@@ -1011,13 +1080,21 @@
   max-width: 100%;
 }
 
+/*
+ * Clip, not hidden. `overflow-x: hidden` computes `overflow-y` to `auto` (CSS Overflow 3:
+ * a scroll-type value on one axis promotes a `visible` other axis), which turned `.job-list`
+ * into a vertical scroll box. That box then clipped the page header, which the mobile layout
+ * pulls up above its top edge to sit beside the hamburger - so the title vanished. `clip`
+ * stops the horizontal scroll without promoting the vertical axis, so the pulled-up title
+ * stays visible. Same reasoning as `.main-content` and `#root`, noted in Configuration.css.
+ */
 .job-list,
 .job-list .page-header,
 .header-actions,
 .jobs-grid,
 .job-card,
 .pagination-container {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Touch device optimizations */

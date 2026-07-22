@@ -1246,18 +1246,28 @@
     justify-content: flex-start;
   }
 
-  /* Ayar alanları sabit genişliklerini bırakıp iki sütuna diziliyor. */
+  /*
+   * Ayar alanları sabit genişliklerini bırakıp sarıyor.
+   *
+   * Sorun düz `.wfb-setting-field`'daydı: `flex: 1; min-width: 0`, etiket ise
+   * `white-space: nowrap`. Dar bir satırda alan içeriğinin altına kadar büzülüyor ve nowrap
+   * etiket komşu alanın üstüne taşıyordu - "inputlar birbirine girmiş" bu. Her alana
+   * gerçek bir taban genişlik verilince alan büzülmek yerine alt satıra sarıyor.
+   */
   .wfb-settings-row {
     flex-wrap: wrap;
   }
 
+  .wfb-setting-field,
   .wfb-setting-field--sm,
   .wfb-setting-field--xs {
     flex: 1 1 140px;
+    min-width: 130px;
   }
 
   .wfb-setting-field--full {
     flex: 1 1 100%;
+    min-width: 0;
   }
 
   /* Kalan dikey alan zaten az; tuval sabit 500px yerine ekranın yarısını alıyor. */

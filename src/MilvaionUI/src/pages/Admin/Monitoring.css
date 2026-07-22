@@ -536,6 +536,21 @@
   .mvm-signals {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  /*
+   * Two-up, the tiles are wide and their left-aligned label/value/sparkline drifted to the
+   * left edge with a pool of empty space beside them. Centring the column pulls the content
+   * back to the middle of the card. The single-column layout below keeps its own
+   * value-beside-sparkline arrangement, so this stops before it.
+   */
+  .mvm-signal {
+    align-items: center;
+    text-align: center;
+  }
+
+  .mvm-signal-foot {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 700px) {
@@ -572,14 +587,20 @@
 
   .mvm-signal {
     /* One per row: the tile is now wide, so value and sparkline sit side by side rather
-       than stacked, and the row stays short. */
+       than stacked, and the row stays short. Left-aligned again - the centring from the
+       two-column range does not suit this arrangement. */
     display: grid;
     grid-template-columns: 1fr auto;
     grid-template-areas:
       'label label'
       'value spark';
     align-items: end;
+    text-align: left;
     gap: 0.25rem 1rem;
+  }
+
+  .mvm-signal-foot {
+    justify-content: flex-start;
   }
 
   .mvm-signal-label { grid-area: label; }

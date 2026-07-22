@@ -67,6 +67,11 @@ function JobList() {
 
   // Trigger modal state
   const [showTriggerModal, setShowTriggerModal] = useState(false)
+
+  /* On a phone the five filter selects eat most of the screen before the list starts, so
+     they collapse behind a toggle. The toggle and this state do nothing on desktop - the
+     filter strip is shown there regardless (see JobList.css). */
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [triggerJobData, setTriggerJobData] = useState('')
   const [useCustomData, setUseCustomData] = useState(false)
   const [selectedJobForTrigger, setSelectedJobForTrigger] = useState(null)
@@ -473,7 +478,21 @@ function JobList() {
         </div>
       </div>
 
-      <div className="job-filters">
+      {/* Mobile-only: opens the filter strip. Hidden on desktop, where the strip is always
+          visible. */}
+      <button
+        type="button"
+        className="job-filters-toggle"
+        onClick={() => setMobileFiltersOpen(o => !o)}
+        aria-expanded={mobileFiltersOpen}
+      >
+        <Icon name="filter_list" size={18} />
+        Filters
+        {activeFilterCount > 0 && <span className="job-filters-badge">{activeFilterCount}</span>}
+        <Icon name={mobileFiltersOpen ? 'expand_less' : 'expand_more'} size={18} className="job-filters-toggle-chevron" />
+      </button>
+
+      <div className={'job-filters' + (mobileFiltersOpen ? ' is-open' : '')}>
         <div className="job-filter">
           <label htmlFor="filterIsActive">Status</label>
           <select

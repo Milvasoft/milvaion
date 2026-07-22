@@ -420,6 +420,19 @@
   .health-cards-grid {
     grid-template-columns: 1fr;
   }
+
+  /*
+   * The schedule table scrolls sideways instead of being clipped.
+   *
+   * The wrapper carries `overflow: hidden` for its rounded corners, which on a phone hid
+   * the right-hand columns of a table too wide to fit rather than letting them be reached.
+   * `auto` on the horizontal axis restores the scroll; the vertical stays clipped so the
+   * corners survive.
+   */
+  .schedule-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Schedule vs Actual Specific Styles */

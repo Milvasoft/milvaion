@@ -28,6 +28,15 @@
    Workflows sayfası zaten böyle çalışıyordu; referans o. */
 .page {
   width: 100%;
+  /*
+   * `#root` still carries `text-align: center` from the Vite starter, and every page
+   * inherits it. On a desktop most content sets its own alignment so the leak is invisible,
+   * but the moment a heading wraps onto a second line - a long job name on a phone - the
+   * inherited centring shows and the title drifts to the middle. Stating `left` on the page
+   * root stops it here without disturbing the components that ask for centring explicitly
+   * (empty states, stat tiles), which set their own `text-align`.
+   */
+  text-align: left;
 }
 
 /* Başlığın üstünde ve altında nefes payı. Öncesinde içerik alanının kenarına ve

@@ -535,7 +535,10 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
           <div className="dtl-title">
             <h1>
               <Icon name="work" size={28} />
-              {job.displayName || job.name}
+              {/* The name in its own element so it can be told to take the rest of the
+                  title row and wrap inside itself, keeping it beside the icon rather than
+                  breaking onto a line of its own on a phone. */}
+              <span className="dtl-title-text">{job.displayName || job.name}</span>
               <span className={`job-status-badge ${job.isActive ? 'active' : 'inactive'} ${isAutoDisabled ? 'auto-disabled' : ''}`}>
                 <Icon name={job.isActive ? 'check_circle' : isAutoDisabled ? 'power_off' : 'pause_circle'} size={16} />
                 {isAutoDisabled ? 'Auto-Disabled' : job.isActive ? 'Active' : 'Inactive'}

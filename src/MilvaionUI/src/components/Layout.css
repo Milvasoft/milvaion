@@ -545,9 +545,12 @@
   /* Mobile menu toggle button (hamburger) */
   .mobile-menu-toggle {
     position: fixed;
-    top: 1rem;
-    left: 1rem;
+    top: 0.85rem;
+    left: 0.75rem;
     z-index: 999;
+    /* Square, and its left/width match the header spacer below so the icon and title line
+       up beside it rather than floating over an empty corner. */
+    width: 44px;
     height: 44px;
     border-radius: 8px;
     background-color: var(--accent-color);
@@ -559,6 +562,74 @@
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     transition: all 0.2s;
+  }
+
+  /*
+   * The page header, beside the hamburger rather than below it - on every page.
+   *
+   * The hamburger is `position: fixed`, so it is out of flow and the header knows nothing
+   * about it - which is why every page left a 4.5rem empty strip at the top to clear it,
+   * with the title stranded underneath.
+   *
+   * Two moves. The header is pulled up into that strip with a negative top margin so its
+   * first row sits level with the hamburger, and stacked into a column so the actions drop
+   * onto their own full-width line below. Then only that first row - the title, and on a
+   * detail page the back button ahead of it - is indented past the hamburger's footprint,
+   * so the actions keep the full width.
+   *
+   * Two things made the earlier version miss. Page roots are not uniform - some pages open
+   * on `.page`, others on `.page-container` or a bespoke `.profile-page` - so a
+   * `.page > .page-header` child selector matched only some of them. And each page ships
+   * its own header rules in a route chunk that loads after this file; on a specificity tie
+   * the chunk won, so a page that set its header to a row kept it. Matching on the shared
+   * `.main-content` ancestor reaches every root, and `!important` wins the source-order
+   * tie rather than escalating specificity - the same reason page.css marks its grid
+   * rules, noted there.
+   */
+  .main-content .page-header,
+  .main-content .dtl-header {
+    margin-top: -3.65rem !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    row-gap: 0.85rem;
+  }
+
+  /* Only the first row clears the hamburger. On most pages that is the title or its
+     wrapper (`.header-content`, an unnamed div, a bare `h1`); on a detail page it is
+     `.dtl-header-left`, which carries the back button ahead of the icon and title. */
+  .main-content .page-header > *:first-child,
+  .main-content .dtl-header > .dtl-header-left {
+    padding-left: 3.4rem !important;
+    min-height: 44px;
+  }
+
+  /*
+   * On a detail page the back button and the title share `.dtl-header-left`. Its base rule
+   * centres them vertically, which is right when the title is one line but leaves the back
+   * button floating in the middle once the title wraps and the badges stack below it. Top
+   * alignment keeps the back button level with the title's first line and the hamburger.
+   */
+  .main-content .dtl-header > .dtl-header-left {
+    align-items: flex-start;
+  }
+
+  /* Configuration opens on its identity strip rather than a page header, so that strip
+     takes the pull-up and its title row takes the indent. The strip keeps its own internal
+     layout - only the title clears the hamburger. */
+  .main-content .mvc-identity {
+    margin-top: -3.65rem !important;
+  }
+
+  .main-content .mvc-identity > .mvc-identity-title {
+    padding-left: 3.4rem !important;
+    min-height: 44px;
+  }
+
+  /* The workflow builder is a full-height tool with its own toolbar and no page header, so
+     its top bar clears the hamburger directly. */
+  .wfb-toolbar {
+    padding-left: 3.25rem;
   }
 
   .mobile-menu-toggle:hover {

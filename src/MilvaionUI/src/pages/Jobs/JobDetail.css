@@ -843,6 +843,53 @@
     padding: 0.4rem 0.8rem;
   }
 
+  /*
+   * The title and its status chips on a phone.
+   *
+   * The earlier attempt here stretched each chip to `flex-basis: 100%`, which turned
+   * "Active" into a full-width bar, and the whole block was also inheriting the root's
+   * centred text so the wrapped name drifted to the middle. Both of those are fixed
+   * elsewhere now (the page sets `text-align: left`); what is left is to let the chips keep
+   * their natural width and wrap under the name as an ordinary group, left-aligned.
+   */
+  .job-detail .dtl-title h1 {
+    align-items: center;
+    row-gap: 0.4rem;
+    font-size: 1.25rem;
+  }
+
+  /*
+   * The name sits beside the icon and wraps within itself.
+   *
+   * As a bare text node it was a single flex item that dropped whole onto the next line the
+   * moment it did not fit, leaving the icon stranded alone on the row above. Given the rest
+   * of the row (`flex: 1`) and allowed to break mid-value (`min-width: 0`), it starts next
+   * to the icon and continues underneath, and because it now fills the row the status chip
+   * is pushed to a clean line of its own below.
+   */
+  .job-detail .dtl-title-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .job-detail .dtl-title h1 > .job-status-badge {
+    /*
+     * On its own line, but only as wide as its content.
+     *
+     * `flex-basis: 100%` forces the wrap so the chip drops below the name instead of
+     * trailing off the end of it; `max-width: max-content` then claws the width back to the
+     * text, so it reads as a chip and not the full-width bar the last attempt produced.
+     */
+    flex-basis: 100%;
+    max-width: max-content;
+  }
+
+  .job-detail .title-content {
+    margin-top: 0.5rem;
+    align-items: flex-start;
+  }
+
   .job-tags {
     gap: 0.25rem;
   }

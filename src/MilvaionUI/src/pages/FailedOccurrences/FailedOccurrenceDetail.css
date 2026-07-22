@@ -343,6 +343,40 @@
   }
 }
 
+@media (max-width: 768px) {
+  /*
+   * Label above value, not beside it.
+   *
+   * The row is a flex pair - a 180px fixed label and the value - so on a phone the value
+   * was left with under half the width. The failure type chip is an inline-flex pill that
+   * does not shrink, so a long type like "External Dependency Failure" ran straight off the
+   * right edge. Stacking gives the value the whole row, and letting the chip wrap keeps it
+   * inside it.
+   */
+  .failed-job-detail .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .failed-job-detail .info-row .label {
+    flex: none;
+  }
+
+  .failed-job-detail .info-row .value {
+    width: 100%;
+  }
+
+  .failed-job-detail .info-row .failure-type-badge {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .failed-job-detail .info-row .value code {
+    overflow-wrap: anywhere;
+  }
+}
+
 /* Loading & Error States */
 .loading, .error {
   padding: 3rem;

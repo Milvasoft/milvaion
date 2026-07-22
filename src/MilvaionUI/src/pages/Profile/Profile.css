@@ -286,12 +286,29 @@
 
 /* ── Responsive ────────────────────────────────────────── */
 @media (max-width: 720px) {
+  /*
+   * Stacked and centred.
+   *
+   * When the avatar sits above the name rather than beside it, `flex-start` left the whole
+   * group hugging the edge with the round avatar adrift on the left. Centring the column
+   * puts the avatar over its name, which is what a stacked identity card is meant to look
+   * like.
+   */
   .profile-page .profile-hero-card {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
     gap: 1rem;
     border-left-width: 1px;
     border-top: 3px solid var(--accent-color);
+  }
+
+  .profile-page .profile-hero-info {
+    align-items: center;
+  }
+
+  .profile-page .roles-badges {
+    justify-content: center;
   }
 
   .profile-page .profile-grid {

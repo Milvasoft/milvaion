@@ -633,6 +633,52 @@
 }
 
 @media (max-width: 768px) {
+  /*
+   * Basic information first.
+   *
+   * At tablet width the sidebar - settings, auto-disable, tips - is deliberately pulled
+   * above the main column with `order: -1`. On a phone that meant the form opened on its
+   * secondary settings and pushed the name, type and schedule fields below them. Resetting
+   * the order restores the natural sequence: fill the essentials, then the options.
+   */
+  .form-sidebar {
+    order: 0;
+  }
+
+  /*
+   * Header, beside the hamburger and stacked.
+   *
+   * JobForm has its own `.form-header` rather than the shared `.page-header`, so none of
+   * the generic mobile header handling reached it - the sticky, space-between row stayed
+   * put, the 2rem title was left fighting the action buttons for the right half of the
+   * screen, and it broke into three one-word lines.
+   *
+   * On a phone the header drops its stickiness (a tall stacked header would swallow the
+   * screen), becomes a column so the title has the full width, is pulled up level with the
+   * hamburger, and the back button + title are indented past it - hamburger, back, title.
+   */
+  .form-header {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    margin-top: -3.65rem;
+  }
+
+  .form-header-left {
+    align-items: flex-start;
+    padding-left: 3.4rem;
+    min-height: 44px;
+  }
+
+  .job-form-container h1 {
+    font-size: 1.3rem;
+  }
+
+  .form-header-content h1 span {
+    overflow-wrap: anywhere;
+  }
+
   /* Artık grid değil; dar ekranda seçenekler tam genişliğe yayılsın. */
   .radio-option {
     flex: 1 1 100%;

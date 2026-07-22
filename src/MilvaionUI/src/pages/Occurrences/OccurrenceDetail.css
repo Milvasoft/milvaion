@@ -733,6 +733,23 @@
     padding: 0.75rem;
   }
 
+  /*
+   * The message wraps instead of running off the screen.
+   *
+   * On desktop it is a single truncated line (`white-space: nowrap` + ellipsis). On a
+   * phone there is no room to truncate usefully, and the line was overflowing the entry
+   * rather than shortening - a flex item's default `min-width: auto` will not shrink below
+   * its own nowrap content. Here it takes a full-width row of its own and breaks, long
+   * unbroken tokens included, so nothing spills past the edge.
+   */
+  .log-message {
+    flex-basis: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
   .logs-container {
     max-height: 400px;
   }
