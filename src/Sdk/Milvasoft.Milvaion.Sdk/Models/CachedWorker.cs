@@ -65,6 +65,16 @@ public class CachedWorker
     public int CurrentJobs { get; set; }
 
     /// <summary>
+    /// Total physical memory usage (working set) across all instances, in bytes.
+    /// </summary>
+    public long MemoryBytes { get; set; }
+
+    /// <summary>
+    /// Average CPU usage percentage across all instances (0-100).
+    /// </summary>
+    public double CpuUsagePercent { get; set; }
+
+    /// <summary>
     /// Worker status (Active, Inactive, Zombie).
     /// </summary>
     public WorkerStatus Status { get; set; }
@@ -105,6 +115,16 @@ public class WorkerInstance
     /// Current number of jobs being processed by this instance.
     /// </summary>
     public int CurrentJobs { get; set; }
+
+    /// <summary>
+    /// Physical memory usage (working set) of this instance's process, in bytes.
+    /// </summary>
+    public long MemoryBytes { get; set; }
+
+    /// <summary>
+    /// CPU usage percentage of this instance's process (0-100, normalized across cores).
+    /// </summary>
+    public double CpuUsagePercent { get; set; }
 
     /// <summary>
     /// Instance status (Active, Inactive, Zombie).

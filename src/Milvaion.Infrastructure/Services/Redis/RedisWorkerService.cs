@@ -160,7 +160,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     /// <summary>
     /// Updates heartbeats for multiple worker instances in batch.
     /// </summary>
-    public async Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)> updates, CancellationToken cancellationToken = default)
+    public async Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, long MemoryBytes, double CpuUsagePercent, DateTime Timestamp)> updates, CancellationToken cancellationToken = default)
     {
         if (updates.IsNullOrEmpty())
             return 0;
@@ -170,7 +170,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             var batch = _db.CreateBatch();
             var updateTasks = new List<Task>();
 
-            foreach (var (WorkerId, InstanceId, CurrentJobs, Timestamp) in updates)
+            foreach (var (WorkerId, InstanceId, CurrentJobs, MemoryBytes, CpuUsagePercent, Timestamp) in updates)
             {
                 var instanceKey = $"workers:{WorkerId}:instances:{InstanceId}";
                 var workerKey = $"workers:{WorkerId}";
@@ -182,6 +182,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 [
                     new("lastHeartbeat", heartbeatTime),
                     new("currentJobs", CurrentJobs),
+                    new("memoryBytes", MemoryBytes),
+                    new("cpuUsagePercent", CpuUsagePercent),
                     new("status", WorkerStatus.Active.ToString())
                 ]));
 
@@ -294,6 +296,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         HostName = instanceDict.GetValueOrDefault("hostName"),
                         IpAddress = instanceDict.GetValueOrDefault("ipAddress"),
                         CurrentJobs = int.Parse(instanceDict.GetValueOrDefault("currentJobs", "0")),
+                        MemoryBytes = long.Parse(instanceDict.GetValueOrDefault("memoryBytes", "0")),
+                        CpuUsagePercent = double.Parse(instanceDict.GetValueOrDefault("cpuUsagePercent", "0"), System.Globalization.CultureInfo.InvariantCulture),
                         Status = Enum.Parse<WorkerStatus>(instanceDict.GetValueOrDefault("status", "Active")),
                         LastHeartbeat = lastHeartbeat,
                         RegisteredAt = registeredAt
@@ -338,6 +342,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     Status = instances.Any(i => i.Status == WorkerStatus.Active) ? WorkerStatus.Active : WorkerStatus.Zombie,
                     LastHeartbeat = !instances.IsNullOrEmpty() ? instances.Max(i => i.LastHeartbeat) : null,
                     CurrentJobs = instances.Sum(i => i.CurrentJobs),
+                    MemoryBytes = instances.Sum(i => i.MemoryBytes),
+                    CpuUsagePercent = instances.Count > 0 ? Math.Round(instances.Average(i => i.CpuUsagePercent), 2) : 0,
                     Instances = instances
                 };
 
@@ -433,6 +439,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                             HostName = instanceDict.GetValueOrDefault("hostName"),
                             IpAddress = instanceDict.GetValueOrDefault("ipAddress"),
                             CurrentJobs = int.Parse(instanceDict.GetValueOrDefault("currentJobs", "0")),
+                            MemoryBytes = long.Parse(instanceDict.GetValueOrDefault("memoryBytes", "0")),
+                            CpuUsagePercent = double.Parse(instanceDict.GetValueOrDefault("cpuUsagePercent", "0"), System.Globalization.CultureInfo.InvariantCulture),
                             Status = Enum.Parse<WorkerStatus>(instanceDict.GetValueOrDefault("status", "Active")),
                             LastHeartbeat = lastHeartbeat,
                             RegisteredAt = registeredAt
@@ -457,6 +465,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         Status = instances.Any(i => i.Status == WorkerStatus.Active) ? WorkerStatus.Active : WorkerStatus.Zombie,
                         LastHeartbeat = instances.Max(i => i.LastHeartbeat),
                         CurrentJobs = instances.Sum(i => i.CurrentJobs),
+                        MemoryBytes = instances.Sum(i => i.MemoryBytes),
+                        CpuUsagePercent = instances.Count > 0 ? Math.Round(instances.Average(i => i.CpuUsagePercent), 2) : 0,
                         Instances = instances
                     });
                 }

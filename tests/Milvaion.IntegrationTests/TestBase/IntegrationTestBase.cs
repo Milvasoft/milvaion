@@ -9,6 +9,8 @@ using Milvaion.Domain;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Identity.Abstract;
+using Milvasoft.Milvaion.Sdk.Utils;
+using RabbitMQ.Client;
 using Xunit.Abstractions;
 
 namespace Milvaion.IntegrationTests.TestBase;
@@ -69,6 +71,50 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
         await dbContext.Database.ExecuteSqlRawAsync(_resetAutoIncrementQuery);
 
         await _factory.CreateRespawner();
+        await SetupTestJobQueueAsync();
+    }
+
+    /// <summary>
+    /// Declares a catch-all queue bound to the jobs topic exchange so that mandatory publishes
+    /// in tests always route successfully, even though no real worker is running. Without this,
+    /// <c>RabbitMQPublisher</c> would treat every publish as unroutable and return <c>false</c>.
+    /// </summary>
+    private async Task SetupTestJobQueueAsync()
+    {
+        try
+        {
+            var rabbitFactory = new ConnectionFactory
+            {
+                HostName = _factory.GetRabbitMqHost(),
+                Port = _factory.GetRabbitMqPort(),
+                UserName = "guest",
+                Password = "guest"
+            };
+
+            await using var connection = await rabbitFactory.CreateConnectionAsync();
+            await using var channel = await connection.CreateChannelAsync();
+
+            await channel.ExchangeDeclareAsync(
+                exchange: WorkerConstant.ExchangeName,
+                type: ExchangeType.Topic,
+                durable: true,
+                autoDelete: false);
+
+            await channel.QueueDeclareAsync(
+                queue: "test-job-dispatch-queue",
+                durable: false,
+                exclusive: false,
+                autoDelete: false);
+
+            await channel.QueueBindAsync(
+                queue: "test-job-dispatch-queue",
+                exchange: WorkerConstant.ExchangeName,
+                routingKey: "#");
+        }
+        catch
+        {
+            // Non-critical: tests that don't publish jobs still pass even if this setup fails.
+        }
     }
     private const string _resetAutoIncrementQuery = @"
         DO $$

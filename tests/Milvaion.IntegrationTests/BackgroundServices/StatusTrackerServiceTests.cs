@@ -935,6 +935,139 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         updatedOccurrence.Result.Should().StartWith(uniquePrefix);
     }
 
+    [Fact]
+    public async Task ProcessBatch_WithValidOccurrence_ShouldPersistThenAckMessage()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync("DeferredAckJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Act
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            OccurrenceId = occurrence.Id,
+            JobId = job.Id,
+            WorkerId = "deferred-ack-worker",
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        var persisted = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.Running;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(300),
+            cancellationToken: cts.Token);
+
+        // Stopping the tracker closes the consumer; any message that was NOT ACK'd would be
+        // requeued and become "ready" again. So an empty queue proves the ACK happened
+        // only AFTER the DB write succeeded.
+        await tracker.StopAsync(cts.Token);
+
+        var drained = await WaitForConditionAsync(
+            async () => await GetQueueReadyMessageCountAsync(WorkerConstant.Queues.StatusUpdates, cts.Token) == 0,
+            timeout: TimeSpan.FromSeconds(10),
+            pollInterval: TimeSpan.FromMilliseconds(300),
+            cancellationToken: cts.Token);
+
+        // Assert
+        persisted.Should().BeTrue("status should be persisted before the message is ACK'd");
+        drained.Should().BeTrue("the message must be ACK'd after successful persistence, leaving the queue empty");
+    }
+
+    [Fact]
+    public async Task ProcessBatch_WithStaleOccurrenceId_ShouldAckAndDrainQueue()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Act - publish a status update whose OccurrenceId does not exist in the database.
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            OccurrenceId = Guid.CreateVersion7(), // No matching occurrence
+            JobId = Guid.CreateVersion7(),
+            WorkerId = "stale-worker",
+            Status = JobOccurrenceStatus.Completed
+        }, cts.Token);
+
+        // Give the batch a moment to process the stale message.
+        await Task.Delay(2000, cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        var drained = await WaitForConditionAsync(
+            async () => await GetQueueReadyMessageCountAsync(WorkerConstant.Queues.StatusUpdates, cts.Token) == 0,
+            timeout: TimeSpan.FromSeconds(10),
+            pollInterval: TimeSpan.FromMilliseconds(300),
+            cancellationToken: cts.Token);
+
+        // Assert - stale messages must be ACK'd so they don't block the queue forever.
+        drained.Should().BeTrue("stale status updates with no matching occurrence must be ACK'd and drained");
+    }
+
+    private async Task<uint> GetQueueReadyMessageCountAsync(string queueName, CancellationToken cancellationToken)
+    {
+        var factory = new ConnectionFactory
+        {
+            HostName = _factory.GetRabbitMqHost(),
+            Port = _factory.GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await factory.CreateConnectionAsync(cancellationToken);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        var declareOk = await channel.QueueDeclareAsync(
+            queue: queueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: cancellationToken);
+
+        return declareOk.MessageCount;
+    }
+
     private StatusTrackerService CreateStatusTrackerService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),

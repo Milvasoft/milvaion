@@ -46,12 +46,6 @@ function ServiceMemoryStats() {
     return `${hours}h ${minutes}m`
   }
 
-  const getGrowthClass = (growthBytes) => {
-    if (growthBytes > 100 * 1024 * 1024) return 'growth-positive' // > 100MB
-    if (growthBytes < 0) return 'growth-negative'
-    return 'growth-neutral'
-  }
-
   const getMemoryBarClass = (currentMB, initialMB) => {
     const ratio = initialMB > 0 ? currentMB / initialMB : 1
     if (ratio > 2) return 'error'
@@ -59,9 +53,11 @@ function ServiceMemoryStats() {
     return ''
   }
 
-  const getMemoryBarWidth = (currentMB, processMB) => {
-    if (processMB === 0) return 0
-    return Math.min((currentMB / processMB) * 100, 100)
+  // Formats a value given in megabytes, switching to GB once it reaches 1024 MB.
+  const formatMemoryMB = (mb) => {
+    if (mb == null || isNaN(mb)) return '0 MB'
+    if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`
+    return `${mb.toFixed(2)} MB`
   }
 
   if (loading) {
@@ -96,6 +92,7 @@ function ServiceMemoryStats() {
 
   const serviceStats = memoryStats.serviceStats || []
   const hasLeaks = memoryStats.servicesWithPotentialLeaks > 0
+  const totalAllocatedBytes = serviceStats.reduce((sum, s) => sum + (s.allocatedBytes || 0), 0)
 
   return (
     <div className="stats-body">
@@ -106,13 +103,13 @@ function ServiceMemoryStats() {
         <div className="memory-overview">
           <div className="memory-stat-box">
             <span className="memory-stat-value primary">
-              {memoryStats.totalManagedMemoryMB?.toFixed(1) || '0'} MB
+              {formatMemoryMB(memoryStats.totalManagedMemoryMB)}
             </span>
             <span className="memory-stat-label">Managed Memory</span>
           </div>
           <div className="memory-stat-box">
             <span className="memory-stat-value info">
-              {memoryStats.totalProcessMemoryMB?.toFixed(1) || '0'} MB
+              {formatMemoryMB(memoryStats.totalProcessMemoryMB)}
             </span>
             <span className="memory-stat-label">Process Memory</span>
           </div>
@@ -172,18 +169,16 @@ function ServiceMemoryStats() {
                   <div className="service-card-body">
                     <div className="service-stats-grid">
                       <div className="service-stat-item">
-                        <span className="stat-label">Current Memory</span>
-                        <span className="stat-value">{service.currentMemoryMB?.toFixed(2)} MB</span>
+                        <span className="stat-label">Allocated</span>
+                        <span className="stat-value">{formatMemoryMB(service.allocatedMB)}</span>
                       </div>
                       <div className="service-stat-item">
-                        <span className="stat-label">Initial Memory</span>
-                        <span className="stat-value">{service.initialMemoryMB?.toFixed(2)} MB</span>
+                        <span className="stat-label">Alloc Rate</span>
+                        <span className="stat-value">{service.allocationRatePerSecondMB?.toFixed(2)} MB/s</span>
                       </div>
                       <div className="service-stat-item">
-                        <span className="stat-label">Memory Growth</span>
-                        <span className={`stat-value ${getGrowthClass(service.totalGrowthBytes)}`}>
-                          {service.totalGrowthMB >= 0 ? '+' : ''}{service.totalGrowthMB?.toFixed(2)} MB
-                        </span>
+                        <span className="stat-label">Recent Alloc</span>
+                        <span className="stat-value">{formatMemoryMB(service.recentAllocatedMB)}</span>
                       </div>
                       <div className="service-stat-item">
                         <span className="stat-label">Uptime</span>
@@ -194,13 +189,13 @@ function ServiceMemoryStats() {
                     {/* Memory Bar */}
                     <div className="memory-bar-container">
                       <div className="memory-bar-label">
-                        <span>Managed vs Process</span>
-                        <span>{((service.currentMemoryBytes / service.processMemoryBytes) * 100).toFixed(1)}%</span>
+                        <span>Share of allocations</span>
+                        <span>{totalAllocatedBytes > 0 ? (((service.allocatedBytes || 0) / totalAllocatedBytes) * 100).toFixed(1) : '0.0'}%</span>
                       </div>
                       <div className="memory-bar">
                         <div
                           className={`memory-bar-fill ${getMemoryBarClass(service.currentMemoryMB, service.initialMemoryMB)}`}
-                          style={{ width: `${getMemoryBarWidth(service.currentMemoryBytes, service.processMemoryBytes)}%` }}
+                          style={{ width: `${totalAllocatedBytes > 0 ? Math.min(((service.allocatedBytes || 0) / totalAllocatedBytes) * 100, 100) : 0}%` }}
                         />
                       </div>
                     </div>
@@ -225,6 +220,50 @@ function ServiceMemoryStats() {
             <p>No background services are currently registered</p>
           </div>
         )}
+
+        {/* Legend / explanation of the values */}
+        <div className="memory-legend">
+          <div className="memory-legend-title">
+            <Icon name="help_outline" size={16} />
+            <span>What do these values mean?</span>
+          </div>
+          <ul className="memory-legend-list">
+            <li>
+              <strong>Managed Memory</strong> — Total managed heap currently held by the whole
+              application (all services share one GC heap; this is process-wide, not per service).
+            </li>
+            <li>
+              <strong>Process Memory</strong> — Total physical memory (working set) of the API
+              process, including native memory. Also process-wide.
+            </li>
+            <li>
+              <strong>Allocated</strong> — Cumulative memory this service has allocated since it
+              started. It is a lifetime counter, so it only ever goes up, it is <em>not</em> the
+              memory currently held. A high number here is normal.
+            </li>
+            <li>
+              <strong>Alloc Rate</strong> — Current allocation throughput (MB per second) measured
+              over the last check interval. Because most allocations are short-lived and reclaimed
+              by the GC, this can legitimately exceed the process memory.
+            </li>
+            <li>
+              <strong>Recent Alloc</strong> — Memory allocated by this service during the most
+              recent check interval. Useful for spotting sudden activity spikes.
+            </li>
+            <li>
+              <strong>Share of allocations</strong> — This service's portion of the total
+              allocations across all services, indicating which service produces the most GC pressure.
+            </li>
+            <li>
+              <strong>GC Gen 0/1/2</strong> — Number of garbage collections per generation
+              (process-wide). Frequent Gen 2 collections can indicate high memory pressure.
+            </li>
+          </ul>
+          <p className="memory-legend-note">
+            A real memory leak shows up as steadily rising <strong>Process Memory</strong> and a
+            non-zero <strong>Potential Leaks</strong> count — not as a large cumulative Allocated value.
+          </p>
+        </div>
 
         {/* Timestamp */}
         <div className="memory-stats-timestamp">

@@ -47,6 +47,16 @@ public class WorkerDto
     public int CurrentJobs { get; set; }
 
     /// <summary>
+    /// Total physical memory usage (working set) across all instances, in bytes.
+    /// </summary>
+    public long MemoryBytes { get; set; }
+
+    /// <summary>
+    /// Average CPU usage percentage across all instances (0-100).
+    /// </summary>
+    public double CpuUsagePercent { get; set; }
+
+    /// <summary>
     /// Status of the worker (e.g., Online, Offline).
     /// </summary>
     public string Status { get; set; }
@@ -90,6 +100,8 @@ public class WorkerDto
         JobResultDefinitions = r.JobResultDefinitions,
         JobNames = r.JobNames,
         CurrentJobs = r.CurrentJobs,
+        MemoryBytes = r.MemoryBytes,
+        CpuUsagePercent = r.CpuUsagePercent,
         Status = r.Status.ToString(),
         LastHeartbeat = r.LastHeartbeat,
         RegisteredAt = r.RegisteredAt,

@@ -8,6 +8,7 @@ using Milvasoft.Milvaion.Sdk.Worker.Core;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Utils;
 using RabbitMQ.Client;
+using System.Diagnostics;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -33,6 +34,16 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     private readonly string _version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
     private readonly string _hostName = Environment.MachineName;
     private readonly string _ipAddress = GetLocalIPAddress();
+
+    // CPU sampling state: remembers the previous CPU time / wall-clock sample so each heartbeat
+    // can report the process CPU% consumed since the last heartbeat.
+    private TimeSpan _lastCpuTime = Process.GetCurrentProcess().TotalProcessorTime;
+    private DateTime _lastCpuSampleUtc = DateTime.UtcNow;
+
+    // cgroup v2 CPU sampling state (Linux containers). Tracks the previous cpu.stat usage_usec
+    // reading so CPU% can be computed the same way "docker stats" does.
+    private long _lastCgroupCpuUsageUsec = -1;
+    private long _lastCgroupCpuSampleTicks;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -217,6 +228,8 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
             WorkerId = _options.WorkerId,       // Worker group ID
             InstanceId = _options.InstanceId,   // Unique instance ID
             CurrentJobs = totalCurrentJobs,     // Jobs on THIS instance
+            MemoryBytes = GetProcessMemoryBytes(),
+            CpuUsagePercent = GetProcessCpuUsagePercent(),
             Timestamp = DateTime.UtcNow
         };
 
@@ -229,6 +242,180 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                                          cancellationToken: cancellationToken);
 
         _logger.Debug("Heartbeat sent for worker {WorkerId} instance {InstanceId}: {CurrentJobs} jobs (Tracked in memory: {TrackedJobs})", _options.WorkerId, _options.InstanceId, totalCurrentJobs, allCounts.Count);
+    }
+
+    /// <summary>
+    /// Gets the current process physical memory usage in bytes.
+    /// On Linux containers this reads the cgroup memory accounting (same value "docker stats"
+    /// reports: current usage minus reclaimable file cache), falling back to the process
+    /// working set when cgroup information is unavailable.
+    /// </summary>
+    private static long GetProcessMemoryBytes()
+    {
+        var cgroupMemory = TryGetCgroupMemoryBytes();
+
+        if (cgroupMemory > 0)
+            return cgroupMemory;
+
+        using var process = Process.GetCurrentProcess();
+
+        return process.WorkingSet64;
+    }
+
+    /// <summary>
+    /// Reads container memory usage from the cgroup filesystem (v2 first, then v1).
+    /// Returns usage minus inactive file cache to match "docker stats", or 0 when unavailable.
+    /// </summary>
+    private static long TryGetCgroupMemoryBytes()
+    {
+        try
+        {
+            // cgroup v2
+            const string v2Current = "/sys/fs/cgroup/memory.current";
+
+            if (File.Exists(v2Current) && long.TryParse(File.ReadAllText(v2Current).Trim(), out var currentV2))
+            {
+                var inactiveFile = ReadCgroupStatValue("/sys/fs/cgroup/memory.stat", "inactive_file");
+
+                return Math.Max(0, currentV2 - inactiveFile);
+            }
+
+            // cgroup v1
+            const string v1Usage = "/sys/fs/cgroup/memory/memory.usage_in_bytes";
+
+            if (File.Exists(v1Usage) && long.TryParse(File.ReadAllText(v1Usage).Trim(), out var usageV1))
+            {
+                var totalInactiveFile = ReadCgroupStatValue("/sys/fs/cgroup/memory/memory.stat", "total_inactive_file");
+
+                return Math.Max(0, usageV1 - totalInactiveFile);
+            }
+        }
+        catch
+        {
+            // Fall through to working set.
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Reads a single named value from a cgroup stat file (e.g. memory.stat / cpu.stat).
+    /// </summary>
+    private static long ReadCgroupStatValue(string path, string key)
+    {
+        if (!File.Exists(path))
+            return 0;
+
+        foreach (var line in File.ReadLines(path))
+        {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length >= 2 && parts[0] == key && long.TryParse(parts[1], out var value))
+                return value;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Gets the process CPU usage percentage consumed since the previous heartbeat sample.
+    /// On Linux containers this reads cgroup cpu.stat and reports the value the same way
+    /// "docker stats" does (summed across cores, i.e. one fully-busy core = 100%), falling
+    /// back to <see cref="Process.TotalProcessorTime"/> normalized across cores otherwise.
+    /// </summary>
+    private double GetProcessCpuUsagePercent()
+    {
+        var cgroupCpu = TryGetCgroupCpuUsagePercent();
+
+        if (cgroupCpu >= 0)
+            return cgroupCpu;
+
+        try
+        {
+            using var process = Process.GetCurrentProcess();
+
+            var currentCpuTime = process.TotalProcessorTime;
+            var nowUtc = DateTime.UtcNow;
+
+            var cpuUsedMs = (currentCpuTime - _lastCpuTime).TotalMilliseconds;
+            var elapsedMs = (nowUtc - _lastCpuSampleUtc).TotalMilliseconds;
+
+            _lastCpuTime = currentCpuTime;
+            _lastCpuSampleUtc = nowUtc;
+
+            if (elapsedMs <= 0)
+                return 0;
+
+            // Summed across cores to match "docker stats" (one fully-busy core = 100%).
+            var cpuUsage = cpuUsedMs / elapsedMs * 100.0;
+
+            return Math.Clamp(Math.Round(cpuUsage, 2), 0, 100.0 * Environment.ProcessorCount);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Computes container CPU% from cgroup cpu.stat (usage_usec) delta since the last sample.
+    /// Returns -1 when cgroup CPU accounting is unavailable so the caller can fall back.
+    /// </summary>
+    private double TryGetCgroupCpuUsagePercent()
+    {
+        try
+        {
+            const string v2CpuStat = "/sys/fs/cgroup/cpu.stat";
+
+            long usageUsec = -1;
+
+            if (File.Exists(v2CpuStat))
+            {
+                usageUsec = ReadCgroupStatValue(v2CpuStat, "usage_usec");
+            }
+            else
+            {
+                // cgroup v1 reports cpuacct.usage in nanoseconds.
+                const string v1CpuAcct = "/sys/fs/cgroup/cpu/cpuacct.usage";
+                const string v1CpuAcctAlt = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
+
+                var path = File.Exists(v1CpuAcct) ? v1CpuAcct : File.Exists(v1CpuAcctAlt) ? v1CpuAcctAlt : null;
+
+                if (path != null && long.TryParse(File.ReadAllText(path).Trim(), out var nanos))
+                    usageUsec = nanos / 1000;
+            }
+
+            if (usageUsec < 0)
+                return -1;
+
+            var nowTicks = DateTime.UtcNow.Ticks;
+
+            if (_lastCgroupCpuUsageUsec < 0)
+            {
+                _lastCgroupCpuUsageUsec = usageUsec;
+                _lastCgroupCpuSampleTicks = nowTicks;
+
+                return 0;
+            }
+
+            var cpuDeltaUsec = usageUsec - _lastCgroupCpuUsageUsec;
+            var elapsedUsec = (nowTicks - _lastCgroupCpuSampleTicks) / 10.0; // 1 tick = 100ns => /10 = microseconds
+
+            _lastCgroupCpuUsageUsec = usageUsec;
+            _lastCgroupCpuSampleTicks = nowTicks;
+
+            if (elapsedUsec <= 0)
+                return 0;
+
+            // Summed across cores to match "docker stats" (one fully-busy core = 100%).
+            var cpuUsage = cpuDeltaUsec / elapsedUsec * 100.0;
+
+            return Math.Clamp(Math.Round(cpuUsage, 2), 0, 100.0 * Environment.ProcessorCount);
+        }
+        catch
+        {
+            return -1;
+        }
     }
 
     private static string GetLocalIPAddress()

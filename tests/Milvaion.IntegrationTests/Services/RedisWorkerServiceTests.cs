@@ -160,10 +160,10 @@ public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITes
         await workerService.RegisterWorkerAsync(CreateTestRegistration("bulk-worker-01", "instance-01"));
         await workerService.RegisterWorkerAsync(CreateTestRegistration("bulk-worker-02", "instance-01"));
 
-        var updates = new List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)>
+        var updates = new List<(string WorkerId, string InstanceId, int CurrentJobs, long MemoryBytes, double CpuUsagePercent, DateTime Timestamp)>
         {
-            ("bulk-worker-01", "instance-01", 3, DateTime.UtcNow),
-            ("bulk-worker-02", "instance-01", 5, DateTime.UtcNow)
+            ("bulk-worker-01", "instance-01", 3, 0, 0, DateTime.UtcNow),
+            ("bulk-worker-02", "instance-01", 5, 0, 0, DateTime.UtcNow)
         };
 
         // Act

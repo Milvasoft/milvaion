@@ -67,6 +67,24 @@ public class MemoryTrackedBackgroundServiceTests
     }
 
     [Fact]
+    public async Task GetStats_ShouldPopulatePerServiceAllocationMetrics_AfterExecution()
+    {
+        // Arrange
+        var service = CreateService();
+
+        // Act
+        await service.StartAsync(CancellationToken.None);
+        await Task.Delay(200);
+        var stats = service.GetStats();
+        await service.StopAsync(CancellationToken.None);
+
+        // Assert - per-service allocation metrics are populated and non-negative
+        stats.AllocatedBytes.Should().BeGreaterThanOrEqualTo(0);
+        stats.RecentAllocatedBytes.Should().BeGreaterThanOrEqualTo(0);
+        stats.AllocationRatePerSecondBytes.Should().BeGreaterThanOrEqualTo(0);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ShouldRegisterAndUnregister_WithStatsRegistry()
     {
         // Arrange

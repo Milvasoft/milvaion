@@ -27,6 +27,11 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
     private readonly IMemoryStatsRegistry _memoryStatsRegistry = memoryStatsRegistry;
     private long _lastMemoryUsed;
     private long _startMemory;
+    private long _threadAllocationBaseline;
+    private long _serviceAllocatedBytes;
+    private long _allocatedAtLastCheck;
+    private long _recentAllocatedBytes;
+    private double _recentIntervalSeconds;
     private DateTime _startTime;
     private DateTime _lastMemoryCheckTime = DateTime.UtcNow;
     private bool _potentialMemoryLeak;
@@ -47,6 +52,9 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
     public MemoryTrackStats GetStats()
     {
         var currentMemory = GetCurrentMemoryUsage();
+        var allocated = Interlocked.Read(ref _serviceAllocatedBytes);
+        var recentAllocated = Interlocked.Read(ref _recentAllocatedBytes);
+        var intervalSeconds = _recentIntervalSeconds;
 
         return new MemoryTrackStats
         {
@@ -55,6 +63,9 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
             CurrentMemoryBytes = currentMemory,
             LastMemoryBytes = _lastMemoryUsed,
             TotalGrowthBytes = currentMemory - _startMemory,
+            AllocatedBytes = allocated,
+            RecentAllocatedBytes = recentAllocated,
+            AllocationRatePerSecondBytes = intervalSeconds > 0 ? (long)(recentAllocated / intervalSeconds) : 0,
             ProcessMemoryBytes = GetProcessMemoryUsage(),
             StartTime = _startTime,
             LastCheckTime = _lastMemoryCheckTime,
@@ -74,6 +85,7 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
         _startTime = DateTime.UtcNow;
         _startMemory = GetCurrentMemoryUsage();
         _lastMemoryUsed = _startMemory;
+        _threadAllocationBaseline = GC.GetAllocatedBytesForCurrentThread();
         _isRunning = true;
 
         // Register with stats registry if available
@@ -103,11 +115,22 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
     /// </summary>
     protected void TrackMemoryAfterIteration()
     {
+        // Accumulate allocations attributed to this service's execution loop before the
+        // interval gate so every iteration is counted, even the ones we don't log.
+        AccumulateThreadAllocations();
+
         // Only check memory at configured intervals
         var timeSinceLastCheck = DateTime.UtcNow - _lastMemoryCheckTime;
 
         if (timeSinceLastCheck.TotalSeconds < _options.CheckIntervalSeconds)
             return;
+
+        // Capture how much this service allocated during the interval that just elapsed,
+        // along with the actual elapsed time so we can express an instantaneous rate.
+        var totalAllocated = Interlocked.Read(ref _serviceAllocatedBytes);
+        Interlocked.Exchange(ref _recentAllocatedBytes, totalAllocated - _allocatedAtLastCheck);
+        _allocatedAtLastCheck = totalAllocated;
+        _recentIntervalSeconds = timeSinceLastCheck.TotalSeconds;
 
         var currentMemory = GetCurrentMemoryUsage();
         var memoryGrowth = currentMemory - _lastMemoryUsed;
@@ -183,6 +206,25 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
     /// Gets current managed memory usage.
     /// </summary>
     private static long GetCurrentMemoryUsage() => GC.GetTotalMemory(forceFullCollection: false);
+
+    /// <summary>
+    /// Accumulates the bytes allocated on the current execution thread since the last sample
+    /// and attributes them to this service. Unlike <see cref="GC.GetTotalMemory"/> and
+    /// <c>Process.WorkingSet64</c> (which are process-wide and therefore identical for every
+    /// service), this produces a metric that is specific to each service's own workload.
+    /// </summary>
+    private void AccumulateThreadAllocations()
+    {
+        var current = GC.GetAllocatedBytesForCurrentThread();
+        var delta = current - _threadAllocationBaseline;
+
+        // A negative delta means the loop resumed on a different thread pool thread; reset the
+        // baseline instead of counting the unrelated thread's lifetime allocations.
+        if (delta > 0)
+            Interlocked.Add(ref _serviceAllocatedBytes, delta);
+
+        _threadAllocationBaseline = current;
+    }
 
     /// <summary>
     /// Gets current process memory usage (includes native memory).

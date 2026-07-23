@@ -550,6 +550,26 @@
             Total memory growth since start (bytes).
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.AllocatedBytes">
+            <summary>
+            Cumulative bytes allocated by this service's own execution loop.
+            Unlike the process-wide managed/process memory figures, this value is specific to
+            each service and reflects the allocation pressure it produces.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.RecentAllocatedBytes">
+            <summary>
+            Bytes allocated by this service during the most recent check interval.
+            Service-specific indicator of ongoing allocation activity.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.AllocationRatePerSecondBytes">
+            <summary>
+            Instantaneous allocation rate for this service (bytes per second) measured over the
+            most recent check interval. Reflects actual short-lived allocation throughput rather
+            than resident memory, so it can legitimately exceed the process working set.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.ProcessMemoryBytes">
             <summary>
             Current process memory usage (bytes).
@@ -608,6 +628,21 @@
         <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.TotalGrowthMB">
             <summary>
             Total memory growth since start (megabytes).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.AllocatedMB">
+            <summary>
+            Cumulative memory allocated by this service (megabytes).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.RecentAllocatedMB">
+            <summary>
+            Memory allocated by this service during the most recent check interval (megabytes).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.AllocationRatePerSecondMB">
+            <summary>
+            Instantaneous allocation rate for this service (megabytes per second).
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.AdminDtos.MemoryTrackStats.ProcessMemoryMB">
@@ -4843,6 +4878,16 @@
         <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.CurrentJobs">
             <summary>
             Current number of jobs being processed by the worker.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.MemoryBytes">
+            <summary>
+            Total physical memory usage (working set) across all instances, in bytes.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.CpuUsagePercent">
+            <summary>
+            Average CPU usage percentage across all instances (0-100).
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.Status">
@@ -10794,12 +10839,12 @@
             Updates worker heartbeat for specific instance.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32,System.DateTime}},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32,System.Int64,System.Double,System.DateTime}},System.Threading.CancellationToken)">
             <summary>
             Updates heartbeats for multiple worker instances in a single pipeline operation.
             Significantly faster than calling UpdateHeartbeatAsync multiple times.
             </summary>
-            <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs)</param>
+            <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs, MemoryBytes, CpuUsagePercent, Timestamp)</param>
             <param name="cancellationToken">Cancellation token</param>
             <returns>Number of successfully updated instances</returns>
         </member>

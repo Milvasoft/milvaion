@@ -31,6 +31,26 @@ public class MemoryTrackStats
     public long TotalGrowthBytes { get; set; }
 
     /// <summary>
+    /// Cumulative bytes allocated by this service's own execution loop.
+    /// Unlike the process-wide managed/process memory figures, this value is specific to
+    /// each service and reflects the allocation pressure it produces.
+    /// </summary>
+    public long AllocatedBytes { get; set; }
+
+    /// <summary>
+    /// Bytes allocated by this service during the most recent check interval.
+    /// Service-specific indicator of ongoing allocation activity.
+    /// </summary>
+    public long RecentAllocatedBytes { get; set; }
+
+    /// <summary>
+    /// Instantaneous allocation rate for this service (bytes per second) measured over the
+    /// most recent check interval. Reflects actual short-lived allocation throughput rather
+    /// than resident memory, so it can legitimately exceed the process working set.
+    /// </summary>
+    public long AllocationRatePerSecondBytes { get; set; }
+
+    /// <summary>
     /// Current process memory usage (bytes).
     /// </summary>
     public long ProcessMemoryBytes { get; set; }
@@ -89,6 +109,21 @@ public class MemoryTrackStats
     /// Total memory growth since start (megabytes).
     /// </summary>
     public double TotalGrowthMB => TotalGrowthBytes / 1024.0 / 1024.0;
+
+    /// <summary>
+    /// Cumulative memory allocated by this service (megabytes).
+    /// </summary>
+    public double AllocatedMB => AllocatedBytes / 1024.0 / 1024.0;
+
+    /// <summary>
+    /// Memory allocated by this service during the most recent check interval (megabytes).
+    /// </summary>
+    public double RecentAllocatedMB => RecentAllocatedBytes / 1024.0 / 1024.0;
+
+    /// <summary>
+    /// Instantaneous allocation rate for this service (megabytes per second).
+    /// </summary>
+    public double AllocationRatePerSecondMB => AllocationRatePerSecondBytes / 1024.0 / 1024.0;
 
     /// <summary>
     /// Process memory usage (megabytes).

@@ -91,6 +91,17 @@ public class WorkerHeartbeatMessage
     public int CurrentJobs { get; set; }
 
     /// <summary>
+    /// Physical memory usage (working set) of this worker instance's process, in bytes.
+    /// </summary>
+    public long MemoryBytes { get; set; }
+
+    /// <summary>
+    /// CPU usage percentage of this worker instance's process, normalized across all cores
+    /// (0-100), measured over the interval between heartbeats.
+    /// </summary>
+    public double CpuUsagePercent { get; set; }
+
+    /// <summary>
     /// Heartbeat timestamp.
     /// </summary>
     public DateTime Timestamp { get; set; }

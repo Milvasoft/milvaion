@@ -7,6 +7,25 @@ import { getApiErrorMessage } from '../../utils/errorUtils'
 import './WorkerList.css'
 import { SkeletonGrid } from '../../components/Skeleton'
 
+// Formats a byte count into a human-readable memory string (KB/MB/GB).
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '-'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+  return `${value.toFixed(value >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+}
+
+// Formats a CPU usage percentage (0-100).
+function formatCpu(percent) {
+  if (percent === null || percent === undefined) return '-'
+  return `${Number(percent).toFixed(1)}%`
+}
+
 function WorkerList() {
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -218,6 +237,14 @@ function WorkerList() {
                     <span className="value">{worker.currentJobs || 0}</span>
                   </div>
                   <div className="summary-item">
+                    <span className="label">Memory:</span>
+                    <span className="value">{formatBytes(worker.memoryBytes)}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="label">CPU:</span>
+                    <span className="value">{formatCpu(worker.cpuUsagePercent)}</span>
+                  </div>
+                  <div className="summary-item">
                     <span className="label">Version:</span>
                     <span className="value">{worker.version || '-'}</span>
                   </div>
@@ -326,6 +353,8 @@ function WorkerList() {
                               <tr>
                                 <th>Instance</th>
                                 <th className="mv-col-tight">Jobs</th>
+                                <th className="mv-col-tight">Memory</th>
+                                <th className="mv-col-tight">CPU</th>
                                 <th className="mv-col-tight">Status</th>
                                 <th className="mv-col-tight">Registered</th>
                                 <th className="mv-col-tight">Last heartbeat</th>
@@ -344,6 +373,8 @@ function WorkerList() {
                                     </span>
                                   </td>
                                   <td className="mv-col-tight">{instance.currentJobs}</td>
+                                  <td className="mv-col-tight">{formatBytes(instance.memoryBytes)}</td>
+                                  <td className="mv-col-tight">{formatCpu(instance.cpuUsagePercent)}</td>
                                   <td className="mv-col-tight">{getStatusBadge(instance.status)}</td>
                                   <td className="mv-col-tight">{formatTimeSince(instance.registeredAt)}</td>
                                   <td className="mv-col-tight">{formatTimeSince(instance.lastHeartbeat)}</td>

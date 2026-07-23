@@ -64,8 +64,9 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         JobOccurrenceStatus.Running
     ];
 
-    //  Batch processing
-    private readonly System.Collections.Concurrent.ConcurrentQueue<JobStatusUpdateMessage> _statusBatch = new();
+    //  Batch processing — stores the RabbitMQ delivery tag alongside each message so the
+    //  ACK can be deferred until after the batch is persisted to the database.
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(JobStatusUpdateMessage Message, ulong DeliveryTag)> _statusBatch = new();
     private readonly SemaphoreSlim _batchLock = new(1, 1);
 
     // Retry queue for Redis completion updates that failed or timed out.
@@ -294,15 +295,14 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 }
             }
 
-            //  Add to batch queue (NO DB operation!)
-            _statusBatch.Enqueue(message);
+            //  Add to batch queue together with its delivery tag (NO DB operation here!).
+            //  ACK is deferred until ProcessBatchAsync persists the batch to the database,
+            //  guaranteeing at-least-once delivery if the app crashes before the DB write.
+            _statusBatch.Enqueue((message, ea.DeliveryTag));
 
             //  Trigger immediate batch if full
             if (_statusBatch.Count >= _options.BatchSize)
                 await ProcessBatchAsync(cancellationToken);
-
-            // ACK the message (safe operation)
-            await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -351,7 +351,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
                     // Deduplicate by OccurrenceId (message.OccurrenceId is Occurrence.Id)
-                    var statusByOccurrenceId = DeduplicateByOccurrenceId(batch);
+                    var (statusByOccurrenceId, allDeliveryTags) = DeduplicateByOccurrenceId(batch);
                     var occurrenceIds = statusByOccurrenceId.Keys.ToList();
 
                     _logger.Debug("Processing batch: {Count} unique status updates. Sample OccurrenceIds: {Samples}", occurrenceIds.Count, string.Join(", ", occurrenceIds.Take(3)));
@@ -362,6 +362,11 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     if (occurrences.IsNullOrEmpty())
                     {
                         _logger.Warning("No matching occurrences found for {Count} status updates. OccurrenceIds: {Ids}", batch.Count, string.Join(", ", occurrenceIds.Take(5)));
+
+                        // ACK the stale messages so they don't block the queue — there is nothing to persist.
+                        foreach (var tag in allDeliveryTags)
+                            await _channel.SafeAckAsync(tag, _channelLock, _logger, cancellationToken);
+
                         return;
                     }
 
@@ -392,6 +397,10 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     RecordBatchMetrics(sw, batch.Count, occurrences);
 
                     _logger.Debug("Processed {Count} status updates in batch (RetryCount: {RetryCount})", batch.Count, retryCount);
+
+                    // ACK all messages only after the batch has been successfully persisted to the database.
+                    foreach (var tag in allDeliveryTags)
+                        await _channel.SafeAckAsync(tag, _channelLock, _logger, cancellationToken);
 
                     // SUCCESS - Exit retry loop
                     break;
@@ -446,42 +455,43 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Dequeues all messages from the batch queue.
+    /// Dequeues all messages (with their delivery tags) from the batch queue.
     /// </summary>
-    private List<JobStatusUpdateMessage> DequeueBatch()
+    private List<(JobStatusUpdateMessage Message, ulong DeliveryTag)> DequeueBatch()
     {
-        var batch = new List<JobStatusUpdateMessage>();
+        var batch = new List<(JobStatusUpdateMessage Message, ulong DeliveryTag)>();
 
-        while (_statusBatch.TryDequeue(out var message))
-        {
-            batch.Add(message);
-        }
+        while (_statusBatch.TryDequeue(out var item))
+            batch.Add(item);
 
         return batch;
     }
 
     /// <summary>
-    /// Re-queues messages back to the batch queue for retry.
+    /// Re-queues messages back to the batch queue for retry (delivery tags preserved — NOT ACK'd).
     /// </summary>
-    private void RequeueMessages(List<JobStatusUpdateMessage> batch)
+    private void RequeueMessages(List<(JobStatusUpdateMessage Message, ulong DeliveryTag)> batch)
     {
-        foreach (var msg in batch)
-            _statusBatch.Enqueue(msg);
+        foreach (var item in batch)
+            _statusBatch.Enqueue(item);
     }
 
     /// <summary>
-    /// Deduplicates messages by OccurrenceId (message.OccurrenceId is Occurrence.Id).
-    /// Last update wins for same occurrence.
+    /// Deduplicates messages by OccurrenceId (last update wins) and collects all delivery tags.
+    /// Returns both the deduplicated status map and ALL delivery tags (including duplicates) for ACK.
     /// </summary>
-    private static Dictionary<Guid, JobStatusUpdateMessage> DeduplicateByOccurrenceId(List<JobStatusUpdateMessage> batch)
+    private static (Dictionary<Guid, JobStatusUpdateMessage> StatusMap, List<ulong> AllDeliveryTags) DeduplicateByOccurrenceId(List<(JobStatusUpdateMessage Message, ulong DeliveryTag)> batch)
     {
         var statusByOccurrenceId = new Dictionary<Guid, JobStatusUpdateMessage>(batch.Count);
+        var allDeliveryTags = new List<ulong>(batch.Count);
 
-        // Last update wins - overwrite if already exists
-        foreach (var message in batch)
-            statusByOccurrenceId[message.OccurrenceId] = message;
+        foreach (var (message, deliveryTag) in batch)
+        {
+            statusByOccurrenceId[message.OccurrenceId] = message; // Last update wins
+            allDeliveryTags.Add(deliveryTag);
+        }
 
-        return statusByOccurrenceId;
+        return (statusByOccurrenceId, allDeliveryTags);
     }
 
     /// <summary>

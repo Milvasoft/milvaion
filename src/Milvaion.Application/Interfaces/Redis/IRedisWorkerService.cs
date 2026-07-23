@@ -22,10 +22,10 @@ public interface IRedisWorkerService
     /// Updates heartbeats for multiple worker instances in a single pipeline operation.
     /// Significantly faster than calling UpdateHeartbeatAsync multiple times.
     /// </summary>
-    /// <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs)</param>
+    /// <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs, MemoryBytes, CpuUsagePercent, Timestamp)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Number of successfully updated instances</returns>
-    Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)> updates, CancellationToken cancellationToken = default);
+    Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, long MemoryBytes, double CpuUsagePercent, DateTime Timestamp)> updates, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets worker information by WorkerId from Redis.

@@ -89,6 +89,16 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                 }
             };
 
+            // Detect mandatory returns: RabbitMQ fires BasicReturn when no queue binding matches
+            // the routing key (i.e. the target worker is offline or its queue was never declared).
+            var returnTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            channel.BasicReturnAsync += (_, args) =>
+            {
+                returnTcs.TrySetResult(args.ReplyText ?? "No route");
+                return Task.CompletedTask;
+            };
+
             // Publish to TOPIC EXCHANGE with routing key
             await channel.BasicPublishAsync(exchange: WorkerConstant.ExchangeName,
                                             routingKey: routingKey,
@@ -96,6 +106,17 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                                             basicProperties: properties,
                                             body: body,
                                             cancellationToken: cancellationToken);
+
+            // Give the broker up to 500ms to return the message if no queue matches.
+            var completedTask = await Task.WhenAny(returnTcs.Task, Task.Delay(500, cancellationToken));
+            var returnedReason = completedTask == returnTcs.Task ? await returnTcs.Task : null;
+
+            if (returnedReason != null)
+            {
+                _logger.Warning("Job {JobId} ({JobType}) could not be routed — no worker queue bound for routing key '{RoutingKey}'. Reason: {Reason}. Worker '{WorkerId}' may be offline.", job.Id, job.JobNameInWorker, routingKey, returnedReason, job.WorkerId ?? "any");
+
+                return false;
+            }
 
             _logger.Debug("Job {JobId} ({JobType}) published to exchange {ExchangeName} with routing key '{RoutingKey}' and OccurrenceId {OccurrenceId}", job.Id, job.JobNameInWorker, WorkerConstant.ExchangeName, routingKey, occurrenceId);
 

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -7,6 +8,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
+using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
@@ -207,6 +209,10 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 _metrics.RecordWorkerRegistration(registration.WorkerId);
 
                 _logger.Information("Worker {WorkerId} (Instance: {InstanceId}) registered in Redis. Total instances: {Count}", registration.WorkerId, registration.InstanceId, instanceCount);
+
+                // Fire-and-forget: sync RoutingPatterns in the DB for this worker's jobs
+                // (and reassign jobs stranded on now-inactive workers).
+                _ = Task.Run(() => SyncRoutingPatternsAsync(registration, CancellationToken.None), CancellationToken.None);
             }
             else
             {
@@ -220,6 +226,75 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             _logger.Error(ex, "Failed to process worker registration");
 
             await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Synchronizes the <see cref="Milvasoft.Milvaion.Sdk.Domain.ScheduledJob.RoutingPattern"/> of a worker's jobs
+    /// in the database whenever the worker (re)registers. If a job type is currently assigned to a different worker
+    /// that is no longer active (no Redis instances), the job is reassigned to the registering worker so it can be
+    /// dispatched again instead of publishing to an unroutable (offline) worker.
+    /// </summary>
+    private async Task SyncRoutingPatternsAsync(WorkerDiscoveryRequest registration, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (registration.RoutingPatterns == null || registration.RoutingPatterns.Count == 0)
+                return;
+
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+            foreach (var (jobTypeName, newPattern) in registration.RoutingPatterns)
+            {
+                try
+                {
+                    // Case 1: jobs already owned by this worker — just refresh the routing pattern.
+                    var updatedCount = await dbContext.ScheduledJobs
+                        .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId == registration.WorkerId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(j => j.RoutingPattern, newPattern), cancellationToken);
+
+                    if (updatedCount > 0)
+                    {
+                        _logger.Information("Updated RoutingPattern for {Count} '{JobType}' jobs (WorkerId={WorkerId}): {Pattern}", updatedCount, jobTypeName, registration.WorkerId, newPattern);
+                        continue;
+                    }
+
+                    // Case 2: no jobs owned by this worker — check whether this job type is stranded
+                    // on a different worker.
+                    var staleJob = await dbContext.ScheduledJobs
+                        .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId != registration.WorkerId)
+                        .Select(j => new { j.Id, j.WorkerId })
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (staleJob == null)
+                        continue;
+
+                    var oldWorker = await _redisWorkerService.GetWorkerAsync(staleJob.WorkerId, cancellationToken);
+                    var isOldWorkerActive = oldWorker?.Instances?.Count > 0;
+
+                    // Only reassign if the previous owner is genuinely gone.
+                    if (!isOldWorkerActive)
+                    {
+                        var reassigned = await dbContext.ScheduledJobs
+                            .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId == staleJob.WorkerId)
+                            .ExecuteUpdateAsync(s => s
+                                .SetProperty(j => j.WorkerId, registration.WorkerId)
+                                .SetProperty(j => j.RoutingPattern, newPattern), cancellationToken);
+
+                        if (reassigned > 0)
+                            _logger.Information("Reassigned {Count} stale '{JobType}' jobs from inactive worker '{OldWorker}' to '{NewWorker}' with pattern '{Pattern}'", reassigned, jobTypeName, staleJob.WorkerId, registration.WorkerId, newPattern);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Failed to sync routing pattern for job type '{JobType}'", jobTypeName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "SyncRoutingPatternsAsync failed for worker '{WorkerId}'", registration.WorkerId);
         }
     }
 
@@ -340,7 +415,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
 
             // Build batch for Redis (deduplicated - one per instance)
-            var batch = snapshot.Select(s => (s.Heartbeat.WorkerId, s.Heartbeat.InstanceId, s.Heartbeat.CurrentJobs, s.Heartbeat.Timestamp)).ToList();
+            var batch = snapshot.Select(s => (s.Heartbeat.WorkerId, s.Heartbeat.InstanceId, s.Heartbeat.CurrentJobs, s.Heartbeat.MemoryBytes, s.Heartbeat.CpuUsagePercent, s.Heartbeat.Timestamp)).ToList();
 
             var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
 

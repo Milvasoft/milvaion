@@ -467,3 +467,46 @@ gap: 0.5rem;
     font-size: 1.5rem;
   }
 }
+
+/* Legend / explanation */
+.memory-legend {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-hover, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.memory-legend-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--text-color, #e6e6e6);
+  margin-bottom: 0.6rem;
+}
+
+.memory-legend-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.memory-legend-list strong {
+  color: var(--text-color, #e6e6e6);
+}
+
+.memory-legend-note {
+  margin: 0.75rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+

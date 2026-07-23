@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,8 @@ using Milvaion.Infrastructure.BackgroundServices;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
+using Milvasoft.Milvaion.Sdk.Domain;
+using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
@@ -339,6 +342,161 @@ public class WorkerAutoDiscoveryServiceTests(ServicesWebApplicationFactory facto
         // Assert - Worker should still be active
         var isActive = await redisWorkerService.IsWorkerActiveAsync(uniqueWorkerId, cts.Token);
         isActive.Should().BeTrue("worker should remain active after multiple heartbeats");
+    }
+
+    [Fact]
+    public async Task ProcessRegistration_ShouldSyncRoutingPatternForOwnedJobs()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var uniqueWorkerId = $"worker-routesync-{Guid.CreateVersion7():N}";
+        var uniqueInstanceId = $"{uniqueWorkerId}-inst1";
+        var jobTypeName = $"RouteSyncJob_{Guid.CreateVersion7():N}";
+        var newPattern = $"worker.{uniqueWorkerId}";
+
+        // Seed a job already owned by this worker but with a stale routing pattern.
+        var dbContext = GetDbContext();
+        var jobId = Guid.CreateVersion7();
+        await dbContext.ScheduledJobs.AddAsync(new ScheduledJob
+        {
+            Id = jobId,
+            DisplayName = jobTypeName,
+            JobNameInWorker = jobTypeName,
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(5),
+            IsActive = true,
+            WorkerId = uniqueWorkerId,
+            RoutingPattern = "worker.stale-pattern",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        });
+        await dbContext.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var discoveryService = CreateWorkerAutoDiscoveryService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await discoveryService.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        // Act
+        await PublishRegistrationMessageAsync(new WorkerDiscoveryRequest
+        {
+            WorkerId = uniqueWorkerId,
+            InstanceId = uniqueInstanceId,
+            DisplayName = "Route Sync Worker",
+            HostName = "test-host",
+            IpAddress = "127.0.0.1",
+            JobTypes = [jobTypeName],
+            RoutingPatterns = new Dictionary<string, string> { [jobTypeName] = newPattern },
+            MaxParallelJobs = 5,
+            Version = "1.0.0"
+        }, cts.Token);
+
+        // Assert - the owned job's RoutingPattern should be updated to the new pattern.
+        var updated = await WaitForConditionAsync(
+            async () =>
+            {
+                var freshContext = GetDbContext();
+                var job = await freshContext.ScheduledJobs.AsNoTracking().FirstOrDefaultAsync(j => j.Id == jobId, cts.Token);
+                return job?.RoutingPattern == newPattern;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await discoveryService.StopAsync(cts.Token);
+
+        updated.Should().BeTrue("the routing pattern of the worker's own job should be synced on registration");
+    }
+
+    [Fact]
+    public async Task ProcessRegistration_ShouldReassignJobsFromInactiveWorker()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var inactiveWorkerId = $"worker-inactive-{Guid.CreateVersion7():N}";
+        var newWorkerId = $"worker-active-{Guid.CreateVersion7():N}";
+        var newInstanceId = $"{newWorkerId}-inst1";
+        var jobTypeName = $"ReassignJob_{Guid.CreateVersion7():N}";
+        var newPattern = $"worker.{newWorkerId}";
+
+        // Seed a job owned by a worker that is NOT present in Redis (i.e. inactive).
+        var dbContext = GetDbContext();
+        var jobId = Guid.CreateVersion7();
+        await dbContext.ScheduledJobs.AddAsync(new ScheduledJob
+        {
+            Id = jobId,
+            DisplayName = jobTypeName,
+            JobNameInWorker = jobTypeName,
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(5),
+            IsActive = true,
+            WorkerId = inactiveWorkerId,
+            RoutingPattern = $"worker.{inactiveWorkerId}",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        });
+        await dbContext.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var discoveryService = CreateWorkerAutoDiscoveryService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await discoveryService.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        // Act - a new, active worker registers and advertises the same job type.
+        await PublishRegistrationMessageAsync(new WorkerDiscoveryRequest
+        {
+            WorkerId = newWorkerId,
+            InstanceId = newInstanceId,
+            DisplayName = "Reassign Target Worker",
+            HostName = "test-host",
+            IpAddress = "127.0.0.1",
+            JobTypes = [jobTypeName],
+            RoutingPatterns = new Dictionary<string, string> { [jobTypeName] = newPattern },
+            MaxParallelJobs = 5,
+            Version = "1.0.0"
+        }, cts.Token);
+
+        // Assert - the stale job should be reassigned to the new worker with the new pattern.
+        var reassigned = await WaitForConditionAsync(
+            async () =>
+            {
+                var freshContext = GetDbContext();
+                var job = await freshContext.ScheduledJobs.AsNoTracking().FirstOrDefaultAsync(j => j.Id == jobId, cts.Token);
+                return job?.WorkerId == newWorkerId && job.RoutingPattern == newPattern;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await discoveryService.StopAsync(cts.Token);
+
+        reassigned.Should().BeTrue("jobs stranded on an inactive worker should be reassigned to the newly registered worker");
     }
 
     private WorkerAutoDiscoveryService CreateWorkerAutoDiscoveryService() => new(
