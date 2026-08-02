@@ -44,16 +44,10 @@ public static partial class StartupExtensions
 
         services.AddSingleton(identityBuilder.IdentityOptions);
 
-        // Both an interactive session and an api key are acceptable proof of identity. Naming both schemes in the
-        // default policy is what lets the existing [Auth(PermissionCatalog...)] attributes serve machine callers
-        // without being touched.
-        services.AddAuthorization(options =>
-        {
-            options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme,
-                                                                   ApiKeyAuthenticationDefaults.AuthenticationScheme)
-                                        .RequireAuthenticatedUser()
-                                        .Build();
-        });
+        services.AddAuthorizationBuilder()
+                .SetDefaultPolicy(new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme, ApiKeyAuthenticationDefaults.AuthenticationScheme)
+                                      .RequireAuthenticatedUser()
+                                      .Build());
 
         services.AddScoped<ApiKeyStore>();
         services.AddScoped<IApiKeyCacheInvalidator>(sp => sp.GetRequiredService<ApiKeyStore>());

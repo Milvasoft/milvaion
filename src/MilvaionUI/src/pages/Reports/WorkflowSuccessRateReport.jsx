@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -74,6 +75,8 @@ function WorkflowSuccessRateReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('WorkflowSuccessRate', data)) return <ReportEmptyData metricType="WorkflowSuccessRate" report={selectedReport} />
     const workflows = data.Workflows
 
     const totalCount = workflows.length
@@ -231,6 +234,7 @@ function WorkflowSuccessRateReport() {
           </button>
           <h1><Icon name="account_tree" size={28} /> Workflow Success Rate</h1>
           <p className="page-description">Success and failure rates for each workflow</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -244,7 +248,7 @@ function WorkflowSuccessRateReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

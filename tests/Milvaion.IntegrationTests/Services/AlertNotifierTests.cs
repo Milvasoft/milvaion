@@ -464,11 +464,12 @@ public class AlertNotifierTests(ServicesWebApplicationFactory factory, ITestOutp
     {
         var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
         var lazyLogger = new Lazy<IMilvaLogger>(() => loggerFactory.CreateMilvaLogger<AlertNotifier>());
-
+        var settingsProvider = _serviceProvider.GetRequiredService<ISettingsProvider>();
         return new AlertNotifier(
             Options.Create(options),
             channels ?? [],
-            lazyLogger);
+            lazyLogger,
+            settingsProvider);
     }
 
     /// <summary>

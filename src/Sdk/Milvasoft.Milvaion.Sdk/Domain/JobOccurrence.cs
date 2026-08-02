@@ -26,6 +26,13 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
     public string JobName { get; set; }
 
     /// <summary>
+    /// Friendly display name of the job, denormalized (copied at dispatch time) so the execution
+    /// list can show it without joining to the scheduled job. It is a snapshot of the name at
+    /// dispatch time and is intentionally not updated when the job is later renamed.
+    /// </summary>
+    public string JobDisplayName { get; set; }
+
+    /// <summary>
     /// Reference to the parent scheduled job definition.
     /// </summary>
     public Guid JobId { get; set; }

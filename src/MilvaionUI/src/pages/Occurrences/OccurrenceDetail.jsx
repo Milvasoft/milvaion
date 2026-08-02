@@ -23,6 +23,9 @@ const [error, setError] = useState(null)
 const [signalRConnected, setSignalRConnected] = useState(false)
 const [deleting, setDeleting] = useState(false)
 const logsContainerRef = useRef(null)
+// Client-side markers for logs that just streamed in, so they can flash on arrival.
+const [flashLogKeys, setFlashLogKeys] = useState(() => new Set())
+const flashIdRef = useRef(0)
 const [autoScroll, setAutoScroll] = useState(true)
 const [showCancelModal, setShowCancelModal] = useState(false)
 const [cancelReason, setCancelReason] = useState('')
@@ -231,8 +234,13 @@ const { modalProps, showModal } = useModal()
       if (logData && logData.occurrenceId === id) {
         console.log('🔔 OccurrenceLogAdded event:', logData)
 
+        // Tag the incoming log so it can be flagged as "new" and flash on arrival, regardless
+        // of where it lands after sorting.
+        const flashKey = `rt-${Date.now()}-${flashIdRef.current++}`
+        const incoming = { ...logData.log, __flashKey: flashKey }
+
         setLogs(prev => {
-          const newLogs = [...prev, logData.log]
+          const newLogs = [...prev, incoming]
           // Sort logs by timestamp (ascending - oldest first)
           return newLogs.sort((a, b) => {
             const timeA = new Date(a.timestamp || a.Timestamp || 0).getTime()
@@ -240,6 +248,16 @@ const { modalProps, showModal } = useModal()
             return timeA - timeB
           })
         })
+
+        setFlashLogKeys(prev => new Set(prev).add(flashKey))
+        // Clear the marker once the animation has played, so it does not replay on re-render.
+        setTimeout(() => {
+          setFlashLogKeys(prev => {
+            const next = new Set(prev)
+            next.delete(flashKey)
+            return next
+          })
+        }, 1200)
       }
     })
 
@@ -740,9 +758,10 @@ const { modalProps, showModal } = useModal()
             {visibleLogs.map((log, index) => {
               // Generate unique key: timestamp + index (in case of duplicate timestamps)
               const logKey = `${log.timestamp || log.createdAt || 0}-${index}`
+              const isNew = log.__flashKey && flashLogKeys.has(log.__flashKey)
 
               return (
-                <div key={logKey} className={`log-entry log-${log.level?.toLowerCase() || 'information'}`}>
+                <div key={log.__flashKey || logKey} className={`log-entry log-${log.level?.toLowerCase() || 'information'}${isNew ? ' is-new' : ''}`}>
                   <span className="log-time">
                     {log.timestamp ? formatTime(log.timestamp) : (log.createdAt ? formatTime(log.createdAt) : '-')}
                   </span>

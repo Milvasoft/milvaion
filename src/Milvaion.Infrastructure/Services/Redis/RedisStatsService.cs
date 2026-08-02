@@ -243,43 +243,54 @@ public class RedisStatsService(IConnectionMultiplexer redis,
 
             var now = DateTime.UtcNow;
             var sevenDaysAgo = now.AddDays(-7);
-            var thirtySecondsAgo = now.AddSeconds(-30);
 
-            // Query stats for the last 7 days
-            var sql = $@"
-                 WITH stats AS (
-                     SELECT
-                         COUNT(*) AS ""TotalExecutions"",
-                         COUNT(*) FILTER (WHERE ""Status"" = 0) AS ""QueuedJobs"",
-                         COUNT(*) FILTER (WHERE ""Status"" = 1) AS ""RunningJobs"",
-                         COUNT(*) FILTER (WHERE ""Status"" = 3) AS ""FailedJobs"",
-                         COUNT(*) FILTER (WHERE ""Status"" = 4) AS ""CancelledJobs"",
-                         COUNT(*) FILTER (WHERE ""Status"" = 5) AS ""TimedOutJobs"",
-                         COUNT(*) FILTER (WHERE ""Status"" = 6) AS ""UnknownJobs"",
-                         COALESCE(SUM(""DurationMs"") FILTER (WHERE ""Status"" = 2 AND ""DurationMs"" IS NOT NULL), 0) AS ""TotalDuration"",
-                         COUNT(*) FILTER (WHERE ""Status"" = 2 AND ""DurationMs"" IS NOT NULL) AS ""DurationCount""
-                     FROM ""JobOccurrences""
-                     WHERE ""CreatedAt"" >= {{0}}
+            // Counts are estimated from the planner's statistics, not COUNT(*): at tens of millions
+            // of rows an exact count is a multi-second scan, while pg_class.reltuples (all-time total)
+            // and pg_stats' most-common-values (per-status share) are read straight from the catalog
+            // in constant time, regardless of table size. This is approximate but self-heals the
+            // counters, and the real-time increments keep the live deltas accurate between syncs.
+            // Autovacuum's ANALYZE keeps these statistics fresh.
+            //
+            // Duration stays an exact aggregate over a 7-day window - it needs real sums, and that
+            // window is small and cheap.
+            var sql = @"
+                 WITH tbl AS (
+                     SELECT GREATEST(reltuples, 0)::double precision AS total
+                     FROM pg_class
+                     WHERE oid = '""JobOccurrences""'::regclass
                  ),
-                 recent AS (
-                     SELECT COUNT(*) AS ""RecentCount""
+                 mcv AS (
+                     SELECT u.v AS status, u.f AS freq
+                     FROM pg_stats s
+                     CROSS JOIN LATERAL unnest(s.most_common_vals::text::text[], s.most_common_freqs) AS u(v, f)
+                     WHERE s.tablename = 'JobOccurrences'
+                       AND s.attname = 'Status'
+                       AND s.schemaname = (SELECT n.nspname
+                                           FROM pg_class c
+                                           JOIN pg_namespace n ON n.oid = c.relnamespace
+                                           WHERE c.oid = '""JobOccurrences""'::regclass)
+                 ),
+                 dur AS (
+                     SELECT
+                         COALESCE(SUM(""DurationMs"") FILTER (WHERE ""Status"" = 2 AND ""DurationMs"" IS NOT NULL), 0) AS total_duration,
+                         COUNT(*) FILTER (WHERE ""Status"" = 2 AND ""DurationMs"" IS NOT NULL) AS duration_count
                      FROM ""JobOccurrences""
-                     WHERE ""CreatedAt"" >= {{1}}
+                     WHERE ""CreatedAt"" >= {0}
                  )
                  SELECT
-                     s.""TotalExecutions"",
-                     s.""QueuedJobs"",
-                     s.""RunningJobs"",
-                     s.""FailedJobs"",
-                     s.""CancelledJobs"",
-                     s.""TimedOutJobs"",
-                     s.""UnknownJobs"",
-                     s.""TotalDuration"",
-                     s.""DurationCount"",
-                     r.""RecentCount""
-                 FROM stats s, recent r";
+                     (SELECT total FROM tbl)::bigint AS ""TotalExecutions"",
+                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '0'), 0)::bigint AS ""QueuedJobs"",
+                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '1'), 0)::bigint AS ""RunningJobs"",
+                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '3'), 0)::bigint AS ""FailedJobs"",
+                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '4'), 0)::bigint AS ""CancelledJobs"",
+                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '5'), 0)::bigint AS ""TimedOutJobs"",
+                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '6'), 0)::bigint AS ""UnknownJobs"",
+                     dur.total_duration::bigint AS ""TotalDuration"",
+                     dur.duration_count::bigint AS ""DurationCount"",
+                     0::bigint AS ""RecentCount""
+                 FROM dur";
 
-            var result = await context.Database.SqlQueryRaw<StatsSyncDto>(sql, sevenDaysAgo, thirtySecondsAgo).FirstOrDefaultAsync(cancellationToken);
+            var result = await context.Database.SqlQueryRaw<StatsSyncDto>(sql, sevenDaysAgo).FirstOrDefaultAsync(cancellationToken);
 
             if (result == null)
             {

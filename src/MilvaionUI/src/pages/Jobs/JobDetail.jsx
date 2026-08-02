@@ -24,6 +24,8 @@ const { id } = useParams()
 const navigate = useNavigate()
 const [job, setJob] = useState(null)
 const [occurrences, setOccurrences] = useState([])
+// Ids of executions that just streamed in, so their row flashes on arrival.
+const [flashIds, setFlashIds] = useState(() => new Set())
 const [loading, setLoading] = useState(true)
 const [error, setError] = useState(null)
 const [signalRConnected, setSignalRConnected] = useState(false)
@@ -211,6 +213,18 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
             const newList = [occurrence, ...prev]
             return newList.slice(0, pageSize)
           })
+
+          // Flash the new row briefly, then clear the marker so it does not replay.
+          if (occurrence.id != null) {
+            setFlashIds(prev => new Set(prev).add(occurrence.id))
+            setTimeout(() => {
+              setFlashIds(prev => {
+                const next = new Set(prev)
+                next.delete(occurrence.id)
+                return next
+              })
+            }, 1200)
+          }
 
           if (signalRService.isConnected()) {
             signalRService.subscribeToOccurrence(occurrence.id)
@@ -868,6 +882,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
 
         <OccurrenceTable
           occurrences={occurrences}
+          flashIds={flashIds}
           loading={false}
           currentPage={paginationState.cursorHistory.length + 1}
           pageSize={pageSize}

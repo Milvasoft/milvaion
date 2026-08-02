@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -61,6 +62,8 @@ function FailureRateTrendReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('FailureRateTrend', data)) return <ReportEmptyData metricType="FailureRateTrend" report={selectedReport} />
     const chartData = data.DataPoints.map(point => ({
       time: new Date(point.Timestamp).toLocaleTimeString('tr-TR', {
         hour: '2-digit',
@@ -170,6 +173,7 @@ function FailureRateTrendReport() {
           </button>
           <h1><Icon name="trending_down" size={28} /> Failure Rate Trend</h1>
           <p className="page-description">Error rate changes over time</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -183,7 +187,7 @@ function FailureRateTrendReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

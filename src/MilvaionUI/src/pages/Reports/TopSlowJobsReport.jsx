@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -63,6 +64,8 @@ function TopSlowJobsReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('TopSlowJobs', data)) return <ReportEmptyData metricType="TopSlowJobs" report={selectedReport} />
     const chartData = data.Jobs.map((job, index) => ({
       jobName: job.JobName.length > 35 ? job.JobName.substring(0, 35) + '...' : job.JobName,
       fullJobName: job.JobName,
@@ -160,6 +163,7 @@ function TopSlowJobsReport() {
           </button>
           <h1><Icon name="hourglass_empty" size={28} /> Top Slow Jobs</h1>
           <p className="page-description">Average duration by job name</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -173,7 +177,7 @@ function TopSlowJobsReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

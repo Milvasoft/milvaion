@@ -1128,6 +1128,46 @@
             <param name="cancellation"></param>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Api.Controllers.SettingsController">
+            <summary>
+            Application settings endpoints. Admin reads/writes the full document; a small public subset
+            (branding text) is exposed anonymously for the login page and browser tab.
+            </summary>
+            <remarks>
+            Admin gating is per-method rather than on the controller: <see cref="T:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute"/>
+            is a plain authorization filter that does not honour <c>[AllowAnonymous]</c>, so a
+            class-level attribute would also block the public endpoint. Keeping it per-method leaves the
+            public endpoint genuinely open.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.SettingsController.#ctor(MediatR.IMediator)">
+            <summary>
+            Application settings endpoints. Admin reads/writes the full document; a small public subset
+            (branding text) is exposed anonymously for the login page and browser tab.
+            </summary>
+            <remarks>
+            Admin gating is per-method rather than on the controller: <see cref="T:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute"/>
+            is a plain authorization filter that does not honour <c>[AllowAnonymous]</c>, so a
+            class-level attribute would also block the public endpoint. Keeping it per-method leaves the
+            public endpoint genuinely open.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.SettingsController.GetSettingsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets everything the settings page shows: branding, notification rules, channel status and
+            the available channels - one call for the whole page.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.SettingsController.GetPublicSettingsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets the non-secret settings subset (branding text) needed before authentication.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.SettingsController.UpdateSettingsAsync(Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates the application settings. Takes effect at runtime across all instances.
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Controllers.UIController">
             <summary>
             Frontend related endpoints.
@@ -2072,6 +2112,35 @@
             <param name="workflowName">Name or id of the workflow.</param>
             <returns>The prompt text.</returns>
         </member>
+        <member name="T:Milvaion.Api.Mcp.MilvaionSettingsTools">
+            <summary>
+            MCP tools for the application's runtime settings: branding and per-alert notification routing.
+            Reads and writes go through the same cached settings provider as the UI, so a change here takes
+            effect at runtime across every instance.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionSettingsTools.#ctor(MediatR.IMediator,Milvaion.Api.Mcp.McpPermissionGuard)">
+            <summary>
+            MCP tools for the application's runtime settings: branding and per-alert notification routing.
+            Reads and writes go through the same cached settings provider as the UI, so a change here takes
+            effect at runtime across every instance.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionSettingsTools.GetSettingsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets branding, notification rules, channel status and the available channels.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionSettingsTools.UpdateBrandingAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Updates the branding text (title and subtitle).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionSettingsTools.ConfigureNotificationAsync(Milvaion.Domain.Enums.AlertType,System.Boolean,System.String[],System.Threading.CancellationToken)">
+            <summary>
+            Enables/disables a single alert type and sets its channels.
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Middlewares.ExceptionMiddleware">
             <summary>
             Catches errors occurring elsewhere in the project.
@@ -2216,6 +2285,42 @@
             <inheritdoc />
         </member>
         <member name="M:Milvaion.Api.Migrations.AddScheduledJobCompletedAt.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.EnhaneceMetricReports">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.EnhaneceMetricReports.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.EnhaneceMetricReports.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.EnhaneceMetricReports.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.AddRuntimeSettings">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddRuntimeSettings.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddRuntimeSettings.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddRuntimeSettings.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.NormalizeJobDisplayName">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.NormalizeJobDisplayName.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.NormalizeJobDisplayName.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.NormalizeJobDisplayName.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">

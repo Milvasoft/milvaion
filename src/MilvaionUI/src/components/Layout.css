@@ -80,6 +80,9 @@
 
 .logo-text {
   flex: 1;
+  /* Without this the flex item cannot shrink below its content, so a long single-word title
+     overflows the sidebar into the page. */
+  min-width: 0;
 }
 
 .sidebar-header h1 {
@@ -88,7 +91,14 @@
   letter-spacing: -0.02em;
   margin: 0 0 0.25rem 0;
   color: var(--text-primary);
-  line-height: 1;
+  line-height: 1.15;
+  /* Long titles - including one unbroken word - wrap inside the sidebar and clamp to two lines
+     rather than spilling out. The full title still shows in the browser tab. */
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .sidebar-header p {

@@ -1,6 +1,6 @@
 ﻿using MediatR;
-using Milvaion.Application.Dtos.MetricReportDtos;
 using Milvaion.Application.Dtos.ConfigurationDtos;
+using Milvaion.Application.Dtos.MetricReportDtos;
 using Milvaion.Application.Features.Configuration.GetSystemConfiguration;
 using Milvaion.Application.Features.Configuration.GetSystemResourceUsage;
 using Milvaion.Application.Features.InternalNotifications.GetInternalNotificationList;

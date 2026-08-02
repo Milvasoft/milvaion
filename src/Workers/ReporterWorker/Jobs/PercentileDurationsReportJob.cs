@@ -9,7 +9,7 @@ using System.Text.Json;
 
 namespace ReporterWorker.Jobs;
 
-public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : IAsyncJobWithResult<string>
+public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : IAsyncJobWithResult<ReporterJobData, string>
 {
     private readonly ReporterOptions _options = options.Value;
 
@@ -17,8 +17,10 @@ public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : I
     {
         context.LogInformation("Starting Percentile Durations Report generation");
 
-        var periodEnd = DateTime.UtcNow;
-        var periodStart = periodEnd.AddHours(-_options.ReportGeneration.LookbackHours);
+        var jobData = context.GetData<ReporterJobData>() ?? new ReporterJobData();
+        var window = ReportWindow.Resolve(jobData);
+        var periodStart = window.Start;
+        var periodEnd = window.End;
 
         await using var connection = new NpgsqlConnection(_options.DatabaseConnectionString);
         await connection.OpenAsync(context.CancellationToken);
@@ -67,16 +69,17 @@ public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : I
             PeriodStartTime = periodStart,
             PeriodEndTime = periodEnd,
             GeneratedAt = DateTime.UtcNow,
+            Period = window.PeriodLabel,
             Tags = "performance,duration,percentile"
         };
 
         var insertSql = @"
             INSERT INTO ""MetricReports""
-            (""Id"", ""MetricType"", ""DisplayName"", ""Description"", ""Data"",
-             ""PeriodStartTime"", ""PeriodEndTime"", ""GeneratedAt"", ""Tags"", ""CreationDate"")
+            (""Id"", ""MetricType"", ""DisplayName"", ""Description"", ""Data"", ""DataSizeBytes"",
+             ""PeriodStartTime"", ""PeriodEndTime"", ""GeneratedAt"", ""Tags"", ""Period"", ""CreationDate"")
             VALUES
-            (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
-             @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
+            (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb, @DataSizeBytes,
+             @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @Period, @CreationDate)";
 
         await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
@@ -85,10 +88,12 @@ public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : I
             report.DisplayName,
             report.Description,
             report.Data,
+            DataSizeBytes = report.Data.Length,
             report.PeriodStartTime,
             report.PeriodEndTime,
             report.GeneratedAt,
             report.Tags,
+            report.Period,
             CreationDate = DateTime.UtcNow
         }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 

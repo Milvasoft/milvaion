@@ -1162,7 +1162,9 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
         finalRun.Error.Should().Contain("failed");
     }
 
+#pragma warning disable xUnit1004 // Test methods should not be skipped
     [Fact(Skip = "CI flaky test")]
+#pragma warning restore xUnit1004 // Test methods should not be skipped
     public async Task WorkflowEngine_Disabled_ShouldNotProcess()
     {
         // Arrange

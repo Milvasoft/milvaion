@@ -59,6 +59,11 @@ public static class InfraServiceCollectionExtensions
         services.AddScoped<IDeveloperService, DeveloperService>();
         services.AddScoped<IExportService, ExportService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddSingleton<Services.Settings.SettingsProvider>();
+        services.AddSingleton<ISettingsProvider>(sp => sp.GetRequiredService<Services.Settings.SettingsProvider>());
+        services.AddHostedService(sp => sp.GetRequiredService<Services.Settings.SettingsProvider>());
+        services.AddHostedService<ApiKeyExpiryMonitorService>();
+        services.AddHostedService<JobMisfireMonitorService>();
 
         services.AddTransient(typeof(Lazy<>), typeof(MilvaionLazy<>));
 

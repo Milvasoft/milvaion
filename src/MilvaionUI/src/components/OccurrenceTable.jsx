@@ -32,6 +32,7 @@ import { statusOf, occurrenceDurationMs, OCCURRENCE_STATUS_FILTERS } from '../ut
  */
 function OccurrenceTable({
   occurrences = [],
+  flashIds,
   loading,
   totalCount,
   currentPage,
@@ -134,7 +135,7 @@ function OccurrenceTable({
               return (
                 <tr
                   key={occurrence.id}
-                  className={`mv-table-row is-clickable tone-${status.tone}`}
+                  className={`mv-table-row is-clickable tone-${status.tone}${flashIds?.has(occurrence.id) ? ' is-new' : ''}`}
                   onClick={() => navigate(`/occurrences/${occurrence.id}`)}
                 >
                   <td className="mv-col-check" onClick={(e) => e.stopPropagation()}>

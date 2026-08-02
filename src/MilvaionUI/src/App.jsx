@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { SkeletonCard } from './components/Skeleton'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { BrandingProvider } from './contexts/BrandingContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login/Login'
@@ -38,6 +39,7 @@ const PercentileDurationsReport = lazy(() => import('./pages/Reports/PercentileD
 const Profile = lazy(() => import('./pages/Profile/Profile'))
 const ReportDashboard = lazy(() => import('./pages/Reports/ReportDashboard'))
 const RoleList = lazy(() => import('./pages/UserManagement/RoleList'))
+const Settings = lazy(() => import('./pages/Settings/Settings'))
 const Tags = lazy(() => import('./pages/Tags'))
 const TopSlowJobsReport = lazy(() => import('./pages/Reports/TopSlowJobsReport'))
 const UpcomingExecutions = lazy(() => import('./pages/UpcomingExecutions/UpcomingExecutions'))
@@ -72,6 +74,7 @@ function App() {
   const basename = (window.__MILVAION_CONFIG__?.basePath ?? import.meta.env.VITE_BASE_PATH ?? '/') || '/'
   return (
     <ThemeProvider>
+      <BrandingProvider>
       <Router basename={basename}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -98,6 +101,7 @@ function App() {
                       <Route path="/failed-executions/:id" element={<FailedOccurrenceDetail />} />
                       <Route path="/admin" element={<AdminDashboard />} />
                       <Route path="/configuration" element={<Configuration />} />
+                      <Route path="/settings" element={<Settings />} />
                       <Route path="/users" element={<UserList />} />
                       <Route path="/roles" element={<RoleList />} />
                       <Route path="/api-keys" element={<ApiKeyList />} />
@@ -131,6 +135,7 @@ function App() {
           />
         </Routes>
       </Router>
+      </BrandingProvider>
     </ThemeProvider>
   )
 }

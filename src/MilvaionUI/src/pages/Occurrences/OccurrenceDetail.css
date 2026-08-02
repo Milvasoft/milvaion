@@ -431,6 +431,22 @@
   position: relative;
 }
 
+/* A log that just streamed in: comes in dim with a faint accent tint, then settles to normal
+   right away, so the eye catches that it is new. */
+.log-entry.is-new {
+  animation: log-flash-in 900ms ease-out;
+}
+
+@keyframes log-flash-in {
+  0%   { opacity: 0.25; background-color: var(--accent-glow); }
+  70%  { opacity: 1; }
+  100% { opacity: 1; background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-entry.is-new { animation: none; }
+}
+
   .log-entry:hover {
     background-color: var(--bg-hover);
   }

@@ -359,6 +359,22 @@ a.mv-table-primary:hover {
 .mv-table-row.tone-info    td:first-child { box-shadow: inset 2px 0 0 var(--info-color); }
 .mv-table-row.tone-idle    td:first-child { box-shadow: inset 2px 0 0 var(--border-color); }
 
+/* A row that just streamed in: comes in dim with a faint accent tint, then settles to normal
+   right away, so the eye catches that it is new. */
+.mv-table-row.is-new {
+  animation: mv-row-flash-in 900ms ease-out;
+}
+
+@keyframes mv-row-flash-in {
+  0%   { opacity: 0.25; background-color: var(--accent-glow); }
+  70%  { opacity: 1; }
+  100% { opacity: 1; background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-table-row.is-new { animation: none; }
+}
+
 /* The older names, kept so call sites written before the tones still mark their rows. */
 .mv-table-row.is-warning td:first-child { box-shadow: inset 2px 0 0 var(--warning-color); }
 .mv-table-row.is-danger  td:first-child { box-shadow: inset 2px 0 0 var(--error-color); }

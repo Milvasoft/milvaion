@@ -4,6 +4,48 @@
         <name>Milvaion.Infrastructure</name>
     </assembly>
     <members>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService">
+             <summary>
+             Periodically scans API keys and raises an alert as each one approaches, then passes, its
+             expiry. Fires <see cref="F:Milvaion.Domain.Enums.AlertType.ApiKeyExpiring"/> within a window before the date and
+             <see cref="F:Milvaion.Domain.Enums.AlertType.ApiKeyExpired"/> once it has passed.
+            
+             De-duplicated through Redis: a short-lived key per (api key, state) means the same alert is
+             raised at most once per day, across every instance, rather than every scan.
+            
+             Deliberately invisible: it is a plain background service, not registered with the memory or
+             metrics registries, so it never appears on the monitoring or configuration screens. Every
+             operation is wrapped so a failure is swallowed quietly (debug-level only) and never disturbs
+             the rest of the system - the only thing a user ever sees is the notification itself.
+             </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Milvaion.Application.Interfaces.IAlertNotifier,StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService})">
+             <summary>
+             Periodically scans API keys and raises an alert as each one approaches, then passes, its
+             expiry. Fires <see cref="F:Milvaion.Domain.Enums.AlertType.ApiKeyExpiring"/> within a window before the date and
+             <see cref="F:Milvaion.Domain.Enums.AlertType.ApiKeyExpired"/> once it has passed.
+            
+             De-duplicated through Redis: a short-lived key per (api key, state) means the same alert is
+             raised at most once per day, across every instance, rather than every scan.
+            
+             Deliberately invisible: it is a plain background service, not registered with the memory or
+             metrics registries, so it never appears on the monitoring or configuration screens. Every
+             operation is wrapped so a failure is swallowed quietly (debug-level only) and never disturbs
+             the rest of the system - the only thing a user ever sees is the notification itself.
+             </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService._expiringWindowDays">
+            <summary>How long before expiry a key is considered "expiring".</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService._checkInterval">
+            <summary>How often the scan runs. Expiry is day-granular, so a few times a day is plenty.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService._dedupTtl">
+            <summary>Suppression window per key+state, so an alert repeats at most once a day.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService.ExecuteAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry">
             <summary>
             Registry for collecting memory stats from all tracked background services.
@@ -381,6 +423,42 @@
             <summary>
             Retries occurrences that failed to dispatch (with exponential backoff).
             </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService">
+             <summary>
+             Detects misfired jobs and raises <see cref="F:Milvaion.Domain.Enums.AlertType.JobMisfired"/>.
+            
+             A due job lives in the Redis scheduled set with its intended fire time as the score; the
+             dispatcher polls that set every few seconds and clears each job as it dispatches it. So a job
+             whose scheduled time is more than the grace window in the past yet is still sitting in the set
+             was never dispatched on time - the dispatcher was down, stalled, or could not place it. That
+             is the misfire.
+            
+             De-duplicated through Redis per (job, scheduled slot), so one missed run alerts once. This is a
+             separate, silent monitor rather than a hook in the dispatcher's hot path: it never touches the
+             dispatch flow, is not part of any monitoring/metrics registry, and swallows its own failures.
+             </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.IAlertNotifier,StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService})">
+             <summary>
+             Detects misfired jobs and raises <see cref="F:Milvaion.Domain.Enums.AlertType.JobMisfired"/>.
+            
+             A due job lives in the Redis scheduled set with its intended fire time as the score; the
+             dispatcher polls that set every few seconds and clears each job as it dispatches it. So a job
+             whose scheduled time is more than the grace window in the past yet is still sitting in the set
+             was never dispatched on time - the dispatcher was down, stalled, or could not place it. That
+             is the misfire.
+            
+             De-duplicated through Redis per (job, scheduled slot), so one missed run alerts once. This is a
+             separate, silent monitor rather than a hook in the dispatcher's hot path: it never touches the
+             dispatch flow, is not part of any monitoring/metrics registry, and swallows its own failures.
+             </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService._misfireGraceSeconds">
+            <summary>How late a still-scheduled job must be before it counts as a misfire.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService.ExecuteAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.LogCollectorService">
             <summary>
@@ -1523,7 +1601,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.AlertNotifier"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Collections.Generic.IEnumerable{Milvaion.Application.Interfaces.IAlertChannel},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Collections.Generic.IEnumerable{Milvaion.Application.Interfaces.IAlertChannel},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger},Milvaion.Application.Interfaces.ISettingsProvider)">
             <summary>
             Orchestrates sending alerts through multiple configured channels.
             All operations are designed to be non-blocking and resource-efficient.
@@ -1548,6 +1626,12 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.GetRoutesForAlert(Milvaion.Domain.Enums.AlertType)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.FindRule(Milvaion.Domain.Enums.AlertType)">
+            <summary>
+            The runtime rule for an alert, or null when the settings have not been seeded yet or carry
+            no entry for it - in which case the caller falls back to appsettings.
+            </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel">
             <summary>
@@ -2591,6 +2675,66 @@
             <summary>
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException"/> class.
             </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Settings.SettingsProvider">
+             <summary>
+             In-memory settings cache backed by the single <see cref="T:Milvaion.Domain.AppSetting"/> row, kept in sync
+             across instances with Redis pub/sub.
+            
+             Registered once and exposed both as <see cref="T:Milvaion.Application.Interfaces.ISettingsProvider"/> and as an
+             <see cref="T:Microsoft.Extensions.Hosting.IHostedService"/>: on startup it loads the row (seeding defaults if the table is
+             empty) and subscribes to an invalidation channel. On update it writes the row, swaps its
+             cached copy and publishes to that channel, so every instance - including this one - reloads
+             and a runtime change propagates immediately without a restart.
+             </summary>
+             <inheritdoc cref="T:Milvaion.Infrastructure.Services.Settings.SettingsProvider"/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Settings.SettingsProvider.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.Services.Settings.SettingsProvider},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions})">
+             <summary>
+             In-memory settings cache backed by the single <see cref="T:Milvaion.Domain.AppSetting"/> row, kept in sync
+             across instances with Redis pub/sub.
+            
+             Registered once and exposed both as <see cref="T:Milvaion.Application.Interfaces.ISettingsProvider"/> and as an
+             <see cref="T:Microsoft.Extensions.Hosting.IHostedService"/>: on startup it loads the row (seeding defaults if the table is
+             empty) and subscribes to an invalidation channel. On update it writes the row, swaps its
+             cached copy and publishes to that channel, so every instance - including this one - reloads
+             and a runtime change propagates immediately without a restart.
+             </summary>
+             <inheritdoc cref="T:Milvaion.Infrastructure.Services.Settings.SettingsProvider"/>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Settings.SettingsProvider._invalidationChannel">
+            <summary>
+            Pub/sub channel used to tell every instance that the settings row changed. A literal name is fine: the message carries no data, it is only a "reload now" signal.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Settings.SettingsProvider.Current">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Settings.SettingsProvider.GetAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Settings.SettingsProvider.UpdateAsync(Milvaion.Domain.JsonModels.AppSettingsDocument,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Settings.SettingsProvider.LoadAsync(System.Threading.CancellationToken)">
+            <summary>
+            Loads the row into the cache, seeding defaults on first run. Serialised so a burst of
+            concurrent readers on a cold cache performs a single database round-trip.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Settings.SettingsProvider.CreateDefault">
+            <summary>
+            The shipped defaults, seeded into the row on first run so there is always a known-good
+            baseline: the branding the frontend falls back to, plus one notification rule per alert
+            type taken from the appsettings alerting config (or enabled-on-the-default-channel when
+            appsettings says nothing about that alert).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Settings.SettingsProvider.StartAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Settings.SettingsProvider.StopAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.UIService">
             <summary>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -61,6 +62,8 @@ function PercentileDurationsReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('PercentileDurations', data)) return <ReportEmptyData metricType="PercentileDurations" report={selectedReport} />
     const chartData = Object.entries(data.Jobs).map(([jobName, percentiles]) => ({
       jobName: jobName.length > 30 ? jobName.substring(0, 30) + '...' : jobName,
       fullJobName: jobName,
@@ -143,6 +146,7 @@ function PercentileDurationsReport() {
           </button>
           <h1><Icon name="show_chart" size={28} /> P50 / P95 / P99 Durations</h1>
           <p className="page-description">Percentile-based duration distribution</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -156,7 +160,7 @@ function PercentileDurationsReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>
