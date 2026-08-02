@@ -816,6 +816,23 @@
             Detects and cleans up problematic occurrences (zombie queued + lost running).
             </summary>
         </member>
+        <member name="F:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService._runningJobReconcileGraceMinutes">
+            <summary>
+            A job whose most recent occurrence was created within this window is treated as possibly
+            still mid-dispatch and is never reconciled away, so we don't race a job that was just
+            marked running but whose occurrence has not been persisted yet.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.ReconcileRunningJobsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Threading.CancellationToken)">
+            <summary>
+            Removes orphaned "running" flags from Redis: job IDs marked running that have no active
+            (Queued/Running) occurrence in the database. This happens when a completion's removal was
+            missed - a Redis blip, an open circuit breaker, or a worker crash - leaving the job flagged
+            running forever so the dispatcher keeps skipping it ("Policy: Skip, Running in Redis: True").
+            The database-side zombie detection never sees these because there is no active occurrence to
+            find; reconciling the set is the only thing that frees them.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.DetectZombieQueuedAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Threading.CancellationToken)">
             <summary>
             Detects Queued occurrences that exceeded timeout and marks them as Unknown.
@@ -2464,6 +2481,12 @@
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.IsJobRunningAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetAllRunningJobIdsAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RemoveRunningJobsAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetRunningJobIdsAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">

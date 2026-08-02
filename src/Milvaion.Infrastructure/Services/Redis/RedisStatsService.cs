@@ -255,7 +255,12 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             // window is small and cheap.
             var sql = @"
                  WITH tbl AS (
-                     SELECT GREATEST(reltuples, 0)::double precision AS total
+                     -- Estimate from planner stats on large tables (instant), but fall back to an
+                     -- exact count when the table has never been analysed (reltuples <= 0: fresh or
+                     -- just-created), which only happens while it is still small and cheap to count.
+                     SELECT CASE WHEN reltuples > 0 THEN reltuples::double precision
+                                 ELSE (SELECT COUNT(*)::double precision FROM ""JobOccurrences"")
+                            END AS total
                      FROM pg_class
                      WHERE oid = '""JobOccurrences""'::regclass
                  ),

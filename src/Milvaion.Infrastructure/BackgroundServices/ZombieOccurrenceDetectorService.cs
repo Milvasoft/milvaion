@@ -97,6 +97,10 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
+        // Drop orphaned "running" flags from Redis first, so a job stuck being skipped
+        // (marked running but with no active occurrence) can run again.
+        await ReconcileRunningJobsAsync(dbContext, cancellationToken);
+
         var allProblematicOccurrences = new List<JobOccurrence>();
         var logsToInsert = new List<JobOccurrenceLog>();
 
@@ -160,6 +164,52 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
                 OccurrenceIds = allProblematicOccurrences.Select(o => o.Id).Take(10).ToList()
             }
         });
+    }
+
+    /// <summary>
+    /// A job whose most recent occurrence was created within this window is treated as possibly
+    /// still mid-dispatch and is never reconciled away, so we don't race a job that was just
+    /// marked running but whose occurrence has not been persisted yet.
+    /// </summary>
+    private const int _runningJobReconcileGraceMinutes = 10;
+
+    /// <summary>
+    /// Removes orphaned "running" flags from Redis: job IDs marked running that have no active
+    /// (Queued/Running) occurrence in the database. This happens when a completion's removal was
+    /// missed - a Redis blip, an open circuit breaker, or a worker crash - leaving the job flagged
+    /// running forever so the dispatcher keeps skipping it ("Policy: Skip, Running in Redis: True").
+    /// The database-side zombie detection never sees these because there is no active occurrence to
+    /// find; reconciling the set is the only thing that frees them.
+    /// </summary>
+    private async Task ReconcileRunningJobsAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
+    {
+        var runningInRedis = await _redisScheduler.GetAllRunningJobIdsAsync(cancellationToken);
+
+        if (runningInRedis.Count == 0)
+            return;
+
+        var ids = runningInRedis.ToList();
+        var graceCutoff = DateTime.UtcNow.AddMinutes(-_runningJobReconcileGraceMinutes);
+
+        // Jobs that are legitimately busy: an active occurrence, or one created so recently it may
+        // still be mid-dispatch.
+        var keep = await dbContext.JobOccurrences.AsNoTracking()
+                                  .Where(o => ids.Contains(o.JobId)
+                                           && (o.Status == JobOccurrenceStatus.Queued
+                                            || o.Status == JobOccurrenceStatus.Running
+                                            || o.CreatedAt > graceCutoff))
+                                  .Select(o => o.JobId)
+                                  .Distinct()
+                                  .ToListAsync(cancellationToken);
+
+        var orphans = runningInRedis.Except(keep).ToList();
+
+        if (orphans.Count == 0)
+            return;
+
+        var removed = await _redisScheduler.RemoveRunningJobsAsync(orphans, cancellationToken);
+
+        _logger.Warning("Reconciled {Removed} orphaned running-job flag(s) from Redis (marked running but no active occurrence). Affected jobs were being skipped and can run again.", removed);
     }
 
     /// <summary>
