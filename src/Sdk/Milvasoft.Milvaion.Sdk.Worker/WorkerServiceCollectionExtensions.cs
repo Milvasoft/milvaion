@@ -477,6 +477,7 @@ public static class WorkerServiceCollectionExtensions
                         Username = workerOptions.RabbitMQ.Username,
                         Password = workerOptions.RabbitMQ.Password,
                         VirtualHost = workerOptions.RabbitMQ.VirtualHost,
+                        QueueType = workerOptions.RabbitMQ.QueueType,
                         RoutingKeyPattern = capturedConfig.RoutingPattern
                     },
                     Redis = workerOptions.Redis,

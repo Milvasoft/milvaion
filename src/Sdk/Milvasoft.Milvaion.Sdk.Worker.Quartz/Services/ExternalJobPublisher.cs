@@ -119,12 +119,14 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
+                                             arguments: _workerOptions.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: cancellationToken);
 
             await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
+                                             arguments: _workerOptions.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: cancellationToken);
 
             _logger?.Information("Connected to RabbitMQ at {Host}:{Port}", _workerOptions.RabbitMQ.Host, _workerOptions.RabbitMQ.Port);

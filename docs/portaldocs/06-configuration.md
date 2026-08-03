@@ -139,6 +139,7 @@ Open telemetry configurations. Set null or empty via environment variables if yo
 | `VirtualHost` | `/` | Virtual host name |
 | `Durable` | `/` | Whether the queue should be durable (survives broker restart). |
 | `AutoDelete` | `/` | Whether the queue should auto-delete when no consumers. |
+| `QueueType` | `Classic` | RabbitMQ queue type used when declaring queues. Accepted values: `Classic`, `Quorum`. Must match the value used by any connected worker's `Worker:RabbitMQ:QueueType` setting for the same queues, otherwise RabbitMQ rejects the redeclare with a `PRECONDITION_FAILED` error. Changing this value for an already-existing queue requires deleting the queue in RabbitMQ first, since RabbitMQ does not support converting a queue's type in place. |
 | `ConnectionTimeout` | `/` | Connection timeout in seconds. |
 | `Heartbeat` | `/` | Heartbeat interval in seconds (0 = disabled). |
 | `AutomaticRecoveryEnabled` | `/` | Automatic connection recovery enabled. |
@@ -347,6 +348,7 @@ environment:
 | `Password` | `guest` | Password |
 | `VirtualHost` | `/` | Virtual host |
 | `RoutingKeyPattern` | `#` | Queue binding pattern. Don't recommended setting up routing patterns. The scheduler and worker will determine this automatically at runtime. |
+| `QueueType` | `Classic` | RabbitMQ queue type used when declaring queues. Accepted values: `Classic`, `Quorum`. Must match the API's `MilvaionConfig:RabbitMQ:QueueType` setting for shared queues, otherwise RabbitMQ rejects the redeclare with a `PRECONDITION_FAILED` error. |
 
 
 ### Worker Redis Settings

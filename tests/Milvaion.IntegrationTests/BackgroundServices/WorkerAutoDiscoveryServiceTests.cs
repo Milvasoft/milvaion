@@ -506,6 +506,7 @@ public class WorkerAutoDiscoveryServiceTests(ServicesWebApplicationFactory facto
             {
                 Enabled = true
             }),
+            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider,

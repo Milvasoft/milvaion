@@ -29,6 +29,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                                         RabbitMQConnectionFactory rabbitMQFactory,
                                         IOptions<WorkerAutoDiscoveryOptions> options,
+                                        IOptions<RabbitMQOptions> rabbitMQOptions,
                                         IAlertNotifier alertNotifier,
                                         ILoggerFactory loggerFactory,
                                         IServiceProvider serviceProvider,
@@ -39,6 +40,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<WorkerAutoDiscoveryService>();
     private readonly WorkerAutoDiscoveryOptions _options = options.Value;
+    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly BackgroundServiceMetrics _metrics = metrics;
@@ -128,8 +130,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         };
 
         // Declare queues
-        await _registrationChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, null, cancellationToken: stoppingToken);
-        await _heartbeatChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, null, cancellationToken: stoppingToken);
+        await _registrationChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, _rabbitMQOptions.BuildQueueArguments(), cancellationToken: stoppingToken);
+        await _heartbeatChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, _rabbitMQOptions.BuildQueueArguments(), cancellationToken: stoppingToken);
 
         // Set QoS prefetch to limit in-flight messages and prevent queue buildup during Redis slowdowns
         await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);

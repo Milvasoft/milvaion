@@ -159,7 +159,7 @@ public class JobConsumer : BackgroundService
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
-                                             arguments: null,
+                                             arguments: _options.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: stoppingToken);
 
             // Bind DLQ to DLX
@@ -180,7 +180,7 @@ public class JobConsumer : BackgroundService
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
-                                             arguments: queueArgs,
+                                             arguments: _options.RabbitMQ.BuildQueueArguments(queueArgs),
                                              cancellationToken: stoppingToken);
 
             await _channel.QueueBindAsync(queue: queueName,
