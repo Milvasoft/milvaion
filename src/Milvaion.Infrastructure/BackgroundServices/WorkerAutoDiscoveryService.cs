@@ -45,6 +45,11 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private IChannel _registrationChannel;
     private IChannel _heartbeatChannel;
 
+    // Set at the very start of StopAsync, before channels are closed - StopAsync closes the channels
+    // (triggering ChannelShutdownAsync) before base.StopAsync() cancels stoppingToken, so relying on
+    // stoppingToken.IsCancellationRequested alone to detect "graceful shutdown" is racy.
+    private volatile bool _stopRequested;
+
     // Heartbeat batch processing with per-instance deduplication
     private readonly SemaphoreSlim _batchLock = new(1, 1);
 
@@ -164,7 +169,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         {
             await Task.Delay(Timeout.Infinite, channelDiedCts.Token);
         }
-        catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested && !_stopRequested)
         {
             // Channel died, not graceful shutdown — throw to trigger retry loop
             _logger.Warning("WorkerAutoDiscovery channel died. Will reconnect...");
@@ -447,6 +452,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     /// <returns></returns>
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        _stopRequested = true;
+
         _logger.Information("Worker auto discovery is stopping...");
 
         // Process remaining heartbeats before shutdown
