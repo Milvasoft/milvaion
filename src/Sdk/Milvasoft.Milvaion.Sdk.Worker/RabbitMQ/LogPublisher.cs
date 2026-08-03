@@ -40,6 +40,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogPublisher>();
     private IConnection _connection;
     private IChannel _channel;
+    private bool _disposed;
 
     // Batching configuration
     private readonly ConcurrentQueue<WorkerLogMessage> _logBuffer = new();
@@ -230,6 +231,13 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
 
     public async ValueTask DisposeAsync()
     {
+        // Registered as both LogPublisher and ILogPublisher singletons pointing at the same instance,
+        // so the DI container disposes it twice - guard against re-entering with an already-disposed _flushLock.
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
         // Flush remaining logs before disposal
         if (_flushTimer != null)
         {
