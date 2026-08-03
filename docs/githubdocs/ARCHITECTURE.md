@@ -277,6 +277,30 @@ Exchange: milvaion.dlx (fanout)
 ??? Queue: milvaion.dlq                 (dead letter queue)
 ```
 
+### Queue Type
+
+Every queue above is declared with the type configured in `MilvaionConfig:RabbitMQ:QueueType`,
+which accepts `Classic` (the default) or `Quorum`. Both the API and the worker SDK route their
+declaration arguments through `BuildQueueArguments`, so a single setting governs the whole
+topology on each side.
+
+**The API and every connected worker must agree.** RabbitMQ rejects a redeclare whose arguments
+differ from the queue it already holds:
+
+```
+PRECONDITION_FAILED - inequivalent arg 'x-queue-type' for queue 'worker_registration_queue'
+```
+
+The API treats that failure as fatal, so a mismatch stops the application at startup rather
+than degrading — the worker registration consumer throws, the host stops, and Kestrel never
+binds. Set `Worker:RabbitMQ:QueueType` on the worker side to the same value.
+
+Changing the type of a queue that already exists is not possible in place: the queue has to be
+deleted in RabbitMQ first, and is then recreated with the new type on the next declare.
+
+Quorum queues replicate through Raft and are meant for clustered brokers. On a single-node
+broker they add overhead without adding safety, so `Classic` is the sensible default there.
+
 ### Message Schemas
 
 **Job Message:**
