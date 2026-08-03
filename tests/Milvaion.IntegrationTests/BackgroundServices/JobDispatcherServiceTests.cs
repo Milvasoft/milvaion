@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,15 +45,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher first
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for occurrence to be created
         var found = await WaitForConditionAsync(
@@ -108,15 +100,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher first
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for job to be rescheduled
         var found = await WaitForConditionAsync(
@@ -160,15 +144,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher first
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for job to be removed from Redis
         var found = await WaitForConditionAsync(
@@ -211,15 +187,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait some time for dispatcher to process
         await Task.Delay(5000, cts.Token);
@@ -256,15 +224,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait some time for dispatcher to process
         await Task.Delay(5000, cts.Token);
@@ -312,15 +272,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher first
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for all jobs to have occurrences
         var found = await WaitForConditionAsync(
@@ -379,15 +331,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher first
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for occurrence with dispatch log
         var found = await WaitForConditionAsync(
@@ -456,15 +400,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher first
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for occurrence with correct version
         var found = await WaitForConditionAsync(
@@ -524,15 +460,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         await Task.Delay(5000, cts.Token);
 
@@ -581,15 +509,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         var found = await WaitForConditionAsync(
             async () =>
@@ -640,15 +560,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         await Task.Delay(5000, cts.Token);
 
@@ -690,15 +602,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act - Start dispatcher while paused
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait a bit then resume
         await Task.Delay(3000, cts.Token);
@@ -744,15 +648,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         var found = await WaitForConditionAsync(
             async () =>
@@ -809,15 +705,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         var found = await WaitForConditionAsync(
             async () =>
@@ -880,15 +768,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         var found = await WaitForConditionAsync(
             async () =>
@@ -952,15 +832,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         var found = await WaitForConditionAsync(
             async () =>
@@ -989,6 +861,18 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
         occurrence!.ZombieTimeoutMinutes.Should().Be(45);
     }
 
+    /// <summary>
+    /// Builds a dispatcher wired to the fixture's containers.
+    ///
+    /// Tests await <c>StartAsync</c> rather than queueing it on the thread pool. It returns as soon as the
+    /// polling loop yields, so awaiting it does not block - but before that it calls WaitForDatabaseReadyAsync,
+    /// which retries every two seconds and only gives up after thirty attempts. Started in the background, that
+    /// wait ran inside the window the assertions poll in, so a test measuring "did the dispatcher produce an
+    /// occurrence within N seconds" was really racing the dispatcher's own startup, and lost whenever the
+    /// database answered slowly under the load of the full suite.
+    ///
+    /// Awaiting it first means the timeouts below cover dispatching only, which is what these tests are about.
+    /// </summary>
     private JobDispatcherService CreateJobDispatcherService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
@@ -1080,15 +964,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for orphan job to be removed from Redis
         var removed = await WaitForConditionAsync(
@@ -1156,15 +1032,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         await Task.Delay(5000, cts.Token);
 
@@ -1221,15 +1089,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         await Task.Delay(5000, cts.Token);
 
@@ -1278,15 +1138,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         await Task.Delay(5000, cts.Token);
 
@@ -1335,15 +1187,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for job to be removed from Redis (invalid cron should cause removal)
         var removed = await WaitForConditionAsync(
@@ -1396,15 +1240,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         await Task.Delay(5000, cts.Token);
 
@@ -1441,15 +1277,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         // Act
         var dispatcher = CreateJobDispatcherService();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.StartAsync(cts.Token);
-                await Task.Delay(Timeout.Infinite, cts.Token);
-            }
-            catch (OperationCanceledException) { }
-        }, cts.Token);
+        await dispatcher.StartAsync(cts.Token);
 
         // Wait for all stale entries to be cleaned up
         var allCleaned = await WaitForConditionAsync(
