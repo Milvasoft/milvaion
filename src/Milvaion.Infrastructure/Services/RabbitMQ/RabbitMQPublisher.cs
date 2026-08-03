@@ -39,7 +39,8 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     {
         try
         {
-            await using var channel = await _connectionFactory.CreateChannelAsync(cancellationToken);
+            // Publisher confirms enabled: BasicPublishAsync below only completes once RabbitMQ has acked the message.
+            await using var channel = await _connectionFactory.CreateChannelAsync(enablePublisherConfirms: true, cancellationToken);
 
             // Serialize job to JSON
             var json = JsonSerializer.Serialize(job, _jsonOptions);

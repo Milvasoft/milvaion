@@ -191,7 +191,9 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
             };
 
             _connection = await factory.CreateConnectionAsync(cancellationToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+            // Publisher confirms enabled: BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+            _channel = await _connection.CreateChannelAsync(new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), cancellationToken);
 
             await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.WorkerLogs,
                                              durable: true,

@@ -16,6 +16,7 @@ Milvaion implements multiple reliability patterns:
 
 | Pattern | Purpose | How It Works |
 |---------|---------|--------------|
+| **Publisher Confirms** | Never lose a message on the way in | Broker acknowledges each publish |
 | **Retry with Backoff** | Recover from transient failures | Exponential delay between attempts |
 | **Dead Letter Queue** | Isolate permanently failed jobs | RabbitMQ DLX routing |
 | **Zombie Detection** | Recover stuck jobs | Background service monitoring |
@@ -23,6 +24,47 @@ Milvaion implements multiple reliability patterns:
 | **Idempotency** | Safe re-execution | CorrelationId tracking |
 | **Auto-Disable** | Circuit breaker for failing jobs | Consecutive failure threshold |
 | **Graceful Shutdown** | No data loss on stop | CancellationToken propagation |
+
+---
+
+## Publisher Confirms
+
+### What They Guarantee
+
+At-least-once delivery has two halves. Manual acknowledgement protects the **consuming** side:
+a worker that dies mid-job never acks, so RabbitMQ redelivers the message. Publisher confirms
+protect the **publishing** side.
+
+Without them, a publish completes as soon as the bytes leave the socket. If the broker rejects
+the message, runs out of disk, or drops the connection before writing it, the publisher has
+already moved on and nothing is reported — the job simply never runs, and no error is logged
+anywhere.
+
+Every channel Milvaion publishes on is opened with confirms and confirm tracking enabled, so
+the publish call only completes once RabbitMQ has acknowledged the message, and throws on a
+nack or a timeout.
+
+| Channel | Publishes |
+|---------|-----------|
+| API job dispatcher | Job messages to workers |
+| Worker job consumer | Retry and dead-letter republishes |
+| Worker status publisher | Execution status updates |
+| Worker log publisher | Streamed execution logs |
+| Worker listener publisher | Registration and heartbeat |
+
+### What This Means For You
+
+A publish that returns without throwing is safely with the broker. A publish that throws did
+**not** reach it and is worth retrying — treat the exception as a real failure rather than a
+transient warning.
+
+The cost is latency: each publish now waits for a round trip to the broker. That is deliberate.
+Consume-only channels are left without confirms, since the guarantee is meaningless there and
+the overhead is not.
+
+> Confirms say the **broker** accepted the message, not that a worker executed it. Delivery to
+> a worker is covered by manual ack and redelivery; execution outcome is covered by retries,
+> the dead letter queue and zombie detection, all described below.
 
 ---
 

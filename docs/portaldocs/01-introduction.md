@@ -92,7 +92,7 @@ Milvaion solves these problems by **completely separating scheduling from execut
 ## Key Features
 
 ### Reliability
-- **At-least-once delivery** via RabbitMQ manual ACK
+- **At-least-once delivery** via RabbitMQ publisher confirms and manual ACK
 - **Automatic retries** with exponential backoff
 - **Dead Letter Queue** for failed jobs after max retries
 - **Zombie detection** recovers stuck jobs

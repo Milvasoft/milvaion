@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
@@ -110,7 +110,9 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
             };
 
             _connection = await factory.CreateConnectionAsync(cancellationToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+            // Publisher confirms enabled: BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+            _channel = await _connection.CreateChannelAsync(new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), cancellationToken);
 
             // Declare queues
             await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
