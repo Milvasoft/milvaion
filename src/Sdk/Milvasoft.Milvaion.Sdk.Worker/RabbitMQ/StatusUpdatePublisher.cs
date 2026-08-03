@@ -149,7 +149,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
-                                             arguments: null,
+                                             arguments: _options.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: cancellationToken);
         }
     }

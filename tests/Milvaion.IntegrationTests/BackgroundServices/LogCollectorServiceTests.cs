@@ -641,6 +641,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
                 BatchSize = 1,
                 BatchIntervalMs = 100 // Faster batch processing for tests
             }),
+            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
@@ -655,6 +656,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
                 BatchSize = 1,
                 BatchIntervalMs = 100
             }),
+            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );

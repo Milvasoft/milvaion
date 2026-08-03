@@ -100,8 +100,8 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                 };
 
                 // Declare queues
-                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, null, cancellationToken: stoppingToken);
-                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, null, cancellationToken: stoppingToken);
+                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: stoppingToken);
+                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: stoppingToken);
 
                 // Register all workers on startup
                 await RegisterAllWorkersAsync(stoppingToken);

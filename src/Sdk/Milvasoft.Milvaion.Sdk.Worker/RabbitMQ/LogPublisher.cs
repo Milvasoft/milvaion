@@ -199,7 +199,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
-                                             arguments: null,
+                                             arguments: _options.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: cancellationToken);
         }
     }

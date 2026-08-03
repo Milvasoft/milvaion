@@ -138,7 +138,7 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
                                         durable: true,
                                         exclusive: false,
                                         autoDelete: false,
-                                        arguments: null,
+                                        arguments: _options.BuildQueueArguments(),
                                         cancellationToken: cancellationToken);
 
         // 4. Bind DLQ to DLX
@@ -159,7 +159,7 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
                                         durable: _options.Durable,
                                         exclusive: false,
                                         autoDelete: _options.AutoDelete,
-                                        arguments: mainQueueArgs,
+                                        arguments: _options.BuildQueueArguments(mainQueueArgs),
                                         cancellationToken: cancellationToken);
     }
 

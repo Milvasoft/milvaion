@@ -758,6 +758,7 @@ public class ExternalJobTrackerServiceTests(ServicesWebApplicationFactory factor
                 OccurrenceBatchSize = 1,
                 BatchIntervalMs = 200
             }),
+            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),

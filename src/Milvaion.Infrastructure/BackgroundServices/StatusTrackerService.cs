@@ -32,6 +32,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                                   RabbitMQConnectionFactory rabbitMQFactory,
                                   IOptions<StatusTrackerOptions> options,
                                   IOptions<JobAutoDisableOptions> autoDisableOptions,
+                                  IOptions<RabbitMQOptions> rabbitMQOptions,
                                   ILoggerFactory loggerFactory,
                                   BackgroundServiceMetrics metrics,
                                   IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
@@ -44,6 +45,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<StatusTrackerService>();
     private readonly StatusTrackerOptions _options = options.Value;
     private readonly JobAutoDisableOptions _autoDisableOptions = autoDisableOptions.Value;
+    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
     private IChannel _channel;
 
@@ -204,7 +206,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                                          durable: true,
                                          exclusive: false,
                                          autoDelete: false,
-                                         arguments: null,
+                                         arguments: _rabbitMQOptions.BuildQueueArguments(),
                                          cancellationToken: stoppingToken);
 
         // Set prefetch count
