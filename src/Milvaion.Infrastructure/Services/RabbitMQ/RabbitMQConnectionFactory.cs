@@ -166,17 +166,35 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
     /// <summary>
     /// Creates a new channel. Caller is responsible for disposal.
     /// </summary>
-    public async Task<IChannel> CreateChannelAsync(CancellationToken cancellationToken = default)
+    /// <param name="enablePublisherConfirms">
+    /// When true, the channel is opened with RabbitMQ publisher confirms enabled and tracked
+    /// (see https://www.rabbitmq.com/docs/publishers#data-safety). With confirm tracking on,
+    /// BasicPublishAsync only completes once the broker has acked the message, throwing on
+    /// nack/timeout, so callers must not consider a message safely published until the publish
+    /// call returns without an exception. Only set this for channels used to publish; it is
+    /// unnecessary overhead for consume-only channels.
+    /// </param>
+    /// <param name="cancellationToken"></param>
+    public async Task<IChannel> CreateChannelAsync(bool enablePublisherConfirms = false, CancellationToken cancellationToken = default)
     {
         if (!_initialized)
             throw new InvalidOperationException("RabbitMQ not initialized. Call InitializeAsync() first.");
 
-        var channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+        var channelOptions = enablePublisherConfirms
+            ? new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true)
+            : null;
 
-        _logger.Debug("Channel created: {ChannelNumber}", channel.ChannelNumber);
+        var channel = await _connection.CreateChannelAsync(channelOptions, cancellationToken);
+
+        _logger.Debug("Channel created: {ChannelNumber} (PublisherConfirms: {PublisherConfirms})", channel.ChannelNumber, enablePublisherConfirms);
 
         return channel;
     }
+
+    /// <summary>
+    /// Creates a new channel with the given cancellation token, publisher confirms disabled. Caller is responsible for disposal.
+    /// </summary>
+    public Task<IChannel> CreateChannelAsync(CancellationToken cancellationToken) => CreateChannelAsync(enablePublisherConfirms: false, cancellationToken);
 
     /// <summary>
     /// Checks if RabbitMQ connection is healthy.
