@@ -4,6 +4,7 @@ import PropTypes from 'prop-types'
 import Icon from './Icon'
 import NotificationPanel from './NotificationPanel'
 import authService from '../services/authService'
+import { useBranding } from '../contexts/BrandingContext'
 import notificationService from '../services/notificationService'
 import { useTheme } from '../contexts/ThemeContext'
 import './Layout.css'
@@ -20,6 +21,7 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 const [isNotificationOpen, setIsNotificationOpen] = useState(false)
 const [unseenCount, setUnseenCount] = useState(0)
 const user = authService.getCurrentUser()
+const { title: brandingTitle } = useBranding()
 
   useEffect(() => {
     setIsMobileMenuOpen(false)
@@ -116,7 +118,7 @@ const user = authService.getCurrentUser()
               <img src="/logo.png" alt="Milvaion Logo" className="logo" />
               {!isSidebarCollapsed && (
                 <div className="logo-text">
-                  <h1>Milvaion</h1>
+                  <h1>{brandingTitle}</h1>
                 </div>
               )}
             </Link>
@@ -221,6 +223,12 @@ const user = authService.getCurrentUser()
                     <Link to="/configuration">
                       <Icon name="tune" size={18} />
                       <span>Configuration</span>
+                    </Link>
+                  </li>
+                  <li className={isActive('/settings') ? 'active' : ''}>
+                    <Link to="/settings">
+                      <Icon name="settings" size={18} />
+                      <span>Settings</span>
                     </Link>
                   </li>
                 </ul>

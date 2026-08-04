@@ -16,6 +16,11 @@ public class JobOccurrenceDetailDto : MilvaionBaseDto<Guid>
     public string JobName { get; set; }
 
     /// <summary>
+    /// Friendly display name of the job, denormalized at dispatch time (snapshot).
+    /// </summary>
+    public string JobDisplayName { get; set; }
+
+    /// <summary>
     /// Reference to the parent scheduled job definition.
     /// </summary>
     public Guid JobId { get; set; }
@@ -104,6 +109,7 @@ public class JobOccurrenceDetailDto : MilvaionBaseDto<Guid>
     {
         Id = r.Id,
         JobName = r.JobName,
+        JobDisplayName = r.JobDisplayName,
         CorrelationId = r.CorrelationId,
         JobId = r.JobId,
         WorkerId = r.WorkerId,

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Domain.JsonModels;
 using Milvasoft.Core.Abstractions;
 
 namespace Milvaion.Infrastructure.Services.Alerting;
@@ -14,10 +15,12 @@ namespace Milvaion.Infrastructure.Services.Alerting;
 /// </remarks>
 public class AlertNotifier(IOptions<AlertingOptions> options,
                            IEnumerable<IAlertChannel> channels,
-                           Lazy<IMilvaLogger> logger) : IAlertNotifier
+                           Lazy<IMilvaLogger> logger,
+                           ISettingsProvider settingsProvider) : IAlertNotifier
 {
     private readonly AlertingOptions _options = options.Value;
     private readonly Lazy<IMilvaLogger> _logger = logger;
+    private readonly ISettingsProvider _settingsProvider = settingsProvider;
     private readonly Dictionary<string, IAlertChannel> _channelMap = channels.ToDictionary(c => c.ChannelName, c => c, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -117,8 +120,13 @@ public class AlertNotifier(IOptions<AlertingOptions> options,
     /// <inheritdoc/>
     public bool IsAlertEnabled(AlertType alertType)
     {
+        var rule = FindRule(alertType);
+
+        if (rule != null)
+            return rule.Enabled;
+
         if (_options.Alerts == null || !_options.Alerts.TryGetValue(alertType, out var alertConfig))
-            return true; // Default to enabled if not configured
+            return true;
 
         return alertConfig.Enabled;
     }
@@ -126,12 +134,23 @@ public class AlertNotifier(IOptions<AlertingOptions> options,
     /// <inheritdoc/>
     public IReadOnlyList<string> GetRoutesForAlert(AlertType alertType)
     {
+        // Runtime settings win, then appsettings routes, then the default channel.
+        var rule = FindRule(alertType);
+
+        if (rule?.Channels is { Count: > 0 })
+            return rule.Channels;
+
         if (_options.Alerts != null && _options.Alerts.TryGetValue(alertType, out var alertConfig) && alertConfig.Routes?.Count > 0)
             return alertConfig.Routes;
 
-        // Return default channel if no specific routes configured
         return string.IsNullOrWhiteSpace(_options.DefaultChannel) ? [] : [_options.DefaultChannel];
     }
+
+    /// <summary>
+    /// The runtime rule for an alert, or null when the settings have not been seeded yet or carry
+    /// no entry for it - in which case the caller falls back to appsettings.
+    /// </summary>
+    private NotificationRule FindRule(AlertType alertType) => _settingsProvider.Current?.Notifications?.Rules?.Find(r => r.AlertType == alertType);
 
     private async Task<ChannelResult> SendToChannelWithTimeoutAsync(IAlertChannel channel,
                                                                     AlertType alertType,

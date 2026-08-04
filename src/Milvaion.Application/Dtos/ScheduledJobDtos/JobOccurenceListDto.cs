@@ -78,6 +78,7 @@ public class JobOccurrenceListDto : MilvaionBaseDto<Guid>
         Id = r.Id,
         JobId = r.JobId,
         JobName = r.JobName,
+        JobDisplayName = r.JobDisplayName,
         CorrelationId = r.CorrelationId,
         WorkerId = r.WorkerId,
         Status = r.Status,

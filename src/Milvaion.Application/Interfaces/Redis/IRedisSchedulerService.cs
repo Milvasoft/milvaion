@@ -233,4 +233,20 @@ public interface IRedisSchedulerService
     /// <param name="workerId">Worker identifier</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task<long> RemoveAllRunningJobsForWorkerAsync(string workerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets every job ID currently in the running set. Used to reconcile the set against the
+    /// database and drop orphans (jobs flagged running with no active occurrence).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>All job IDs in the running set.</returns>
+    Task<HashSet<Guid>> GetAllRunningJobIdsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes the given job IDs from the running set in one batch.
+    /// </summary>
+    /// <param name="jobIds">Job IDs to clear.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Number of entries removed.</returns>
+    Task<long> RemoveRunningJobsAsync(IEnumerable<Guid> jobIds, CancellationToken cancellationToken = default);
 }

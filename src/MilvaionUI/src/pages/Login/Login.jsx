@@ -2,10 +2,12 @@ import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../../services/authService'
 import Icon from '../../components/Icon'
+import { useBranding } from '../../contexts/BrandingContext'
 import './Login.css'
 
 function Login() {
   const navigate = useNavigate()
+  const { title: brandingTitle, subtitle: brandingSubtitle } = useBranding()
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -72,8 +74,8 @@ function Login() {
           <div className="login-brand-panel">
             <div className="login-brand-content">
               <img src="/logo.png" alt="Milvaion Logo" className="login-logo" />
-              <h1 className="login-brand-title">Milvaion</h1>
-              <p className="login-brand-subtitle">Job Scheduler &amp; Workflow Engine</p>
+              <h1 className="login-brand-title">{brandingTitle}</h1>
+              <p className="login-brand-subtitle">{brandingSubtitle}</p>
               <div className="login-brand-features">
                 <div className="login-brand-feature">
                   <Icon name="schedule" size={14} />

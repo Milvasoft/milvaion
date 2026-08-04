@@ -935,6 +935,41 @@ public class RedisSchedulerService : IRedisSchedulerService
         );
 
     /// <inheritdoc/>
+    public Task<HashSet<Guid>> GetAllRunningJobIdsAsync(CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                var result = new HashSet<Guid>();
+
+                await foreach (var member in _database.SetScanAsync(RunningJobsKey, pageSize: 500))
+                {
+                    if (member.HasValue && Guid.TryParse(member.ToString(), out var jobId))
+                        result.Add(jobId);
+                }
+
+                return result;
+            },
+            fallback: async () => [],
+            operationName: "GetAllRunningJobIds",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task<long> RemoveRunningJobsAsync(IEnumerable<Guid> jobIds, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                var values = jobIds.Select(id => (RedisValue)id.ToString()).ToArray();
+
+                if (values.Length == 0)
+                    return 0L;
+
+                return await _database.SetRemoveAsync(RunningJobsKey, values);
+            },
+            fallback: async () => 0L,
+            operationName: "RemoveRunningJobs",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
     public Task<HashSet<Guid>> GetRunningJobIdsAsync(IEnumerable<Guid> jobIds, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {

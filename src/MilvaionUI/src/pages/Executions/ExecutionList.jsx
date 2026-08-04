@@ -10,9 +10,15 @@ import { getApiErrorMessage } from '../../utils/errorUtils'
 import './ExecutionList.css'
 import ExecutionsTable from './ExecutionsTable'
 
+// Compact count for the header, e.g. 24467843 -> "24M", 4200 -> "4.2K". The full number is on
+// the title tooltip.
+const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
+
 function ExecutionList() {
   const location = useLocation()
   const [occurrences, setOccurrences] = useState([])
+  // Ids of executions that just streamed in, so their row flashes on arrival.
+  const [flashIds, setFlashIds] = useState(() => new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -116,8 +122,9 @@ function ExecutionList() {
 
     const handleOccurrenceCreated = (newOccurrence) => {
       if (paginationState.cursorHistory.length === 0 && (filterStatus === null || newOccurrence.status === filterStatus)) {
+        const occId = newOccurrence.id || newOccurrence.occurrenceId
+
         setOccurrences(prev => {
-          const occId = newOccurrence.id || newOccurrence.occurrenceId
           const exists = prev.some(occ => occ.id === occId)
           if (!exists) {
             const updated = [newOccurrence, ...prev]
@@ -125,6 +132,19 @@ function ExecutionList() {
           }
           return prev
         })
+
+        // Flash the new row briefly, then clear the marker so it does not replay.
+        if (occId != null) {
+          setFlashIds(prev => new Set(prev).add(occId))
+          setTimeout(() => {
+            setFlashIds(prev => {
+              const next = new Set(prev)
+              next.delete(occId)
+              return next
+            })
+          }, 1200)
+        }
+
         setTotalCount(prev => prev + 1)
       } else {
         setTotalCount(prev => prev + 1)
@@ -197,12 +217,13 @@ function ExecutionList() {
         <h1>
           <Icon name="play_circle" size={28} />
           <span>Job Executions</span>
-          <span>({totalCount})</span>
+          <span title={(totalCount ?? 0).toLocaleString()}>({compactNumber.format(totalCount ?? 0)})</span>
         </h1>
       </div>
 
       <ExecutionsTable
         occurrences={occurrences}
+        flashIds={flashIds}
         loading={loading}
         totalCount={totalCount}
         pageSize={pageSize}

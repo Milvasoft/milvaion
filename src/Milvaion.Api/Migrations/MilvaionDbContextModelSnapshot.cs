@@ -20,7 +20,7 @@ namespace Milvaion.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -51,6 +51,34 @@ namespace Milvaion.Api.Migrations
                         .IsDescending();
 
                     b.ToTable("ActivityLogs");
+                });
+
+            modelBuilder.Entity("Milvaion.Domain.AppSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatorUserName")
+                        .HasColumnType("text");
+
+                    b.Property<AppSettingsDocument>("Document")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("LastModificationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastModifierUserName")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AppSettings");
                 });
 
             modelBuilder.Entity("Milvaion.Domain.ContentManagement.Content", b =>
@@ -968,6 +996,9 @@ namespace Milvaion.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("JobDisplayName")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("JobId")
                         .HasColumnType("uuid");
 
@@ -1080,6 +1111,9 @@ namespace Milvaion.Api.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
+                    b.Property<int>("DataSizeBytes")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -1096,6 +1130,10 @@ namespace Milvaion.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Period")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTime>("PeriodEndTime")
                         .HasColumnType("timestamp with time zone");

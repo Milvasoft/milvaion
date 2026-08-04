@@ -9,7 +9,7 @@ using System.Text.Json;
 
 namespace ReporterWorker.Jobs;
 
-public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsyncJobWithResult<string>
+public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsyncJobWithResult<ReporterJobData, string>
 {
     private readonly ReporterOptions _options = options.Value;
 
@@ -17,26 +17,28 @@ public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsy
     {
         context.LogInformation("Starting Failure Rate Trend Report generation");
 
-        var periodEnd = DateTime.UtcNow;
-        var periodStart = periodEnd.AddHours(-_options.ReportGeneration.LookbackHours);
+        var jobData = context.GetData<ReporterJobData>() ?? new ReporterJobData();
+        var window = ReportWindow.Resolve(jobData);
+        var periodStart = window.Start;
+        var periodEnd = window.End;
 
         await using var connection = new NpgsqlConnection(_options.DatabaseConnectionString);
         await connection.OpenAsync(context.CancellationToken);
 
         var sql = @"
             SELECT 
-                DATE_TRUNC('hour', ""StartTime"") as hour,
+                DATE_TRUNC(@Bucket, ""StartTime"") as hour,
                 COUNT(*) as total,
                 SUM(CASE WHEN ""Status"" = 3 THEN 1 ELSE 0 END) as failed
             FROM ""JobOccurrences""
             WHERE ""StartTime"" >= @PeriodStart AND ""StartTime"" < @PeriodEnd
-            GROUP BY DATE_TRUNC('hour', ""StartTime"")
+            GROUP BY DATE_TRUNC(@Bucket, ""StartTime"")
             ORDER BY hour";
 
         var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
 
         var hourlyStats = await connection.QueryAsync<(DateTime Hour, int Total, int Failed)>(
-            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd },
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd, window.Bucket },
                 commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new FailureRateTrendData
@@ -60,16 +62,17 @@ public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsy
             PeriodStartTime = periodStart,
             PeriodEndTime = periodEnd,
             GeneratedAt = DateTime.UtcNow,
+            Period = window.PeriodLabel,
             Tags = "trend,failure,monitoring"
         };
 
         var insertSql = @"
             INSERT INTO ""MetricReports""
-            (""Id"", ""MetricType"", ""DisplayName"", ""Description"", ""Data"",
-             ""PeriodStartTime"", ""PeriodEndTime"", ""GeneratedAt"", ""Tags"", ""CreationDate"")
+            (""Id"", ""MetricType"", ""DisplayName"", ""Description"", ""Data"", ""DataSizeBytes"",
+             ""PeriodStartTime"", ""PeriodEndTime"", ""GeneratedAt"", ""Tags"", ""Period"", ""CreationDate"")
             VALUES
-            (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
-             @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
+            (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb, @DataSizeBytes,
+             @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @Period, @CreationDate)";
 
         await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
@@ -78,10 +81,12 @@ public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsy
             report.DisplayName,
             report.Description,
             report.Data,
+            DataSizeBytes = report.Data.Length,
             report.PeriodStartTime,
             report.PeriodEndTime,
             report.GeneratedAt,
             report.Tags,
+            report.Period,
             CreationDate = DateTime.UtcNow
         }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 

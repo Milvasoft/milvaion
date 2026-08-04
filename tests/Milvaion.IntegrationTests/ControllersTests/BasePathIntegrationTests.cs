@@ -194,7 +194,9 @@ public class BasePathIntegrationTests(BasePathWebApplicationFactory factory, ITe
 
     #region SPA fallback under BasePath
 
+#pragma warning disable xUnit1004 // Test methods should not be skipped
     [Fact(Skip = "Failed on Github actions.")]
+#pragma warning restore xUnit1004 // Test methods should not be skipped
     public async Task SpaFallback_UnderBasePath_ShouldServeIndexHtml()
     {
         // Any non-API path under the basePath should be answered with the SPA index.html

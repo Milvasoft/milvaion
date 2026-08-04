@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -66,6 +67,8 @@ function WorkerUtilizationTrendReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('WorkerUtilizationTrend', data)) return <ReportEmptyData metricType="WorkerUtilizationTrend" report={selectedReport} />
 
     const chartData = data.DataPoints.map(point => ({
       time: new Date(point.Timestamp).toLocaleTimeString('tr-TR', {
@@ -163,6 +166,7 @@ function WorkerUtilizationTrendReport() {
           </button>
           <h1><Icon name="timeline" size={28} /> Worker Utilization Trend</h1>
           <p className="page-description">Capacity vs actual utilization rate (time series)</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -176,7 +180,7 @@ function WorkerUtilizationTrendReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

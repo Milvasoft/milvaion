@@ -35,6 +35,9 @@ public class MetricReportDetailDto
     /// <summary> Comma-separated tags for categorization and filtering. </summary>
     public string Tags { get; set; }
 
+    /// <summary> Period the report covers: Daily, Weekly, Monthly or Custom. </summary>
+    public string Period { get; set; }
+
     /// <summary> Record creation timestamp populated by the auditing infrastructure. </summary>
     public DateTime? CreationDate { get; set; }
 
@@ -55,6 +58,7 @@ public class MetricReportDetailDto
         PeriodEndTime = entity.PeriodEndTime,
         GeneratedAt = entity.GeneratedAt,
         Tags = entity.Tags,
+        Period = entity.Period,
         CreationDate = entity.CreationDate,
         CreatorUserName = entity.CreatorUserName
     };

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ZAxis } from 'recharts'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -63,6 +64,8 @@ function CronScheduleVsActualReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('CronScheduleVsActual', data)) return <ReportEmptyData metricType="CronScheduleVsActual" report={selectedReport} />
 
     const chartData = data.Jobs.map((job, index) => ({
       jobName: job.JobName,
@@ -238,6 +241,7 @@ function CronScheduleVsActualReport() {
           </button>
           <h1><Icon name="schedule" size={28} /> Cron Schedule vs Actual</h1>
           <p className="page-description">Scheduled vs actual execution time deviation</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -251,7 +255,7 @@ function CronScheduleVsActualReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

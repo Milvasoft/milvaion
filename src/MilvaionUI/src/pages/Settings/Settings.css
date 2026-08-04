@@ -1,0 +1,346 @@
+.settings-page {
+  width: 100%;
+}
+
+/* Cards are spaced apart - they sit inside the form, so the page-level block spacing does not
+   reach them. */
+/* Branding on the left, the taller Notifications card on the right. */
+.settings-page form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+
+/* Banners span the full width under both cards. */
+.settings-page form > .settings-result {
+  grid-column: 1 / -1;
+}
+
+/* Not enough room for two columns - stack them. */
+@media (max-width: 1100px) {
+  .settings-page form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Accordion card ────────────────────────────────────────────────────────── */
+
+.settings-card {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.settings-card-head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.15rem 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition: background var(--transition-fast);
+}
+
+.settings-card-head:hover {
+  background: var(--bg-hover);
+}
+
+.settings-card-icon {
+  color: var(--accent-color);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.settings-card-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-card-head-text h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.settings-card-head-text p {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.settings-card-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.settings-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+/* ── Fields ────────────────────────────────────────────────────────────────── */
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.settings-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-field input {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-field input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ── Result banners ────────────────────────────────────────────────────────── */
+
+.settings-result {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.settings-result--success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.settings-result--error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.settings-spin {
+  animation: settings-spin 900ms linear infinite;
+}
+
+@keyframes settings-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Notifications ─────────────────────────────────────────────────────────── */
+
+/* Channel status - read-only badges from appsettings. */
+.settings-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.settings-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.settings-channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.settings-channel.is-on {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.settings-channel.is-on .settings-channel-dot {
+  background: #10b981;
+}
+
+.settings-channel.is-off {
+  opacity: 0.7;
+}
+
+.settings-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.settings-notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Uniform, stacked: name/toggle on top, channels on their own full-width row below. Every alert
+   looks the same regardless of how many channels it routes to. */
+.settings-notif {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.settings-notif.is-disabled {
+  opacity: 0.6;
+}
+
+.settings-notif-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-notif-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Channels sit under the title, indented to line up past the toggle. */
+.settings-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-left: calc(38px + 0.75rem);
+}
+
+/* Toggle switch */
+.settings-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.settings-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-switch-track {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  transition: background var(--transition-fast);
+  position: relative;
+}
+
+.settings-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transition-fast);
+}
+
+.settings-switch input:checked + .settings-switch-track {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.settings-switch input:checked + .settings-switch-track::after {
+  transform: translateX(16px);
+}
+
+/* Channel chips */
+.settings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.settings-chip:hover:not(:disabled) {
+  border-color: var(--accent-color);
+}
+
+.settings-chip.is-active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+}
+
+/* A channel that is off in configuration: still selectable, but flagged as not delivering. */
+.settings-chip.is-muted {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.settings-chip.is-active.is-muted {
+  background: var(--text-tertiary);
+  border-color: var(--text-tertiary);
+}
+
+.settings-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+  .settings-card-head {
+    padding: 1rem 1.1rem;
+  }
+
+  .settings-card-body {
+    padding: 1.1rem;
+  }
+
+  /* On a phone the indent eats too much width; channels go full width under the name. */
+  .settings-chip-row {
+    padding-left: 0;
+  }
+}

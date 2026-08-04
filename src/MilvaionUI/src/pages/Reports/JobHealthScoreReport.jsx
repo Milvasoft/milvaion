@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -76,6 +77,8 @@ function JobHealthScoreReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('JobHealthScore', data)) return <ReportEmptyData metricType="JobHealthScore" report={selectedReport} />
 
     const totalCount = data.Jobs.length
     const healthyCount = data.Jobs.filter(j => j.SuccessRate >= 95).length
@@ -261,6 +264,7 @@ function JobHealthScoreReport() {
           </button>
           <h1><Icon name="favorite" size={28} /> Job Health Score</h1>
           <p className="page-description">Success rate for last N executions per job</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -274,7 +278,7 @@ function JobHealthScoreReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

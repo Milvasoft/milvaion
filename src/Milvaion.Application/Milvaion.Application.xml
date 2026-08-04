@@ -3086,6 +3086,9 @@
         <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Tags">
             <summary> Comma-separated tags for categorization and filtering. </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Period">
+            <summary> Period the report covers: Daily, Weekly, Monthly or Custom. </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.CreationDate">
             <summary> Record creation timestamp populated by the auditing infrastructure. </summary>
         </member>
@@ -3129,6 +3132,9 @@
         </member>
         <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Tags">
             <summary> Comma-separated tags for categorization and filtering. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Period">
+            <summary> Period the report covers: Daily, Weekly, Monthly or Custom. </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.CreationDate">
             <summary> Record creation timestamp populated by the auditing infrastructure. </summary>
@@ -3176,6 +3182,9 @@
         </member>
         <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.Tags">
             <summary> Comma-separated tags for categorization and filtering. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.Period">
+            <summary> Period the report covers: Daily, Weekly, Monthly or Custom. </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportSummaryDto.DataSizeBytes">
             <summary>
@@ -3702,6 +3711,11 @@
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.JobName">
             <summary>
             Type name of job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.JobDisplayName">
+            <summary>
+            Friendly display name of the job, denormalized at dispatch time (snapshot).
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.JobId">
@@ -4273,6 +4287,57 @@
             This prevents jobs from being disabled due to old historical failures.
             Default: 60 minutes (1 hour)
             </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.SettingsDtos.PublicSettingsDto">
+            <summary>
+            The subset of settings that is safe to expose without authentication - the login page and
+            the browser tab title need it before a user signs in. Only non-secret branding text; no
+            operational config, no secrets.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicSettingsDto.Title">
+            <summary>Application title. Empty means the frontend uses its shipped default.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicSettingsDto.Subtitle">
+            <summary>Short tagline shown under the title. Optional.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.SettingsDtos.SettingsDto">
+            <summary>
+            Everything the settings page needs in one call: editable branding and notification rules,
+            plus the read-only channel status and the list of channels to pick from. One page, one GET.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.SettingsDto.Branding">
+            <summary>Editable branding text (title, subtitle).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.SettingsDto.Notifications">
+            <summary>Editable: one rule per alert type (enabled + channels).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.SettingsDto.Channels">
+            <summary>
+            Read-only: whether each channel is configured/enabled. Comes from appsettings and cannot
+            be changed at runtime - shown so the admin knows which channels actually deliver.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.SettingsDto.AvailableChannels">
+            <summary>The channel names an alert can be routed to (for the picker).</summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.SettingsDtos.NotificationRuleDto">
+            <summary>
+            A single editable notification rule, with the alert's name resolved for display.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.NotificationRuleDto.AlertType">
+            <summary>The alert type.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.NotificationRuleDto.AlertTypeName">
+            <summary>The alert type's name, for display without a client-side enum map.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.NotificationRuleDto.Enabled">
+            <summary>Whether this alert is sent.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.NotificationRuleDto.Channels">
+            <summary>Channels this alert routes to.</summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.OccurrenceCreatedSignal">
             <summary>
@@ -8792,6 +8857,98 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQuery">
+            <summary>
+            Query for the non-secret settings subset the login page and browser tab need before auth.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQueryHandler">
+            <summary>
+            Handles the public settings query. Returns only non-secret branding text.
+            </summary>
+            <param name="settingsProvider"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQueryHandler.#ctor(Milvaion.Application.Interfaces.ISettingsProvider)">
+            <summary>
+            Handles the public settings query. Returns only non-secret branding text.
+            </summary>
+            <param name="settingsProvider"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQueryHandler.Handle(Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Settings.GetSettings.GetSettingsQuery">
+            <summary>
+            Query for everything the settings page shows (admin): branding, notification rules, channel
+            status and the available channels - one call for the whole page.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Settings.GetSettings.GetSettingsQueryHandler">
+            <summary>
+            Builds the whole settings page in one response: branding and notification rules from the
+            cached runtime settings, plus channel status and the pickable channel list from appsettings.
+            </summary>
+            <param name="settingsProvider"></param>
+            <param name="alertingOptions"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.GetSettings.GetSettingsQueryHandler.#ctor(Milvaion.Application.Interfaces.ISettingsProvider,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions})">
+            <summary>
+            Builds the whole settings page in one response: branding and notification rules from the
+            cached runtime settings, plus channel status and the pickable channel list from appsettings.
+            </summary>
+            <param name="settingsProvider"></param>
+            <param name="alertingOptions"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.GetSettings.GetSettingsQueryHandler.Handle(Milvaion.Application.Features.Settings.GetSettings.GetSettingsQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.GetSettings.GetSettingsQueryHandler.BuildChannelStatus">
+            <summary>
+            Channel availability from appsettings - names match the picker values (the channel
+            identifiers used in routes), no secrets.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommand">
+            <summary>
+            Updates the application settings. Sectioned like the settings document; a null section is
+            left unchanged.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommand.Branding">
+            <summary>
+            Branding text (title, subtitle). Null keeps the current branding.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommand.Notifications">
+            <summary>
+            Notification rules (per-alert enable + channels). Null keeps the current notifications.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommandHandler">
+            <summary>
+            Handles the settings update. Persists via the provider, which also refreshes this instance's
+            cache and notifies the others.
+            </summary>
+            <param name="settingsProvider"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommandHandler.#ctor(Milvaion.Application.Interfaces.ISettingsProvider)">
+            <summary>
+            Handles the settings update. Persists via the provider, which also refreshes this instance's
+            cache and notifies the others.
+            </summary>
+            <param name="settingsProvider"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommandHandler.Handle(Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommandValidator">
+            <summary>
+            Validates the settings update - light bounds so the branding text stays sane.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Settings.UpdateSettings.UpdateSettingsCommandValidator"/>
+        </member>
         <member name="T:Milvaion.Application.Features.Users.CreateUser.CreateUserCommand">
             <summary>
             Data transfer object for user creation.
@@ -10288,6 +10445,31 @@
             Gets statistics for all configured queues.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Interfaces.ISettingsProvider">
+            <summary>
+            Provides the application's runtime settings, cached in memory and kept in sync across
+            instances via Redis pub/sub. Read <see cref="P:Milvaion.Application.Interfaces.ISettingsProvider.Current"/> on hot paths - it never hits the
+            database. An update persists the row, refreshes this instance's cache and tells the other
+            instances to refresh theirs, so a change takes effect at runtime without a restart.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ISettingsProvider.Current">
+            <summary>
+            The current settings from the in-memory cache. Never null; before the first load it
+            returns defaults.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.ISettingsProvider.GetAsync(System.Threading.CancellationToken)">
+            <summary>
+            Ensures the settings are loaded (seeding defaults on first run) and returns them.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.ISettingsProvider.UpdateAsync(Milvaion.Domain.JsonModels.AppSettingsDocument,System.Threading.CancellationToken)">
+            <summary>
+            Persists the settings, refreshes the local cache and notifies the other instances to
+            refresh theirs.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.IUIService">
             <summary>
             Service for UI operations.
@@ -10718,6 +10900,22 @@
             </summary>
             <param name="workerId">Worker identifier</param>
             <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.GetAllRunningJobIdsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets every job ID currently in the running set. Used to reconcile the set against the
+            database and drop orphans (jobs flagged running with no active occurrence).
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>All job IDs in the running set.</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.RemoveRunningJobsAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Removes the given job IDs from the running set in one batch.
+            </summary>
+            <param name="jobIds">Job IDs to clear.</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Number of entries removed.</returns>
         </member>
         <member name="T:Milvaion.Application.Interfaces.Redis.IRedisStatsService">
             <summary>
