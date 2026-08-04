@@ -40,6 +40,7 @@ import { statusOf, occurrenceDurationMs, OCCURRENCE_STATUS_FILTERS } from '../..
 
 function ExecutionsTable({
   occurrences = [],
+  flashIds,
   loading,
   totalCount,
   filterStatus,
@@ -136,11 +137,16 @@ function ExecutionsTable({
               const status = statusOf(occurrence.status)
               const ms = occurrenceDurationMs(occurrence, now)
               const name = occurrence.jobDisplayName || occurrence.jobName || 'Unknown job'
+              // Second line: the technical job name (when it differs from the title shown above)
+              // and the worker, both muted, e.g. "SendEmailJob / worker-01".
+              const worker = occurrence.workerId || 'no worker'
+              const jobTech = occurrence.jobName && occurrence.jobName !== name ? occurrence.jobName : null
+              const subline = jobTech ? `${jobTech} / ${worker}` : worker
 
               return (
                 <tr
                   key={occurrence.id}
-                  className={`mv-table-row is-clickable tone-${status.tone}`}
+                  className={`mv-table-row is-clickable tone-${status.tone}${flashIds?.has(occurrence.id) ? ' is-new' : ''}`}
                   onClick={() => navigate(`/occurrences/${occurrence.id}`)}
                 >
                   <td className="mv-col-check" onClick={(e) => e.stopPropagation()}>
@@ -167,7 +173,7 @@ function ExecutionsTable({
                     ) : (
                       <span className="mv-table-primary">{name}</span>
                     )}
-                    <span className="mv-table-muted">{occurrence.workerId || 'no worker'}</span>
+                    <span className="mv-table-muted">{subline}</span>
                   </td>
 
                   <td className="mv-col-tight">

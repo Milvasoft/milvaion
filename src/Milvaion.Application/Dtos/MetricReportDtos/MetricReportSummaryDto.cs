@@ -41,6 +41,9 @@ public class MetricReportSummaryDto
     /// <summary> Comma-separated tags for categorization and filtering. </summary>
     public string Tags { get; set; }
 
+    /// <summary> Period the report covers: Daily, Weekly, Monthly or Custom. </summary>
+    public string Period { get; set; }
+
     /// <summary>
     /// Size of the omitted report payload in characters.
     /// </summary>
@@ -74,6 +77,7 @@ public class MetricReportSummaryDto
         PeriodEndTime = entity.PeriodEndTime,
         GeneratedAt = entity.GeneratedAt,
         Tags = entity.Tags,
-        DataSizeBytes = entity.Data == null ? 0 : entity.Data.Length
+        Period = entity.Period,
+        DataSizeBytes = entity.DataSizeBytes
     };
 }

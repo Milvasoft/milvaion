@@ -6,6 +6,7 @@ using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Domain.Enums;
+using Milvaion.Domain.JsonModels;
 using Milvaion.Infrastructure.Services.Alerting;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Core.Abstractions;
@@ -465,10 +466,29 @@ public class AlertNotifierTests(ServicesWebApplicationFactory factory, ITestOutp
         var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
         var lazyLogger = new Lazy<IMilvaLogger>(() => loggerFactory.CreateMilvaLogger<AlertNotifier>());
 
+        // These tests exercise the appsettings-based routing/enablement. Use a settings provider
+        // with no runtime rules so the notifier falls back to the AlertingOptions under test,
+        // rather than the seeded runtime rules from the real provider.
         return new AlertNotifier(
             Options.Create(options),
             channels ?? [],
-            lazyLogger);
+            lazyLogger,
+            new EmptyRuntimeSettingsProvider());
+    }
+
+    /// <summary>
+    /// A settings provider with no notification rules, so <see cref="AlertNotifier"/> falls back
+    /// to the appsettings <see cref="AlertingOptions"/> under test.
+    /// </summary>
+    private sealed class EmptyRuntimeSettingsProvider : ISettingsProvider
+    {
+        private readonly AppSettingsDocument _document = new();
+
+        public AppSettingsDocument Current => _document;
+
+        public Task<AppSettingsDocument> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(_document);
+
+        public Task UpdateAsync(AppSettingsDocument document, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     /// <summary>

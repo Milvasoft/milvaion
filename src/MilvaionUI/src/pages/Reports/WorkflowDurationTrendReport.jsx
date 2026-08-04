@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -63,6 +64,8 @@ function WorkflowDurationTrendReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('WorkflowDurationTrend', data)) return <ReportEmptyData metricType="WorkflowDurationTrend" report={selectedReport} />
 
     const workflowNames = [...new Set(data.DataPoints.flatMap(dp => Object.keys(dp.WorkflowAvgDurationMs)))]
 
@@ -158,6 +161,7 @@ function WorkflowDurationTrendReport() {
           </button>
           <h1><Icon name="timeline" size={28} /> Workflow Duration Trend</h1>
           <p className="page-description">Workflow execution duration over time</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -171,7 +175,7 @@ function WorkflowDurationTrendReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

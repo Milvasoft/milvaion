@@ -24,6 +24,21 @@
             Date and time when the activity occurred.
             </summary>
         </member>
+        <member name="T:Milvaion.Domain.AppSetting">
+             <summary>
+             Single-row table holding the application's runtime settings as one jsonb document.
+            
+             There is exactly one row. <c>ISettingsProvider</c> reads it (cached in memory), and an
+             update invalidates that cache across every instance via Redis pub/sub, so a change takes
+             effect at runtime without a restart. The document is jsonb, so changing the settings model
+             never requires a migration.
+             </summary>
+        </member>
+        <member name="P:Milvaion.Domain.AppSetting.Document">
+            <summary>
+            The settings document. Stored as jsonb; the whole object is (de)serialized by Npgsql.
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.ContentManagement.Content">
             <summary>
             Key value pairs.
@@ -255,6 +270,22 @@
             A potential memory leak was detected in a background service.
             </summary>
         </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.ApiKeyExpiring">
+            <summary>
+            An API key is approaching its expiration date.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.ApiKeyExpired">
+            <summary>
+            An API key has passed its expiration date.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.JobMisfired">
+            <summary>
+            A scheduled job was dispatched later than its scheduled time beyond the misfire grace
+            window (for example the server was down when it was due).
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.Enums.NotificationEntity">
             <summary>
             Notication related entity types.
@@ -330,6 +361,79 @@
         <member name="P:Milvaion.Domain.InternalNotification.ActionLink">
             <summary>
             Client-side URL/route to navigate when the notification is clicked.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.AppSettingsDocument">
+             <summary>
+             The application's runtime-tunable settings, stored as a single jsonb document.
+            
+             Sectioned: each feature owns a section, so the document grows over time. Because the
+             column is jsonb and Npgsql (de)serializes the whole object, adding a field here never
+             requires a database migration.
+            
+             Do NOT put here:
+             - bootstrap-critical values (DB / Redis / RabbitMQ connection strings) - the app needs
+               those before it can read this row, so they stay in appsettings;
+             - secrets (SMTP passwords, webhook URLs) - this document is surfaced to the settings UI;
+             - binary assets (logo, favicon) - those stay static, served from files.
+             </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.AppSettingsDocument.Branding">
+            <summary>
+            Branding text shown in the browser tab, sidebar and login page. The logo and favicon
+            are intentionally not here - they are static files and not runtime-configurable.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.AppSettingsDocument.Notifications">
+            <summary>
+            Per-notification routing and on/off, managed at runtime. Mirrors the appsettings
+            alerting config but lives here so channels and enablement can be switched without a
+            restart. Seeded from appsettings on first run. Channel availability itself (whether
+            Slack/Email/... are configured) stays in appsettings and is display-only.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.NotificationSettings">
+            <summary>
+            Runtime notification settings - one rule per alert type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.NotificationSettings.Rules">
+            <summary>
+            One entry per <see cref="T:Milvaion.Domain.Enums.AlertType"/>: whether it fires and which channels it routes to.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.NotificationRule">
+            <summary>
+            Runtime configuration for a single alert type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.NotificationRule.AlertType">
+            <summary>The alert this rule applies to.</summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.NotificationRule.Enabled">
+            <summary>Whether this alert is sent at all.</summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.NotificationRule.Channels">
+            <summary>
+            Channel names this alert routes to (e.g. "Email", "Slack", "InternalNotification").
+            Matches the appsettings <c>Routes</c> values.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.BrandingSettings">
+            <summary>
+            Branding text. Only text is runtime-configurable; images stay static.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.BrandingSettings.Title">
+            <summary>
+            Application title shown in the browser tab, the sidebar and the login page. When empty,
+            the frontend falls back to its shipped default ("Milvaion").
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.BrandingSettings.Subtitle">
+            <summary>
+            Short tagline shown under the title (e.g. on the login page). Optional; falls back to
+            the shipped default when empty.
             </summary>
         </member>
         <member name="T:Milvaion.Domain.JsonModels.MenuGroupTranslation">

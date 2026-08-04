@@ -74,4 +74,20 @@ public enum AlertType : byte
     /// A potential memory leak was detected in a background service.
     /// </summary>
     MemoryLeakDetected = 13,
+
+    /// <summary>
+    /// An API key is approaching its expiration date.
+    /// </summary>
+    ApiKeyExpiring = 14,
+
+    /// <summary>
+    /// An API key has passed its expiration date.
+    /// </summary>
+    ApiKeyExpired = 15,
+
+    /// <summary>
+    /// A scheduled job was dispatched later than its scheduled time beyond the misfire grace
+    /// window (for example the server was down when it was due).
+    /// </summary>
+    JobMisfired = 16,
 }

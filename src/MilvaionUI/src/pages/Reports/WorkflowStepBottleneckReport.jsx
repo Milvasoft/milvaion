@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import metricReportService from '../../services/metricReportService'
+import ReportEmptyData, { isReportEmpty } from '../../components/ReportEmptyData'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
@@ -64,6 +65,8 @@ function WorkflowStepBottleneckReport() {
     if (!selectedReport) return null
 
     const data = JSON.parse(selectedReport.data)
+
+    if (isReportEmpty('WorkflowStepBottleneck', data)) return <ReportEmptyData metricType="WorkflowStepBottleneck" report={selectedReport} />
     const workflows = data.Workflows
 
     if (workflows.length === 0) {
@@ -189,6 +192,7 @@ function WorkflowStepBottleneckReport() {
           </button>
           <h1><Icon name="troubleshoot" size={28} /> Workflow Step Bottleneck</h1>
           <p className="page-description">Step-level performance analysis per workflow</p>
+          {selectedReport?.period && <span className="report-period-badge">{selectedReport.period}</span>}
         </div>
         <div className="page-header-actions">
           {reports.length > 1 && (
@@ -202,7 +206,7 @@ function WorkflowStepBottleneckReport() {
             >
               {reports.map((report) => (
                 <option key={report.id} value={report.id}>
-                  {formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
+                  {report.period ? report.period + ' • ' : ''}{formatDateTime(report.generatedAt)} ({formatDateShort(report.periodStartTime)} - {formatDateShort(report.periodEndTime)})
                 </option>
               ))}
             </select>

@@ -40,6 +40,16 @@ public class MetricReport : CreationAuditableEntity<Guid>
     public string Data { get; set; }
 
     /// <summary>
+    /// Size of the serialized <see cref="Data"/> payload in characters.
+    /// </summary>
+    /// <remarks>
+    /// Persisted at write time so that summary/listing queries can report the payload size without transferring
+    /// the jsonb column, and without computing <c>length()</c> over jsonb in SQL - PostgreSQL has no
+    /// <c>length(jsonb)</c> function, so doing it in an EF projection breaks the query.
+    /// </remarks>
+    public int DataSizeBytes { get; set; }
+
+    /// <summary>
     /// Start time of the data period (UTC)
     /// </summary>
     [Required]
@@ -62,4 +72,14 @@ public class MetricReport : CreationAuditableEntity<Guid>
     /// </summary>
     [MaxLength(500)]
     public string Tags { get; set; }
+
+    /// <summary>
+    /// Period the report covers: Daily, Weekly, Monthly or Custom.
+    /// </summary>
+    /// <remarks>
+    /// Lets the same metric type carry daily, weekly and monthly reports side by side and be filtered or labelled
+    /// by period in the UI. <see cref="PeriodStartTime"/>/<see cref="PeriodEndTime"/> still hold the exact window.
+    /// </remarks>
+    [MaxLength(20)]
+    public string Period { get; set; }
 }

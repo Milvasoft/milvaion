@@ -4,6 +4,7 @@ using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Domain.Enums;
+using Milvaion.Domain.JsonModels;
 using Milvaion.Infrastructure.Services.Alerting;
 using Milvasoft.Core.Abstractions;
 using Moq;
@@ -22,11 +23,7 @@ public class AlertNotifierTests
         Timestamp = DateTime.UtcNow
     };
 
-    private static AlertingOptions CreateOptions(
-        string defaultChannel = "Slack",
-        bool sendOnlyInProduction = false,
-        Dictionary<AlertType, AlertConfig> alerts = null)
-    => new()
+    private static AlertingOptions CreateOptions(string defaultChannel = "Slack", bool sendOnlyInProduction = false, Dictionary<AlertType, AlertConfig> alerts = null) => new()
     {
         DefaultChannel = defaultChannel,
         SendOnlyInProduction = sendOnlyInProduction,
@@ -49,10 +46,15 @@ public class AlertNotifierTests
     private static AlertNotifier CreateNotifier(AlertingOptions options, params IAlertChannel[] channels)
     {
         var loggerMock = new Mock<IMilvaLogger>();
+
+        var settingsProviderMock = new Mock<ISettingsProvider>();
+        settingsProviderMock.Setup(s => s.Current).Returns(new AppSettingsDocument());
+
         return new AlertNotifier(
             Options.Create(options),
             channels,
-            new Lazy<IMilvaLogger>(() => loggerMock.Object));
+            new Lazy<IMilvaLogger>(() => loggerMock.Object),
+            settingsProviderMock.Object);
     }
 
     #region SendAsync
