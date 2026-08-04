@@ -448,8 +448,8 @@ public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITes
         var db = GetRedisDatabase();
 
         // Pre-seed some initial counts
-        await db.HashSetAsync("workers:batch-worker:instances:instance-01:job_counts", "EmailJob", 2);
-        await db.HashSetAsync("workers:batch-worker:instances:instance-01:job_counts", "SmsJob", 1);
+        await db.HashSetAsync($"{RedisKeyPrefix}workers:batch-worker:instances:instance-01:job_counts", "EmailJob", 2);
+        await db.HashSetAsync($"{RedisKeyPrefix}workers:batch-worker:instances:instance-01:job_counts", "SmsJob", 1);
 
         var updates = new Dictionary<string, int>
         {
@@ -461,10 +461,10 @@ public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITes
         await workerService.BatchUpdateConsumerJobCountsAsync(updates);
 
         // Assert
-        var emailCount = await db.HashGetAsync("workers:batch-worker:instances:instance-01:job_counts", "EmailJob");
+        var emailCount = await db.HashGetAsync($"{RedisKeyPrefix}workers:batch-worker:instances:instance-01:job_counts", "EmailJob");
         emailCount.ToString().Should().Be("3");
 
-        var smsCount = await db.HashGetAsync("workers:batch-worker:instances:instance-01:job_counts", "SmsJob");
+        var smsCount = await db.HashGetAsync($"{RedisKeyPrefix}workers:batch-worker:instances:instance-01:job_counts", "SmsJob");
         smsCount.ToString().Should().Be("0");
     }
 
@@ -492,7 +492,7 @@ public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITes
         await workerService.RegisterWorkerAsync(CreateTestRegistration("floor-batch-worker", "instance-01"));
 
         var db = GetRedisDatabase();
-        await db.HashSetAsync("workers:floor-batch-worker:instances:instance-01:job_counts", "TestJob", 1);
+        await db.HashSetAsync($"{RedisKeyPrefix}workers:floor-batch-worker:instances:instance-01:job_counts", "TestJob", 1);
 
         var updates = new Dictionary<string, int>
         {
@@ -503,7 +503,7 @@ public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITes
         await workerService.BatchUpdateConsumerJobCountsAsync(updates);
 
         // Assert
-        var count = await db.HashGetAsync("workers:floor-batch-worker:instances:instance-01:job_counts", "TestJob");
+        var count = await db.HashGetAsync($"{RedisKeyPrefix}workers:floor-batch-worker:instances:instance-01:job_counts", "TestJob");
         count.ToString().Should().Be("0");
     }
 

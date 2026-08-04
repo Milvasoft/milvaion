@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -16,22 +17,24 @@ namespace Milvaion.Infrastructure.Services.Redis;
 /// </summary>
 public class RedisWorkerService(IConnectionMultiplexer redis,
                                 IRedisCircuitBreaker circuitBreaker,
+                                IOptions<RedisOptions> options,
                                 ILoggerFactory loggerFactory) : IRedisWorkerService
 {
     private readonly IRedisCircuitBreaker _circuitBreaker = circuitBreaker;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<RedisWorkerService>();
     private readonly IDatabase _db = redis.GetDatabase();
+    private readonly RedisOptions _options = options.Value;
     private readonly TimeSpan _instanceTTL = TimeSpan.FromMinutes(2); // Auto-expire zombie instances
     private readonly TimeSpan _workerMetadataTTL = TimeSpan.FromMinutes(5); // Worker metadata expires if no active instances
-    private const string _workersIndexKey = "workers:index";
+    private string _workersIndexKey => $"{_options.KeyPrefix}workers:index";
 
     /// <inheritdoc/>
     public Task<bool> RegisterWorkerAsync(WorkerDiscoveryRequest registration, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                var workerKey = $"workers:{registration.WorkerId}";
-                var instanceKey = $"workers:{registration.WorkerId}:instances:{registration.InstanceId}";
-                var instanceSetKey = $"workers:{registration.WorkerId}:instances";
+                var workerKey = $"{_options.KeyPrefix}workers:{registration.WorkerId}";
+                var instanceKey = $"{_options.KeyPrefix}workers:{registration.WorkerId}:instances:{registration.InstanceId}";
+                var instanceSetKey = $"{_options.KeyPrefix}workers:{registration.WorkerId}:instances";
 
                 // Check if worker already exists to preserve registeredAt
                 var existingRegisteredAt = await _db.HashGetAsync(workerKey, "registeredAt");
@@ -110,9 +113,9 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task<bool> UpdateHeartbeatAsync(string workerId, string instanceId, int currentJobs, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                var instanceKey = $"workers:{workerId}:instances:{instanceId}";
-                var workerKey = $"workers:{workerId}";
-                var instanceSetKey = $"workers:{workerId}:instances";
+                var instanceKey = $"{_options.KeyPrefix}workers:{workerId}:instances:{instanceId}";
+                var workerKey = $"{_options.KeyPrefix}workers:{workerId}";
+                var instanceSetKey = $"{_options.KeyPrefix}workers:{workerId}:instances";
 
                 // Check if instance exists
                 var instanceExists = await _db.KeyExistsAsync(instanceKey);
@@ -172,9 +175,9 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
             foreach (var (WorkerId, InstanceId, CurrentJobs, MemoryBytes, CpuUsagePercent, Timestamp) in updates)
             {
-                var instanceKey = $"workers:{WorkerId}:instances:{InstanceId}";
-                var workerKey = $"workers:{WorkerId}";
-                var instanceSetKey = $"workers:{WorkerId}:instances";
+                var instanceKey = $"{_options.KeyPrefix}workers:{WorkerId}:instances:{InstanceId}";
+                var workerKey = $"{_options.KeyPrefix}workers:{WorkerId}";
+                var instanceSetKey = $"{_options.KeyPrefix}workers:{WorkerId}:instances";
 
                 var heartbeatTime = Timestamp.ToString("O");
 
@@ -214,8 +217,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task<CachedWorker> GetWorkerAsync(string workerId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                var workerKey = $"workers:{workerId}";
-                var instanceSetKey = $"workers:{workerId}:instances";
+                var workerKey = $"{_options.KeyPrefix}workers:{workerId}";
+                var instanceSetKey = $"{_options.KeyPrefix}workers:{workerId}:instances";
 
                 // Check if worker metadata exists
                 if (!await _db.KeyExistsAsync(workerKey))
@@ -239,7 +242,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     try
                     {
                         await _db.KeyDeleteAsync(workerKey);
-                        await _db.SetRemoveAsync("workers:index", workerId);
+                        await _db.SetRemoveAsync($"{_options.KeyPrefix}workers:index", workerId);
                         _logger.Information("Removed stale worker metadata for {WorkerId}", workerId);
                     }
                     catch (Exception ex)
@@ -251,7 +254,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 }
 
                 // Fetch all instance data in parallel
-                var instanceKeys = instanceIds.Select(id => (RedisKey)$"workers:{workerId}:instances:{id}").ToArray();
+                var instanceKeys = instanceIds.Select(id => (RedisKey)$"{_options.KeyPrefix}workers:{workerId}:instances:{id}").ToArray();
                 var instanceDataTasks = instanceKeys.Select(key => _db.HashGetAllAsync(key)).ToList();
                 var instanceDataResults = await Task.WhenAll(instanceDataTasks);
 
@@ -315,7 +318,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     {
                         await _db.KeyDeleteAsync(workerKey);
                         await _db.KeyDeleteAsync(instanceSetKey);
-                        await _db.SetRemoveAsync("workers:index", workerId);
+                        await _db.SetRemoveAsync($"{_options.KeyPrefix}workers:index", workerId);
                         _logger.Information("Removed stale worker metadata for {WorkerId}", workerId);
                     }
                     catch (Exception ex)
@@ -366,8 +369,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 // Phase 1: Fetch worker metadata and instance sets
                 var batch1 = _db.CreateBatch();
 
-                var metadataTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.HashGetAllAsync($"workers:{id}"));
-                var instanceSetTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.SetMembersAsync($"workers:{id}:instances"));
+                var metadataTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.HashGetAllAsync($"{_options.KeyPrefix}workers:{id}"));
+                var instanceSetTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.SetMembersAsync($"{_options.KeyPrefix}workers:{id}:instances"));
 
                 batch1.Execute();
                 await Task.WhenAll(metadataTasks.Values.Concat(instanceSetTasks.Values.Cast<Task>()));
@@ -382,7 +385,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
                     foreach (var instanceId in instanceIds)
                     {
-                        var instanceKey = $"workers:{workerId}:instances:{instanceId}";
+                        var instanceKey = $"{_options.KeyPrefix}workers:{workerId}:instances:{instanceId}";
                         instanceDataTasks[instanceKey] = batch2.HashGetAllAsync(instanceKey);
                     }
                 }
@@ -406,7 +409,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
                     foreach (var instanceId in instanceIds)
                     {
-                        var instanceKey = $"workers:{workerId}:instances:{instanceId}";
+                        var instanceKey = $"{_options.KeyPrefix}workers:{workerId}:instances:{instanceId}";
 
                         if (!instanceDataTasks.TryGetValue(instanceKey, out var instanceTask))
                             continue;
@@ -525,8 +528,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 try
                 {
-                    var workerKey = $"workers:{workerId}";
-                    var jobCountsKey = $"workers:{workerId}:job_counts";
+                    var workerKey = $"{_options.KeyPrefix}workers:{workerId}";
+                    var jobCountsKey = $"{_options.KeyPrefix}workers:{workerId}:job_counts";
 
                     // Get worker metadata to extract consumer-specific MaxParallelJobs
                     var metadataValue = await _db.HashGetAsync(workerKey, "metadata");
@@ -571,7 +574,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task IncrementConsumerJobCountAsync(string workerId, string jobType, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                var key = $"workers:{workerId}:job_counts";
+                var key = $"{_options.KeyPrefix}workers:{workerId}:job_counts";
                 await _db.HashIncrementAsync(key, jobType, 1);
                 await _db.KeyExpireAsync(key, _workerMetadataTTL);
                 return true;
@@ -585,7 +588,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task DecrementConsumerJobCountAsync(string workerId, string jobType, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                var key = $"workers:{workerId}:job_counts";
+                var key = $"{_options.KeyPrefix}workers:{workerId}:job_counts";
                 var newVal = await _db.HashIncrementAsync(key, jobType, -1);
 
                 if (newVal < 0)
@@ -666,7 +669,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         var instanceId = parts[1];
 
                         // Key pattern: workers:{workerId}:instances:{instanceId}:job_counts
-                        var hashKey = $"workers:{workerId}:instances:{instanceId}:job_counts";
+                        var hashKey = $"{_options.KeyPrefix}workers:{workerId}:instances:{instanceId}:job_counts";
                         var keys = new RedisKey[] { hashKey };
 
                         // Build ARGV array: [jobType1, netChange1, jobType2, netChange2, ...]
@@ -701,8 +704,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 try
                 {
-                    var workerKey = $"workers:{workerId}";
-                    var instanceSetKey = $"workers:{workerId}:instances";
+                    var workerKey = $"{_options.KeyPrefix}workers:{workerId}";
+                    var instanceSetKey = $"{_options.KeyPrefix}workers:{workerId}:instances";
 
                     // ✅ Get all instance IDs from INDEX SET
                     var instanceIds = await _db.SetMembersAsync(instanceSetKey);
@@ -710,7 +713,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     // Delete all instance keys
                     if (!instanceIds.IsNullOrEmpty())
                     {
-                        var instanceKeys = instanceIds.Select(id => (RedisKey)$"workers:{workerId}:instances:{id}").ToArray();
+                        var instanceKeys = instanceIds.Select(id => (RedisKey)$"{_options.KeyPrefix}workers:{workerId}:instances:{id}").ToArray();
                         await _db.KeyDeleteAsync(instanceKeys);
                     }
 
@@ -721,7 +724,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     await _db.KeyDeleteAsync(instanceSetKey);
 
                     // ✅ Remove from worker index
-                    await _db.SetRemoveAsync("workers:index", workerId);
+                    await _db.SetRemoveAsync($"{_options.KeyPrefix}workers:index", workerId);
 
                     _logger.Information("Worker {WorkerId} and {InstanceCount} instances removed from Redis", workerId, instanceIds.Length);
 
@@ -744,8 +747,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 try
                 {
-                    var instanceKey = $"workers:{workerId}:instances:{instanceId}";
-                    var instanceSetKey = $"workers:{workerId}:instances";
+                    var instanceKey = $"{_options.KeyPrefix}workers:{workerId}:instances:{instanceId}";
+                    var instanceSetKey = $"{_options.KeyPrefix}workers:{workerId}:instances";
 
                     // Delete instance metadata
                     await _db.KeyDeleteAsync(instanceKey);
