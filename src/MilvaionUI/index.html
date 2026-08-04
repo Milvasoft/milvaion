@@ -7,9 +7,11 @@
          Must be the very first script — loaded synchronously so window.__MILVAION_CONFIG__
          is available before main.jsx runs. Cache-Control: no-store is set on the server side. -->
     <script src="%BASE_URL%config.js"></script>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- %BASE_URL% rather than a bare "/": these resolve against the base path the app is served
+         under, instead of assuming it is the root. -->
+    <link rel="icon" type="image/x-icon" href="%BASE_URL%favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%logo.svg" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Milvaion - Distributed job scheduling and execution platform" />
     
@@ -18,11 +20,11 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     
     <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.webmanifest" />
-    
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%apple-touch-icon.png" />
+
+    <!-- PWA Manifest: injected by vite-plugin-pwa with the base path already applied, so declaring it here
+         too only produced a second, prefix-less link that 404s under a base path. -->
+
     <!-- iOS specific meta tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
