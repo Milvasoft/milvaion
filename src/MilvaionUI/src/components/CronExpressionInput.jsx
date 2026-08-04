@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
 import cronstrue from 'cronstrue'
 import Icon from './Icon'
+import CronBuilderModal from './CronBuilderModal'
 
-export default function CronExpressionInput({ value, onChange, required = false }) {
+export default function CronExpressionInput({ value, onChange, required = false, disabled = false }) {
   const [cronInput, setCronInput] = useState(value || '')
   const [humanReadable, setHumanReadable] = useState('')
   const [error, setError] = useState('')
+  const [builderOpen, setBuilderOpen] = useState(false)
 
   // Sync local state with prop value
   useEffect(() => {
@@ -18,27 +21,33 @@ export default function CronExpressionInput({ value, onChange, required = false 
         setHumanReadable('')
         setError('Invalid cron expression')
       }
+    } else {
+      setHumanReadable('')
+      setError('')
     }
   }, [value])
 
-  const handleChange = (e) => {
-    const newValue = e.target.value
+  /**
+   * Single path for every way the expression can change - typing, a preset, the builder.
+   *
+   * The parent is handed a synthetic event carrying the `cronExpression` name because the
+   * form handlers on the other side key off `target.name`, and a bare value would land on
+   * the wrong field.
+   */
+  const commit = (newValue) => {
     setCronInput(newValue)
 
-    // Create event with correct name attribute
     const syntheticEvent = {
       target: {
         name: 'cronExpression',
         value: newValue
       }
     }
-    onChange(syntheticEvent) // Pass through to parent with correct name
+    onChange(syntheticEvent)
 
-    // Parse cron expression
     if (newValue) {
       try {
-        const readable = cronstrue.toString(newValue)
-        setHumanReadable(readable)
+        setHumanReadable(cronstrue.toString(newValue))
         setError('')
       } catch (err) {
         setHumanReadable('')
@@ -49,6 +58,8 @@ export default function CronExpressionInput({ value, onChange, required = false 
       setError('')
     }
   }
+
+  const handleChange = (e) => commit(e.target.value)
 
   // Preset cron templates (6-part format: second minute hour day month dayOfWeek)
   const presets = [
@@ -63,38 +74,34 @@ export default function CronExpressionInput({ value, onChange, required = false 
     { label: 'Every 1st of month', value: '0 0 0 1 * *' },
   ]
 
-  const handlePresetClick = (presetValue) => {
-    setCronInput(presetValue)
-
-    // Create event with correct name attribute
-    const syntheticEvent = {
-      target: {
-        name: 'cronExpression',
-        value: presetValue
-      }
-    }
-    onChange(syntheticEvent)
-
-    try {
-      setHumanReadable(cronstrue.toString(presetValue))
-      setError('')
-    } catch (err) {
-      setError('Invalid cron expression')
-    }
-  }
+  const handlePresetClick = (presetValue) => commit(presetValue)
 
   return (
     <div className="cron-expression-container">
       <div className="cron-input-wrapper">
-        <input
-          type="text"
-          name="cronExpression"
-          value={cronInput}
-          onChange={handleChange}
-          placeholder="e.g., 0 0 9 * * * (every day at 9 AM)"
-          required={required}
-          className={error ? 'cron-input error' : 'cron-input'}
-        />
+        <div className="cron-input-row">
+          <input
+            type="text"
+            name="cronExpression"
+            value={cronInput}
+            onChange={handleChange}
+            placeholder="e.g., 0 0 9 * * * (every day at 9 AM)"
+            required={required}
+            disabled={disabled}
+            className={error ? 'cron-input error' : 'cron-input'}
+          />
+
+          <button
+            type="button"
+            className="btn-cron-builder"
+            onClick={() => setBuilderOpen(true)}
+            disabled={disabled}
+            title="Generate the expression with a visual editor"
+          >
+            <Icon name="edit_calendar" size={16} />
+            <span>Generate</span>
+          </button>
+        </div>
 
         {humanReadable && !error && (
           <div className="cron-readable success">
@@ -124,6 +131,7 @@ export default function CronExpressionInput({ value, onChange, required = false 
               type="button"
               className="btn-preset"
               onClick={() => handlePresetClick(preset.value)}
+              disabled={disabled}
               title={preset.value}
             >
               {preset.label}
@@ -131,6 +139,17 @@ export default function CronExpressionInput({ value, onChange, required = false 
           ))}
         </div>
       </div>
+
+      {builderOpen && (
+        <CronBuilderModal
+          value={cronInput}
+          onApply={(expression) => {
+            commit(expression)
+            setBuilderOpen(false)
+          }}
+          onClose={() => setBuilderOpen(false)}
+        />
+      )}
 
       <style jsx>{`
         .cron-expression-container {
@@ -141,8 +160,15 @@ export default function CronExpressionInput({ value, onChange, required = false 
           margin-bottom: 8px;
         }
 
+        .cron-input-row {
+          display: flex;
+          align-items: stretch;
+          gap: 8px;
+        }
+
         .cron-input {
-          width: 100%;
+          flex: 1;
+          min-width: 0;
           padding: 8px 12px;
           border: 1px solid #ddd;
           border-radius: 4px;
@@ -152,6 +178,39 @@ export default function CronExpressionInput({ value, onChange, required = false 
 
         .cron-input.error {
           border-color: #f56c6c;
+        }
+
+        .cron-input:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .btn-cron-builder {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          white-space: nowrap;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          color: var(--text-primary);
+          border-radius: 4px;
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-cron-builder:hover:not(:disabled) {
+          background: var(--bg-hover);
+          border-color: var(--accent-color);
+          color: var(--accent-color);
+        }
+
+        .btn-cron-builder:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .cron-readable {
@@ -215,7 +274,19 @@ export default function CronExpressionInput({ value, onChange, required = false 
         .btn-preset:active {
           transform: scale(0.98);
         }
+
+        .btn-preset:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
       `}</style>
     </div>
   )
+}
+
+CronExpressionInput.propTypes = {
+  value: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  required: PropTypes.bool,
+  disabled: PropTypes.bool
 }
