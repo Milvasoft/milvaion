@@ -237,6 +237,40 @@ public class RedisSettingsTests
         // Assert
         settings.ConnectionString.Should().Be("redis.example.com:6379,password=secret");
     }
+
+    [Fact]
+    public void RedisSettings_CancellationChannel_ShouldUseKeyPrefix()
+    {
+        // Arrange
+        var settings = new RedisSettings { KeyPrefix = "MyApp:" };
+
+        // Act & Assert
+        settings.CancellationChannel.Should().Be("MyApp:cancellation_channel");
+    }
+
+    [Fact]
+    public void RedisSettings_CancellationChannel_ShouldUseDefaultKeyPrefix()
+    {
+        // Act
+        var settings = new RedisSettings();
+
+        // Assert
+        settings.CancellationChannel.Should().Be("Milvaion:JobScheduler:cancellation_channel");
+    }
+
+    [Fact]
+    public void RedisSettings_CancellationChannel_ExplicitValueOverridesKeyPrefix()
+    {
+        // Arrange
+        var settings = new RedisSettings
+        {
+            KeyPrefix = "MyApp:",
+            CancellationChannel = "custom:channel"
+        };
+
+        // Act & Assert
+        settings.CancellationChannel.Should().Be("custom:channel");
+    }
 }
 
 [Trait("SDK Unit Tests", "HeartbeatSettings unit tests.")]

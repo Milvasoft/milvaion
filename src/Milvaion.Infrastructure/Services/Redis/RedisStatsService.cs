@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -16,25 +17,27 @@ namespace Milvaion.Infrastructure.Services.Redis;
 /// </summary>
 public class RedisStatsService(IConnectionMultiplexer redis,
                                IRedisCircuitBreaker circuitBreaker,
+                               IOptions<RedisOptions> options,
                                ILoggerFactory loggerFactory) : IRedisStatsService
 {
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly IRedisCircuitBreaker _circuitBreaker = circuitBreaker;
+    private readonly RedisOptions _options = options.Value;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<RedisStatsService>();
 
-    private const string _keyPrefix = "stats:occurrences:";
-    private const string _totalKey = _keyPrefix + "total";
-    private const string _queuedKey = _keyPrefix + "queued";
-    private const string _runningKey = _keyPrefix + "running";
-    private const string _completedKey = _keyPrefix + "completed";
-    private const string _failedKey = _keyPrefix + "failed";
-    private const string _cancelledKey = _keyPrefix + "cancelled";
-    private const string _timedOutKey = _keyPrefix + "timedout";
-    private const string _unknownKey = _keyPrefix + "unknown";
-    private const string _timelineKey = "stats:timeline"; // ZSET for time-based queries
-    private const string _durationSumKey = _keyPrefix + "duration_sum"; // Total duration in ms
-    private const string _durationCountKey = _keyPrefix + "duration_count"; // Count of completed jobs with duration
-    private const string _syncLockKey = "stats:sync:lock"; // Distributed lock for sync operations
+    private string _keyPrefix => $"{_options.KeyPrefix}stats:occurrences:";
+    private string _totalKey => $"{_keyPrefix}total";
+    private string _queuedKey => $"{_keyPrefix}queued";
+    private string _runningKey => $"{_keyPrefix}running";
+    private string _completedKey => $"{_keyPrefix}completed";
+    private string _failedKey => $"{_keyPrefix}failed";
+    private string _cancelledKey => $"{_keyPrefix}cancelled";
+    private string _timedOutKey => $"{_keyPrefix}timedout";
+    private string _unknownKey => $"{_keyPrefix}unknown";
+    private string _timelineKey => $"{_options.KeyPrefix}stats:timeline"; // ZSET for time-based queries
+    private string _durationSumKey => $"{_keyPrefix}duration_sum"; // Total duration in ms
+    private string _durationCountKey => $"{_keyPrefix}duration_count"; // Count of completed jobs with duration
+    private string _syncLockKey => $"{_options.KeyPrefix}stats:sync:lock"; // Distributed lock for sync operations
 
     // Lua script for atomic decrement with lower bound check (prevents negative values)
     private const string _decrementWithFloorScript = @"
@@ -432,7 +435,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         cancellationToken: cancellationToken
     );
 
-    private static string GetKeyForStatus(JobOccurrenceStatus status) => status switch
+    private string GetKeyForStatus(JobOccurrenceStatus status) => status switch
     {
         JobOccurrenceStatus.Queued => _queuedKey,
         JobOccurrenceStatus.Running => _runningKey,

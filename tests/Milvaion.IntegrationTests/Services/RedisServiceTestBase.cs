@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.Redis;
+using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.Services.Redis;
 using Milvaion.IntegrationTests.TestBase;
 using StackExchange.Redis;
@@ -13,6 +15,15 @@ namespace Milvaion.IntegrationTests.Services;
 /// </summary>
 public abstract class RedisServiceTestBase(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
 {
+    /// <summary>
+    /// The key prefix the services under test are configured with.
+    ///
+    /// Every key the services write is namespaced with it, so a test that reaches into Redis directly has to
+    /// build its keys the same way. Read from configuration rather than repeated as a literal: a test holding
+    /// its own copy of the prefix would keep passing against a key nothing else uses if the setting changed.
+    /// </summary>
+    protected string RedisKeyPrefix => _serviceProvider.GetRequiredService<IOptions<RedisOptions>>().Value.KeyPrefix;
+
     /// <summary>
     /// Gets the Redis connection multiplexer.
     /// </summary>
