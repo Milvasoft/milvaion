@@ -93,11 +93,20 @@ try
     }
 
     var effectiveBasePath = string.IsNullOrWhiteSpace(config?.BasePath) ? "/" : config.BasePath;
+    var publicBasePath = config?.EffectivePublicBasePath;
 
     if (app.Logger.IsEnabled(LogLevel.Information))
-        app.Logger.LogInformation("Milvaion starting on base path: {BasePath}", effectiveBasePath);
+        app.Logger.LogInformation("Milvaion starting on base path: {BasePath} (public: {PublicBasePath})",
+                                  effectiveBasePath,
+                                  string.IsNullOrWhiteSpace(publicBasePath) ? "/" : publicBasePath);
 
     app.UseCorsFromConfiguration(builder.Configuration);
+
+    // SPA assets are built with a placeholder in place of the base path and substituted here, so one image can
+    // be served under any prefix. The public value is the one the browser resolves against - behind a
+    // prefix-stripping proxy that is not the same as the path base this application listens on.
+    // See RuntimeBasePathAssets.
+    var spaAssets = app.LoadRuntimeBasePathAssets(publicBasePath);
 
     #region Configure
 
@@ -106,6 +115,9 @@ try
 
     // Prometheus metrics endpoint - /api/metrics
     app.UsePrometheusMetrics(builder.Configuration);
+
+    // Must come before UseStaticFiles, which would otherwise serve the un-substituted file from disk.
+    app.UseRuntimeBasePath(spaAssets);
 
     // Serve static files (wwwroot)
     StaticFileExtensions.UseStaticFiles(app, new StaticFileOptions
@@ -140,14 +152,16 @@ try
 
     // SPA Fallback - Serve React app for all non-API routes
     // Must be LAST (after MapControllers, MapHub, etc.)
-    app.MapFallbackToFile("index.html");
+    app.MapRuntimeBasePathFallback(spaAssets);
 
     // Runtime config endpoint — serves base path and other boot-time settings to the SPA.
     // Must be reachable BEFORE authentication so the browser can load it as a plain <script>.
     // Cache-Control: no-store prevents PWA/browser from caching stale config across deployments.
     app.MapGet("/config.js", (IOptions<MilvaionConfig> opts, HttpContext ctx) =>
     {
-        var basePath = (opts.Value.BasePath ?? string.Empty).TrimEnd('/');
+        // The public prefix, not the path base: this drives the router basename and the base URL for API and
+        // SignalR calls, all of which the browser resolves on the far side of any reverse proxy.
+        var basePath = (opts.Value.EffectivePublicBasePath ?? string.Empty).TrimEnd('/');
         var js = $"window.__MILVAION_CONFIG__ = {{ basePath: '{basePath}' }};";
 
         ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";

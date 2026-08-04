@@ -16,9 +16,11 @@ RUN npm install --silent --legacy-peer-deps
 # Copy source files
 COPY ["src/MilvaionUI/", "./"]
 
-# Build-time base path — override with --build-arg VITE_BASE_PATH=/milvaion
-ARG VITE_BASE_PATH=/
-ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+# The base path is NOT chosen here. Vite freezes asset URLs into the bundle at build time, so building with a
+# real prefix would tie the image to it; instead it is built with a placeholder that the API substitutes at
+# startup from MilvaionConfig:BasePath. Set MilvaionConfig__BasePath at run time - this value is not a knob.
+# Must stay in step with RuntimeBasePathAssets.Placeholder.
+ENV VITE_BASE_PATH=/__MILVAION_BASE__
 
 # Build production bundle
 RUN npm run build
