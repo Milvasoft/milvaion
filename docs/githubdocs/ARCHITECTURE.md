@@ -336,15 +336,38 @@ broker they add overhead without adding safety, so `Classic` is the sensible def
 
 ```
 Milvaion:JobScheduler:
-├─ schedule                    # ZSET: job schedule (score = next run timestamp)
-├─ job:{jobId}                 # HASH: job cache
-├─ locks:dispatcher            # STRING: distributed lock for dispatcher
-├─ locks:job:{jobId}           # STRING: per-job execution lock
-├─ workers                     # HASH: registered workers
-├─ heartbeat:{workerId}        # STRING: worker heartbeat timestamp
-├─ running:{occurrenceId}      # STRING: running job heartbeat
-└─ cancellation_channel        # PUBSUB: job cancellation signals
+├─ schedule                                        # ZSET: job schedule (score = next run timestamp)
+├─ job:{jobId}                                     # HASH: job cache
+├─ locks:dispatcher                                # STRING: distributed lock for dispatcher
+├─ locks:job:{jobId}                               # STRING: per-job execution lock
+├─ workers:index                                   # SET: ids of every registered worker
+├─ workers:{workerId}                              # HASH: worker metadata
+├─ workers:{workerId}:instances                    # SET: instance ids of that worker
+├─ workers:{workerId}:instances:{instanceId}       # HASH: per-instance registration
+├─ workers:{workerId}:instances:{instanceId}:job_counts   # HASH: running jobs per job type
+├─ apikey:{apiKeyId}                               # STRING: cached api key
+├─ apikey:lastused:{apiKeyId}                      # STRING: api key last-used throttle
+├─ heartbeat:{workerId}                            # STRING: worker heartbeat timestamp
+├─ running:{occurrenceId}                          # STRING: running job heartbeat
+└─ cancellation_channel                            # PUBSUB: job cancellation signals
 ```
+
+The leading `Milvaion:JobScheduler:` is not a fixed literal — it is `MilvaionConfig:Redis:KeyPrefix`,
+and **every** key above is built from it.
+
+That the prefix covers *everything* is the point, not an implementation detail. Redis grants ACLs
+on key patterns rather than on database numbers, so the `Database` index cannot separate one
+deployment from another: isolation has to be expressed as a pattern, and a pattern only isolates
+if nothing is written outside it. One key left unprefixed — the worker registry index, say — is
+readable by every tenant sharing the instance and invisible to any per-namespace ACL.
+
+The secondary benefit follows from the same property: two deployments on one instance no longer
+share the schedule, the worker registry or the API key cache.
+
+Workers carry their own `Worker:Redis:KeyPrefix`, which has to match: the cancellation channel is
+derived from it as `{KeyPrefix}cancellation_channel`, so a worker configured with a different
+prefix subscribes to a channel the API never publishes to and silently stops honouring
+cancellations.
 
 ### Caching Layers
 
