@@ -88,27 +88,6 @@
     <File Path="docs/portaldocs/23-local-job-testing.md" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/MilvaionUI/" Type="Website" DisplayName="MilvaionUI">
-      <BuildType Project="Debug" />
-      <Properties Name="WebsiteProperties">
-        <Property Name="Debug.AspNetCompiler.Debug" Value="&quot;True&quot;" />
-        <Property Name="Debug.AspNetCompiler.FixedNames" Value="&quot;false&quot;" />
-        <Property Name="Debug.AspNetCompiler.ForceOverwrite" Value="&quot;true&quot;" />
-        <Property Name="Debug.AspNetCompiler.PhysicalPath" Value="&quot;src\MilvaionUI\&quot;" />
-        <Property Name="Debug.AspNetCompiler.TargetPath" Value="&quot;PrecompiledWeb\localhost_49627\&quot;" />
-        <Property Name="Debug.AspNetCompiler.Updateable" Value="&quot;true&quot;" />
-        <Property Name="Debug.AspNetCompiler.VirtualPath" Value="&quot;/localhost_49627&quot;" />
-        <Property Name="Release.AspNetCompiler.Debug" Value="&quot;False&quot;" />
-        <Property Name="Release.AspNetCompiler.FixedNames" Value="&quot;false&quot;" />
-        <Property Name="Release.AspNetCompiler.ForceOverwrite" Value="&quot;true&quot;" />
-        <Property Name="Release.AspNetCompiler.PhysicalPath" Value="&quot;src\MilvaionUI\&quot;" />
-        <Property Name="Release.AspNetCompiler.TargetPath" Value="&quot;PrecompiledWeb\localhost_49627\&quot;" />
-        <Property Name="Release.AspNetCompiler.Updateable" Value="&quot;true&quot;" />
-        <Property Name="Release.AspNetCompiler.VirtualPath" Value="&quot;/localhost_49627&quot;" />
-        <Property Name="TargetFrameworkMoniker" Value="&quot;.NETFramework,Version%3Dv4.8&quot;" />
-        <Property Name="VWDPort" Value="&quot;49627&quot;" />
-      </Properties>
-    </Project>
   </Folder>
   <Folder Name="/src/Scheduler/" />
   <Folder Name="/src/Scheduler/Core/">
@@ -129,6 +108,9 @@
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Testing/Milvasoft.Milvaion.Sdk.Worker.Testing.csproj">
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk/Milvasoft.Milvaion.Sdk.csproj" Id="848b918f-4553-4e07-8531-3c9423a9fa5e">

@@ -548,8 +548,7 @@ dotnet new install Milvasoft.Templates.Milvaion
 # Pull the latest image
 docker pull milvasoft/milvaion-api:latest
 
-# Run with Docker Compose
-cd build
+# Run with Docker Compose, from the repository root
 docker compose up -d
 ```
 
