@@ -92,11 +92,6 @@ public static class GlobalConstant
     public static string CurrentEnvironment { get; set; }
 
     /// <summary>
-    /// UserType claim name.
-    /// </summary>
-    public const string UserTypeClaimName = "ut";
-
-    /// <summary>
     /// Response logging ignore httpcontext items key.
     /// </summary>
     public const string IgnoreResponseLoggingItemsKey = "IgnoreResponseLogging";

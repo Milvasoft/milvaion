@@ -17,7 +17,6 @@ public static class MessageKey
     public const string Page = "Global.Page";
     public const string PageNotFound = "Page.NotFound";
     public const string GlobalUsername = "Global.UserName";
-    public const string GlobalUserType = "Global.UserType";
     public const string Namespace = "Global.Namespace";
     public const string ResourceGroup = "Global.ResourceGroup";
     public const string Content = "Global.Content";

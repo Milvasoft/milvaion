@@ -398,7 +398,6 @@ const { title: brandingTitle } = useBranding()
                 <>
                   <div className="user-info">
                     <span className="user-name">{user?.username || 'User'}</span>
-                    <span className="user-role">{user?.userType === 1 ? 'Manager' : 'User'}</span>
                   </div>
                   <Icon name={showUserMenu ? 'expand_less' : 'expand_more'} size={20} />
                 </>

@@ -47,20 +47,6 @@ public static partial class MilvaionExtensions
     public static string CurrentUserName(this HttpContext httpContext) => httpContext.User?.Identity?.Name;
 
     /// <summary>
-    /// Get current user type from claims.
-    /// </summary>
-    /// <param name="httpContext"></param>
-    /// <returns></returns>
-    public static UserType? GetCurrentUserType(this HttpContext httpContext)
-    {
-        var claims = httpContext.GetCurrentUserClaims();
-
-        var userType = claims.FirstOrDefault(p => p.Type == GlobalConstant.UserTypeClaimName);
-
-        return userType != null ? Enum.Parse<UserType>(userType.Value) : null;
-    }
-
-    /// <summary>
     /// Get current user permissions from claims.
     /// </summary>
     /// <param name="httpContext"></param>

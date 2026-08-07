@@ -27,7 +27,7 @@ function UserList() {
   const [editingUser, setEditingUser] = useState(null)
   const [formData, setFormData] = useState({
     userName: '', email: '', name: '', surname: '', password: '', confirmPassword: '',
-    userType: 1, roleIdList: [], allowedNotifications: []
+    roleIdList: [], allowedNotifications: []
   })
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState('')
@@ -105,7 +105,7 @@ function UserList() {
     setEditingUser(null)
     setFormData({
       userName: '', email: '', name: '', surname: '', password: '', confirmPassword: '',
-      userType: 1, roleIdList: [], allowedNotifications: []
+      roleIdList: [], allowedNotifications: []
     })
     setFormError('')
     setShowFormModal(true)
@@ -127,7 +127,6 @@ function UserList() {
         surname: detail.surname || '',
         password: '',
         confirmPassword: '',
-        userType: detail.userType ?? 1,
         roleIdList: detail.roles?.map(r => r.id) || [],
         allowedNotifications: detail.allowedNotifications || []
       })
@@ -205,7 +204,6 @@ function UserList() {
           name: formData.name,
           surname: formData.surname,
           password: formData.password,
-          userType: formData.userType,
           roleIdList: formData.roleIdList,
           allowedNotifications: formData.allowedNotifications
         })

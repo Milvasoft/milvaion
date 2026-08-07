@@ -133,7 +133,6 @@ public class DatabaseMigrator(IServiceProvider serviceProvider)
             NormalizedEmail = string.Empty,
             Name = "Administrator",
             Surname = "User",
-            UserType = Domain.Enums.UserType.Manager,
             CreationDate = DateTime.UtcNow,
             CreatorUserName = GlobalConstant.SystemUsername,
             EmailConfirmed = true,

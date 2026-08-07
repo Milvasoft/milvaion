@@ -37,8 +37,7 @@ export const userService = {
       lockout: wrapForUpdate(userData.lockout ?? false, fieldsToUpdate.includes('lockout')),
       newPassword: wrapForUpdate(userData.newPassword, fieldsToUpdate.includes('newPassword')),
       roleIdList: wrapForUpdate(userData.roleIdList, fieldsToUpdate.includes('roleIdList')),
-      allowedNotifications: wrapForUpdate(userData.allowedNotifications, fieldsToUpdate.includes('allowedNotifications')),
-      userType: 1
+      allowedNotifications: wrapForUpdate(userData.allowedNotifications, fieldsToUpdate.includes('allowedNotifications'))
     }
 
     return api.put('/users/user', requestBody)

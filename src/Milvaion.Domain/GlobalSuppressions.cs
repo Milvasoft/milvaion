@@ -2,7 +2,3 @@
 // attributes that are applied to this project.
 // Project-level suppressions either have no target or are given
 // a specific target and scoped to a namespace, type, member, etc.
-
-using System.Diagnostics.CodeAnalysis;
-
-[assembly: SuppressMessage("Minor Code Smell", "S2342:Enumeration types should comply with a naming convention", Justification = "<Pending>", Scope = "type", Target = "~T:Milvaion.Domain.Enums.UserType")]

@@ -42,7 +42,6 @@ public class AccountManager(IMilvaionRepositoryBase<UserSession> userSessionRepo
         List<Claim> claims = [new(ClaimTypes.Name, user.UserName)];
 
         claims.AddRange(BuildRoleClaims(permissions));
-        claims.Add(BuildUserTypeClaim(user));
 
         var accessToken = _milvaTokenManager.GenerateToken(null, claims: [.. claims]);
 
@@ -95,7 +94,6 @@ public class AccountManager(IMilvaionRepositoryBase<UserSession> userSessionRepo
         List<Claim> claims = [new(ClaimTypes.Name, user.UserName)];
 
         claims.AddRange(BuildRoleClaims(permissions));
-        claims.Add(BuildUserTypeClaim(user));
 
         expiryDate ??= DateTime.UtcNow.AddYears(20);
 
@@ -125,6 +123,4 @@ public class AccountManager(IMilvaionRepositoryBase<UserSession> userSessionRepo
     }
 
     private static IEnumerable<Claim> BuildRoleClaims(IEnumerable<Permission> permissions) => permissions?.Select(p => new Claim(ClaimTypes.Role, p.FormatPermissionAndGroup())) ?? [];
-
-    private static Claim BuildUserTypeClaim(User user) => new(GlobalConstant.UserTypeClaimName, user.UserType.ToString());
 }

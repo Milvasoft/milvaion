@@ -60,7 +60,6 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <param name="cancellation"></param>
     /// <returns></returns>
     [Auth]
-    [UserTypeAuth(UserType.Manager | UserType.AppUser)]
     [HttpPost("logout")]
     public Task<Response> LogoutAsync(LogoutCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
@@ -72,7 +71,6 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [Auth]
     [HttpPut("password/change")]
-    [UserTypeAuth(UserType.Manager | UserType.AppUser)]
     public Task<Response> ChangePasswordAsync(ChangePasswordCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
@@ -83,7 +81,6 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [Auth]
     [HttpGet("detail")]
-    [UserTypeAuth(UserType.Manager | UserType.AppUser)]
     public Task<Response<AccountDetailDto>> AccountDetailsAsync([FromQuery] AccountDetailQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
@@ -94,7 +91,6 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [Auth]
     [HttpPatch("notifications")]
-    [UserTypeAuth(UserType.Manager | UserType.AppUser)]
     public Task<ListResponse<AccountNotificationDto>> AccountDetailsAsync(GetAccountNotificationsQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
@@ -105,7 +101,6 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [Auth]
     [HttpPut("notifications/seen")]
-    [UserTypeAuth(UserType.Manager | UserType.AppUser)]
     public Task<Response> MarkNotificationsAsSeenAsync(MarkNotificationsAsSeenCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
@@ -116,6 +111,5 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [Auth]
     [HttpDelete("notifications")]
-    [UserTypeAuth(UserType.Manager | UserType.AppUser)]
     public Task<Response> DeleteNotificationsAsync(DeleteNotificationsCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 }

@@ -32,11 +32,6 @@ public class User : MilvaUser<int>, IFullAuditable<int>
     public string Surname { get; set; }
 
     /// <summary>
-    /// Last name of the user.
-    /// </summary>
-    public UserType UserType { get; set; } = UserType.AppUser;
-
-    /// <summary>
     /// Allowed notification types for this user.
     /// </summary>
     [Column(TypeName = "jsonb")]
@@ -110,7 +105,6 @@ public class User : MilvaUser<int>, IFullAuditable<int>
             DeleterUserName = u.DeleterUserName,
             Name = u.Name,
             Surname = u.Surname,
-            UserType = u.UserType,
             EmailConfirmed = u.EmailConfirmed,
             PhoneNumber = u.PhoneNumber,
             PhoneNumberConfirmed = u.PhoneNumberConfirmed,
@@ -129,7 +123,6 @@ public class User : MilvaUser<int>, IFullAuditable<int>
         {
             Id = u.Id,
             UserName = u.UserName,
-            UserType = u.UserType,
             RoleRelations = u.RoleRelations.Select(r => new UserRoleRelation
             {
                 Id = r.Id,
@@ -173,7 +166,6 @@ public class User : MilvaUser<int>, IFullAuditable<int>
             Id = u.Id,
             UserName = u.UserName,
             PasswordHash = u.PasswordHash,
-            UserType = u.UserType,
             AccessFailedCount = u.AccessFailedCount,
             LockoutEnabled = u.LockoutEnabled,
             LockoutEnd = u.LockoutEnd,

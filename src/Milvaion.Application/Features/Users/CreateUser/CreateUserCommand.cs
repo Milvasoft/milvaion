@@ -8,11 +8,6 @@ namespace Milvaion.Application.Features.Users.CreateUser;
 public record CreateUserCommand : ICommand<int>
 {
     /// <summary>
-    /// Type of user.
-    /// </summary>
-    public UserType UserType { get; set; }
-
-    /// <summary>
     /// Unique username of the user. (e.g. johndoe)
     /// </summary>
     public string UserName { get; set; }

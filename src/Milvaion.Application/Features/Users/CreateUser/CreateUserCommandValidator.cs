@@ -26,10 +26,6 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
             .MaximumLength(70)
             .WithMessage(localizer[MessageKey.MaxLengthReached, localizer[MessageKey.GlobalName], 70]);
 
-        RuleFor(query => query.UserType)
-            .IsInEnum()
-            .WithMessage(localizer[MessageKey.PleaseSendCorrect, localizer[MessageKey.GlobalUserType]]);
-
         RuleFor(query => query.RoleIdList)
             .NotNullOrEmpty(localizer, MessageKey.Role);
 

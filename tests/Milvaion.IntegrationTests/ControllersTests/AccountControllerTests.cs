@@ -241,7 +241,6 @@ public class AccountControllerTests(CustomWebApplicationFactory factory, ITestOu
         httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         loginResult.Should().NotBeNull();
         loginResult.Data.Should().NotBeNull();
-        loginResult.Data.UserType.Should().Be(UserType.AppUser);
         loginResult.Data.Token.Should().NotBeNull();
         loginResult.Data.Token.ExpiresIn.Should().NotBe(0);
         loginResult.Data.Token.RefreshTokenExpiresIn.Should().NotBe(0);
@@ -330,7 +329,6 @@ public class AccountControllerTests(CustomWebApplicationFactory factory, ITestOu
         httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         loginResult.Should().NotBeNull();
         loginResult.Data.Should().NotBeNull();
-        loginResult.Data.UserType.Should().Be(UserType.AppUser);
         loginResult.Data.Token.Should().NotBeNull();
         loginResult.Data.Token.ExpiresIn.Should().NotBe(0);
         loginResult.Data.Token.RefreshTokenExpiresIn.Should().NotBe(0);

@@ -42,7 +42,6 @@ public record RefreshLoginCommandHandler(IMilvaionRepositoryBase<User> UserRepos
         var loginResponse = new LoginResponseDto
         {
             Id = user.Id,
-            UserType = user.UserType,
             Token = tokenModel
         };
 

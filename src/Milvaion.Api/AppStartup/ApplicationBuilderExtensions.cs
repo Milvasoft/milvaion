@@ -57,10 +57,9 @@ public static partial class StartupExtensions
             var tokenManager = new MilvaTokenManager(identityOptions, null);
 
             var roleClaim = new Claim(ClaimTypes.Role, PermissionCatalog.App.SuperAdmin);
-            var userTypeClaim = new Claim(GlobalConstant.UserTypeClaimName, UserType.Manager.ToString());
             var userClaim = new Claim(ClaimTypes.Name, "rootuser");
 
-            var accessToken = tokenManager.GenerateToken(expired: DateTime.UtcNow.AddYears(1), issuer: null, userClaim, roleClaim, userTypeClaim);
+            var accessToken = tokenManager.GenerateToken(expired: DateTime.UtcNow.AddYears(1), issuer: null, userClaim, roleClaim);
 
             return accessToken;
         }

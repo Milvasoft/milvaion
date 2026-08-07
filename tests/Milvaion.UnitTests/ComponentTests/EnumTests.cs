@@ -35,36 +35,6 @@ public class EnumTests
     }
 
     [Theory]
-    [InlineData(UserType.Manager, "Manager user type")]
-    [InlineData(UserType.AppUser, "Application user type")]
-    public void UserType_DescriptionAttribute_ShouldMatch(UserType userType, string expectedDescription)
-    {
-        // Arrange
-        var type = typeof(UserType);
-        var memberInfo = type.GetMember(userType.ToString());
-        var attributes = memberInfo[0].GetCustomAttributes(typeof(DescriptionAttribute), false);
-        var descriptionAttribute = (DescriptionAttribute)attributes[0];
-
-        // Act
-        var description = descriptionAttribute.Description;
-
-        // Assert
-        description.Should().Be(expectedDescription);
-    }
-
-    [Theory]
-    [InlineData(UserType.Manager, 1)]
-    [InlineData(UserType.AppUser, 2)]
-    public void UserType_Value_ShouldMatch(UserType type, byte expectedValue)
-    {
-        // Act
-        var value = (byte)type;
-
-        // Assert
-        value.Should().Be(expectedValue);
-    }
-
-    [Theory]
     [InlineData(ContentQueryType.Key, 0)]
     [InlineData(ContentQueryType.ResourceGroup, 1)]
     [InlineData(ContentQueryType.Namespace, 2)]
@@ -127,16 +97,6 @@ public class EnumTests
 
         // Assert
         values.Should().HaveCount(33);
-    }
-
-    [Fact]
-    public void UserType_ShouldHaveTwoValues()
-    {
-        // Act
-        var values = Enum.GetValues<UserType>();
-
-        // Assert
-        values.Should().HaveCount(2);
     }
 
     [Fact]

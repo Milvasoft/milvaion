@@ -139,11 +139,6 @@ public class GlobalConstantTests
         => GlobalConstant.AutoIncrementStart.Should().Be(21);
 
     [Fact]
-    public void UserTypeClaimName_ShouldBeUt()
-        // Assert
-        => GlobalConstant.UserTypeClaimName.Should().Be("ut");
-
-    [Fact]
     public void GenerateMetadataHeaderKey_ShouldBeMMetadata()
         // Assert
         => GlobalConstant.GenerateMetadataHeaderKey.Should().Be("M-Metadata");

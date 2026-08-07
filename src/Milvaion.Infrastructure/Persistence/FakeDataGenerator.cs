@@ -29,7 +29,6 @@ public class UserFaker : Faker<User>
             .RuleFor(u => u.UserName, (f, u) => f.Internet.UserName(u.Name, u.Surname))
             .RuleFor(u => u.Name, f => f.Name.FirstName())
             .RuleFor(u => u.Surname, f => f.Name.LastName())
-            .RuleFor(u => u.UserType, f => f.PickRandom<UserType>())
             .RuleFor(u => u.Email, (f, u) => f.Internet.Email(u.Name, u.Surname))
             .RuleFor(u => u.PhoneNumber, f => f.Phone.PhoneNumber())
             .RuleFor(u => u.PasswordHash, f => passwordHasher.HashPassword(f.Internet.Password()))

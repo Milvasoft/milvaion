@@ -24,7 +24,7 @@ namespace Milvaion.Api.Controllers;
 [Route(GlobalConstant.FullRoute)]
 [ApiVersion(GlobalConstant.CurrentApiVersion)]
 [ApiExplorerSettings(GroupName = "v1.0")]
-[UserTypeAuth(UserType.Manager)]
+[Auth]
 public class WorkflowsController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;

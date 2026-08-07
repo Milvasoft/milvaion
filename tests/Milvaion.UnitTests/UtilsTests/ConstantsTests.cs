@@ -40,7 +40,6 @@ public class ConstantsTests
         GlobalConstant.CustomForbidSchema.Should().Be("CustomForbidSchema");
         GlobalConstant.LoggingActivityName.Should().Be("LoggingActivity");
         GlobalConstant.CurrentEnvironment.Should().Be(currentEnvironment);
-        GlobalConstant.UserTypeClaimName.Should().Be("ut");
         GlobalConstant.IgnoreResponseLoggingItemsKey.Should().Be("IgnoreResponseLogging");
         GlobalConstant.RootUsername.Should().Be("rootuser");
         GlobalConstant.GenerateMetadataHeaderKey.Should().Be("M-Metadata");
