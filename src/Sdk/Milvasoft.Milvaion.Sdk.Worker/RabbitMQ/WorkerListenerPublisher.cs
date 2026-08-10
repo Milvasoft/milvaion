@@ -71,8 +71,8 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
 
                 _connection = await factory.CreateConnectionAsync(stoppingToken);
 
-                // Publisher confirms enabled: BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
-                _channel = await _connection.CreateChannelAsync(new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), stoppingToken);
+                // With PublisherConfirms on (the default), BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+                _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions(), stoppingToken);
 
                 // Subscribe to connection recovery events
                 _connection.ConnectionRecoveryErrorAsync += async (sender, args) =>

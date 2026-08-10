@@ -125,8 +125,8 @@ public class JobConsumer : BackgroundService
             _connection = await factory.CreateConnectionAsync(stoppingToken);
 
             /*
-             * Publisher confirms enabled: publishes on this channel (retry/DLQ) await the broker's ack,
-             * per https://www.rabbitmq.com/docs/publishers#data-safety.
+             * With PublisherConfirms on (the default), publishes on this channel (retry/DLQ) await the
+             * broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
              *
              * ConsumerDispatchConcurrency has to be repeated here even though the factory above already
              * sets it. A channel opened with an explicit options object does not end up with the factory's
@@ -134,9 +134,7 @@ public class JobConsumer : BackgroundService
              * delivered, just one at a time, so a worker configured for 128 parallel jobs quietly runs them
              * in series. JobConsumer_ShouldHandleConcurrentJobs guards against this.
              */
-            _channel = await _connection.CreateChannelAsync(new CreateChannelOptions(publisherConfirmationsEnabled: true,
-                                                                                    publisherConfirmationTrackingEnabled: true,
-                                                                                    consumerDispatchConcurrency: (ushort)(maxParallelJobs + 1)),
+            _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions((ushort)(maxParallelJobs + 1)),
                                                            stoppingToken);
 
             await _channel.ExchangeDeclareAsync(exchange: WorkerConstant.ExchangeName,

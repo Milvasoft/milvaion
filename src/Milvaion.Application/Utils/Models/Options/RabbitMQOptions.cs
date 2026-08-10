@@ -96,6 +96,18 @@ public class RabbitMQOptions
     public RabbitMQQueueType QueueType { get; set; } = RabbitMQQueueType.Classic;
 
     /// <summary>
+    /// Whether publishing channels wait for the broker to acknowledge each message (default: <see langword="true"/>).
+    ///
+    /// With confirms on, a publish only completes once RabbitMQ has accepted the message and throws on nack or
+    /// timeout; with them off it completes as soon as the bytes leave the socket, so a broker that drops the
+    /// message reports nothing and the job never runs. Turning this off trades that guarantee for one less round
+    /// trip per publish - reasonable only where losing a message is acceptable.
+    ///
+    /// Consume-only channels are unaffected: confirms are meaningless there and are never requested.
+    /// </summary>
+    public bool PublisherConfirms { get; set; } = true;
+
+    /// <summary>
     /// Builds the queue declaration arguments for <see cref="QueueType"/>, merging in any extra arguments (e.g. dead-letter settings).
     /// Returns <see langword="null"/> for <see cref="RabbitMQQueueType.Classic"/> with no extra arguments, matching RabbitMQ's default (no arguments = classic queue).
     /// </summary>

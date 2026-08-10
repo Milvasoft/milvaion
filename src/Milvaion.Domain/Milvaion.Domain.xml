@@ -296,21 +296,6 @@
             User activity types.
             </summary>
         </member>
-        <member name="T:Milvaion.Domain.Enums.UserType">
-            <summary>
-            Determines which screen users will see after logging in to the frontend.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Domain.Enums.UserType.Manager">
-            <summary>
-            Can see management screens.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Domain.Enums.UserType.AppUser">
-            <summary>
-            Can see user profile and view screens.
-            </summary>
-        </member>
         <member name="T:Milvaion.Domain.InternalNotification">
             <summary>
             Internal generic notification entity. Unseen notifications are deleted in 60 days, seen notifications in 30 days.
@@ -946,11 +931,6 @@
             </summary>
         </member>
         <member name="P:Milvaion.Domain.User.Surname">
-            <summary>
-            Last name of the user.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Domain.User.UserType">
             <summary>
             Last name of the user.
             </summary>

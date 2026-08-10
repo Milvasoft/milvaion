@@ -112,8 +112,8 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
 
             _connection = await factory.CreateConnectionAsync(cancellationToken);
 
-            // Publisher confirms enabled: BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
-            _channel = await _connection.CreateChannelAsync(new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), cancellationToken);
+            // With PublisherConfirms on (the default), BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+            _channel = await _connection.CreateChannelAsync(_workerOptions.RabbitMQ.BuildChannelOptions(), cancellationToken);
 
             // Declare queues
             await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
