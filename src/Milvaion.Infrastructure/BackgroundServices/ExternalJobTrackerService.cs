@@ -31,6 +31,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                                        RabbitMQConnectionFactory rabbitMQFactory,
                                        IOptions<ExternalJobTrackerOptions> options,
+                                       IOptions<RabbitMQOptions> rabbitMQOptions,
                                        IRedisSchedulerService redisSchedulerService,
                                        IRedisStatsService redisStatsService,
                                        ILoggerFactory loggerFactory,
@@ -43,6 +44,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ExternalJobTrackerService>();
     private readonly ExternalJobTrackerOptions _options = options.Value;
+    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
 
     private IChannel _registrationChannel;
@@ -135,12 +137,14 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                                                      durable: true,
                                                      exclusive: false,
                                                      autoDelete: false,
+                                                     arguments: _rabbitMQOptions.BuildQueueArguments(),
                                                      cancellationToken: stoppingToken);
 
         await _occurrenceChannel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
                                                    durable: true,
                                                    exclusive: false,
                                                    autoDelete: false,
+                                                   arguments: _rabbitMQOptions.BuildQueueArguments(),
                                                    cancellationToken: stoppingToken);
 
         // Set prefetch

@@ -114,7 +114,7 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 ![Milvaion Real Time](https://portal.milvasoft.com/assets/images/executions-4b5918b7fca1b603f54be133c7880397.gif)
 
 ### Reliability
-- **At-least-once delivery** via RabbitMQ manual ACK
+- **At-least-once delivery** via RabbitMQ publisher confirms and manual ACK
 - **Automatic retries** with exponential backoff
 - **Dead Letter Queue** for failed jobs after max retries
 - **Zombie detection** recovers stuck jobs
@@ -548,8 +548,7 @@ dotnet new install Milvasoft.Templates.Milvaion
 # Pull the latest image
 docker pull milvasoft/milvaion-api:latest
 
-# Run with Docker Compose
-cd build
+# Run with Docker Compose, from the repository root
 docker compose up -d
 ```
 

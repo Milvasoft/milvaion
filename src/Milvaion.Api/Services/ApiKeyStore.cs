@@ -1,4 +1,5 @@
-﻿using StackExchange.Redis;
+﻿using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 using System.Linq.Expressions;
 using System.Text.Json;
 
@@ -24,16 +25,18 @@ public record CachedApiKey(int Id, string Name, int KeyVersion, DateTime? Expire
 /// </remarks>
 public class ApiKeyStore(IConnectionMultiplexer redis,
                          IMilvaionRepositoryBase<MilvaionApiKey> apiKeyRepository,
+                         IOptions<RedisOptions> redisOptions,
                          ILogger<ApiKeyStore> logger) : IApiKeyCacheInvalidator
 {
     private readonly IConnectionMultiplexer _redis = redis;
     private readonly IMilvaionRepositoryBase<MilvaionApiKey> _apiKeyRepository = apiKeyRepository;
+    private readonly RedisOptions _redisOptions = redisOptions.Value;
     private readonly ILogger<ApiKeyStore> _logger = logger;
 
-    private const string _cacheKeyPrefix = "milvaion:apikey:";
-    private const string _lastUsedKeyPrefix = "milvaion:apikey:lastused:";
+    private string _cacheKeyPrefix => $"{_redisOptions.KeyPrefix}apikey:";
+    private string _lastUsedKeyPrefix => $"{_redisOptions.KeyPrefix}apikey:lastused:";
 
-    private static string CacheKey(int apiKeyId) => $"{_cacheKeyPrefix}{apiKeyId}";
+    private string CacheKey(int apiKeyId) => $"{_cacheKeyPrefix}{apiKeyId}";
 
     /// <summary>
     /// Projection used when loading an api key for authentication.

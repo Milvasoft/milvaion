@@ -1,4 +1,4 @@
----
+﻿---
 id: configuration
 title: Configuration
 sidebar_position: 6
@@ -124,9 +124,33 @@ Open telemetry configurations. Set null or empty via environment variables if yo
 | `Password` | `""` | Redis password (if auth enabled) |
 | `Database` | `0` | Redis database index (0-15) |
 | `ConnectTimeout` | `5000` | Connection timeout in milliseconds |
-| `SyncTimeout` | `0` | Sync timeout for Redis operations in milliseconds. |
-| `KeyPrefix` | `0` | Key prefix for job scheduler keys (e.g. "Milvaion:JobScheduler:"). |
-| `DefaultLockTtlSeconds` | `0` | Default lock TTL in seconds. |
+| `SyncTimeout` | `5000` | Sync timeout for Redis operations in milliseconds. |
+| `KeyPrefix` | `Milvaion:JobScheduler:` | Prefix applied to **every** key this application writes: the schedule, job cache, locks, the worker registry and its per-instance counters, and API key entries. Two deployments sharing one Redis instance must use different prefixes, or they will overwrite each other's state. Workers must be given the matching `Worker:Redis:KeyPrefix`. |
+| `DefaultLockTtlSeconds` | `600` | Default lock TTL in seconds. |
+
+#### Why the key prefix matters
+
+Redis grants ACLs on **key patterns**, not on database numbers. Selecting a different
+`Database` therefore isolates nothing: a user allowed to read `workers:*` reads it in every
+database of the instance.
+
+The prefix is what makes isolation expressible. Give each deployment its own, and an ACL rule
+scoped to that namespace is enough to keep it separate from every other one sharing the
+instance:
+
+```
+ACL SETUSER tenant-a on >secret ~Milvaion:TenantA:* +@all
+ACL SETUSER tenant-b on >secret ~Milvaion:TenantB:* +@all
+```
+
+This only holds if **no key escapes the prefix**. Every key Milvaion writes is built from
+`KeyPrefix` — the schedule, the job cache, the locks, the worker registry with its
+per-instance counters, and the cached API keys — precisely so that a single pattern covers the
+whole footprint. A workload writing outside it would be reachable by every tenant, or by none.
+
+Workers must be configured with the matching `Worker:Redis:KeyPrefix`: the cancellation
+channel is derived from it, so a worker on a different prefix subscribes to a channel the API
+never publishes to and silently stops honouring cancellations.
 
 ### RabbitMQ Configuration
 
@@ -139,6 +163,8 @@ Open telemetry configurations. Set null or empty via environment variables if yo
 | `VirtualHost` | `/` | Virtual host name |
 | `Durable` | `/` | Whether the queue should be durable (survives broker restart). |
 | `AutoDelete` | `/` | Whether the queue should auto-delete when no consumers. |
+| `QueueType` | `Classic` | RabbitMQ queue type used when declaring queues. Accepted values: `Classic`, `Quorum`. Must match the value used by any connected worker's `Worker:RabbitMQ:QueueType` setting for the same queues, otherwise RabbitMQ rejects the redeclare with a `PRECONDITION_FAILED` error. Changing this value for an already-existing queue requires deleting the queue in RabbitMQ first, since RabbitMQ does not support converting a queue's type in place. |
+| `PublisherConfirms` | `true` | Whether publishing channels wait for the broker to acknowledge each message. With confirms on, a publish only completes once RabbitMQ has accepted the message and throws on nack or timeout; with them off it returns as soon as the bytes leave the socket, so a dropped message goes unreported. Turning it off saves one round trip per publish and is only reasonable where losing a message is acceptable. Consume-only channels never use confirms either way. |
 | `ConnectionTimeout` | `/` | Connection timeout in seconds. |
 | `Heartbeat` | `/` | Heartbeat interval in seconds (0 = disabled). |
 | `AutomaticRecoveryEnabled` | `/` | Automatic connection recovery enabled. |
@@ -218,7 +244,8 @@ Milvaion API supports hosting under a configurable sub-path (e.g. `/milvaion`) s
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `BasePath` | `""` | URL prefix the application is mounted under. Leave empty to host at the root. Example: `/milvaion` |
+| `BasePath` | `""` | URL prefix **this application receives requests on**, applied as the ASP.NET path base. Leave empty to host at the root. Example: `/milvaion` |
+| `PublicBasePath` | `""` | URL prefix **the browser addresses the application on**, when it differs from `BasePath`. Empty means "same as `BasePath`", which is correct unless a reverse proxy strips the prefix before forwarding. |
 
 When `BasePath` is set:
 
@@ -229,6 +256,39 @@ When `BasePath` is set:
 - The SPA (UI) is served at `{BasePath}` and all sub-routes fall back to the SPA index
 
 When `BasePath` is empty or not set, the application is hosted at the root (`/`).
+
+#### No rebuild required
+
+The base path is applied at **startup**, not when the frontend is built. The published image
+ships with a placeholder in place of the prefix, and the API substitutes the configured value
+into the SPA's assets — the URLs in `index.html`, the loader for lazily routed chunks, and the
+PWA manifest scope — as it boots.
+
+One image therefore serves any prefix. Changing the base path means restarting the container,
+never rebuilding it.
+
+> `VITE_BASE_PATH` is **not** a runtime setting. It only affects a local `npm run build`, and
+> the published image is built with the placeholder regardless. Setting it as a container
+> environment variable has no effect; if its value disagrees with the configured base path, the
+> API logs a warning at startup saying which value actually applies.
+
+#### Behind a prefix-stripping reverse proxy
+
+Some proxies remove the prefix before forwarding, so the browser asks for `/milvaion/jobs`
+while the application receives `/jobs`. The two values then differ:
+
+```yaml
+environment:
+  - MilvaionConfig__BasePath=              # what this application receives: the root
+  - MilvaionConfig__PublicBasePath=/milvaion   # what the browser uses
+```
+
+`PublicBasePath` drives everything the browser resolves — asset URLs, the router basename, and
+the base URL for API and SignalR calls — while `BasePath` stays the prefix the application is
+actually mounted on.
+
+Keeping the prefix end to end is simpler: configure the proxy to pass it through, set only
+`BasePath`, and leave `PublicBasePath` empty.
 
 #### Example Configuration
 
@@ -347,6 +407,8 @@ environment:
 | `Password` | `guest` | Password |
 | `VirtualHost` | `/` | Virtual host |
 | `RoutingKeyPattern` | `#` | Queue binding pattern. Don't recommended setting up routing patterns. The scheduler and worker will determine this automatically at runtime. |
+| `QueueType` | `Classic` | RabbitMQ queue type used when declaring queues. Accepted values: `Classic`, `Quorum`. Must match the API's `MilvaionConfig:RabbitMQ:QueueType` setting for shared queues, otherwise RabbitMQ rejects the redeclare with a `PRECONDITION_FAILED` error. |
+| `PublisherConfirms` | `true` | Whether the worker's publishing channels — status updates, logs, registration, heartbeat, retry and dead-letter republishes — wait for the broker's acknowledgement. Independent of the API's setting: unlike `QueueType`, this is a per-channel client concern and the two sides do not have to agree. |
 
 
 ### Worker Redis Settings
@@ -356,7 +418,8 @@ environment:
 | `ConnectionString` | `localhost:6379` | Redis server |
 | `Password` | `""` | Redis password |
 | `Database` | `0` | Redis database index |
-| `CancellationChannel` | `Milvaion:JobScheduler:cancellation_channel` | Redis pub/sub cancellation channel. If you change this value you must change in scheduler config too. |
+| `KeyPrefix` | `Milvaion:JobScheduler:` | Prefix used to build the cancellation pub/sub channel name (`{KeyPrefix}cancellation_channel`). Must match the API's `MilvaionConfig:Redis:KeyPrefix` setting so cancellation signals reach the worker. |
+| `CancellationChannel` | `{KeyPrefix}cancellation_channel` | Redis pub/sub cancellation channel. Optional explicit override; if not set, it's derived from `KeyPrefix`. If you set this explicitly, you must set the matching value in the scheduler config too. |
 
 ### Heartbeat Settings
 

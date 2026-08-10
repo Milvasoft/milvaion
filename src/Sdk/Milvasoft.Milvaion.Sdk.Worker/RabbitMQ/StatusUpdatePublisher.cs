@@ -142,13 +142,14 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
 
             _connection = await factory.CreateConnectionAsync(cancellationToken);
 
-            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+            // With PublisherConfirms on (the default), BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+            _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions(), cancellationToken);
 
             await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.StatusUpdates,
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
-                                             arguments: null,
+                                             arguments: _options.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: cancellationToken);
         }
     }

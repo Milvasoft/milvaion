@@ -465,16 +465,6 @@
             Response object for login operation.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AccountDtos.LoginResponseDto.UserType">
-            <summary>
-            Type of user.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Dtos.AccountDtos.LoginResponseDto.UserTypeDescription">
-            <summary>
-            User type description.
-            </summary>
-        </member>
         <member name="P:Milvaion.Application.Dtos.AccountDtos.LoginResponseDto.Token">
             <summary>
             Token information of the user.
@@ -6489,67 +6479,6 @@
         <member name="M:Milvaion.Application.Features.ContentManagement.Contents.DeleteContents.DeleteContentsCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.DeleteContents.DeleteContentsCommandValidator"/>
         </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery">
-            <summary>
-            Data transfer object for content details.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery.ContentId">
-            <summary>
-            Resource group id to access details.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler">
-            <summary>
-            Handles the content detail operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
-            <summary>
-            Handles the content detail operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator">
-            <summary>
-            Query validations. 
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
-            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator"/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery">
-            <summary>
-            Data transfer object for content list.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler">
-            <summary>
-            Handles the content list operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
-            <summary>
-            Handles the content list operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator">
-            <summary>
-            Query validations. 
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator.#ctor">
-            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator"/>
-        </member>
         <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContent.GetContentQuery">
             <summary>
             Data transfer object for content.
@@ -6614,6 +6543,67 @@
         </member>
         <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContent.GetContentQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContent.GetContentQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery">
+            <summary>
+            Data transfer object for content details.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery.ContentId">
+            <summary>
+            Resource group id to access details.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler">
+            <summary>
+            Handles the content detail operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
+            <summary>
+            Handles the content detail operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator">
+            <summary>
+            Query validations. 
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery">
+            <summary>
+            Data transfer object for content list.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler">
+            <summary>
+            Handles the content list operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
+            <summary>
+            Handles the content list operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator">
+            <summary>
+            Query validations. 
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator"/>
         </member>
         <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetGroupedContentList.GetGroupedContentListQuery">
             <summary>
@@ -8221,41 +8211,6 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQueryValidator"/>
         </member>
-        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery">
-            <summary>
-            Data transfer object for scheduledjob list.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery.SearchTerm">
-            <summary>
-            Search term to filter job occurrences.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler">
-            <summary>
-            Handles the job occurrence list operation.
-            </summary>
-            <param name="milvaionDbContextAccessor"></param>
-            <param name="redisStatsService"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
-            <summary>
-            Handles the job occurrence list operation.
-            </summary>
-            <param name="milvaionDbContextAccessor"></param>
-            <param name="redisStatsService"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.GetValueWithCorrectType``1(System.Object)">
-            <summary>
-            Gets the value with the correct type from the object.
-            </summary>
-            <typeparam name="TActualType"></typeparam>
-            <param name="value"></param>
-            <returns></returns>
-        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery">
             <summary>
             Data transfer object for scheduledjob list.
@@ -8298,6 +8253,41 @@
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery">
+            <summary>
+            Data transfer object for scheduledjob list.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery.SearchTerm">
+            <summary>
+            Search term to filter job occurrences.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler">
+            <summary>
+            Handles the job occurrence list operation.
+            </summary>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
+            <summary>
+            Handles the job occurrence list operation.
+            </summary>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.GetValueWithCorrectType``1(System.Object)">
+            <summary>
+            Gets the value with the correct type from the object.
+            </summary>
+            <typeparam name="TActualType"></typeparam>
+            <param name="value"></param>
+            <returns></returns>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery">
             <summary>
@@ -8952,11 +8942,6 @@
         <member name="T:Milvaion.Application.Features.Users.CreateUser.CreateUserCommand">
             <summary>
             Data transfer object for user creation.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.Users.CreateUser.CreateUserCommand.UserType">
-            <summary>
-            Type of user.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Features.Users.CreateUser.CreateUserCommand.UserName">
@@ -10371,7 +10356,7 @@
             Publishes a notification to a group of users matching a predicate.
             This method respects the users' 'AllowedNotifications' preferences.
             </summary>
-            <param name="userExpression">LINQ expression to filter target users (e.g., u => u.UserType == UserType.Admin).</param>
+            <param name="userExpression">LINQ expression to filter target users (e.g., u => u.RoleRelations.Any()).</param>
             <param name="cancellationToken"></param>
             <param name="request">Notification request.</param>
         </member>
@@ -11164,21 +11149,6 @@
             Activity type.
             </summary>
         </member>
-        <member name="T:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute">
-            <summary>
-            Determines the type of user who can access the method.
-            </summary>
-            <param name="userType"></param>
-        </member>
-        <member name="M:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute.#ctor(Milvaion.Domain.Enums.UserType)">
-            <summary>
-            Determines the type of user who can access the method.
-            </summary>
-            <param name="userType"></param>
-        </member>
-        <member name="M:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute.OnAuthorization(Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)">
-            <inheritdoc/>
-        </member>
         <member name="T:Milvaion.Application.Utils.Constants.CacheConstant">
             <summary>
             Represents a class that contains global constants for the application.
@@ -11282,11 +11252,6 @@
         <member name="P:Milvaion.Application.Utils.Constants.GlobalConstant.CurrentEnvironment">
             <summary>
             Gets or sets the current environment.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Application.Utils.Constants.GlobalConstant.UserTypeClaimName">
-            <summary>
-            UserType claim name.
             </summary>
         </member>
         <member name="F:Milvaion.Application.Utils.Constants.GlobalConstant.IgnoreResponseLoggingItemsKey">
@@ -11462,13 +11427,6 @@
         <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.CurrentUserName(Microsoft.AspNetCore.Http.HttpContext)">
             <summary>
             Gets current user name via HttpContextAccessor.
-            </summary>
-            <param name="httpContext"></param>
-            <returns></returns>
-        </member>
-        <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.GetCurrentUserType(Microsoft.AspNetCore.Http.HttpContext)">
-            <summary>
-            Get current user type from claims.
             </summary>
             <param name="httpContext"></param>
             <returns></returns>
@@ -12366,10 +12324,34 @@
             </summary>
         </member>
         <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.BasePath">
+             <summary>
+             Prefix this application receives requests on (e.g. "/milvaion"), applied as the ASP.NET path base.
+             Leave empty or null to keep the default root behaviour.
+            
+             This is the server's own view. Behind a reverse proxy that strips the prefix before forwarding, the
+             application is reached at the root and this must stay empty - set <see cref="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.PublicBasePath"/> to the
+             prefix the browser uses instead.
+             </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.PublicBasePath">
+             <summary>
+             Prefix the browser addresses the application on, when it differs from <see cref="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.BasePath"/>.
+             Defaults to <see cref="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.BasePath"/>, which is correct whenever the prefix is passed through untouched.
+            
+             Everything resolved client-side hangs off this: the asset URLs in index.html, the loader for lazily
+             routed chunks, the PWA manifest scope, the router basename, and the base URL for API and SignalR calls.
+             Those are all addressed by the browser through the proxy, so they need the public prefix even when the
+             application itself never sees it.
+            
+             Set this only for a prefix-stripping proxy. Keeping the prefix end to end is simpler and leaves the two
+             values equal.
+             </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.EffectivePublicBasePath">
             <summary>
-            Optional base path for the application (e.g. "/milvaion").
-            When set, the UI is served at &lt;BasePath&gt; and the API at &lt;BasePath&gt;/api.
-            Leave empty or null to keep the default root behaviour.
+            The prefix to hand to the browser: <see cref="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.PublicBasePath"/> when configured, otherwise
+            <see cref="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.BasePath"/>. Null and empty are treated alike, so an unset value falls through rather than
+            forcing the UI to the root.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.ApiKey">
@@ -12462,6 +12444,47 @@
         <member name="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.ManagementPort">
             <summary>
             RabbitMQ Management HTTP API port (default: 15672).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.QueueType">
+            <summary>
+            Queue type used when declaring queues ("Classic" or "Quorum").
+            Quorum queues require <see cref="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.Durable"/> to be <c>true</c> and <see cref="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.AutoDelete"/> to be <c>false</c>.
+            Changing this does not migrate existing queues: an already-declared queue must be deleted before it can be
+            re-created with a different type, since RabbitMQ rejects a redeclare whose arguments don't match.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.PublisherConfirms">
+             <summary>
+             Whether publishing channels wait for the broker to acknowledge each message (default: <see langword="true"/>).
+            
+             With confirms on, a publish only completes once RabbitMQ has accepted the message and throws on nack or
+             timeout; with them off it completes as soon as the bytes leave the socket, so a broker that drops the
+             message reports nothing and the job never runs. Turning this off trades that guarantee for one less round
+             trip per publish - reasonable only where losing a message is acceptable.
+            
+             Consume-only channels are unaffected: confirms are meaningless there and are never requested.
+             </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.BuildQueueArguments(System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Builds the queue declaration arguments for <see cref="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.QueueType"/>, merging in any extra arguments (e.g. dead-letter settings).
+            Returns <see langword="null"/> for <see cref="F:Milvaion.Application.Utils.Models.Options.RabbitMQQueueType.Classic"/> with no extra arguments, matching RabbitMQ's default (no arguments = classic queue).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.RabbitMQQueueType">
+            <summary>
+            RabbitMQ queue types supported for queue declaration.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.RabbitMQQueueType.Classic">
+            <summary>
+            Default RabbitMQ queue type. Single-node replicated only via mirroring policies (deprecated in RabbitMQ).
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.RabbitMQQueueType.Quorum">
+            <summary>
+            Raft-based replicated queue type recommended for data safety in clustered deployments. Requires Durable=true, AutoDelete=false.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RedisOptions">

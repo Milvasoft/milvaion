@@ -123,7 +123,19 @@ public class JobConsumer : BackgroundService
             };
 
             _connection = await factory.CreateConnectionAsync(stoppingToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+
+            /*
+             * With PublisherConfirms on (the default), publishes on this channel (retry/DLQ) await the
+             * broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+             *
+             * ConsumerDispatchConcurrency has to be repeated here even though the factory above already
+             * sets it. A channel opened with an explicit options object does not end up with the factory's
+             * value the way one opened without options does, and the difference is silent: jobs keep being
+             * delivered, just one at a time, so a worker configured for 128 parallel jobs quietly runs them
+             * in series. JobConsumer_ShouldHandleConcurrentJobs guards against this.
+             */
+            _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions((ushort)(maxParallelJobs + 1)),
+                                                           stoppingToken);
 
             await _channel.ExchangeDeclareAsync(exchange: WorkerConstant.ExchangeName,
                                                 type: "topic",
@@ -145,7 +157,7 @@ public class JobConsumer : BackgroundService
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
-                                             arguments: null,
+                                             arguments: _options.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: stoppingToken);
 
             // Bind DLQ to DLX
@@ -166,7 +178,7 @@ public class JobConsumer : BackgroundService
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
-                                             arguments: queueArgs,
+                                             arguments: _options.RabbitMQ.BuildQueueArguments(queueArgs),
                                              cancellationToken: stoppingToken);
 
             await _channel.QueueBindAsync(queue: queueName,

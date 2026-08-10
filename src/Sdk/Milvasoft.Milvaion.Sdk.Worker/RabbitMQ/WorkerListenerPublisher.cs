@@ -70,7 +70,9 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                 };
 
                 _connection = await factory.CreateConnectionAsync(stoppingToken);
-                _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+
+                // With PublisherConfirms on (the default), BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+                _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions(), stoppingToken);
 
                 // Subscribe to connection recovery events
                 _connection.ConnectionRecoveryErrorAsync += async (sender, args) =>
@@ -98,8 +100,8 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                 };
 
                 // Declare queues
-                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, null, cancellationToken: stoppingToken);
-                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, null, cancellationToken: stoppingToken);
+                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: stoppingToken);
+                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: stoppingToken);
 
                 // Register all workers on startup
                 await RegisterAllWorkersAsync(stoppingToken);

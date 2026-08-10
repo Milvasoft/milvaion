@@ -1086,6 +1086,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
                 ConsecutiveFailureThreshold = 5,
                 FailureWindowMinutes = 60
             }),
+            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
@@ -1108,6 +1109,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
                 ConsecutiveFailureThreshold = 5,
                 FailureWindowMinutes = 60
             }),
+            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
@@ -1130,6 +1132,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
                 ConsecutiveFailureThreshold = threshold,
                 FailureWindowMinutes = 60
             }),
+            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );

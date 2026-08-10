@@ -138,7 +138,7 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
                                         durable: true,
                                         exclusive: false,
                                         autoDelete: false,
-                                        arguments: null,
+                                        arguments: _options.BuildQueueArguments(),
                                         cancellationToken: cancellationToken);
 
         // 4. Bind DLQ to DLX
@@ -159,24 +159,46 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
                                         durable: _options.Durable,
                                         exclusive: false,
                                         autoDelete: _options.AutoDelete,
-                                        arguments: mainQueueArgs,
+                                        arguments: _options.BuildQueueArguments(mainQueueArgs),
                                         cancellationToken: cancellationToken);
     }
 
     /// <summary>
     /// Creates a new channel. Caller is responsible for disposal.
     /// </summary>
-    public async Task<IChannel> CreateChannelAsync(CancellationToken cancellationToken = default)
+    /// <param name="enablePublisherConfirms">
+    /// Whether this channel is going to publish. Confirms are only meaningful on a publishing
+    /// channel, so consume-only callers leave this false and never pay for them.
+    ///
+    /// Asking for them is not the same as getting them: <see cref="RabbitMQOptions.PublisherConfirms"/>
+    /// can switch them off for the whole application, and this parameter is combined with it. When
+    /// they are on, BasicPublishAsync only completes once the broker has acked the message, throwing
+    /// on nack or timeout, so callers must not consider a message safely published until the publish
+    /// call returns without an exception. See https://www.rabbitmq.com/docs/publishers#data-safety
+    /// </param>
+    /// <param name="cancellationToken"></param>
+    public async Task<IChannel> CreateChannelAsync(bool enablePublisherConfirms = false, CancellationToken cancellationToken = default)
     {
         if (!_initialized)
             throw new InvalidOperationException("RabbitMQ not initialized. Call InitializeAsync() first.");
 
-        var channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+        var useConfirms = enablePublisherConfirms && _options.PublisherConfirms;
 
-        _logger.Debug("Channel created: {ChannelNumber}", channel.ChannelNumber);
+        var channelOptions = useConfirms
+            ? new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true)
+            : null;
+
+        var channel = await _connection.CreateChannelAsync(channelOptions, cancellationToken);
+
+        _logger.Debug("Channel created: {ChannelNumber} (PublisherConfirms: {PublisherConfirms})", channel.ChannelNumber, useConfirms);
 
         return channel;
     }
+
+    /// <summary>
+    /// Creates a new channel with the given cancellation token, publisher confirms disabled. Caller is responsible for disposal.
+    /// </summary>
+    public Task<IChannel> CreateChannelAsync(CancellationToken cancellationToken) => CreateChannelAsync(enablePublisherConfirms: false, cancellationToken);
 
     /// <summary>
     /// Checks if RabbitMQ connection is healthy.

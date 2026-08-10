@@ -29,6 +29,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                                  RabbitMQConnectionFactory rabbitMQFactory,
                                  IAlertNotifier alertNotifier,
                                  IOptions<LogCollectorOptions> logCollectorOptions,
+                                 IOptions<RabbitMQOptions> rabbitMQOptions,
                                  ILoggerFactory loggerFactory,
                                  BackgroundServiceMetrics metrics,
                                  IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, logCollectorOptions.Value, memoryStatsRegistry)
@@ -38,6 +39,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogCollectorService>();
     private readonly LogCollectorOptions _options = logCollectorOptions.Value;
+    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
     private IChannel _channel;
 
@@ -141,7 +143,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                                          durable: true,
                                          exclusive: false,
                                          autoDelete: false,
-                                         arguments: null,
+                                         arguments: _rabbitMQOptions.BuildQueueArguments(),
                                          cancellationToken: stoppingToken);
 
         // Set prefetch count

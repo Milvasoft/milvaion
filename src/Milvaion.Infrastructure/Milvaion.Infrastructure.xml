@@ -189,7 +189,7 @@
             Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes external job registration and occurrence messages from RabbitMQ.
             Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
@@ -465,7 +465,7 @@
             Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
             </summary>
@@ -499,7 +499,7 @@
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
@@ -642,7 +642,7 @@
             Stores runtime state in Redis for high performance.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes worker registration and heartbeat messages from RabbitMQ.
             Stores runtime state in Redis for high performance.
@@ -2156,9 +2156,25 @@
             Called on initial connection and after recovery.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.CreateChannelAsync(System.Boolean,System.Threading.CancellationToken)">
+             <summary>
+             Creates a new channel. Caller is responsible for disposal.
+             </summary>
+             <param name="enablePublisherConfirms">
+             Whether this channel is going to publish. Confirms are only meaningful on a publishing
+             channel, so consume-only callers leave this false and never pay for them.
+            
+             Asking for them is not the same as getting them: <see cref="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.PublisherConfirms"/>
+             can switch them off for the whole application, and this parameter is combined with it. When
+             they are on, BasicPublishAsync only completes once the broker has acked the message, throwing
+             on nack or timeout, so callers must not consider a message safely published until the publish
+             call returns without an exception. See https://www.rabbitmq.com/docs/publishers#data-safety
+             </param>
+             <param name="cancellationToken"></param>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.CreateChannelAsync(System.Threading.CancellationToken)">
             <summary>
-            Creates a new channel. Caller is responsible for disposal.
+            Creates a new channel with the given cancellation token, publisher confirms disabled. Caller is responsible for disposal.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.IsHealthy">
@@ -2499,7 +2515,7 @@
             Multi-instance safe with Lua scripts and distributed locks.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
             <summary>
             Redis-based real-time statistics service.
             Uses atomic INCR/DECR operations for thread-safe counters.
@@ -2563,7 +2579,7 @@
             Returns CachedWorker models (not DB entities).
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
             <summary>
             Redis-based worker tracking implementation.
             Uses Redis Hashes with TTL for automatic zombie detection.

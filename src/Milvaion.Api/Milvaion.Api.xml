@@ -198,6 +198,98 @@
             <param name="folderPath">.resx dosyalarının bulunduğu klasör.</param>
             <returns>Anahtarların bir kümesi.</returns>
         </member>
+        <member name="T:Milvaion.Api.AppStartup.RuntimeBasePathAssets">
+             <summary>
+             The SPA's static assets, with this deployment's base path substituted into them at startup.
+            
+             Vite resolves asset URLs at build time, so the prefix the browser asks for - the <c>src</c> of every
+             script in index.html, the loader that fetches lazily routed chunks, the PWA manifest scope - is normally
+             frozen into the bundle by <c>vite build</c>. That forces one image per base path, and it makes
+             <c>VITE_BASE_PATH</c> and <c>MilvaionConfig:BasePath</c> two knobs that have to be kept equal by hand: set
+             them differently and the browser requests assets from a prefix the server does not publish, so the page
+             loads and then dies on 404s.
+            
+             The frontend stage instead builds with <see cref="F:Milvaion.Api.AppStartup.RuntimeBasePathAssets.Placeholder"/> standing in for the real prefix. Here it
+             is replaced once, at boot, with whatever <c>MilvaionConfig:BasePath</c> says. The image becomes base-path
+             agnostic and the server-side value is the single source of truth, so the two can no longer disagree.
+            
+             Rewritten files are held in memory rather than written back to wwwroot: the placeholder survives on disk,
+             so a restart with a different base path re-derives everything from the pristine build instead of trying to
+             substitute into an already-substituted file.
+             </summary>
+        </member>
+        <member name="F:Milvaion.Api.AppStartup.RuntimeBasePathAssets.Placeholder">
+            <summary>
+            The token the bundle is built with in place of a real base path. Must stay in step with the
+            <c>VITE_BASE_PATH</c> value the Dockerfile's frontend stage builds with.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Api.AppStartup.RuntimeBasePathAssets._textExtensions">
+            <summary>
+            Only text assets can carry the placeholder. Images and fonts are skipped so boot does not read the
+            whole of wwwroot into memory just to look for a string that cannot be in them.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.AppStartup.RuntimeBasePathAssets.Index">
+            <summary>
+            The rewritten index.html, or <see langword="null"/> when wwwroot has no SPA build in it.
+            The SPA fallback serves this so deep links get the same substituted document as "/" does.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.RuntimeBasePathAssets.Load(System.String,System.String,Microsoft.Extensions.Logging.ILogger)">
+            <summary>
+            Reads wwwroot and returns the assets that mention the placeholder, rewritten for <paramref name="basePath"/>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.AppStartup.RuntimeBasePathAssets.Asset.ETag">
+             <summary>
+             Content hash of the rewritten bytes.
+            
+             The hash in an asset's filename describes what <c>vite build</c> produced, which is no longer what
+             is served once the base path has been substituted in - so these responses cannot be marked
+             immutable the way the untouched hashed assets are. Revalidation against this tag keeps them
+             cacheable without letting a base path change go unnoticed by a browser holding an old copy.
+             </summary>
+        </member>
+        <member name="T:Milvaion.Api.AppStartup.RuntimeBasePathExtensions">
+            <summary>
+            Wires <see cref="T:Milvaion.Api.AppStartup.RuntimeBasePathAssets"/> into the request pipeline.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.RuntimeBasePathExtensions.LoadRuntimeBasePathAssets(Microsoft.AspNetCore.Builder.WebApplication,System.String)">
+            <summary>
+            Reads wwwroot once and substitutes <paramref name="basePath"/> into the SPA assets that carry the
+            build-time placeholder. The result is handed to <see cref="M:Milvaion.Api.AppStartup.RuntimeBasePathExtensions.UseRuntimeBasePath(Microsoft.AspNetCore.Builder.WebApplication,Milvaion.Api.AppStartup.RuntimeBasePathAssets)"/> and
+            <see cref="M:Milvaion.Api.AppStartup.RuntimeBasePathExtensions.MapRuntimeBasePathFallback(Microsoft.AspNetCore.Builder.WebApplication,Milvaion.Api.AppStartup.RuntimeBasePathAssets)"/>, which both serve out of it.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.RuntimeBasePathExtensions.UseRuntimeBasePath(Microsoft.AspNetCore.Builder.WebApplication,Milvaion.Api.AppStartup.RuntimeBasePathAssets)">
+             <summary>
+             Serves the substituted assets ahead of the static file middleware.
+            
+             Must be registered after <c>UsePathBase</c> - by then <c>Request.Path</c> has had the prefix stripped,
+             so it lines up with the wwwroot-relative paths the assets are keyed by - and before
+             <c>UseStaticFiles</c>, which would otherwise serve the pristine file with the placeholder still in it.
+             </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.RuntimeBasePathExtensions.MapRuntimeBasePathFallback(Microsoft.AspNetCore.Builder.WebApplication,Milvaion.Api.AppStartup.RuntimeBasePathAssets)">
+             <summary>
+             Serves the substituted index.html for SPA routes.
+            
+             Keeps the <c>nonfile</c> constraint that <c>MapFallbackToFile</c> applies, so a request for an asset
+             that genuinely is not there still 404s instead of being answered with an HTML document the browser
+             then refuses to execute as a script.
+             </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.RuntimeBasePathExtensions.WarnOnStaleBuildTimeBasePath(Microsoft.Extensions.Logging.ILogger,System.String)">
+             <summary>
+             Points out a <c>VITE_BASE_PATH</c> left in the environment that disagrees with the configured base path.
+            
+             It is no longer read at runtime - the image is built with a placeholder and the server decides - but it
+             used to be the knob for this, so an operator setting it and seeing nothing change deserves to be told
+             which value actually won rather than left to work it out from 404s.
+             </summary>
+        </member>
         <member name="T:Milvaion.Api.Controllers.AccountController">
             <summary>
             Account endpoints.
@@ -1134,10 +1226,9 @@
             (branding text) is exposed anonymously for the login page and browser tab.
             </summary>
             <remarks>
-            Admin gating is per-method rather than on the controller: <see cref="T:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute"/>
-            is a plain authorization filter that does not honour <c>[AllowAnonymous]</c>, so a
-            class-level attribute would also block the public endpoint. Keeping it per-method leaves the
-            public endpoint genuinely open.
+            Auth is per-method rather than on the controller so the public branding endpoint can stay
+            anonymous: the admin read/write require the <c>SystemAdministration</c> permission, while the
+            public subset is reached with <c>[AllowAnonymous]</c>.
             </remarks>
         </member>
         <member name="M:Milvaion.Api.Controllers.SettingsController.#ctor(MediatR.IMediator)">
@@ -1146,10 +1237,9 @@
             (branding text) is exposed anonymously for the login page and browser tab.
             </summary>
             <remarks>
-            Admin gating is per-method rather than on the controller: <see cref="T:Milvaion.Application.Utils.Attributes.UserTypeAuthAttribute"/>
-            is a plain authorization filter that does not honour <c>[AllowAnonymous]</c>, so a
-            class-level attribute would also block the public endpoint. Keeping it per-method leaves the
-            public endpoint genuinely open.
+            Auth is per-method rather than on the controller so the public branding endpoint can stay
+            anonymous: the admin read/write require the <c>SystemAdministration</c> permission, while the
+            public subset is reached with <c>[AllowAnonymous]</c>.
             </remarks>
         </member>
         <member name="M:Milvaion.Api.Controllers.SettingsController.GetSettingsAsync(System.Threading.CancellationToken)">
@@ -2323,6 +2413,27 @@
         <member name="M:Milvaion.Api.Migrations.NormalizeJobDisplayName.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:Milvaion.Api.Migrations.MakeUserTypeOptional">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.MakeUserTypeOptional.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+             <inheritdoc />
+             <remarks>
+             The UserType property was removed from the model, but the column it maps to is still NOT NULL
+             with no default, so every insert into Users fails with 23502. Giving the column a default lets
+             the database fill it in for the inserts that no longer mention it.
+            
+             The column is deliberately kept rather than dropped: the historical values are preserved, and a
+             rollback to a version that still reads UserType finds every row populated, including the ones
+             written while this migration was applied. AppUser (2) is the default the removed property carried.
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Migrations.MakeUserTypeOptional.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.MakeUserTypeOptional.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">
             <summary>
             Applies migrations when the application starts.
@@ -2429,7 +2540,7 @@
             leave a revoked key working on every replica that did not handle the revoke request.
             </remarks>
         </member>
-        <member name="M:Milvaion.Api.Services.ApiKeyStore.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Microsoft.Extensions.Logging.ILogger{Milvaion.Api.Services.ApiKeyStore})">
+        <member name="M:Milvaion.Api.Services.ApiKeyStore.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILogger{Milvaion.Api.Services.ApiKeyStore})">
             <summary>
             Reads api key records for authentication, cached in Redis.
             </summary>

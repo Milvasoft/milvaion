@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 
 namespace Milvaion.UnitTests.WorkerSdkTests;
@@ -237,6 +237,40 @@ public class RedisSettingsTests
         // Assert
         settings.ConnectionString.Should().Be("redis.example.com:6379,password=secret");
     }
+
+    [Fact]
+    public void RedisSettings_CancellationChannel_ShouldUseKeyPrefix()
+    {
+        // Arrange
+        var settings = new RedisSettings { KeyPrefix = "MyApp:" };
+
+        // Act & Assert
+        settings.CancellationChannel.Should().Be("MyApp:cancellation_channel");
+    }
+
+    [Fact]
+    public void RedisSettings_CancellationChannel_ShouldUseDefaultKeyPrefix()
+    {
+        // Act
+        var settings = new RedisSettings();
+
+        // Assert
+        settings.CancellationChannel.Should().Be("Milvaion:JobScheduler:cancellation_channel");
+    }
+
+    [Fact]
+    public void RedisSettings_CancellationChannel_ExplicitValueOverridesKeyPrefix()
+    {
+        // Arrange
+        var settings = new RedisSettings
+        {
+            KeyPrefix = "MyApp:",
+            CancellationChannel = "custom:channel"
+        };
+
+        // Act & Assert
+        settings.CancellationChannel.Should().Be("custom:channel");
+    }
 }
 
 [Trait("SDK Unit Tests", "HeartbeatSettings unit tests.")]
@@ -308,5 +342,70 @@ public class OfflineResilienceSettingsTests
         settings.MaxSyncRetries.Should().Be(5);
         settings.CleanupIntervalHours.Should().Be(12);
         settings.RecordRetentionDays.Should().Be(14);
+    }
+
+    [Fact]
+    public void RabbitMQSettings_PublisherConfirms_ShouldDefaultToEnabled()
+    {
+        // Act
+        var settings = new RabbitMQSettings();
+
+        // Assert
+        settings.PublisherConfirms.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldEnableConfirmsByDefault()
+    {
+        // Arrange
+        var settings = new RabbitMQSettings();
+
+        // Act
+        var options = settings.BuildChannelOptions();
+
+        // Assert
+        options.PublisherConfirmationsEnabled.Should().BeTrue();
+        options.PublisherConfirmationTrackingEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldDisableConfirms_WhenTurnedOff()
+    {
+        // Arrange
+        var settings = new RabbitMQSettings { PublisherConfirms = false };
+
+        // Act
+        var options = settings.BuildChannelOptions();
+
+        // Assert - tracking follows the switch too, otherwise the channel would still wait on acks
+        options.PublisherConfirmationsEnabled.Should().BeFalse();
+        options.PublisherConfirmationTrackingEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldCarryConsumerDispatchConcurrency()
+    {
+        // Arrange - a consuming channel must pass this explicitly: an options object does not
+        // inherit it from the connection factory, and without it deliveries drop to one at a time.
+        var settings = new RabbitMQSettings();
+
+        // Act
+        var options = settings.BuildChannelOptions(consumerDispatchConcurrency: 129);
+
+        // Assert
+        options.ConsumerDispatchConcurrency.Should().Be(129);
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldLeaveDispatchConcurrencyUnset_WhenNotGiven()
+    {
+        // Arrange - publish-only channels leave it null so the connection value applies
+        var settings = new RabbitMQSettings();
+
+        // Act
+        var options = settings.BuildChannelOptions();
+
+        // Assert
+        options.ConsumerDispatchConcurrency.Should().BeNull();
     }
 }

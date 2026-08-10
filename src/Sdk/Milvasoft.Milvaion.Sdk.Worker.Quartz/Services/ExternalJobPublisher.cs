@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
@@ -110,19 +110,23 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
             };
 
             _connection = await factory.CreateConnectionAsync(cancellationToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+            // With PublisherConfirms on (the default), BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
+            _channel = await _connection.CreateChannelAsync(_workerOptions.RabbitMQ.BuildChannelOptions(), cancellationToken);
 
             // Declare queues
             await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
+                                             arguments: _workerOptions.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: cancellationToken);
 
             await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
                                              durable: true,
                                              exclusive: false,
                                              autoDelete: false,
+                                             arguments: _workerOptions.RabbitMQ.BuildQueueArguments(),
                                              cancellationToken: cancellationToken);
 
             _logger?.Information("Connected to RabbitMQ at {Host}:{Port}", _workerOptions.RabbitMQ.Host, _workerOptions.RabbitMQ.Port);

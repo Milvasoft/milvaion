@@ -48,8 +48,9 @@ public class MilvaionLogger(ILoggerFactory loggerFactory) : IMilvaLogger
     /// <param name="message"></param>
     public void Log(LogLevel severity, string message)
     {
+        // Bind as a value into a fixed placeholder so brace characters in the message aren't reparsed as a template.
         if (_logger.IsEnabled(severity))
-            _logger.Log(severity, message);
+            _logger.Log(severity, "{Message}", message);
     }
 
     /// <summary>
@@ -72,8 +73,9 @@ public class MilvaionLogger(ILoggerFactory loggerFactory) : IMilvaLogger
     /// <param name="message"></param>
     public void Log(LogLevel severity, Exception ex, string message)
     {
+        // Bind as a value into a fixed placeholder so brace characters in the message aren't reparsed as a template.
         if (_logger.IsEnabled(severity))
-            _logger.Log(severity, ex, message);
+            _logger.Log(severity, ex, "{Message}", message);
     }
 
     /// <summary>

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Milvaion.Domain.JsonModels;
 using Milvaion.Infrastructure.Persistence.Context;
@@ -14,9 +15,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Milvaion.Api.Migrations
 {
     [DbContext(typeof(MilvaionDbContext))]
-    partial class MilvaionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810090018_MakeUserTypeOptional")]
+    partial class MakeUserTypeOptional
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

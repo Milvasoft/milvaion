@@ -86,4 +86,57 @@ public class RabbitMQOptions
     /// RabbitMQ Management HTTP API port (default: 15672).
     /// </summary>
     public int ManagementPort { get; set; } = 15672;
+
+    /// <summary>
+    /// Queue type used when declaring queues ("Classic" or "Quorum").
+    /// Quorum queues require <see cref="Durable"/> to be <c>true</c> and <see cref="AutoDelete"/> to be <c>false</c>.
+    /// Changing this does not migrate existing queues: an already-declared queue must be deleted before it can be
+    /// re-created with a different type, since RabbitMQ rejects a redeclare whose arguments don't match.
+    /// </summary>
+    public RabbitMQQueueType QueueType { get; set; } = RabbitMQQueueType.Classic;
+
+    /// <summary>
+    /// Whether publishing channels wait for the broker to acknowledge each message (default: <see langword="true"/>).
+    ///
+    /// With confirms on, a publish only completes once RabbitMQ has accepted the message and throws on nack or
+    /// timeout; with them off it completes as soon as the bytes leave the socket, so a broker that drops the
+    /// message reports nothing and the job never runs. Turning this off trades that guarantee for one less round
+    /// trip per publish - reasonable only where losing a message is acceptable.
+    ///
+    /// Consume-only channels are unaffected: confirms are meaningless there and are never requested.
+    /// </summary>
+    public bool PublisherConfirms { get; set; } = true;
+
+    /// <summary>
+    /// Builds the queue declaration arguments for <see cref="QueueType"/>, merging in any extra arguments (e.g. dead-letter settings).
+    /// Returns <see langword="null"/> for <see cref="RabbitMQQueueType.Classic"/> with no extra arguments, matching RabbitMQ's default (no arguments = classic queue).
+    /// </summary>
+    public Dictionary<string, object> BuildQueueArguments(Dictionary<string, object> extraArguments = null)
+    {
+        var arguments = extraArguments != null ? new Dictionary<string, object>(extraArguments) : null;
+
+        if (QueueType == RabbitMQQueueType.Quorum)
+        {
+            arguments ??= [];
+            arguments["x-queue-type"] = "quorum";
+        }
+
+        return arguments;
+    }
+}
+
+/// <summary>
+/// RabbitMQ queue types supported for queue declaration.
+/// </summary>
+public enum RabbitMQQueueType
+{
+    /// <summary>
+    /// Default RabbitMQ queue type. Single-node replicated only via mirroring policies (deprecated in RabbitMQ).
+    /// </summary>
+    Classic,
+
+    /// <summary>
+    /// Raft-based replicated queue type recommended for data safety in clustered deployments. Requires Durable=true, AutoDelete=false.
+    /// </summary>
+    Quorum
 }

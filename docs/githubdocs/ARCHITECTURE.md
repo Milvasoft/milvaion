@@ -277,6 +277,30 @@ Exchange: milvaion.dlx (fanout)
 ??? Queue: milvaion.dlq                 (dead letter queue)
 ```
 
+### Queue Type
+
+Every queue above is declared with the type configured in `MilvaionConfig:RabbitMQ:QueueType`,
+which accepts `Classic` (the default) or `Quorum`. Both the API and the worker SDK route their
+declaration arguments through `BuildQueueArguments`, so a single setting governs the whole
+topology on each side.
+
+**The API and every connected worker must agree.** RabbitMQ rejects a redeclare whose arguments
+differ from the queue it already holds:
+
+```
+PRECONDITION_FAILED - inequivalent arg 'x-queue-type' for queue 'worker_registration_queue'
+```
+
+The API treats that failure as fatal, so a mismatch stops the application at startup rather
+than degrading — the worker registration consumer throws, the host stops, and Kestrel never
+binds. Set `Worker:RabbitMQ:QueueType` on the worker side to the same value.
+
+Changing the type of a queue that already exists is not possible in place: the queue has to be
+deleted in RabbitMQ first, and is then recreated with the new type on the next declare.
+
+Quorum queues replicate through Raft and are meant for clustered brokers. On a single-node
+broker they add overhead without adding safety, so `Classic` is the sensible default there.
+
 ### Message Schemas
 
 **Job Message:**
@@ -312,15 +336,38 @@ Exchange: milvaion.dlx (fanout)
 
 ```
 Milvaion:JobScheduler:
-├─ schedule                    # ZSET: job schedule (score = next run timestamp)
-├─ job:{jobId}                 # HASH: job cache
-├─ locks:dispatcher            # STRING: distributed lock for dispatcher
-├─ locks:job:{jobId}           # STRING: per-job execution lock
-├─ workers                     # HASH: registered workers
-├─ heartbeat:{workerId}        # STRING: worker heartbeat timestamp
-├─ running:{occurrenceId}      # STRING: running job heartbeat
-└─ cancellation_channel        # PUBSUB: job cancellation signals
+├─ schedule                                        # ZSET: job schedule (score = next run timestamp)
+├─ job:{jobId}                                     # HASH: job cache
+├─ locks:dispatcher                                # STRING: distributed lock for dispatcher
+├─ locks:job:{jobId}                               # STRING: per-job execution lock
+├─ workers:index                                   # SET: ids of every registered worker
+├─ workers:{workerId}                              # HASH: worker metadata
+├─ workers:{workerId}:instances                    # SET: instance ids of that worker
+├─ workers:{workerId}:instances:{instanceId}       # HASH: per-instance registration
+├─ workers:{workerId}:instances:{instanceId}:job_counts   # HASH: running jobs per job type
+├─ apikey:{apiKeyId}                               # STRING: cached api key
+├─ apikey:lastused:{apiKeyId}                      # STRING: api key last-used throttle
+├─ heartbeat:{workerId}                            # STRING: worker heartbeat timestamp
+├─ running:{occurrenceId}                          # STRING: running job heartbeat
+└─ cancellation_channel                            # PUBSUB: job cancellation signals
 ```
+
+The leading `Milvaion:JobScheduler:` is not a fixed literal — it is `MilvaionConfig:Redis:KeyPrefix`,
+and **every** key above is built from it.
+
+That the prefix covers *everything* is the point, not an implementation detail. Redis grants ACLs
+on key patterns rather than on database numbers, so the `Database` index cannot separate one
+deployment from another: isolation has to be expressed as a pattern, and a pattern only isolates
+if nothing is written outside it. One key left unprefixed — the worker registry index, say — is
+readable by every tenant sharing the instance and invisible to any per-namespace ACL.
+
+The secondary benefit follows from the same property: two deployments on one instance no longer
+share the schedule, the worker registry or the API key cache.
+
+Workers carry their own `Worker:Redis:KeyPrefix`, which has to match: the cancellation channel is
+derived from it as `{KeyPrefix}cancellation_channel`, so a worker configured with a different
+prefix subscribes to a channel the API never publishes to and silently stops honouring
+cancellations.
 
 ### Caching Layers
 
