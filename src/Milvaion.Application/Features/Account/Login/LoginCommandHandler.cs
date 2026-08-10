@@ -51,7 +51,6 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
         var loginResponse = new LoginResponseDto
         {
             Id = user.Id,
-            UserType = user.UserType,
             Token = tokenModel
         };
 

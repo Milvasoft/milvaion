@@ -95,28 +95,6 @@ public class ExtensionsTests
     }
 
     [Fact]
-    public void GetCurrentUserType_ShouldReturnUserType_ClaimExists()
-    {
-        // Arrange
-        var claims = new List<Claim> { new(GlobalConstant.UserTypeClaimName, "Manager") };
-        var identity = new ClaimsIdentity(claims, "TestAuthType");
-        var user = new ClaimsPrincipal(identity);
-        var httpContext = new DefaultHttpContext { User = user };
-        var serviceProviderMock = new Mock<IServiceProvider>();
-        var tokenManagerMock = new Mock<IMilvaTokenManager>();
-        httpContext.RequestServices = serviceProviderMock.Object;
-
-        tokenManagerMock.Setup(t => t.GetClaimsPrincipalIfValid(It.IsAny<string>())).Returns(new ClaimsPrincipal(new ClaimsIdentity(claims)));
-        serviceProviderMock.Setup(sp => sp.GetService(typeof(IMilvaTokenManager))).Returns(tokenManagerMock.Object);
-
-        // Act
-        var result = httpContext.GetCurrentUserType();
-
-        // Assert
-        result.Should().Be(UserType.Manager);
-    }
-
-    [Fact]
     public void GetCurrentUserPermissions_ShouldReturnPermissions_ClaimsExist()
     {
         // Arrange

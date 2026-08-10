@@ -67,8 +67,7 @@ public class ApiKeyAuthenticationHandler(IOptionsMonitor<ApiKeyAuthenticationOpt
         {
             new(ClaimTypes.Name, apiKey.Name),
             new(ClaimTypes.NameIdentifier, apiKey.Id.ToString()),
-            new(ApiKeyAuthenticationDefaults.ApiKeyIdClaimName, apiKey.Id.ToString()),
-            new(GlobalConstant.UserTypeClaimName, nameof(UserType.Manager))
+            new(ApiKeyAuthenticationDefaults.ApiKeyIdClaimName, apiKey.Id.ToString())
         };
 
         // Permissions travel as role claims because AuthAttribute derives from AuthorizeAttribute and matches

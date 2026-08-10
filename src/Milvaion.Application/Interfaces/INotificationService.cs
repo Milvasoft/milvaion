@@ -12,7 +12,7 @@ public interface INotificationService
     /// Publishes a notification to a group of users matching a predicate.
     /// This method respects the users' 'AllowedNotifications' preferences.
     /// </summary>
-    /// <param name="userExpression">LINQ expression to filter target users (e.g., u => u.UserType == UserType.Admin).</param>
+    /// <param name="userExpression">LINQ expression to filter target users (e.g., u => u.RoleRelations.Any()).</param>
     /// <param name="cancellationToken"></param>
     /// <param name="request">Notification request.</param>
     Task PublishAsync(InternalNotificationRequest request, Expression<Func<User, bool>> userExpression, CancellationToken cancellationToken);

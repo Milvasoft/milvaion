@@ -76,8 +76,6 @@ public class AccountDtoTests
     public void LoginResponseDto_PropertyGetterSetter_ShouldWorkCorrectly()
     {
         // Arrange
-        var userType = UserType.Manager;
-        var userTypeDescription = "Manager user type";
         var token = new MilvaToken { AccessToken = "accessToken", RefreshToken = "refreshToken" };
         var accessibleMenuItems = new List<MenuItemDto> { new() { Name = "Home", Url = "/home" } };
         var pageInformations = new List<PageDto> { new() { Name = "Dashboard", LocalizedName = "Dashboard" } };
@@ -85,16 +83,12 @@ public class AccountDtoTests
         // Act
         var loginResponseDto = new LoginResponseDto
         {
-            UserType = userType,
-            UserTypeDescription = userTypeDescription,
             Token = token,
             AccessibleMenuItems = accessibleMenuItems,
             PageInformations = pageInformations,
         };
 
         // Assert
-        loginResponseDto.UserType.Should().Be(userType);
-        loginResponseDto.UserTypeDescription.Should().Be(userTypeDescription);
         loginResponseDto.Token.Should().Be(token);
         loginResponseDto.AccessibleMenuItems.Should().BeEquivalentTo(accessibleMenuItems);
         loginResponseDto.PageInformations.Should().BeEquivalentTo(pageInformations);

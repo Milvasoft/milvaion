@@ -135,7 +135,7 @@ public class LookupsControllerTests(CustomWebApplicationFactory factory, ITestOu
         // Arrange
         await SeedRootUserAndSuperAdminRoleAsync();
         var client = await _factory.CreateClient().LoginAsync();
-        var enumName = "UserType";
+        var enumName = "AlertType";
 
         // Act
         var httpResponse = await client.GetAsync($"{_baseUrl}/enum?enumName={enumName}");

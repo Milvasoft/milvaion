@@ -103,7 +103,6 @@ public class DeveloperService(IServiceProvider serviceProvider) : IDeveloperServ
             {
                 Name = "Ahmet Buğra",
                 Surname = "Kösen",
-                UserType = Domain.Enums.UserType.Manager,
                 UserName = "bugrakosen",
                 Email = "bugrakosen@gmail.com",
                 Password = "string",
@@ -116,7 +115,6 @@ public class DeveloperService(IServiceProvider serviceProvider) : IDeveloperServ
                 Name = "Viewer",
                 Surname = "User",
                 UserName = "viewer",
-                UserType = Domain.Enums.UserType.AppUser,
                 Email = "viewer@gmail.com",
                 Password = "string",
                 RoleIdList = [addedRole.Data],

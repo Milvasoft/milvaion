@@ -17,10 +17,9 @@ namespace Milvaion.Api.Controllers;
 /// (branding text) is exposed anonymously for the login page and browser tab.
 /// </summary>
 /// <remarks>
-/// Admin gating is per-method rather than on the controller: <see cref="UserTypeAuthAttribute"/>
-/// is a plain authorization filter that does not honour <c>[AllowAnonymous]</c>, so a
-/// class-level attribute would also block the public endpoint. Keeping it per-method leaves the
-/// public endpoint genuinely open.
+/// Auth is per-method rather than on the controller so the public branding endpoint can stay
+/// anonymous: the admin read/write require the <c>SystemAdministration</c> permission, while the
+/// public subset is reached with <c>[AllowAnonymous]</c>.
 /// </remarks>
 [ApiController]
 [Route(GlobalConstant.FullRoute)]
@@ -34,7 +33,7 @@ public class SettingsController(IMediator mediator) : ControllerBase
     /// Gets everything the settings page shows: branding, notification rules, channel status and
     /// the available channels - one call for the whole page.
     /// </summary>
-    [UserTypeAuth(UserType.Manager)]
+    [Auth(PermissionCatalog.SystemAdministration.Detail)]
     [HttpGet]
     public Task<Response<SettingsDto>> GetSettingsAsync(CancellationToken cancellation) => _mediator.Send(new GetSettingsQuery(), cancellation);
 
@@ -48,7 +47,7 @@ public class SettingsController(IMediator mediator) : ControllerBase
     /// <summary>
     /// Updates the application settings. Takes effect at runtime across all instances.
     /// </summary>
-    [UserTypeAuth(UserType.Manager)]
+    [Auth(PermissionCatalog.SystemAdministration.Update)]
     [HttpPut]
     public Task<Response<bool>> UpdateSettingsAsync(UpdateSettingsCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 }

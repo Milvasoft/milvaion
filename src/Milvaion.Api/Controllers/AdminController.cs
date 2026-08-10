@@ -21,7 +21,7 @@ namespace Milvaion.Api.Controllers;
 [Route(GlobalConstant.FullRoute)]
 [ApiVersion(GlobalConstant.CurrentApiVersion)]
 [ApiExplorerSettings(GroupName = "v1.0")]
-[UserTypeAuth(UserType.Manager)]
+[Auth]
 public class AdminController(IAdminService adminService,
                              IMediator mediator) : ControllerBase
 {

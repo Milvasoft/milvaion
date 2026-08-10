@@ -28,14 +28,13 @@ class AuthService {
       })
 
       if (response.isSuccess && response.data) {
-        const { token, id, userType } = response.data
+        const { token, id } = response.data
 
           this.setTokens(token.accessToken, token.refreshToken)
 
           const user = {
             id,
-            username,
-            userType
+            username
           }
           localStorage.setItem(USER_KEY, JSON.stringify(user))
 

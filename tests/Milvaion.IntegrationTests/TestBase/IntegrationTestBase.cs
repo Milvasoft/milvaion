@@ -184,7 +184,6 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
             NormalizedEmail = "ROOTUSER@MILVASOFT.COM",
             Name = "Administrator",
             Surname = "User",
-            UserType = Domain.Enums.UserType.Manager,
             CreationDate = DateTime.Now,
             CreatorUserName = GlobalConstant.SystemUsername,
             EmailConfirmed = true,

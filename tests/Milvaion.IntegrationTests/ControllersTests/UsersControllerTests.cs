@@ -144,7 +144,6 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
             Name = "New",
             Surname = "User",
             Password = "Test123!",
-            UserType = UserType.AppUser,
             RoleIdList = [5000]
         };
 
@@ -179,7 +178,6 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
             Name = "Test",
             Surname = "User",
             Password = "Test123!",
-            UserType = UserType.AppUser
         };
 
         // Act
@@ -206,7 +204,6 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
             Name = "Duplicate",
             Surname = "User",
             Password = "Test123!",
-            UserType = UserType.AppUser
         };
 
         // Act
@@ -357,7 +354,6 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
                 Email = $"testuser{i + 1}@test.com",
                 Name = $"Test{i + 1}",
                 Surname = $"User{i + 1}",
-                UserType = UserType.AppUser,
                 CreationDate = DateTime.UtcNow,
                 CreatorUserName = GlobalConstant.SystemUsername
             };
@@ -377,7 +373,6 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
             Email = $"{userName}@test.com",
             Name = "Test",
             Surname = "User",
-            UserType = UserType.AppUser,
             CreationDate = DateTime.UtcNow,
             CreatorUserName = GlobalConstant.SystemUsername
         };

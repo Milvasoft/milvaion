@@ -16,7 +16,7 @@ namespace Milvaion.Api.Controllers;
 [Route(GlobalConstant.FullRoute)]
 [ApiVersion(GlobalConstant.CurrentApiVersion)]
 [ApiExplorerSettings(GroupName = "v1.0")]
-[UserTypeAuth(UserType.Manager | UserType.AppUser)]
+[Auth]
 public class LookupsController(ILookupService lookupService) : ControllerBase
 {
     private readonly ILookupService _lookupService = lookupService;

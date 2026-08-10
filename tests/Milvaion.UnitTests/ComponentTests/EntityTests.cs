@@ -562,7 +562,6 @@ public class EntityTests
         var deleterUserName = "DeleterUser";
         var name = "TestName";
         var surname = "TestSurname";
-        var userType = UserType.AppUser;
         var emailConfirmed = true;
         var phoneNumber = "1234567890";
         var phoneNumberConfirmed = true;
@@ -591,7 +590,6 @@ public class EntityTests
             DeleterUserName = deleterUserName,
             Name = name,
             Surname = surname,
-            UserType = userType,
             EmailConfirmed = emailConfirmed,
             PhoneNumber = phoneNumber,
             PhoneNumberConfirmed = phoneNumberConfirmed,
@@ -619,7 +617,6 @@ public class EntityTests
         user.DeleterUserName.Should().Be(deleterUserName);
         user.Name.Should().Be(name);
         user.Surname.Should().Be(surname);
-        user.UserType.Should().Be(userType);
         user.EmailConfirmed.Should().Be(emailConfirmed);
         user.PhoneNumber.Should().Be(phoneNumber);
         user.PhoneNumberConfirmed.Should().Be(phoneNumberConfirmed);
@@ -652,7 +649,6 @@ public class EntityTests
             DeleterUserName = u.DeleterUserName,
             Name = u.Name,
             Surname = u.Surname,
-            UserType = u.UserType,
             EmailConfirmed = u.EmailConfirmed,
             PhoneNumber = u.PhoneNumber,
             PhoneNumberConfirmed = u.PhoneNumberConfirmed,
@@ -684,7 +680,6 @@ public class EntityTests
         {
             Id = u.Id,
             UserName = u.UserName,
-            UserType = u.UserType,
             RoleRelations = u.RoleRelations.Select(r => new UserRoleRelation
             {
                 Id = r.Id,
@@ -741,7 +736,6 @@ public class EntityTests
             Id = u.Id,
             UserName = u.UserName,
             PasswordHash = u.PasswordHash,
-            UserType = u.UserType,
             AccessFailedCount = u.AccessFailedCount,
             LockoutEnabled = u.LockoutEnabled,
             LockoutEnd = u.LockoutEnd,
