@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 
 namespace Milvaion.UnitTests.WorkerSdkTests;
@@ -342,5 +342,70 @@ public class OfflineResilienceSettingsTests
         settings.MaxSyncRetries.Should().Be(5);
         settings.CleanupIntervalHours.Should().Be(12);
         settings.RecordRetentionDays.Should().Be(14);
+    }
+
+    [Fact]
+    public void RabbitMQSettings_PublisherConfirms_ShouldDefaultToEnabled()
+    {
+        // Act
+        var settings = new RabbitMQSettings();
+
+        // Assert
+        settings.PublisherConfirms.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldEnableConfirmsByDefault()
+    {
+        // Arrange
+        var settings = new RabbitMQSettings();
+
+        // Act
+        var options = settings.BuildChannelOptions();
+
+        // Assert
+        options.PublisherConfirmationsEnabled.Should().BeTrue();
+        options.PublisherConfirmationTrackingEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldDisableConfirms_WhenTurnedOff()
+    {
+        // Arrange
+        var settings = new RabbitMQSettings { PublisherConfirms = false };
+
+        // Act
+        var options = settings.BuildChannelOptions();
+
+        // Assert - tracking follows the switch too, otherwise the channel would still wait on acks
+        options.PublisherConfirmationsEnabled.Should().BeFalse();
+        options.PublisherConfirmationTrackingEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldCarryConsumerDispatchConcurrency()
+    {
+        // Arrange - a consuming channel must pass this explicitly: an options object does not
+        // inherit it from the connection factory, and without it deliveries drop to one at a time.
+        var settings = new RabbitMQSettings();
+
+        // Act
+        var options = settings.BuildChannelOptions(consumerDispatchConcurrency: 129);
+
+        // Assert
+        options.ConsumerDispatchConcurrency.Should().Be(129);
+    }
+
+    [Fact]
+    public void RabbitMQSettings_BuildChannelOptions_ShouldLeaveDispatchConcurrencyUnset_WhenNotGiven()
+    {
+        // Arrange - publish-only channels leave it null so the connection value applies
+        var settings = new RabbitMQSettings();
+
+        // Act
+        var options = settings.BuildChannelOptions();
+
+        // Assert
+        options.ConsumerDispatchConcurrency.Should().BeNull();
     }
 }

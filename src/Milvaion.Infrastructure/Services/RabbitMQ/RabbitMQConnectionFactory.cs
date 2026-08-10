@@ -167,12 +167,14 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
     /// Creates a new channel. Caller is responsible for disposal.
     /// </summary>
     /// <param name="enablePublisherConfirms">
-    /// When true, the channel is opened with RabbitMQ publisher confirms enabled and tracked
-    /// (see https://www.rabbitmq.com/docs/publishers#data-safety). With confirm tracking on,
-    /// BasicPublishAsync only completes once the broker has acked the message, throwing on
-    /// nack/timeout, so callers must not consider a message safely published until the publish
-    /// call returns without an exception. Only set this for channels used to publish; it is
-    /// unnecessary overhead for consume-only channels.
+    /// Whether this channel is going to publish. Confirms are only meaningful on a publishing
+    /// channel, so consume-only callers leave this false and never pay for them.
+    ///
+    /// Asking for them is not the same as getting them: <see cref="RabbitMQOptions.PublisherConfirms"/>
+    /// can switch them off for the whole application, and this parameter is combined with it. When
+    /// they are on, BasicPublishAsync only completes once the broker has acked the message, throwing
+    /// on nack or timeout, so callers must not consider a message safely published until the publish
+    /// call returns without an exception. See https://www.rabbitmq.com/docs/publishers#data-safety
     /// </param>
     /// <param name="cancellationToken"></param>
     public async Task<IChannel> CreateChannelAsync(bool enablePublisherConfirms = false, CancellationToken cancellationToken = default)
@@ -180,13 +182,15 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
         if (!_initialized)
             throw new InvalidOperationException("RabbitMQ not initialized. Call InitializeAsync() first.");
 
-        var channelOptions = enablePublisherConfirms
+        var useConfirms = enablePublisherConfirms && _options.PublisherConfirms;
+
+        var channelOptions = useConfirms
             ? new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true)
             : null;
 
         var channel = await _connection.CreateChannelAsync(channelOptions, cancellationToken);
 
-        _logger.Debug("Channel created: {ChannelNumber} (PublisherConfirms: {PublisherConfirms})", channel.ChannelNumber, enablePublisherConfirms);
+        _logger.Debug("Channel created: {ChannelNumber} (PublisherConfirms: {PublisherConfirms})", channel.ChannelNumber, useConfirms);
 
         return channel;
     }

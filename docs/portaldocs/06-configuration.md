@@ -1,4 +1,4 @@
----
+﻿---
 id: configuration
 title: Configuration
 sidebar_position: 6
@@ -164,6 +164,7 @@ never publishes to and silently stops honouring cancellations.
 | `Durable` | `/` | Whether the queue should be durable (survives broker restart). |
 | `AutoDelete` | `/` | Whether the queue should auto-delete when no consumers. |
 | `QueueType` | `Classic` | RabbitMQ queue type used when declaring queues. Accepted values: `Classic`, `Quorum`. Must match the value used by any connected worker's `Worker:RabbitMQ:QueueType` setting for the same queues, otherwise RabbitMQ rejects the redeclare with a `PRECONDITION_FAILED` error. Changing this value for an already-existing queue requires deleting the queue in RabbitMQ first, since RabbitMQ does not support converting a queue's type in place. |
+| `PublisherConfirms` | `true` | Whether publishing channels wait for the broker to acknowledge each message. With confirms on, a publish only completes once RabbitMQ has accepted the message and throws on nack or timeout; with them off it returns as soon as the bytes leave the socket, so a dropped message goes unreported. Turning it off saves one round trip per publish and is only reasonable where losing a message is acceptable. Consume-only channels never use confirms either way. |
 | `ConnectionTimeout` | `/` | Connection timeout in seconds. |
 | `Heartbeat` | `/` | Heartbeat interval in seconds (0 = disabled). |
 | `AutomaticRecoveryEnabled` | `/` | Automatic connection recovery enabled. |
@@ -407,6 +408,7 @@ environment:
 | `VirtualHost` | `/` | Virtual host |
 | `RoutingKeyPattern` | `#` | Queue binding pattern. Don't recommended setting up routing patterns. The scheduler and worker will determine this automatically at runtime. |
 | `QueueType` | `Classic` | RabbitMQ queue type used when declaring queues. Accepted values: `Classic`, `Quorum`. Must match the API's `MilvaionConfig:RabbitMQ:QueueType` setting for shared queues, otherwise RabbitMQ rejects the redeclare with a `PRECONDITION_FAILED` error. |
+| `PublisherConfirms` | `true` | Whether the worker's publishing channels — status updates, logs, registration, heartbeat, retry and dead-letter republishes — wait for the broker's acknowledgement. Independent of the API's setting: unlike `QueueType`, this is a per-channel client concern and the two sides do not have to agree. |
 
 
 ### Worker Redis Settings
