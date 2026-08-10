@@ -34,9 +34,9 @@ internal sealed class RuntimeBasePathAssets
     /// Only text assets can carry the placeholder. Images and fonts are skipped so boot does not read the
     /// whole of wwwroot into memory just to look for a string that cannot be in them.
     /// </summary>
-    private static readonly string[] TextExtensions = [".html", ".js", ".css", ".webmanifest", ".json"];
+    private static readonly string[] _textExtensions = [".html", ".js", ".css", ".webmanifest", ".json"];
 
-    private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
+    private static readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
     private readonly Dictionary<string, Asset> _assets = new(StringComparer.OrdinalIgnoreCase);
 
@@ -74,7 +74,7 @@ internal sealed class RuntimeBasePathAssets
 
         foreach (var file in Directory.EnumerateFiles(webRoot, "*", SearchOption.AllDirectories))
         {
-            if (!TextExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+            if (!_textExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
                 continue;
 
             var requestPath = "/" + Path.GetRelativePath(webRoot, file).Replace(Path.DirectorySeparatorChar, '/');
@@ -144,7 +144,7 @@ internal sealed class RuntimeBasePathAssets
         {
             var bytes = Encoding.UTF8.GetBytes(content);
 
-            if (!ContentTypeProvider.TryGetContentType(requestPath, out var contentType))
+            if (!_contentTypeProvider.TryGetContentType(requestPath, out var contentType))
                 contentType = "application/octet-stream";
 
             return new Asset

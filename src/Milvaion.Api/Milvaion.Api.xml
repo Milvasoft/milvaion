@@ -224,7 +224,7 @@
             <c>VITE_BASE_PATH</c> value the Dockerfile's frontend stage builds with.
             </summary>
         </member>
-        <member name="F:Milvaion.Api.AppStartup.RuntimeBasePathAssets.TextExtensions">
+        <member name="F:Milvaion.Api.AppStartup.RuntimeBasePathAssets._textExtensions">
             <summary>
             Only text assets can carry the placeholder. Images and fonts are skipped so boot does not read the
             whole of wwwroot into memory just to look for a string that cannot be in them.

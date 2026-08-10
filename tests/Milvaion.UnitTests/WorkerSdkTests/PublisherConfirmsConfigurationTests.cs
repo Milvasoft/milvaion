@@ -21,8 +21,8 @@ namespace Milvaion.UnitTests.WorkerSdkTests;
 [Trait("SDK Unit Tests", "PublisherConfirms configuration binding.")]
 public class PublisherConfirmsConfigurationTests
 {
-    private const string ApiVariable = "MilvaionConfig__RabbitMQ__PublisherConfirms";
-    private const string WorkerVariable = "Worker__RabbitMQ__PublisherConfirms";
+    private const string _apiVariable = "MilvaionConfig__RabbitMQ__PublisherConfirms";
+    private const string _workerVariable = "Worker__RabbitMQ__PublisherConfirms";
 
     private static IConfiguration BuildConfiguration() => new ConfigurationBuilder().AddEnvironmentVariables().Build();
 
@@ -47,7 +47,7 @@ public class PublisherConfirmsConfigurationTests
     [InlineData("True", true)]
     [InlineData("False", false)]
     public void ApiOptions_ShouldBindPublisherConfirms_FromEnvironmentVariable(string value, bool expected)
-        => WithVariable(ApiVariable, value, () =>
+        => WithVariable(_apiVariable, value, () =>
         {
             var options = BuildConfiguration().GetSection("MilvaionConfig:RabbitMQ").Get<RabbitMQOptions>();
 
@@ -59,7 +59,7 @@ public class PublisherConfirmsConfigurationTests
     [InlineData("true", true)]
     [InlineData("false", false)]
     public void WorkerSettings_ShouldBindPublisherConfirms_FromEnvironmentVariable(string value, bool expected)
-        => WithVariable(WorkerVariable, value, () =>
+        => WithVariable(_workerVariable, value, () =>
         {
             var settings = BuildConfiguration().GetSection("Worker:RabbitMQ").Get<RabbitMQSettings>();
 
@@ -69,7 +69,7 @@ public class PublisherConfirmsConfigurationTests
 
     [Fact]
     public void WorkerSettings_ShouldReachChannelOptions_FromEnvironmentVariable()
-        => WithVariable(WorkerVariable, "false", () =>
+        => WithVariable(_workerVariable, "false", () =>
         {
             var settings = BuildConfiguration().GetSection("Worker:RabbitMQ").Get<RabbitMQSettings>();
 
@@ -82,7 +82,7 @@ public class PublisherConfirmsConfigurationTests
 
     [Fact]
     public void ApiOptions_ShouldDefaultToEnabled_WhenVariableIsAbsent()
-        => WithVariable(ApiVariable, null, () =>
+        => WithVariable(_apiVariable, null, () =>
         {
             // Absent means the binder leaves the property initialiser alone, rather than defaulting to false.
             var options = BuildConfiguration().GetSection("MilvaionConfig:RabbitMQ").Get<RabbitMQOptions>()
@@ -93,7 +93,7 @@ public class PublisherConfirmsConfigurationTests
 
     [Fact]
     public void WorkerSettings_ShouldDefaultToEnabled_WhenVariableIsAbsent()
-        => WithVariable(WorkerVariable, null, () =>
+        => WithVariable(_workerVariable, null, () =>
         {
             var settings = BuildConfiguration().GetSection("Worker:RabbitMQ").Get<RabbitMQSettings>()
                            ?? new RabbitMQSettings();

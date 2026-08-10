@@ -33,10 +33,10 @@ public class ApiKeyStore(IConnectionMultiplexer redis,
     private readonly RedisOptions _redisOptions = redisOptions.Value;
     private readonly ILogger<ApiKeyStore> _logger = logger;
 
-    private string CacheKeyPrefix => $"{_redisOptions.KeyPrefix}apikey:";
-    private string LastUsedKeyPrefix => $"{_redisOptions.KeyPrefix}apikey:lastused:";
+    private string _cacheKeyPrefix => $"{_redisOptions.KeyPrefix}apikey:";
+    private string _lastUsedKeyPrefix => $"{_redisOptions.KeyPrefix}apikey:lastused:";
 
-    private string CacheKey(int apiKeyId) => $"{CacheKeyPrefix}{apiKeyId}";
+    private string CacheKey(int apiKeyId) => $"{_cacheKeyPrefix}{apiKeyId}";
 
     /// <summary>
     /// Projection used when loading an api key for authentication.
@@ -132,7 +132,7 @@ public class ApiKeyStore(IConnectionMultiplexer redis,
         try
         {
             // Set-if-not-exists doubles as the throttle: whoever sets it owns this interval.
-            return await db.StringSetAsync($"{LastUsedKeyPrefix}{apiKeyId}", DateTime.UtcNow.ToString("O"), interval, When.NotExists);
+            return await db.StringSetAsync($"{_lastUsedKeyPrefix}{apiKeyId}", DateTime.UtcNow.ToString("O"), interval, When.NotExists);
         }
         catch (Exception ex)
         {
