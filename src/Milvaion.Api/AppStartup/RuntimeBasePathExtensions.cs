@@ -53,6 +53,7 @@ internal static class RuntimeBasePathExtensions
     /// that genuinely is not there still 404s instead of being answered with an HTML document the browser
     /// then refuses to execute as a script.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "ASP0018:Unused route parameter", Justification = "<Pending>")]
     public static WebApplication MapRuntimeBasePathFallback(this WebApplication app, RuntimeBasePathAssets assets)
     {
         if (assets.Index is null)

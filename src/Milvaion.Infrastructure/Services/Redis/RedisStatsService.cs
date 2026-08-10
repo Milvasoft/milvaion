@@ -25,19 +25,19 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     private readonly RedisOptions _options = options.Value;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<RedisStatsService>();
 
-    private string _keyPrefix => $"{_options.KeyPrefix}stats:occurrences:";
-    private string _totalKey => $"{_keyPrefix}total";
-    private string _queuedKey => $"{_keyPrefix}queued";
-    private string _runningKey => $"{_keyPrefix}running";
-    private string _completedKey => $"{_keyPrefix}completed";
-    private string _failedKey => $"{_keyPrefix}failed";
-    private string _cancelledKey => $"{_keyPrefix}cancelled";
-    private string _timedOutKey => $"{_keyPrefix}timedout";
-    private string _unknownKey => $"{_keyPrefix}unknown";
-    private string _timelineKey => $"{_options.KeyPrefix}stats:timeline"; // ZSET for time-based queries
-    private string _durationSumKey => $"{_keyPrefix}duration_sum"; // Total duration in ms
-    private string _durationCountKey => $"{_keyPrefix}duration_count"; // Count of completed jobs with duration
-    private string _syncLockKey => $"{_options.KeyPrefix}stats:sync:lock"; // Distributed lock for sync operations
+    private string KeyPrefix => $"{_options.KeyPrefix}stats:occurrences:";
+    private string TotalKey => $"{KeyPrefix}total";
+    private string QueuedKey => $"{KeyPrefix}queued";
+    private string RunningKey => $"{KeyPrefix}running";
+    private string CompletedKey => $"{KeyPrefix}completed";
+    private string FailedKey => $"{KeyPrefix}failed";
+    private string CancelledKey => $"{KeyPrefix}cancelled";
+    private string TimedOutKey => $"{KeyPrefix}timedout";
+    private string UnknownKey => $"{KeyPrefix}unknown";
+    private string TimelineKey => $"{_options.KeyPrefix}stats:timeline"; // ZSET for time-based queries
+    private string DurationSumKey => $"{KeyPrefix}duration_sum"; // Total duration in ms
+    private string DurationCountKey => $"{KeyPrefix}duration_count"; // Count of completed jobs with duration
+    private string SyncLockKey => $"{_options.KeyPrefix}stats:sync:lock"; // Distributed lock for sync operations
 
     // Lua script for atomic decrement with lower bound check (prevents negative values)
     private const string _decrementWithFloorScript = @"
@@ -78,7 +78,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     public Task IncrementTotalOccurrencesAsync(CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
         operation: async () =>
         {
-            await _db.StringIncrementAsync(_totalKey);
+            await _db.StringIncrementAsync(TotalKey);
             return true;
         },
         fallback: async () => true,
@@ -91,7 +91,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         operation: async () =>
         {
             if (count > 0)
-                await _db.StringIncrementAsync(_totalKey, count);
+                await _db.StringIncrementAsync(TotalKey, count);
             return true;
         },
         fallback: async () => true,
@@ -185,8 +185,8 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         {
             var keys = new RedisKey[]
             {
-                _totalKey, _queuedKey, _runningKey, _completedKey, _failedKey, _cancelledKey, _timedOutKey,
-                _unknownKey, _durationSumKey, _durationCountKey
+                TotalKey, QueuedKey, RunningKey, CompletedKey, FailedKey, CancelledKey, TimedOutKey,
+                UnknownKey, DurationSumKey, DurationCountKey
             };
             var values = await _db.StringGetAsync(keys);
 
@@ -215,8 +215,8 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         {
             var keys = new RedisKey[]
             {
-                _totalKey, _queuedKey, _runningKey, _completedKey, _failedKey, _cancelledKey, _timedOutKey,
-                _unknownKey, _durationSumKey, _durationCountKey, _timelineKey
+                TotalKey, QueuedKey, RunningKey, CompletedKey, FailedKey, CancelledKey, TimedOutKey,
+                UnknownKey, DurationSumKey, DurationCountKey, TimelineKey
             };
             await _db.KeyDeleteAsync(keys);
             _logger.Information("All statistics counters reset (including timeline and duration)");
@@ -232,7 +232,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     {
         // Use distributed lock to prevent multiple instances from syncing simultaneously
         var lockToken = Guid.CreateVersion7().ToString();
-        var lockAcquired = await _db.StringSetAsync(_syncLockKey, lockToken, TimeSpan.FromMinutes(5), When.NotExists);
+        var lockAcquired = await _db.StringSetAsync(SyncLockKey, lockToken, TimeSpan.FromMinutes(5), When.NotExists);
 
         if (!lockAcquired)
         {
@@ -317,22 +317,22 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             // Delete old keys
             var keys = new RedisKey[]
             {
-                _totalKey, _queuedKey, _runningKey, _completedKey, _failedKey, _cancelledKey, _timedOutKey,
-                _unknownKey, _durationSumKey, _durationCountKey, _timelineKey
+                TotalKey, QueuedKey, RunningKey, CompletedKey, FailedKey, CancelledKey, TimedOutKey,
+                UnknownKey, DurationSumKey, DurationCountKey, TimelineKey
             };
             _ = transaction.KeyDeleteAsync(keys);
 
             // Set new values
-            _ = transaction.StringSetAsync(_totalKey, result.TotalExecutions);
-            _ = transaction.StringSetAsync(_queuedKey, result.QueuedJobs);
-            _ = transaction.StringSetAsync(_runningKey, result.RunningJobs);
-            _ = transaction.StringSetAsync(_completedKey, completed);
-            _ = transaction.StringSetAsync(_failedKey, result.FailedJobs);
-            _ = transaction.StringSetAsync(_cancelledKey, result.CancelledJobs);
-            _ = transaction.StringSetAsync(_timedOutKey, result.TimedOutJobs);
-            _ = transaction.StringSetAsync(_unknownKey, result.UnknownJobs);
-            _ = transaction.StringSetAsync(_durationSumKey, result.TotalDuration);
-            _ = transaction.StringSetAsync(_durationCountKey, result.DurationCount);
+            _ = transaction.StringSetAsync(TotalKey, result.TotalExecutions);
+            _ = transaction.StringSetAsync(QueuedKey, result.QueuedJobs);
+            _ = transaction.StringSetAsync(RunningKey, result.RunningJobs);
+            _ = transaction.StringSetAsync(CompletedKey, completed);
+            _ = transaction.StringSetAsync(FailedKey, result.FailedJobs);
+            _ = transaction.StringSetAsync(CancelledKey, result.CancelledJobs);
+            _ = transaction.StringSetAsync(TimedOutKey, result.TimedOutJobs);
+            _ = transaction.StringSetAsync(UnknownKey, result.UnknownJobs);
+            _ = transaction.StringSetAsync(DurationSumKey, result.TotalDuration);
+            _ = transaction.StringSetAsync(DurationCountKey, result.DurationCount);
 
             await transaction.ExecuteAsync();
 
@@ -354,7 +354,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
                 else
                     return 0
                 end";
-            await _db.ScriptEvaluateAsync(script, [_syncLockKey], [lockToken]);
+            await _db.ScriptEvaluateAsync(script, [SyncLockKey], [lockToken]);
         }
     }
 
@@ -364,11 +364,11 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         {
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-            await _db.SortedSetAddAsync(_timelineKey, occurrenceId.ToString(), now);
+            await _db.SortedSetAddAsync(TimelineKey, occurrenceId.ToString(), now);
 
             // Auto-cleanup: Remove entries older than 5 minutes (keep memory bounded)
             var fiveMinutesAgo = now - (5 * 60 * 1000);
-            await _db.SortedSetRemoveRangeByScoreAsync(_timelineKey, 0, fiveMinutesAgo);
+            await _db.SortedSetRemoveRangeByScoreAsync(TimelineKey, 0, fiveMinutesAgo);
 
             return true;
         },
@@ -389,11 +389,11 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             // Batch add all occurrences with same timestamp (single ZADD command)
             var entries = occurrenceIds.Select(id => new SortedSetEntry(id.ToString(), now)).ToArray();
 
-            await _db.SortedSetAddAsync(_timelineKey, entries);
+            await _db.SortedSetAddAsync(TimelineKey, entries);
 
             // Auto-cleanup: Remove entries older than 5 minutes (keep memory bounded)
             var fiveMinutesAgo = now - (5 * 60 * 1000);
-            await _db.SortedSetRemoveRangeByScoreAsync(_timelineKey, 0, fiveMinutesAgo);
+            await _db.SortedSetRemoveRangeByScoreAsync(TimelineKey, 0, fiveMinutesAgo);
 
             return true;
         },
@@ -407,8 +407,8 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         operation: async () =>
         {
             var transaction = _db.CreateTransaction();
-            _ = transaction.StringIncrementAsync(_durationSumKey, durationMs);
-            _ = transaction.StringIncrementAsync(_durationCountKey, 1);
+            _ = transaction.StringIncrementAsync(DurationSumKey, durationMs);
+            _ = transaction.StringIncrementAsync(DurationCountKey, 1);
             await transaction.ExecuteAsync();
             return true;
         },
@@ -424,7 +424,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var oneMinuteAgo = now - (60 * 1000);
 
-            var count = await _db.SortedSetLengthAsync(_timelineKey, oneMinuteAgo, now);
+            var count = await _db.SortedSetLengthAsync(TimelineKey, oneMinuteAgo, now);
             return (double)count;
         },
         fallback: async () => 0.0,
@@ -436,7 +436,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     public Task<double?> GetAverageDurationAsync(CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
         operation: async () =>
         {
-            var values = await _db.StringGetAsync([_durationSumKey, _durationCountKey]);
+            var values = await _db.StringGetAsync([DurationSumKey, DurationCountKey]);
 
             var sum = values[0].HasValue ? (long)values[0] : 0;
             var count = values[1].HasValue ? (long)values[1] : 0;
@@ -453,13 +453,13 @@ public class RedisStatsService(IConnectionMultiplexer redis,
 
     private string GetKeyForStatus(JobOccurrenceStatus status) => status switch
     {
-        JobOccurrenceStatus.Queued => _queuedKey,
-        JobOccurrenceStatus.Running => _runningKey,
-        JobOccurrenceStatus.Completed => _completedKey,
-        JobOccurrenceStatus.Failed => _failedKey,
-        JobOccurrenceStatus.Cancelled => _cancelledKey,
-        JobOccurrenceStatus.TimedOut => _timedOutKey,
-        JobOccurrenceStatus.Unknown => _unknownKey,
+        JobOccurrenceStatus.Queued => QueuedKey,
+        JobOccurrenceStatus.Running => RunningKey,
+        JobOccurrenceStatus.Completed => CompletedKey,
+        JobOccurrenceStatus.Failed => FailedKey,
+        JobOccurrenceStatus.Cancelled => CancelledKey,
+        JobOccurrenceStatus.TimedOut => TimedOutKey,
+        JobOccurrenceStatus.Unknown => UnknownKey,
         _ => null
     };
 }

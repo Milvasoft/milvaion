@@ -105,9 +105,10 @@ internal sealed class RuntimeBasePathAssets
                 assets.Index = asset;
         }
 
-        logger.LogInformation("Base path '{BasePath}' applied to {Count} static asset(s) at startup.",
-                              string.IsNullOrEmpty(prefix) ? "/" : prefix,
-                              assets._assets.Count);
+        if (logger.IsEnabled(LogLevel.Information))
+            logger.LogInformation("Base path '{BasePath}' applied to {Count} static asset(s) at startup.",
+                                  string.IsNullOrEmpty(prefix) ? "/" : prefix,
+                                  assets._assets.Count);
 
         return assets;
     }

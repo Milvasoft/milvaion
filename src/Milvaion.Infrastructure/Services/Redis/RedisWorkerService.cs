@@ -26,7 +26,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     private readonly RedisOptions _options = options.Value;
     private readonly TimeSpan _instanceTTL = TimeSpan.FromMinutes(2); // Auto-expire zombie instances
     private readonly TimeSpan _workerMetadataTTL = TimeSpan.FromMinutes(5); // Worker metadata expires if no active instances
-    private string _workersIndexKey => $"{_options.KeyPrefix}workers:index";
+    private string WorkersIndexKey => $"{_options.KeyPrefix}workers:index";
 
     /// <inheritdoc/>
     public Task<bool> RegisterWorkerAsync(WorkerDiscoveryRequest registration, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
@@ -85,7 +85,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 batchTasks.Add(batch.KeyExpireAsync(instanceKey, _instanceTTL));
 
                 // 3. Indexes (SETs)
-                batchTasks.Add(batch.SetAddAsync(_workersIndexKey, registration.WorkerId));
+                batchTasks.Add(batch.SetAddAsync(WorkersIndexKey, registration.WorkerId));
                 batchTasks.Add(batch.SetAddAsync(instanceSetKey, registration.InstanceId));
                 batchTasks.Add(batch.KeyExpireAsync(instanceSetKey, _workerMetadataTTL));
 
@@ -134,7 +134,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 ]);
 
                 // Re-add to indexes to ensure consistency
-                await _db.SetAddAsync(_workersIndexKey, workerId);
+                await _db.SetAddAsync(WorkersIndexKey, workerId);
                 await _db.SetAddAsync(instanceSetKey, instanceId);
 
                 // Refresh TTL on instance, worker metadata, and instance SET (keep alive while instances are active)
@@ -191,7 +191,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 ]));
 
                 // Re-add to indexes to ensure consistency
-                updateTasks.Add(batch.SetAddAsync(_workersIndexKey, WorkerId));
+                updateTasks.Add(batch.SetAddAsync(WorkersIndexKey, WorkerId));
                 updateTasks.Add(batch.SetAddAsync(instanceSetKey, InstanceId));
 
                 updateTasks.Add(batch.KeyExpireAsync(instanceKey, _instanceTTL));
@@ -362,7 +362,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             operation: async () =>
             {
                 // O(1) fetch from index set
-                var workerIds = await _db.SetMembersAsync(_workersIndexKey);
+                var workerIds = await _db.SetMembersAsync(WorkersIndexKey);
                 if (workerIds.IsNullOrEmpty())
                     return [];
 
