@@ -1,6 +1,9 @@
 /* ── CronBuilderModal ─────────────────────────────────────── */
 
-.cb-modal {
+/* Paired with .modal-content, which sets a narrower max-width, and with .modal-body, which sets
+   its own padding. Both are matched on the same elements, so these overrides are qualified to
+   outweigh them whatever order the two stylesheets happen to load in. */
+.modal-content.cb-modal {
   width: 720px;
   max-width: 95vw;
   max-height: 88vh;
@@ -20,7 +23,7 @@
   color: var(--text-primary);
 }
 
-.cb-body {
+.modal-body.cb-body {
   overflow-y: auto;
   flex: 1;
   display: flex;

@@ -15,6 +15,12 @@ import {
   parseCronExpression,
   validateBuilderState,
 } from '../utils/cronBuilder'
+// The overlay below reuses .modal-overlay and friends, which are defined here and nowhere else.
+// Routes are lazily loaded and so is their CSS, so a page that never renders a Modal - the job
+// form is one - would otherwise leave the overlay unpositioned and drop it into the normal flow.
+// Import order does not decide which stylesheet wins here, since these end up in separate chunks;
+// the rules that have to beat Modal.css are qualified in CronBuilderModal.css instead.
+import './Modal.css'
 import './CronBuilderModal.css'
 
 const pad = (n) => String(n).padStart(2, '0')
