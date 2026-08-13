@@ -56,6 +56,33 @@
             <param name="configuration"></param>
             <returns></returns>
         </member>
+        <member name="F:Milvaion.Api.AppStartup.StartupExtensions.OidcAuthenticationScheme">
+            <summary>
+            The scheme name for tokens issued by the external OpenID Connect provider, kept alongside the
+            local bearer scheme and the api key scheme.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Api.AppStartup.StartupExtensions.MultiBearerAuthenticationScheme">
+            <summary>
+            The default bearer scheme when OIDC is enabled: a policy scheme that forwards each token to the
+            local or the external scheme based on its issuer.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.SelectBearerScheme(Microsoft.AspNetCore.Http.HttpContext,Milvaion.Application.Utils.Models.Options.OidcOptions)">
+            <summary>
+            Picks the scheme for the incoming bearer token: the external scheme when the token's issuer is one
+            the OIDC provider is configured for, otherwise the local scheme. Non-bearer requests fall through to
+            the local scheme, which challenges as before.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddOidcScheme(Microsoft.AspNetCore.Authentication.AuthenticationBuilder,System.String,Milvaion.Application.Utils.Models.Options.OidcOptions)">
+            <summary>
+            Registers the external OIDC bearer scheme. Tokens are validated against the provider's metadata
+            and, on validation, the user is provisioned locally and the request principal is enriched with
+            the permission claims the authorization stack matches on. Identity comes from the provider;
+            permissions stay owned in Milvaion.
+            </summary>
+        </member>
         <member name="M:Milvaion.Api.AppStartup.StartupExtensions.AddVersioning(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
             <summary>
             Adds api versioning.
@@ -2432,6 +2459,18 @@
             <inheritdoc />
         </member>
         <member name="M:Milvaion.Api.Migrations.MakeUserTypeOptional.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.AddExternalIdentityFields">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddExternalIdentityFields.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddExternalIdentityFields.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddExternalIdentityFields.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">

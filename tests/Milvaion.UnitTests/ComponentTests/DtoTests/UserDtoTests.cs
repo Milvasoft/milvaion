@@ -57,6 +57,7 @@ public class UserDtoTests
             Surname = u.Surname,
             Roles = u.RoleRelations.Select(rr => new NameIntNavigationDto { Id = rr.Role.Id, Name = rr.Role.Name }).ToList(),
             AllowedNotifications = u.AllowedNotifications,
+            Provider = u.Provider,
             AuditInfo = new AuditDto<int>(u)
         };
 

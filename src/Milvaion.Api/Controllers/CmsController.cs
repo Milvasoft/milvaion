@@ -23,7 +23,6 @@ using Milvaion.Application.Features.ContentManagement.ResourceGroups.GetResource
 using Milvaion.Application.Features.ContentManagement.ResourceGroups.GetResourceGroupList;
 using Milvaion.Application.Features.ContentManagement.ResourceGroups.UpdateResourceGroup;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

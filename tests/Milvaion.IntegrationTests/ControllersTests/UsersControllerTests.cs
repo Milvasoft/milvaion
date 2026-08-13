@@ -253,6 +253,38 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
     }
 
     [Fact]
+    public async Task UpdateUserAsync_WithExternallyManagedUser_ShouldIgnoreProviderOwnedFields()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var newUser = await SeedSingleUserAsync("externalupdateuser", ExternalProvider.Ldap);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateUserCommand
+        {
+            Id = newUser.Id,
+            Name = new UpdateProperty<string>("ShouldBeIgnored"),
+            Surname = new UpdateProperty<string>("ShouldBeIgnoredToo")
+        };
+
+        // Act - identity fields are owned by the provider; the handler must ignore them for external users.
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/user", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<int>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+
+        // Verify the provider-owned fields were not changed in the database
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var updatedUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == newUser.Id);
+        updatedUser.Should().NotBeNull();
+        updatedUser.Name.Should().Be("Test");
+        updatedUser.Surname.Should().Be("User");
+        updatedUser.Provider.Should().Be(ExternalProvider.Ldap);
+    }
+
+    [Fact]
     public async Task UpdateUserAsync_WithInvalidId_ShouldReturnError()
     {
         // Arrange
@@ -363,7 +395,7 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
         await dbContext.SaveChangesAsync();
     }
 
-    private async Task<User> SeedSingleUserAsync(string userName)
+    private async Task<User> SeedSingleUserAsync(string userName, ExternalProvider provider = ExternalProvider.Local)
     {
         var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
 
@@ -373,6 +405,7 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
             Email = $"{userName}@test.com",
             Name = "Test",
             Surname = "User",
+            Provider = provider,
             CreationDate = DateTime.UtcNow,
             CreatorUserName = GlobalConstant.SystemUsername
         };

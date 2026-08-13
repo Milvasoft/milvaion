@@ -268,6 +268,31 @@
         <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.StopAsync(System.Threading.CancellationToken)">
             <inheritdoc />
         </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.InactiveExternalUserCleanupService">
+             <summary>
+             Prunes externally provisioned users who have not signed in for the configured retention period.
+             Only external (OIDC/LDAP) shadow users are considered; local accounts are never touched. Access is
+             already revoked at the provider the moment a user is disabled there, so this is housekeeping rather
+             than a security control: it keeps the local user list from accumulating stale shadow records.
+            
+             Silent and resilient like the other monitors: a failure is swallowed at debug level and the next
+             pass retries. Disabled when the retention is 0.
+             </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.InactiveExternalUserCleanupService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Milvaion.Application.Utils.Models.Options.MilvaionConfig,Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.BackgroundServices.InactiveExternalUserCleanupService})">
+             <summary>
+             Prunes externally provisioned users who have not signed in for the configured retention period.
+             Only external (OIDC/LDAP) shadow users are considered; local accounts are never touched. Access is
+             already revoked at the provider the moment a user is disabled there, so this is housekeeping rather
+             than a security control: it keeps the local user list from accumulating stale shadow records.
+            
+             Silent and resilient like the other monitors: a failure is swallowed at debug level and the next
+             pass retries. Disabled when the retention is 0.
+             </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.InactiveExternalUserCleanupService.ExecuteAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService">
             <summary>
             Background service that dispatches scheduled jobs from Redis to RabbitMQ.
@@ -1913,6 +1938,105 @@
             ○ Match '}'.<br/>
             </code>
             </remarks>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.ExternalIdentityService">
+            <summary>
+            Maps an externally authenticated identity onto the local model. Identity and role membership come
+            from the provider; the permission set of each role is owned in Milvaion. On sign-in this ensures
+            the roles exist, provisions the shadow user on first sight, records the login, and returns the
+            permission claims the authorization stack matches on.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvasoft.Caching.Redis.Accessor.IRedisAccessor,StackExchange.Redis.IConnectionMultiplexer)">
+            <summary>
+            Maps an externally authenticated identity onto the local model. Identity and role membership come
+            from the provider; the permission set of each role is owned in Milvaion. On sign-in this ensures
+            the roles exist, provisions the shadow user on first sight, records the login, and returns the
+            permission claims the authorization stack matches on.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._lastLoginThrottle">
+            <summary>Skip the LastLoginDate write when it was refreshed this recently, to keep hot-path writes rare.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._claimsCacheTtl">
+            <summary>How long a resolved claim set is served from Redis before the next sign-in re-resolves it.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._provisionLockTtl">
+            <summary>Lifetime of the per-identity provisioning lock: long enough to cover a first-sight insert, short enough to self-heal if the holder dies.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._provisionLockRetryDelay">
+            <summary>Pause between attempts to take the provisioning lock while another request holds it.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._provisionLockMaxAttempts">
+            <summary>Give up taking the lock after this many attempts (~5s) and resolve directly; the unique indexes stay the final guard.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._claimsCacheVersionKey">
+            <summary>Redis key holding the claim-cache version. Bumping it invalidates every cached identity at once.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._claimsCacheVersionTtl">
+            <summary>Version key lifetime. Long-lived so it survives idle periods; only ever overwritten by an invalidation.</summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.ExternalIdentityService._versionMemoTtl">
+            <summary>How long the version is trusted from process memory before re-reading Redis, so the hot path stays free of an extra round-trip while an invalidation still propagates within seconds.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.GetOrBuildClaimsAsync(Milvaion.Application.Interfaces.ExternalIdentityDescriptor,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.InvalidateAllAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.BuildCacheKeyAsync(Milvaion.Application.Interfaces.ExternalIdentityDescriptor)">
+            <summary>Builds the version-scoped cache key. A version bump changes the prefix so every prior entry is unreachable and expires on its own TTL.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.GetCurrentVersionAsync">
+            <summary>Reads the current claim-cache version from Redis, defaulting to 0 when it has never been set.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.IsFresh(Milvaion.Infrastructure.Services.ExternalIdentityService.CachedIdentity,System.String)">
+            <summary>A cached entry is usable only if it carries claims and was built for the same provider role set.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.ComputeRolesHash(System.Collections.Generic.IReadOnlyCollection{System.String})">
+            <summary>Order-insensitive fingerprint of the provider's role names, used to detect membership changes.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.ResolveAndBuildClaimsAsync(Milvaion.Application.Interfaces.ExternalIdentityDescriptor,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.EnsureRolesAsync(System.Collections.Generic.IReadOnlyCollection{System.String},Milvaion.Domain.Enums.ExternalProvider,System.Threading.CancellationToken)">
+            <summary>
+            Loads the provider's roles with their permissions, creating any that do not exist yet (with an
+            empty permission set for an admin to fill in).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.ExternalIdentityService.CachedIdentity">
+            <summary>Cached identity payload: the provider role set it was built for, plus the resolved permission claims.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.CachedIdentity.#ctor(System.String,System.Collections.Generic.List{Milvaion.Infrastructure.Services.ExternalIdentityService.CachedClaim})">
+            <summary>Cached identity payload: the provider role set it was built for, plus the resolved permission claims.</summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.ExternalIdentityService.CachedClaim">
+            <summary>Compact, serializable projection of a <see cref="T:System.Security.Claims.Claim"/> for the Redis claim cache.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.CachedClaim.#ctor(System.String,System.String)">
+            <summary>Compact, serializable projection of a <see cref="T:System.Security.Claims.Claim"/> for the Redis claim cache.</summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.LdapAuthenticator">
+            <summary>
+            Verifies credentials against LDAP/Active Directory by binding as the user, then reads the user's
+            attributes and group memberships for provisioning. A wrong password fails the bind and returns a
+            failed result rather than throwing.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.#ctor(Milvaion.Application.Utils.Models.Options.MilvaionConfig)">
+            <summary>
+            Verifies credentials against LDAP/Active Directory by binding as the user, then reads the user's
+            attributes and group memberships for provisioning. A wrong password fails the bind and returns a
+            failed result rather than throwing.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.AuthenticateAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.ExtractCommonName(System.String)">
+            <summary>"CN=Admins,OU=Groups,DC=corp,DC=com" becomes "Admins".</summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.LookupService">
             <summary>

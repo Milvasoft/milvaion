@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using Milvaion.Api.Services;
-using Milvaion.Domain.Enums;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 

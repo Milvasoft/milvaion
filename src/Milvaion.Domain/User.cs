@@ -16,6 +16,7 @@ namespace Milvaion.Domain;
 /// </summary>
 [Table(TableNames.Users)]
 [Index(nameof(UserName), nameof(IsDeleted), nameof(DeletionDate), IsUnique = true)]
+[Index(nameof(Issuer), nameof(ExternalSubject), nameof(IsDeleted), nameof(DeletionDate), IsUnique = true)]
 [DontIndexCreationDate]
 public class User : MilvaUser<int>, IFullAuditable<int>
 {
@@ -36,6 +37,34 @@ public class User : MilvaUser<int>, IFullAuditable<int>
     /// </summary>
     [Column(TypeName = "jsonb")]
     public List<AlertType> AllowedNotifications { get; set; } = [];
+
+    /// <summary>
+    /// Where this user's identity is owned. <see cref="ExternalProvider.Local"/> uses the local
+    /// password; external users are provisioned from an identity provider and their identity
+    /// fields (name, email, username) are owned there, not here.
+    /// </summary>
+    public ExternalProvider Provider { get; set; } = ExternalProvider.Local;
+
+    /// <summary>
+    /// Stable per-user identifier from the identity provider (the OIDC <c>sub</c>, or the LDAP
+    /// object identifier). Null for local users. Together with <see cref="Issuer"/> it links the
+    /// shadow record back to the external identity.
+    /// </summary>
+    [MaxLength(256)]
+    public string ExternalSubject { get; set; }
+
+    /// <summary>
+    /// Issuer/authority that owns this identity (the OIDC issuer URL, or the LDAP host). Null for
+    /// local users.
+    /// </summary>
+    [MaxLength(512)]
+    public string Issuer { get; set; }
+
+    /// <summary>
+    /// Last successful sign-in, refreshed on each login. Used to prune external users who have not
+    /// signed in for a long time.
+    /// </summary>
+    public DateTime? LastLoginDate { get; set; }
 
     #region Auditing
 
@@ -165,6 +194,7 @@ public class User : MilvaUser<int>, IFullAuditable<int>
         {
             Id = u.Id,
             UserName = u.UserName,
+            Provider = u.Provider,
             PasswordHash = u.PasswordHash,
             AccessFailedCount = u.AccessFailedCount,
             LockoutEnabled = u.LockoutEnabled,
@@ -242,6 +272,7 @@ public class User : MilvaUser<int>, IFullAuditable<int>
             Id = u.Id,
             UserName = u.UserName,
             Email = u.Email,
+            Provider = u.Provider,
             PasswordHash = u.PasswordHash,
             Sessions = u.Sessions.Select(s => new UserSession
             {

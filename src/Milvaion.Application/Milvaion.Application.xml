@@ -281,6 +281,12 @@
             Roles the user belongs to.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountDetailDto.Provider">
+            <summary>
+            Where this account is managed. <see cref="F:Milvaion.Domain.Enums.ExternalProvider.Local"/> means Milvaion owns the
+            credentials; otherwise identity and password are owned by the external provider (OIDC/LDAP).
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountDetailDto.Projection">
             <summary>
             Projection expression for mapping User entity to AccountDetailDto.
@@ -3651,6 +3657,12 @@
             Permissions belonging to the role.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.RoleDtos.RoleDetailDto.Provider">
+            <summary>
+            Where this role is managed. <see cref="F:Milvaion.Domain.Enums.ExternalProvider.Local"/> means Milvaion owns it; otherwise
+            the name mirrors an external provider group and only its permission set is editable here.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.RoleDtos.RoleDetailDto.AuditInfo">
             <summary>
             Information about record audit.
@@ -4291,6 +4303,43 @@
         <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicSettingsDto.Subtitle">
             <summary>Short tagline shown under the title. Optional.</summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicSettingsDto.Oidc">
+            <summary>
+            Public OIDC parameters the login page needs to start the redirect flow. Non-secret: the
+            authority and client id are meant to be seen by the browser. Disabled means no SSO button.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicSettingsDto.Ldap">
+            <summary>
+            Whether LDAP/AD login is available. Only the on/off flag is exposed: LDAP uses the normal
+            username/password form, so the browser needs nothing else (host, base dn and the service
+            account stay server-side).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.SettingsDtos.PublicLdapDto">
+            <summary>
+            The non-secret LDAP hint for the login page: just whether directory login is on. No host, base
+            dn or service credentials are ever sent to the browser.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicLdapDto.Enabled">
+            <summary>Whether LDAP/AD login is available. The local username/password form is used for it.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.SettingsDtos.PublicOidcDto">
+            <summary>
+            The non-secret OIDC parameters exposed to the login page: enough to start an authorization code
+            (PKCE) redirect, nothing more.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicOidcDto.Enabled">
+            <summary>Whether SSO is available. When false the login page shows only the local form.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicOidcDto.Authority">
+            <summary>Realm/issuer URL the browser redirects to.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.SettingsDtos.PublicOidcDto.ClientId">
+            <summary>Public client id the SPA authenticates as.</summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.SettingsDtos.SettingsDto">
             <summary>
             Everything the settings page needs in one call: editable branding and notification rules,
@@ -4852,6 +4901,13 @@
         <member name="P:Milvaion.Application.Dtos.UserDtos.UserDetailDto.AllowedNotifications">
             <summary>
             Allowed notification types for the user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UserDtos.UserDetailDto.Provider">
+            <summary>
+            Where this user is managed. <see cref="F:Milvaion.Domain.Enums.ExternalProvider.Local"/> means Milvaion owns identity,
+            password and role membership; otherwise those are owned by the external provider (OIDC/LDAP) and
+            only Milvaion-owned fields (notification preferences) are editable here.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.UserDtos.UserDetailDto.AuditInfo">
@@ -5854,13 +5910,20 @@
             Handles the login command and performs the necessary operations.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.Account.Login.LoginCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32},Milvaion.Application.Interfaces.IAccountManager,Milvaion.Application.Interfaces.IUIService,Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer,Milvasoft.Identity.Concrete.Options.MilvaIdentityOptions)">
+        <member name="M:Milvaion.Application.Features.Account.Login.LoginCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32},Milvaion.Application.Interfaces.IAccountManager,Milvaion.Application.Interfaces.IUIService,Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer,Milvasoft.Identity.Concrete.Options.MilvaIdentityOptions,Milvaion.Application.Utils.Models.Options.MilvaionConfig,Milvaion.Application.Interfaces.ILdapAuthenticator,Milvaion.Application.Interfaces.IExternalIdentityService)">
             <summary>
             Handles the login command and performs the necessary operations.
             </summary>
         </member>
         <member name="M:Milvaion.Application.Features.Account.Login.LoginCommandHandler.Handle(Milvaion.Application.Features.Account.Login.LoginCommand,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.Account.Login.LoginCommandHandler.HandleLdapLoginAsync(Milvaion.Application.Features.Account.Login.LoginCommand,System.Threading.CancellationToken)">
+            <summary>
+            Authenticates against LDAP/Active Directory, provisions or refreshes the shadow user and its
+            roles, then issues Milvaion's own token exactly as a local login would. The directory owns the
+            identity and group membership; the permissions of those roles are assigned in Milvaion.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Features.Account.Login.LoginCommandValidator">
             <summary>
@@ -6479,6 +6542,67 @@
         <member name="M:Milvaion.Application.Features.ContentManagement.Contents.DeleteContents.DeleteContentsCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.DeleteContents.DeleteContentsCommandValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery">
+            <summary>
+            Data transfer object for content details.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery.ContentId">
+            <summary>
+            Resource group id to access details.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler">
+            <summary>
+            Handles the content detail operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
+            <summary>
+            Handles the content detail operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator">
+            <summary>
+            Query validations. 
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
+            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery">
+            <summary>
+            Data transfer object for content list.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler">
+            <summary>
+            Handles the content list operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
+            <summary>
+            Handles the content list operation.
+            </summary>
+            <param name="resourceGroupRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator">
+            <summary>
+            Query validations. 
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator"/>
+        </member>
         <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContent.GetContentQuery">
             <summary>
             Data transfer object for content.
@@ -6543,67 +6667,6 @@
         </member>
         <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContent.GetContentQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContent.GetContentQueryValidator"/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery">
-            <summary>
-            Data transfer object for content details.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery.ContentId">
-            <summary>
-            Resource group id to access details.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler">
-            <summary>
-            Handles the content detail operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
-            <summary>
-            Handles the content detail operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQuery,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator">
-            <summary>
-            Query validations. 
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
-            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentDetail.GetContentDetailQueryValidator"/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery">
-            <summary>
-            Data transfer object for content list.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler">
-            <summary>
-            Handles the content list operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ContentManagement.Content})">
-            <summary>
-            Handles the content list operation.
-            </summary>
-            <param name="resourceGroupRepository"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryHandler.Handle(Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQuery,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator">
-            <summary>
-            Query validations. 
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator.#ctor">
-            <inheritdoc cref="T:Milvaion.Application.Features.ContentManagement.Contents.GetContentList.GetContentListQueryValidator"/>
         </member>
         <member name="T:Milvaion.Application.Features.ContentManagement.Contents.GetGroupedContentList.GetGroupedContentListQuery">
             <summary>
@@ -7823,14 +7886,19 @@
             Handles the deletion of the role.
             </summary>
             <param name="RoleRepository"></param>
+            <param name="ExternalIdentityService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role})">
+        <member name="M:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IExternalIdentityService)">
             <summary>
             Handles the deletion of the role.
             </summary>
             <param name="RoleRepository"></param>
+            <param name="ExternalIdentityService"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.RoleRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.ExternalIdentityService">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.Handle(Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommand,System.Threading.CancellationToken)">
@@ -7927,18 +7995,23 @@
             </summary>
             <param name="RoleRepository"></param>
             <param name="RolePermissionRelationRepository"></param>
+            <param name="ExternalIdentityService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.RolePermissionRelation})">
+        <member name="M:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.RolePermissionRelation},Milvaion.Application.Interfaces.IExternalIdentityService)">
             <summary>
             Handles the update of the role.
             </summary>
             <param name="RoleRepository"></param>
             <param name="RolePermissionRelationRepository"></param>
+            <param name="ExternalIdentityService"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.RoleRepository">
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.RolePermissionRelationRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.ExternalIdentityService">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.Handle(Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommand,System.Threading.CancellationToken)">
@@ -8211,6 +8284,41 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery">
+            <summary>
+            Data transfer object for scheduledjob list.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery.SearchTerm">
+            <summary>
+            Search term to filter job occurrences.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler">
+            <summary>
+            Handles the job occurrence list operation.
+            </summary>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
+            <summary>
+            Handles the job occurrence list operation.
+            </summary>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.GetValueWithCorrectType``1(System.Object)">
+            <summary>
+            Gets the value with the correct type from the object.
+            </summary>
+            <typeparam name="TActualType"></typeparam>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery">
             <summary>
             Data transfer object for scheduledjob list.
@@ -8253,41 +8361,6 @@
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator"/>
-        </member>
-        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery">
-            <summary>
-            Data transfer object for scheduledjob list.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery.SearchTerm">
-            <summary>
-            Search term to filter job occurrences.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler">
-            <summary>
-            Handles the job occurrence list operation.
-            </summary>
-            <param name="milvaionDbContextAccessor"></param>
-            <param name="redisStatsService"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
-            <summary>
-            Handles the job occurrence list operation.
-            </summary>
-            <param name="milvaionDbContextAccessor"></param>
-            <param name="redisStatsService"></param>
-        </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.GetValueWithCorrectType``1(System.Object)">
-            <summary>
-            Gets the value with the correct type from the object.
-            </summary>
-            <typeparam name="TActualType"></typeparam>
-            <param name="value"></param>
-            <returns></returns>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurrenceLogList.GetJobOccurrenceLogListQuery">
             <summary>
@@ -8857,12 +8930,14 @@
             Handles the public settings query. Returns only non-secret branding text.
             </summary>
             <param name="settingsProvider"></param>
+            <param name="milvaionConfig"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQueryHandler.#ctor(Milvaion.Application.Interfaces.ISettingsProvider)">
+        <member name="M:Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQueryHandler.#ctor(Milvaion.Application.Interfaces.ISettingsProvider,Milvaion.Application.Utils.Models.Options.MilvaionConfig)">
             <summary>
             Handles the public settings query. Returns only non-secret branding text.
             </summary>
             <param name="settingsProvider"></param>
+            <param name="milvaionConfig"></param>
         </member>
         <member name="M:Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQueryHandler.Handle(Milvaion.Application.Features.Settings.GetPublicSettings.GetPublicSettingsQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
@@ -8966,7 +9041,7 @@
         </member>
         <member name="P:Milvaion.Application.Features.Users.CreateUser.CreateUserCommand.Password">
             <summary>
-            Password of the user.    
+            Password of the user.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Features.Users.CreateUser.CreateUserCommand.RoleIdList">
@@ -10261,6 +10336,66 @@
             <param name="pageName"></param>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Application.Interfaces.IExternalIdentityService">
+            <summary>
+            Bridges an externally authenticated identity (OIDC or LDAP) to Milvaion's local model. It keeps a
+            shadow user in step with the provider on each sign-in and resolves the permission claims that the
+            rest of the authorization stack expects, so identity is owned by the provider while permissions
+            stay owned here.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IExternalIdentityService.ResolveAndBuildClaimsAsync(Milvaion.Application.Interfaces.ExternalIdentityDescriptor,System.Threading.CancellationToken)">
+            <summary>
+            Resolves (creating on first sight) the shadow user for <paramref name="descriptor"/>, syncs its
+            role membership to the provider's roles, records the sign-in, and returns the claims to add to
+            the request principal: the user name and one role claim per granted permission.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IExternalIdentityService.GetOrBuildClaimsAsync(Milvaion.Application.Interfaces.ExternalIdentityDescriptor,System.Threading.CancellationToken)">
+            <summary>
+            Returns the request's permission claims for the external identity, served from a short-lived Redis
+            cache so most requests do no database work. On a cache miss it provisions/refreshes under a
+            per-identity distributed lock, so the burst of parallel requests a browser fires on sign-in resolves
+            to a single provision rather than many racing inserts, then caches and returns the result.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IExternalIdentityService.InvalidateAllAsync(System.Threading.CancellationToken)">
+            <summary>
+            Invalidates every cached external-identity claim set. Call this after a change that alters what a
+            provider role grants (its permission set) or removes a role, so external users pick up the new
+            authorization on their next request instead of waiting for the cache to expire.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.ExternalIdentityDescriptor">
+            <summary>
+            The provider-neutral view of an externally authenticated user, built from an OIDC token or an LDAP
+            entry before it is mapped onto the local model.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.Provider">
+            <summary>Which provider authenticated the user.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.Issuer">
+            <summary>Issuer/authority that owns the identity (OIDC issuer URL, or the LDAP host).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.Subject">
+            <summary>Stable per-user identifier (OIDC <c>sub</c>, or the LDAP object identifier).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.UserName">
+            <summary>Login name.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.Email">
+            <summary>Email, when the provider supplies one.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.Name">
+            <summary>Given name.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.Surname">
+            <summary>Family name.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.RoleNames">
+            <summary>Role/group names carried by the provider. Milvaion mirrors these as roles and their permissions are assigned here.</summary>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.IHasActiviyLogDecision">
             <summary>
             Indicates that the implementing class has a decision on whether to log the activity or not. Classes implementing this interface can control the logging behavior of their activities by setting the <see cref="P:Milvaion.Application.Interfaces.IHasActiviyLogDecision.ShouldLogActivity"/> property.
@@ -10291,6 +10426,47 @@
             Publishes an occurrence updated event to specific occurrence subscribers and all clients.
             Also handles group cleanup when occurrence reaches final state.
             </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.ILdapAuthenticator">
+            <summary>
+            Verifies a username and password directly against an LDAP/Active Directory server by binding as
+            the user, and reads back the attributes and group memberships needed to provision the account.
+            Used only when the LDAP provider is enabled; the password never leaves the server unencrypted
+            (LDAPS is required for real deployments).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.ILdapAuthenticator.AuthenticateAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Attempts an LDAP bind with the supplied credentials. On success returns the directory
+            attributes for the user; on failure returns a result whose <see cref="P:Milvaion.Application.Interfaces.LdapAuthResult.Success"/>
+            is false. Never throws for a wrong password.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.LdapAuthResult">
+            <summary>
+            The outcome of an LDAP bind, plus the directory attributes read for a successful one.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.LdapAuthResult.Success">
+            <summary>Whether the bind succeeded.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.LdapAuthResult.Subject">
+            <summary>Stable directory identifier for the user (objectGUID when available, else the bind DN).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.LdapAuthResult.Email">
+            <summary>Email address, when the directory exposes one.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.LdapAuthResult.Name">
+            <summary>Given name.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.LdapAuthResult.Surname">
+            <summary>Family name.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.LdapAuthResult.Groups">
+            <summary>Group names the user belongs to, mapped onto Milvaion roles.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.LdapAuthResult.Fail">
+            <summary>A failed bind result.</summary>
         </member>
         <member name="T:Milvaion.Application.Interfaces.ILookupService">
             <summary>
@@ -12106,6 +12282,110 @@
             <see cref="P:Milvaion.Application.Utils.Models.Options.ApiKeyOptions.Secret"/> as a byte array, for signing and validation.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.AuthenticationOptions">
+            <summary>
+            External identity settings. Bound from <c>MilvaionConfig:Authentication</c>. Both providers are
+            off by default, so the application keeps its local username/password behaviour until one is
+            enabled. Read at startup: changing these needs a restart.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AuthenticationOptions.Oidc">
+            <summary>OpenID Connect provider (e.g. Keycloak). Used for browser redirect SSO.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AuthenticationOptions.Ldap">
+            <summary>Direct LDAP/Active Directory bind. Used for username/password verified by the directory.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AuthenticationOptions.InactiveUserRetentionDays">
+            <summary>
+            Delete externally provisioned users who have not signed in for this many days. Local users are never touched. 0 disables pruning.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.OidcOptions">
+            <summary>
+            OpenID Connect settings. When enabled, tokens issued by <see cref="P:Milvaion.Application.Utils.Models.Options.OidcOptions.Authority"/> are accepted as
+            a second bearer scheme alongside Milvaion's own tokens; permissions are still resolved from the
+            local role model.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.Authority">
+            <summary>
+            Realm/issuer URL as the browser addresses it, e.g. <c>https://keycloak.example.com/realms/milvaion</c>.
+            This is the value handed to the SPA and, unless <see cref="P:Milvaion.Application.Utils.Models.Options.OidcOptions.MetadataAddress"/> overrides it, the one the
+            API uses to discover metadata and keys.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.MetadataAddress">
+            <summary>
+            Optional discovery document URL the API uses instead of <see cref="P:Milvaion.Application.Utils.Models.Options.OidcOptions.Authority"/>. Set this when the API
+            reaches the provider on a different host than the browser does (for example a containerized API reaching
+            Keycloak at <c>host.docker.internal</c> while the browser uses <c>localhost</c>). The JWKS endpoint is
+            taken from this document, so it must be reachable from the API.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.ValidIssuers">
+            <summary>
+            Optional comma-separated list of issuer values to accept, for when the browser and the API reach the
+            provider on different hosts and the token issuer can be either. Empty falls back to the issuer from the
+            discovery document.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.Audience">
+            <summary>Expected token audience (usually the client id). Empty disables audience validation.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.ClientId">
+            <summary>Public client id the SPA uses for the redirect flow.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.ClientSecret">
+            <summary>Optional client secret for a confidential client. Not required to validate tokens.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.RequireHttpsMetadata">
+            <summary>Reject non-HTTPS metadata/authority. Keep true outside local development.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.NameClaim">
+            <summary>Claim used as the user name / display identity.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.SubjectClaim">
+            <summary>Stable per-user identifier claim used to link the shadow record.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.RolesClaim">
+            <summary>Claim carrying the user's roles/groups. Map a flattened claim in the IdP (e.g. a client role mapper).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.RolePrefix">
+            <summary>Optional prefix filter: only roles starting with this are provisioned. Empty takes them all.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.LdapOptions">
+            <summary>
+            Direct LDAP/Active Directory settings. When enabled, users flagged as LDAP verify their password
+            by binding to the directory instead of the local hash; Milvaion still issues its own token.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.UseSsl">
+            <summary>Use LDAPS (typically port 636). Credentials must never cross an unencrypted connection.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.BaseDn">
+            <summary>Search base for user and group lookups, e.g. <c>dc=corp,dc=example,dc=com</c>.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.BindDn">
+            <summary>Service account DN used to look up the user entry and groups. Optional if binding as the user is enough.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.BindPassword">
+            <summary>Service account password for <see cref="P:Milvaion.Application.Utils.Models.Options.LdapOptions.BindDn"/>.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.UserDnFormat">
+            <summary>
+            Template used to form the bind DN from the username, e.g. <c>{0}@corp.example.com</c> or
+            <c>uid={0},ou=users,dc=corp,dc=example,dc=com</c>. <c>{0}</c> is the submitted username.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.UserSearchFilter">
+            <summary>Filter to locate the user entry for group resolution, e.g. <c>(sAMAccountName={0})</c>.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.GroupMemberAttribute">
+            <summary>Attribute on the user entry listing group memberships.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.LdapOptions.RolePrefix">
+            <summary>Optional prefix filter for the groups mapped into Milvaion roles. Empty takes them all.</summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions">
             <summary>
             Configuration base options for background services.
@@ -12357,6 +12637,11 @@
         <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.ApiKey">
             <summary>
             Api key signing and versioning settings.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.Authentication">
+            <summary>
+            External identity settings (OIDC and LDAP/AD). Off by default, so local username/password stays in effect until a provider is enabled.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RabbitMQOptions">

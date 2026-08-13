@@ -492,7 +492,13 @@ namespace Milvaion.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<byte>("Provider")
+                        .HasColumnType("smallint");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Name", "IsDeleted", "DeletionDate")
+                        .IsUnique();
 
                     b.ToTable("Roles");
                 });
@@ -703,8 +709,19 @@ namespace Milvaion.Api.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ExternalSubject")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Issuer")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime?>("LastLoginDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("LastModificationDate")
                         .HasColumnType("timestamp with time zone");
@@ -737,6 +754,9 @@ namespace Milvaion.Api.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
 
+                    b.Property<byte>("Provider")
+                        .HasColumnType("smallint");
+
                     b.Property<string>("Surname")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -750,6 +770,9 @@ namespace Milvaion.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UserName", "IsDeleted", "DeletionDate")
+                        .IsUnique();
+
+                    b.HasIndex("Issuer", "ExternalSubject", "IsDeleted", "DeletionDate")
                         .IsUnique();
 
                     b.ToTable("Users");

@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -8,6 +9,7 @@ using Milvaion.Api.Controllers;
 using Milvaion.Api.Services;
 using Milvaion.Api.Utils;
 using Milvaion.Application.Utils.Extensions;
+using Milvaion.Domain.Enums;
 using Milvaion.Infrastructure.Logging;
 using Milvaion.Infrastructure.Utils.OpenApi;
 using Milvasoft.Components.OpenApi;
@@ -22,8 +24,10 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Debugging;
+using System.IdentityModel.Tokens.Jwt;
 using System.IO.Compression;
 using System.Reflection;
+using System.Security.Claims;
 
 namespace Milvaion.Api.AppStartup;
 
@@ -44,8 +48,19 @@ public static partial class StartupExtensions
 
         services.AddSingleton(identityBuilder.IdentityOptions);
 
+        var authOptions = configuration.GetSection("MilvaionConfig:Authentication").Get<Application.Utils.Models.Options.AuthenticationOptions>() ?? new Application.Utils.Models.Options.AuthenticationOptions();
+        var oidc = authOptions.Oidc ?? new OidcOptions();
+
+        // When OIDC is on, bare [Auth] endpoints authenticate through the same issuer-routing policy scheme as
+        // [Auth(permission)] does, so a Keycloak token is only ever handed to the OIDC scheme. Listing the local
+        // and OIDC schemes side by side here would make the local scheme try (and reject) the Keycloak token,
+        // and its OnAuthenticationFailed short-circuits the request with a 401 before the OIDC result is used.
+        var authenticationSchemes = oidc.Enabled
+            ? new List<string> { MultiBearerAuthenticationScheme, ApiKeyAuthenticationDefaults.AuthenticationScheme }
+            : [JwtBearerDefaults.AuthenticationScheme, ApiKeyAuthenticationDefaults.AuthenticationScheme];
+
         services.AddAuthorizationBuilder()
-                .SetDefaultPolicy(new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme, ApiKeyAuthenticationDefaults.AuthenticationScheme)
+                .SetDefaultPolicy(new AuthorizationPolicyBuilder([.. authenticationSchemes])
                                       .RequireAuthenticatedUser()
                                       .Build());
 
@@ -53,11 +68,16 @@ public static partial class StartupExtensions
         services.AddScoped<IApiKeyCacheInvalidator>(sp => sp.GetRequiredService<ApiKeyStore>());
         services.AddScoped<IApiKeyGenerator, ApiKeyGenerator>();
 
-        services.AddAuthentication(option =>
+        // With OIDC on, the default bearer handling is a policy scheme that routes each token to the local
+        // or the external scheme by its issuer, so a plain [Auth] endpoint accepts both. The api key scheme
+        // stays separate (it is selected explicitly by [ApiAuth] and keyed off the X-ApiKey header).
+        var defaultBearerScheme = oidc.Enabled ? MultiBearerAuthenticationScheme : JwtBearerDefaults.AuthenticationScheme;
+
+        var authenticationBuilder = services.AddAuthentication(option =>
         {
-            option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            option.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            option.DefaultAuthenticateScheme = defaultBearerScheme;
+            option.DefaultChallengeScheme = defaultBearerScheme;
+            option.DefaultScheme = defaultBearerScheme;
         })
         .AddJwtBearer(options =>
         {
@@ -109,8 +129,168 @@ public static partial class StartupExtensions
         })
         .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationDefaults.AuthenticationScheme, _ => { });
 
+        if (oidc.Enabled)
+        {
+            authenticationBuilder.AddOidcScheme(OidcAuthenticationScheme, oidc);
+
+            // Route each bearer token to the local or the external scheme by its issuer, so a plain [Auth]
+            // endpoint accepts both without every attribute naming a scheme.
+            authenticationBuilder.AddPolicyScheme(MultiBearerAuthenticationScheme, MultiBearerAuthenticationScheme, policyOptions =>
+            {
+                policyOptions.ForwardDefaultSelector = context => SelectBearerScheme(context, oidc);
+            });
+        }
+
         return services;
     }
+
+    /// <summary>
+    /// The scheme name for tokens issued by the external OpenID Connect provider, kept alongside the
+    /// local bearer scheme and the api key scheme.
+    /// </summary>
+    public const string OidcAuthenticationScheme = "Oidc";
+
+    /// <summary>
+    /// The default bearer scheme when OIDC is enabled: a policy scheme that forwards each token to the
+    /// local or the external scheme based on its issuer.
+    /// </summary>
+    public const string MultiBearerAuthenticationScheme = "MultiBearer";
+
+    /// <summary>
+    /// Picks the scheme for the incoming bearer token: the external scheme when the token's issuer is one
+    /// the OIDC provider is configured for, otherwise the local scheme. Non-bearer requests fall through to
+    /// the local scheme, which challenges as before.
+    /// </summary>
+    private static string SelectBearerScheme(HttpContext context, OidcOptions oidc)
+    {
+        var header = context.Request.Headers.Authorization.ToString();
+
+        if (header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var token = header["Bearer ".Length..].Trim();
+            var issuer = TryReadIssuer(token);
+
+            if (!string.IsNullOrEmpty(issuer) && IssuerBelongsToOidc(issuer, oidc))
+                return OidcAuthenticationScheme;
+        }
+
+        return JwtBearerDefaults.AuthenticationScheme;
+    }
+
+    private static string TryReadIssuer(string token)
+    {
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+
+            return handler.CanReadToken(token) ? handler.ReadJwtToken(token).Issuer : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IssuerBelongsToOidc(string issuer, OidcOptions oidc)
+    {
+        if (string.Equals(issuer, oidc.Authority, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var validIssuers = (oidc.ValidIssuers ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return validIssuers.Any(candidate => string.Equals(candidate, issuer, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Registers the external OIDC bearer scheme. Tokens are validated against the provider's metadata
+    /// and, on validation, the user is provisioned locally and the request principal is enriched with
+    /// the permission claims the authorization stack matches on. Identity comes from the provider;
+    /// permissions stay owned in Milvaion.
+    /// </summary>
+    private static AuthenticationBuilder AddOidcScheme(this AuthenticationBuilder builder, string scheme, OidcOptions oidc)
+        => builder.AddJwtBearer(scheme, options =>
+        {
+            options.Authority = oidc.Authority;
+
+            // Keep the raw JWT claim names (sub, preferred_username, roles, email, given_name, ...) instead of
+            // remapping them to the legacy WS-* URIs, so the provisioning below can read them by their standard
+            // names. Without this, FindFirst("sub") returns null because "sub" is remapped to nameidentifier.
+            options.MapInboundClaims = false;
+
+            // When the API reaches the provider on a different host than the browser (containerized API vs a
+            // browser on the host), discovery and the JWKS come from here instead of the browser-facing Authority.
+            if (!string.IsNullOrWhiteSpace(oidc.MetadataAddress))
+                options.MetadataAddress = oidc.MetadataAddress;
+
+            options.RequireHttpsMetadata = oidc.RequireHttpsMetadata;
+
+            if (!string.IsNullOrWhiteSpace(oidc.Audience))
+                options.Audience = oidc.Audience;
+
+            // The token issuer can differ from the discovery host in that split setup, so accept the configured list. Empty falls back to the issuer from the discovery document.
+            var validIssuers = (oidc.ValidIssuers ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                NameClaimType = oidc.NameClaim,
+                RoleClaimType = ClaimTypes.Role,
+                ValidateAudience = !string.IsNullOrWhiteSpace(oidc.Audience),
+                ValidateIssuer = true,
+                ValidIssuers = validIssuers.Length > 0 ? validIssuers : null
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                // Logged under our own category so it is not caught by the JwtBearerHandler log filter that
+                // suppresses "ProcessingMessageFailed". Surfaces the real reason (issuer, metadata, signature).
+                OnAuthenticationFailed = context =>
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("OidcAuthentication");
+                    logger.LogWarning(context.Exception, "OIDC bearer authentication failed.");
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = async context =>
+                {
+                    if (context.Principal?.Identity is not ClaimsIdentity identity)
+                        return;
+
+                    var principal = context.Principal;
+
+                    string First(string type) => principal.FindFirst(type)?.Value;
+
+                    var subject = First(oidc.SubjectClaim) ?? First("sub");
+
+                    if (string.IsNullOrWhiteSpace(subject))
+                        return;
+
+                    var roleNames = principal.FindAll(oidc.RolesClaim)
+                                             .Select(c => c.Value)
+                                             .Where(r => string.IsNullOrEmpty(oidc.RolePrefix) || r.StartsWith(oidc.RolePrefix, StringComparison.OrdinalIgnoreCase))
+                                             .ToList();
+
+                    var descriptor = new ExternalIdentityDescriptor
+                    {
+                        Provider = ExternalProvider.Oidc,
+                        Issuer = First("iss") ?? oidc.Authority,
+                        Subject = subject,
+                        UserName = First(oidc.NameClaim) ?? First("preferred_username") ?? subject,
+                        Email = First("email"),
+                        Name = First("given_name"),
+                        Surname = First("family_name"),
+                        RoleNames = roleNames
+                    };
+
+                    // Cache-first resolve, provisioning under a per-identity distributed lock on a miss, lives in
+                    // the service: most requests do no database work and the sign-in request burst resolves to a
+                    // single provision instead of racing inserts.
+                    var externalIdentityService = context.HttpContext.RequestServices.GetRequiredService<IExternalIdentityService>();
+
+                    var claims = await externalIdentityService.GetOrBuildClaimsAsync(descriptor, context.HttpContext.RequestAborted);
+
+                    identity.AddClaims(claims);
+                }
+            };
+        });
 
     /// <summary>
     /// Adds api versioning.
@@ -353,9 +533,9 @@ public static partial class StartupExtensions
 
         loggerConfig.Filter.ByExcluding(logEvent =>
             logEvent.Properties.TryGetValue("SourceContext", out var sourceContext)
-            && sourceContext.ToString().Contains("JwtBearerHandler")
+            //&& sourceContext.ToString().Contains("JwtBearerHandler")
             && logEvent.Properties.TryGetValue("EventId", out var eventId)
-            && eventId.ToString().Contains("ProcessingMessageFailed"));
+            /*&& eventId.ToString().Contains("ProcessingMessageFailed")*/);
 
         return loggerConfig;
     }

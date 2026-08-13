@@ -37,6 +37,12 @@ public class AccountDetailDto : MilvaionBaseDto<int>
     public List<NameIntNavigationDto> Roles { get; set; }
 
     /// <summary>
+    /// Where this account is managed. <see cref="ExternalProvider.Local"/> means Milvaion owns the
+    /// credentials; otherwise identity and password are owned by the external provider (OIDC/LDAP).
+    /// </summary>
+    public ExternalProvider Provider { get; set; }
+
+    /// <summary>
     /// Projection expression for mapping User entity to AccountDetailDto.
     /// </summary>
     [JsonIgnore]
@@ -48,6 +54,7 @@ public class AccountDetailDto : MilvaionBaseDto<int>
         Email = u.Email,
         Name = u.Name,
         Surname = u.Surname,
+        Provider = u.Provider,
         Roles = u.RoleRelations.Select(rr => new NameIntNavigationDto { Id = rr.Role.Id, Name = rr.Role.Name }).ToList()
     };
 }

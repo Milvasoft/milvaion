@@ -11,18 +11,30 @@ namespace Milvaion.Application.Features.Roles.UpdateRole;
 /// </summary>
 /// <param name="RoleRepository"></param>
 /// <param name="RolePermissionRelationRepository"></param>
+/// <param name="ExternalIdentityService"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateRole)]
 public record UpdateRoleCommandHandler(IMilvaionRepositoryBase<Role> RoleRepository,
-                                       IMilvaionRepositoryBase<RolePermissionRelation> RolePermissionRelationRepository) : IInterceptable, ICommandHandler<UpdateRoleCommand, int>
+                                       IMilvaionRepositoryBase<RolePermissionRelation> RolePermissionRelationRepository,
+                                       IExternalIdentityService ExternalIdentityService) : IInterceptable, ICommandHandler<UpdateRoleCommand, int>
 {
     private readonly IMilvaionRepositoryBase<Role> _roleRepository = RoleRepository;
     private readonly IMilvaionRepositoryBase<RolePermissionRelation> _rolePermissionRelationRepository = RolePermissionRelationRepository;
+    private readonly IExternalIdentityService _externalIdentityService = ExternalIdentityService;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateRoleCommand request, CancellationToken cancellationToken)
     {
+        // Externally owned roles mirror a provider group: the name is owned there. The UI always sends the name with isUpdated=true, so instead of rejecting we simply ignore the name change and let only the permission set be updated here.
+        if (request.Name.IsUpdated)
+        {
+            var existing = await _roleRepository.GetByIdAsync(request.Id, projection: r => new Role { Id = r.Id, Provider = r.Provider }, cancellationToken: cancellationToken);
+
+            if (existing is not null && existing.Provider != ExternalProvider.Local)
+                request.Name = default;
+        }
+
         var setPropertyBuilder = _roleRepository.GetUpdatablePropertiesBuilder(request);
 
         await _roleRepository.ExecuteUpdateAsync(request.Id, setPropertyBuilder, cancellationToken: cancellationToken);
@@ -37,6 +49,10 @@ public record UpdateRoleCommandHandler(IMilvaionRepositoryBase<Role> RoleReposit
 
             if (addedEntities?.Count > 0)
                 await _rolePermissionRelationRepository.BulkAddAsync(addedEntities, null, cancellationToken);
+
+            // The role's permission set changed, so any external user carrying this role has a stale cached
+            // claim set. Drop the external-identity cache so they pick up the new permissions immediately.
+            await _externalIdentityService.InvalidateAllAsync(cancellationToken);
         }
 
         return Response<int>.Success(request.Id);

@@ -6,6 +6,7 @@ import { BrandingProvider } from './contexts/BrandingContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login/Login'
+import AuthCallback from './pages/Auth/AuthCallback'
 
 /*
  * Pages are loaded on demand. Imported statically they all landed in one bundle,
@@ -78,6 +79,7 @@ function App() {
       <Router basename={basename}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
           <Route
             path="/*"

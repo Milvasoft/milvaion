@@ -47,6 +47,7 @@
 		<PackageReference Include="Serilog.Expressions" Version="5.1.0-dev-02309" />
 		<PackageReference Include="Serilog.Sinks.Postgresql.Alternative" Version="4.2.0" />
 		<PackageReference Include="StackExchange.Redis" Version="3.0.17" />
+		<PackageReference Include="System.DirectoryServices.Protocols" Version="10.0.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.21.0" />
 		<PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />

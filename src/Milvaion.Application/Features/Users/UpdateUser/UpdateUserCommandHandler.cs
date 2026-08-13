@@ -40,6 +40,18 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
     {
+        // Externally owned users: identity, password and role membership are owned by the provider. The UI sends those fields anyway, so instead of rejecting we ignore them here and apply only the Milvaion-owned fields (notification preferences).
+        var existing = await _userRepository.GetByIdAsync(request.Id, projection: u => new User { Id = u.Id, Provider = u.Provider }, cancellationToken: cancellationToken);
+
+        if (existing is not null && existing.Provider != ExternalProvider.Local)
+        {
+            request.Name = default;
+            request.Surname = default;
+            request.NewPassword = default;
+            request.RoleIdList = default;
+            request.Lockout = default;
+        }
+
         var setPropertyBuilder = _userRepository.GetUpdatablePropertiesBuilder(request);
 
         if (request.Lockout.IsUpdated)

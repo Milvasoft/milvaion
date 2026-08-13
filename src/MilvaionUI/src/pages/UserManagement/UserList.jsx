@@ -12,6 +12,51 @@ import TableActions, { ActionButton } from '../../components/TableActions'
 import { TableToolbar, TableSearch, TableFooter } from '../../components/TableParts'
 import './UserList.css'
 
+// Notification (AlertType) options for the multi-select, mirroring Milvaion.Domain.Enums.AlertType.
+// Values are the numeric enum members the API stores/accepts; "All" (0) means every alert type.
+const NOTIFICATION_OPTIONS = [
+  { value: 0, name: 'All' },
+  { value: 1, name: 'JobDispatcherMemoryUsageCritical' },
+  { value: 2, name: 'DatabaseConnectionFailed' },
+  { value: 3, name: 'ZombieOccurrenceDetected' },
+  { value: 4, name: 'JobAutoDisabled' },
+  { value: 5, name: 'QueueDepthCritical' },
+  { value: 6, name: 'WorkerDisconnected' },
+  { value: 7, name: 'RedisConnectionFailed' },
+  { value: 8, name: 'RabbitMQConnectionFailed' },
+  { value: 9, name: 'JobExecutionFailed' },
+  { value: 10, name: 'UnknownException' },
+  { value: 11, name: 'FailedOccurrenceReceived' },
+  { value: 12, name: 'ServiceDegraded' },
+  { value: 13, name: 'MemoryLeakDetected' },
+  { value: 14, name: 'ApiKeyExpiring' },
+  { value: 15, name: 'ApiKeyExpired' },
+  { value: 16, name: 'JobMisfired' }
+]
+
+const NOTIFICATION_NAME_TO_VALUE = Object.fromEntries(NOTIFICATION_OPTIONS.map(o => [o.name, o.value]))
+
+// The API may return these as numbers or as their enum names depending on serialization; normalize to numbers.
+const normalizeNotifications = (list) =>
+  (list || [])
+    .map(n => (typeof n === 'number' ? n : NOTIFICATION_NAME_TO_VALUE[n]))
+    .filter(n => n !== undefined && n !== null)
+
+// "JobExecutionFailed" -> "Job Execution Failed"
+const humanizeNotification = (name) =>
+  name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+
+// Maps the ExternalProvider enum (number or name) to a label and whether the record is externally managed.
+function providerMeta(p) {
+  const map = {
+    0: 'Local', Local: 'Local',
+    1: 'SSO (OIDC)', Oidc: 'SSO (OIDC)',
+    2: 'LDAP / Active Directory', Ldap: 'LDAP / Active Directory'
+  }
+  const label = map[p] ?? 'Local'
+  return { label, external: label !== 'Local' }
+}
+
 function UserList() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -128,7 +173,7 @@ function UserList() {
         password: '',
         confirmPassword: '',
         roleIdList: detail.roles?.map(r => r.id) || [],
-        allowedNotifications: detail.allowedNotifications || []
+        allowedNotifications: normalizeNotifications(detail.allowedNotifications)
       })
       setShowFormModal(true)
     } catch (err) {
@@ -232,6 +277,20 @@ function UserList() {
         : [...prev.roleIdList, roleId]
     }))
   }
+
+  const toggleNotification = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      allowedNotifications: prev.allowedNotifications.includes(value)
+        ? prev.allowedNotifications.filter(v => v !== value)
+        : [...prev.allowedNotifications, value]
+    }))
+  }
+
+  // Externally managed users (OIDC/LDAP): identity, password and roles are owned by the provider, so those
+  // inputs are locked here; only notification preferences remain editable.
+  const editUserProvider = providerMeta(editingUser?.provider)
+  const isExternalUser = !!editingUser && editUserProvider.external
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -340,6 +399,13 @@ function UserList() {
             <div className="form-modal-body">
               {formError && <div className="form-error"><Icon name="error" size={16} /><span>{formError}</span></div>}
 
+              {isExternalUser && (
+                <div className="form-error" style={{ background: 'transparent', color: 'var(--text-muted, #888)' }}>
+                  <Icon name="info" size={16} />
+                  <span>This user is managed by {editUserProvider.label}. Identity, password and roles are set there; only notification preferences are editable here.</span>
+                </div>
+              )}
+
               {!editingUser && (
                 <>
                   <div className="form-group">
@@ -377,6 +443,7 @@ function UserList() {
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="First name"
                     className="form-input"
+                    disabled={isExternalUser}
                   />
                 </div>
                 <div className="form-group">
@@ -388,6 +455,7 @@ function UserList() {
                     onChange={(e) => setFormData(prev => ({ ...prev, surname: e.target.value }))}
                     placeholder="Last name"
                     className="form-input"
+                    disabled={isExternalUser}
                   />
                 </div>
               </div>
@@ -401,6 +469,7 @@ function UserList() {
                   onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                   placeholder={editingUser ? 'Leave empty to keep current' : 'Enter password'}
                   className="form-input"
+                  disabled={isExternalUser}
                 />
               </div>
 
@@ -437,6 +506,7 @@ function UserList() {
                           type="checkbox"
                           checked={formData.roleIdList.includes(role.id)}
                           onChange={() => toggleRole(role.id)}
+                          disabled={isExternalUser}
                         />
                         <Icon name="shield" size={14} />
                         <span>{role.name}</span>
@@ -445,6 +515,35 @@ function UserList() {
                     {allRoles.length === 0 && <div className="no-roles">No roles available</div>}
                   </div>
                 )}
+              </div>
+
+              <div className="form-group">
+                <label>
+                  Notifications
+                  <span className="selected-count">({formData.allowedNotifications.length} selected)</span>
+                </label>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted, #888)', margin: '0 0 8px' }}>
+                  Alert types this user receives. Selecting “All” covers every type.
+                </p>
+
+                <div className="roles-list">
+                  {NOTIFICATION_OPTIONS.map(opt => {
+                    // When "All" is picked, the specific types are implied - show them checked and locked.
+                    const covered = opt.value !== 0 && formData.allowedNotifications.includes(0)
+                    return (
+                      <label key={opt.value} className="role-item">
+                        <input
+                          type="checkbox"
+                          checked={covered || formData.allowedNotifications.includes(opt.value)}
+                          disabled={covered}
+                          onChange={() => toggleNotification(opt.value)}
+                        />
+                        <Icon name="notifications" size={14} />
+                        <span>{humanizeNotification(opt.name)}</span>
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
 
               {editingUser?.auditInfo && (

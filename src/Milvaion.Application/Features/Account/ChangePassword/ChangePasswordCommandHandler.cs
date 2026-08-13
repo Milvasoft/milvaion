@@ -32,6 +32,11 @@ public record ChangePasswordCommandHandler(IMilvaionRepositoryBase<User> UserRep
         if (user == null || !_httpContextAccessor.IsCurrentUser(user.UserName))
             return Response<MilvaToken>.Error(null, MessageKey.Unauthorized);
 
+        // Externally authenticated users (OIDC/LDAP) have no local password hash: their password is owned by
+        // the identity provider. Reject here instead of letting the hasher throw on a null hash.
+        if (user.Provider != ExternalProvider.Local)
+            return Response<MilvaToken>.Error(null, MessageKey.ExternalIdentityManaged);
+
         if (!_milvaUserManager.CheckPassword(user, request.OldPassword))
             return Response<MilvaToken>.Error(null, MessageKey.WrongPassword);
 

@@ -11,6 +11,7 @@ public static class MessageKey
     public const string UserNotFound = "User.NotFound";
     public const string RoleNotFound = "Role.NotFound";
     public const string WrongPassword = "WrongPassword";
+    public const string ExternalIdentityManaged = nameof(ExternalIdentityManaged);
     public const string PossibleUIError = "PossibleUIError";
     public const string User = "Global.User";
     public const string Role = "Global.Role";

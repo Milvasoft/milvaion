@@ -28,7 +28,7 @@ public record CreateUserCommand : ICommand<int>
     public string Surname { get; set; }
 
     /// <summary>
-    /// Password of the user.    
+    /// Password of the user.
     /// </summary>
     public string Password { get; set; }
 

@@ -45,6 +45,11 @@ public class MilvaionConfig
     public ZombieOccurrenceDetectorOptions ZombieOccurrenceDetector { get; set; }
     public JobAutoDisableOptions JobAutoDisable { get; set; }
     public AlertingOptions Alerting { get; set; }
+
+    /// <summary>
+    /// External identity settings (OIDC and LDAP/AD). Off by default, so local username/password stays in effect until a provider is enabled.
+    /// </summary>
+    public AuthenticationOptions Authentication { get; set; } = new();
 }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

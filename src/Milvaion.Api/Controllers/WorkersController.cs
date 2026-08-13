@@ -6,7 +6,6 @@ using Milvaion.Application.Features.Workers.DeleteWorker;
 using Milvaion.Application.Features.Workers.GetWorkerDetail;
 using Milvaion.Application.Features.Workers.GetWorkerList;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

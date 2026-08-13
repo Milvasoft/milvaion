@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Milvaion.Application.Features.ContentManagement.Contents.GetContent;
 using Milvaion.Domain.Enums;
-using System.ComponentModel;
 
 namespace Milvaion.UnitTests.ComponentTests;
 
@@ -104,6 +103,29 @@ public class EnumTests
     {
         // Act
         var values = Enum.GetValues<ContentQueryType>();
+
+        // Assert
+        values.Should().HaveCount(3);
+    }
+
+    [Theory]
+    [InlineData(ExternalProvider.Local, 0)]
+    [InlineData(ExternalProvider.Oidc, 1)]
+    [InlineData(ExternalProvider.Ldap, 2)]
+    public void ExternalProvider_Value_ShouldMatch(ExternalProvider provider, byte expectedValue)
+    {
+        // Act
+        var value = (byte)provider;
+
+        // Assert
+        value.Should().Be(expectedValue);
+    }
+
+    [Fact]
+    public void ExternalProvider_ShouldHaveThreeValues()
+    {
+        // Act
+        var values = Enum.GetValues<ExternalProvider>();
 
         // Assert
         values.Should().HaveCount(3);

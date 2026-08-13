@@ -54,6 +54,9 @@ export default defineConfig(({ mode }) => {
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         globDirectory: 'dist',
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -97,8 +100,10 @@ export default defineConfig(({ mode }) => {
           }
         ]
       },
+      // Never register the service worker in dev: it would precache the shell on localhost:3000 and then
+      // serve it to any other app later run on that port until a hard refresh.
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: 'module'
       }
     })

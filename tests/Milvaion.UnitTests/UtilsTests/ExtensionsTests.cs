@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Http;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Extensions;
-using Milvaion.Domain.Enums;
 using Milvasoft.Identity.Abstract;
 using Moq;
 using System.Security.Claims;

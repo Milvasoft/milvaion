@@ -12,6 +12,17 @@ import TableActions, { ActionButton } from '../../components/TableActions'
 import { TableToolbar, TableSearch, TableFooter } from '../../components/TableParts'
 import './RoleList.css'
 
+// Maps the ExternalProvider enum (number or name) to a label and whether the role is externally managed.
+function providerMeta(p) {
+  const map = {
+    0: 'Local', Local: 'Local',
+    1: 'SSO (OIDC)', Oidc: 'SSO (OIDC)',
+    2: 'LDAP / Active Directory', Ldap: 'LDAP / Active Directory'
+  }
+  const label = map[p] ?? 'Local'
+  return { label, external: label !== 'Local' }
+}
+
 function RoleList() {
   const [roles, setRoles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -234,6 +245,11 @@ function RoleList() {
       group.permissions.some(p => p.name.toLowerCase().includes(search))
   })
 
+  // Externally managed roles (OIDC/LDAP) mirror a provider group: the name is owned there, so it is locked
+  // here; only the permission set is editable.
+  const roleProvider = providerMeta(editingRole?.provider)
+  const isExternalRole = !!editingRole && roleProvider.external
+
   const totalPages = Math.ceil(totalCount / pageSize)
 
   const handlePageChange = (newPage) => {
@@ -334,6 +350,13 @@ function RoleList() {
             <div className="form-modal-body">
               {formError && <div className="form-error"><Icon name="error" size={16} /><span>{formError}</span></div>}
 
+              {isExternalRole && (
+                <div className="form-error" style={{ background: 'transparent', color: 'var(--text-muted, #888)' }}>
+                  <Icon name="info" size={16} />
+                  <span>This role is managed by {roleProvider.label}. Its name mirrors the provider group; only its permissions are editable here.</span>
+                </div>
+              )}
+
               <div className="form-group">
                 <label htmlFor="roleName">Role Name *</label>
                 <input
@@ -343,6 +366,7 @@ function RoleList() {
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g. Editor, Viewer"
                   className="form-input"
+                  disabled={isExternalRole}
                 />
               </div>
 

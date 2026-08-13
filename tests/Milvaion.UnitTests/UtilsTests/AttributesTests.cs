@@ -1,18 +1,7 @@
 ﻿using FluentAssertions;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Routing;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.PermissionManager;
 using Milvaion.Domain.Enums;
-using Milvasoft.Core.Exceptions;
-using Milvasoft.Identity.Abstract;
-using Moq;
-using System.Net;
-using System.Security.Claims;
 
 namespace Milvaion.UnitTests.UtilsTests;
 

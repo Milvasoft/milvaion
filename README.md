@@ -153,8 +153,33 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 - **Email Worker** - Send emails via SMTP
 - **Maintenance Worker** - Milvaion self data warehouse cleanup and archival
 
+### Built-in workers
+
+Four workers run out of the box with no code to write: **HTTP** (call REST endpoints on a schedule), **SQL** (run queries), **Email** (send over SMTP) and **Maintenance** (Milvaion's own data cleanup and archival).
+
 ### External Scheduler Integration
 Milvaion also monitors jobs running in **Quartz.NET** and **Hangfire** without replacing them — see [Already Running Hangfire or Quartz.NET?](#already-running-hangfire-or-quartznet) above.
+
+### Single Sign-On (SSO)
+Beyond local username/password login, Milvaion can federate authentication to an external identity provider:
+
+- **OIDC (OpenID Connect)** — browser redirect SSO with providers such as Keycloak, Entra ID or Auth0.
+- **LDAP / Active Directory** — the standard login form, with the password verified by a directory bind.
+
+Both providers are **off by default** and enabled under `MilvaionConfig:Authentication`. The identity provider owns identity and group membership, while Milvaion owns authorization, you assign the permission set of each mirrored role inside Milvaion.
+
+```json
+{
+  "MilvaionConfig": {
+    "Authentication": {
+      "Oidc": { "Enabled": true, "Authority": "https://keycloak.example.com/realms/milvaion", "ClientId": "milvaion-spa" },
+      "Ldap": { "Enabled": false, "Host": "ldap.example.com", "Port": 636, "UseSsl": true, "BaseDn": "dc=corp,dc=example,dc=com" }
+    }
+  }
+}
+```
+
+📖 **[SSO setup guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/security)**
 
 ### MCP Server
 Point Claude Code, Cursor or GitHub Copilot at Milvaion and ask about your jobs in plain language:
@@ -225,7 +250,7 @@ curl -X POST http://localhost:5000/api/v1/jobs/job \
 
 ## Architecture
 
-Milvaion follows **Onion Architecture** principles with clear separation of concerns:
+Milvaion is organized in onion-architecture layers, Domain at the center, then Application, then Infrastructure and the API on the outside:
 
 ![Architecture](./docs/portaldocs/src/architecture.png)
 
@@ -480,15 +505,6 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 - **Validation**: FluentValidation
 - **Messaging**: RabbitMQ.Client
 
-### Design Patterns Used
-
-- CQRS (Command Query Responsibility Segregation)
-- Mediator Pattern
-- Repository Pattern
-- Factory Pattern
-- Outbox Pattern (for offline resilience)
-- Leader Election (for dispatcher)
-
 ---
 
 ## Contributing
@@ -578,5 +594,5 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/Milvasoft">Milvasoft</a>
+  Built and maintained by <a href="https://github.com/Milvasoft">Milvasoft</a>.
 </p>

@@ -18,7 +18,10 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
                                   IAccountManager AccountManager,
                                   IUIService UIService,
                                   IMilvaLocalizer MilvaLocalizer,
-                                  MilvaIdentityOptions IdentityOptions) : IInterceptable, ICommandHandler<LoginCommand, LoginResponseDto>
+                                  MilvaIdentityOptions IdentityOptions,
+                                  MilvaionConfig MilvaionConfig,
+                                  ILdapAuthenticator LdapAuthenticator,
+                                  IExternalIdentityService ExternalIdentityService) : IInterceptable, ICommandHandler<LoginCommand, LoginResponseDto>
 {
     private readonly IMilvaionRepositoryBase<User> _userRepository = UserRepository;
     private readonly IMilvaUserManager<User, int> _milvaUserManager = MilvaUserManager;
@@ -26,13 +29,25 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
     private readonly IUIService _uiService = UIService;
     private readonly IMilvaLocalizer _milvaLocalizer = MilvaLocalizer;
     private readonly MilvaIdentityOptions _identityOptions = IdentityOptions;
+    private readonly MilvaionConfig _milvaionConfig = MilvaionConfig;
+    private readonly ILdapAuthenticator _ldapAuthenticator = LdapAuthenticator;
+    private readonly IExternalIdentityService _externalIdentityService = ExternalIdentityService;
 
     /// <inheritdoc/>
     public async Task<Response<LoginResponseDto>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         var user = await _userRepository.GetFirstOrDefaultAsync(i => i.UserName == request.UserName, User.Projections.Login, cancellationToken: cancellationToken);
 
+        // Directory-backed users verify their password against LDAP, not the local hash. This also covers the first login, when no shadow record exists yet.
+        if (_milvaionConfig?.Authentication?.Ldap?.Enabled == true && (user is null || user.Provider == ExternalProvider.Ldap))
+            return await HandleLdapLoginAsync(request, cancellationToken);
+
         if (user == null)
+            return Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
+
+        // Externally authenticated users (OIDC/LDAP) have no local password hash. LDAP is handled above; any
+        // other external user must sign in through its provider, so reject rather than crashing the hasher.
+        if (user.Provider != ExternalProvider.Local)
             return Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
 
         var lockoutResponse = ValidateLockout(user);
@@ -133,5 +148,54 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
             await _userRepository.UpdateAsync(user, cancellationToken, i => i.AccessFailedCount, i => i.LockoutEnd);
 
         return response;
+    }
+
+    /// <summary>
+    /// Authenticates against LDAP/Active Directory, provisions or refreshes the shadow user and its
+    /// roles, then issues Milvaion's own token exactly as a local login would. The directory owns the
+    /// identity and group membership; the permissions of those roles are assigned in Milvaion.
+    /// </summary>
+    private async Task<Response<LoginResponseDto>> HandleLdapLoginAsync(LoginCommand request, CancellationToken cancellationToken)
+    {
+        var ldapResult = await _ldapAuthenticator.AuthenticateAsync(request.UserName, request.Password, cancellationToken);
+
+        if (!ldapResult.Success)
+            return Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
+
+        var descriptor = new ExternalIdentityDescriptor
+        {
+            Provider = ExternalProvider.Ldap,
+            Issuer = _milvaionConfig.Authentication.Ldap.Host,
+            Subject = ldapResult.Subject,
+            UserName = request.UserName,
+            Email = ldapResult.Email,
+            Name = ldapResult.Name,
+            Surname = ldapResult.Surname,
+            RoleNames = ldapResult.Groups
+        };
+
+        await _externalIdentityService.ResolveAndBuildClaimsAsync(descriptor, cancellationToken);
+
+        var user = await _userRepository.GetFirstOrDefaultAsync(u => u.Issuer == descriptor.Issuer && u.ExternalSubject == descriptor.Subject,
+                                                                User.Projections.Login,
+                                                                cancellationToken: cancellationToken);
+
+        if (user is null)
+            return Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
+
+        var tokenModel = await _accountManager.LoginAsync(user, request.DeviceId, cancellationToken);
+
+        var loginResponse = new LoginResponseDto
+        {
+            Id = user.Id,
+            Token = tokenModel
+        };
+
+        var permissions = user.RoleRelations.SelectMany(i => i.Role.RolePermissionRelations.Select(i => i.Permission));
+
+        loginResponse.AccessibleMenuItems = await _uiService.GetAccessibleMenuItemsAsync(permissions, cancellationToken);
+        loginResponse.PageInformations = await _uiService.GetPagesAccessibilityAsync(permissions.Select(p => p.FormatPermissionAndGroup()), cancellationToken);
+
+        return Response<LoginResponseDto>.Success(loginResponse);
     }
 }

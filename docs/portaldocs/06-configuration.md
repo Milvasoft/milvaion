@@ -325,6 +325,43 @@ environment:
 
 ---
 
+### Authentication Configuration (SSO)
+
+Milvaion can federate login to an external identity provider in addition to local username/password. Both providers live under `MilvaionConfig:Authentication` and are **off by default**; values are read at startup, so changing them requires a restart. See the [Security guide](./12-security.md) for the full setup and the identity-ownership model.
+
+```json
+{
+  "MilvaionConfig": {
+    "Authentication": {
+      "InactiveUserRetentionDays": 90,
+      "Oidc": {
+        "Enabled": false,
+        "Authority": "https://keycloak.example.com/realms/milvaion",
+        "ClientId": "milvaion-spa",
+        "RequireHttpsMetadata": true
+      },
+      "Ldap": {
+        "Enabled": false,
+        "Host": "ldap.example.com",
+        "Port": 636,
+        "UseSsl": true,
+        "BaseDn": "dc=corp,dc=example,dc=com"
+      }
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `Authentication:Oidc:Enabled` | `false` | Enables OpenID Connect (browser redirect SSO, e.g. Keycloak). |
+| `Authentication:Ldap:Enabled` | `false` | Enables LDAP/Active Directory login via the normal username/password form. |
+| `Authentication:InactiveUserRetentionDays` | `90` | Prunes external users who have not signed in for this many days. `0` disables pruning; local users are never touched. |
+
+> Identity (name, email, group membership) is owned by the provider; the **permission set** of each mirrored role is assigned inside Milvaion. Full field reference for OIDC and LDAP is in the [Security guide](./12-security.md#external-identity-providers-sso).
+
+---
+
 ## Worker Configuration
 
 ### Worker appsettings.json Structure

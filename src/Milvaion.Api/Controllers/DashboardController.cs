@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using Milvaion.Application.Dtos.DashboardDtos;
 using Milvaion.Application.Features.Dashboard.GetDashboard;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

@@ -366,3 +366,6 @@ FodyWeavers.xsd
 # Local environment variables
 .env
 .env.local
+/ad
+/keycloak
+/docker-compose.samba-ad.yml

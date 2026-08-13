@@ -405,6 +405,27 @@ cancellations.
 7. Claims extracted and available in controllers
 ```
 
+### External Identity Providers (SSO)
+
+In addition to local credentials, login can be federated to an external identity provider. Both providers are configured under `MilvaionConfig:Authentication` and are disabled by default:
+
+- **OIDC (OpenID Connect):** browser redirect SSO (e.g. Keycloak, Entra ID). The SPA performs the PKCE flow and the API validates the provider-issued token.
+- **LDAP / Active Directory:** the standard username/password form, but the password is verified by a directory bind instead of the local hash.
+
+```
+1. External user authenticates with the provider (OIDC redirect or LDAP bind)
+                    ↓
+2. IExternalIdentityService resolves a shadow User keyed by (Issuer, ExternalSubject)
+                    ↓
+3. Provider groups are mirrored into Milvaion Roles (identity owned by provider)
+                    ↓
+4. Claim set is built and cached in Redis with a versioned key + per-identity lock
+                    ↓
+5. A Milvaion JWT is issued; subsequent requests behave like local sessions
+```
+
+**Ownership model:** the provider owns identity (name, email, group membership); Milvaion owns authorization (the permission set assigned to each role). External users cannot change their password in Milvaion, and provider-owned fields are ignored on update. Inactive external users are pruned after `Authentication:InactiveUserRetentionDays` (default 90); local users are never touched. Public auth-provider flags are exposed anonymously via `/settings/public` so the SPA knows which login options to show.
+
 ### Authorization Model
 
 - **Role-based access control (RBAC)**

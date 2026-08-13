@@ -8,6 +8,18 @@ import { getApiErrorMessage } from '../../utils/errorUtils'
 import './Profile.css'
 import { SkeletonCard } from '../../components/Skeleton'
 
+// Maps the ExternalProvider enum (number or name, depending on serialization) to a label and whether the
+// account is externally managed. Unknown/undefined is treated as Local.
+function providerMeta(p) {
+  const map = {
+    0: 'Local', Local: 'Local',
+    1: 'SSO (OIDC)', Oidc: 'SSO (OIDC)',
+    2: 'LDAP / Active Directory', Ldap: 'LDAP / Active Directory'
+  }
+  const label = map[p] ?? 'Local'
+  return { label, external: label !== 'Local' }
+}
+
 function Profile() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -96,6 +108,7 @@ function Profile() {
   }
 
   const displayName = [profile?.name, profile?.surname].filter(Boolean).join(' ') || profile?.userName || '—'
+  const { label: providerLabel, external: isExternal } = providerMeta(profile?.provider)
 
   return (
     <div className="profile-page">
@@ -154,6 +167,10 @@ function Profile() {
                 <span className="info-label">Surname</span>
                 <span className="info-value">{profile?.surname || '—'}</span>
               </div>
+              <div className="info-item">
+                <span className="info-label">Managed by</span>
+                <span className="info-value">{providerLabel}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -164,6 +181,14 @@ function Profile() {
             <Icon name="lock" size={18} />
             <h2>Change Password</h2>
           </div>
+          {isExternal ? (
+            <div className="card-body">
+              <div className="form-error" style={{ background: 'transparent', color: 'var(--text-muted, #888)' }}>
+                <Icon name="info" size={16} />
+                <span>Your password is managed by your identity provider ({providerLabel}). Change it there.</span>
+              </div>
+            </div>
+          ) : (
           <div className="card-body">
             {passwordError && (
               <div className="form-error">
@@ -220,6 +245,7 @@ function Profile() {
               {passwordLoading ? 'Changing...' : 'Change Password'}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>

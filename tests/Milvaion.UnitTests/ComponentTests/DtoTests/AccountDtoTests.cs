@@ -5,7 +5,6 @@ using Milvaion.Application.Dtos.AccountDtos;
 using Milvaion.Application.Dtos.UIDtos.MenuItemDtos;
 using Milvaion.Application.Dtos.UIDtos.PageDtos;
 using Milvaion.Domain;
-using Milvaion.Domain.Enums;
 using Milvasoft.Identity.Concrete;
 using System.Linq.Expressions;
 
@@ -60,6 +59,7 @@ public class AccountDtoTests
             Email = u.Email,
             Name = u.Name,
             Surname = u.Surname,
+            Provider = u.Provider,
             Roles = u.RoleRelations.Select(rr => new NameIntNavigationDto { Id = rr.Role.Id, Name = rr.Role.Name }).ToList()
         };
 

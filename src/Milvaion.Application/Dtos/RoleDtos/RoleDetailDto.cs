@@ -27,6 +27,12 @@ public class RoleDetailDto : MilvaionBaseDto<int>
     public List<NameIntNavigationDto> Permissions { get; set; }
 
     /// <summary>
+    /// Where this role is managed. <see cref="ExternalProvider.Local"/> means Milvaion owns it; otherwise
+    /// the name mirrors an external provider group and only its permission set is editable here.
+    /// </summary>
+    public ExternalProvider Provider { get; set; }
+
+    /// <summary>
     /// Information about record audit.
     /// </summary>
     public AuditDto<int> AuditInfo { get; set; }
@@ -40,6 +46,7 @@ public class RoleDetailDto : MilvaionBaseDto<int>
     {
         Id = r.Id,
         Name = r.Name,
+        Provider = r.Provider,
         Permissions = r.RolePermissionRelations.Select(p => new NameIntNavigationDto
         {
             Id = p.PermissionId,

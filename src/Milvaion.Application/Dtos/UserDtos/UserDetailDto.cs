@@ -42,6 +42,13 @@ public class UserDetailDto : MilvaionBaseDto<int>
     public List<AlertType> AllowedNotifications { get; set; }
 
     /// <summary>
+    /// Where this user is managed. <see cref="ExternalProvider.Local"/> means Milvaion owns identity,
+    /// password and role membership; otherwise those are owned by the external provider (OIDC/LDAP) and
+    /// only Milvaion-owned fields (notification preferences) are editable here.
+    /// </summary>
+    public ExternalProvider Provider { get; set; }
+
+    /// <summary>
     /// Information about record audit.
     /// </summary>
     public AuditDto<int> AuditInfo { get; set; }
@@ -60,6 +67,7 @@ public class UserDetailDto : MilvaionBaseDto<int>
         Surname = u.Surname,
         Roles = u.RoleRelations.Select(rr => new NameIntNavigationDto { Id = rr.Role.Id, Name = rr.Role.Name }).ToList(),
         AllowedNotifications = u.AllowedNotifications,
+        Provider = u.Provider,
         AuditInfo = new AuditDto<int>(u)
     };
 }

@@ -345,6 +345,44 @@ public class AccountControllerTests(CustomWebApplicationFactory factory, ITestOu
         loginResult.StatusCode.Should().Be((int)HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task LoginAsync_WithExternallyManagedUser_ShouldNotLogin()
+    {
+        // Arrange
+        var request = new LoginCommand
+        {
+            UserName = "externaluser",
+            Password = "string",
+            DeviceId = "device-id"
+        };
+
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+
+        // An OIDC/LDAP user has no usable local password even if a hash is present: local login must be rejected.
+        var user = new User
+        {
+            UserName = "externaluser",
+            PasswordHash = "AQAAAAEAACcQAAAAEIMgDN79W03UXM/6VMhU4ua5i6DRRmS/kj77Jdfi1vjxSUnugS7ZF1CszYSLuhKvpw==",
+            Provider = ExternalProvider.Oidc,
+            Issuer = "https://idp.example.com/realms/milvaion",
+            ExternalSubject = "external-subject"
+        };
+
+        await dbContext.AddAsync(user);
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var httpResponse = await _factory.CreateClient().PostAsJsonAsync($"{GlobalConstant.RoutePrefix}/v1.0/account/login", request);
+        var loginResult = await httpResponse.Content.ReadFromJsonAsync<Response<LoginResponseDto>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        loginResult.Should().NotBeNull();
+        loginResult.Data.Should().BeNull();
+        loginResult.IsSuccess.Should().BeFalse();
+        loginResult.StatusCode.Should().Be((int)HttpStatusCode.BadRequest);
+    }
+
     #endregion
 
     #region AccountDetailsAsync
@@ -369,6 +407,27 @@ public class AccountControllerTests(CustomWebApplicationFactory factory, ITestOu
         loginResult.IsCachedData.Should().BeFalse();
         loginResult.Metadatas.Should().BeEmpty();
         loginResult.StatusCode.Should().Be((int)HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task AccountDetailsAsync_WithoutUserId_ShouldResolveAccountFromToken()
+    {
+        // Arrange
+        var user = await SeedRootUserAndSuperAdminRoleAsync();
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act - SSO/OIDC users have no local user id to send; the account must be resolved from the authenticated identity.
+        var httpResponse = await client.GetAsync($"{GlobalConstant.RoutePrefix}/v1.0/account/detail");
+        var detailResult = await httpResponse.Content.ReadFromJsonAsync<Response<AccountDetailDto>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        detailResult.Should().NotBeNull();
+        detailResult.Data.Should().NotBeNull();
+        detailResult.Data.Id.Should().Be(user.Id);
+        detailResult.Data.UserName.Should().Be(user.UserName);
+        detailResult.IsSuccess.Should().BeTrue();
+        detailResult.StatusCode.Should().Be((int)HttpStatusCode.OK);
     }
 
     #endregion

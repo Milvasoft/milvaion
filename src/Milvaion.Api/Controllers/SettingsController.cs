@@ -7,7 +7,6 @@ using Milvaion.Application.Features.Settings.GetPublicSettings;
 using Milvaion.Application.Features.Settings.GetSettings;
 using Milvaion.Application.Features.Settings.UpdateSettings;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

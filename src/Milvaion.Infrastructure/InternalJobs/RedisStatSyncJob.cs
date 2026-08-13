@@ -30,7 +30,10 @@ public class RedisStatSyncJob(IScheduleConfig scheduleConfig, IServiceScopeFacto
 
             await redisStatsService.SyncCountersFromDatabaseAsync(context, cancellationToken);
 
-            logger.Information(LogTemplate.JobExecuted, nameof(RedisStatSyncJob));
+            // This job has no "affected rows" count, so it can't use LogTemplate.JobExecuted (which has a
+            // {RowCount} hole). Passing that 2-placeholder template with a single argument threw an
+            // IndexOutOfRangeException inside the logger and the event was dropped. Use a matching 1-hole message.
+            logger.Information("{JobName} executed successfully.", nameof(RedisStatSyncJob));
         }
         catch (Exception ex)
         {

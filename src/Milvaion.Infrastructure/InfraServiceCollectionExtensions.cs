@@ -59,11 +59,14 @@ public static class InfraServiceCollectionExtensions
         services.AddScoped<IDeveloperService, DeveloperService>();
         services.AddScoped<IExportService, ExportService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IExternalIdentityService, ExternalIdentityService>();
+        services.AddScoped<ILdapAuthenticator, LdapAuthenticator>();
         services.AddSingleton<Services.Settings.SettingsProvider>();
         services.AddSingleton<ISettingsProvider>(sp => sp.GetRequiredService<Services.Settings.SettingsProvider>());
         services.AddHostedService(sp => sp.GetRequiredService<Services.Settings.SettingsProvider>());
         services.AddHostedService<ApiKeyExpiryMonitorService>();
         services.AddHostedService<JobMisfireMonitorService>();
+        services.AddHostedService<InactiveExternalUserCleanupService>();
 
         services.AddTransient(typeof(Lazy<>), typeof(MilvaionLazy<>));
 

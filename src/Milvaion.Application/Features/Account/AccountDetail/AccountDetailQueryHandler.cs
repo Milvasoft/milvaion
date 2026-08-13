@@ -19,7 +19,23 @@ public class AccountDetailQueryHandler(IMilvaionRepositoryBase<User> userReposit
     /// <inheritdoc/>
     public async Task<Response<AccountDetailDto>> Handle(AccountDetailQuery request, CancellationToken cancellationToken)
     {
-        var user = await _userRepository.GetByIdAsync(request.UserId, projection: AccountDetailDto.Projection, cancellationToken: cancellationToken);
+        // This endpoint only ever returns the caller's own account. SSO/OIDC users never hit /account/login,
+        // so the browser has no local user id to send: when it is omitted, resolve the account from the authenticated identity instead of the query.
+        AccountDetailDto user;
+
+        if (request.UserId > 0)
+        {
+            user = await _userRepository.GetByIdAsync(request.UserId, projection: AccountDetailDto.Projection, cancellationToken: cancellationToken);
+        }
+        else
+        {
+            var currentUserName = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+
+            if (string.IsNullOrWhiteSpace(currentUserName))
+                return Response<AccountDetailDto>.Error(default, MessageKey.Unauthorized);
+
+            user = await _userRepository.GetFirstOrDefaultAsync(u => u.UserName == currentUserName, projection: AccountDetailDto.Projection, cancellationToken: cancellationToken);
+        }
 
         if (user == null)
             return Response<AccountDetailDto>.Success(default, MessageKey.UserNotFound, MessageType.Warning);

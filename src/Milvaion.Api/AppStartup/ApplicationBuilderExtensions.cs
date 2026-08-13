@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Localization;
 using Milvaion.Application.Utils.Extensions;
-using Milvaion.Domain.Enums;
 using Milvasoft.Core.MultiLanguage.Manager;
 using Milvasoft.Identity.Concrete.Options;
 using Milvasoft.Identity.TokenProvider.AuthToken;

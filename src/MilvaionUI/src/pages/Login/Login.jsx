@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../../services/authService'
+import settingsService from '../../services/settingsService'
+import { createOidcManager } from '../../services/oidcClient'
 import Icon from '../../components/Icon'
 import { useBranding } from '../../contexts/BrandingContext'
 import './Login.css'
@@ -15,6 +17,7 @@ function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [oidc, setOidc] = useState(null)
 
   // Redirect authenticated users away from login page
   useEffect(() => {
@@ -22,6 +25,22 @@ function Login() {
       navigate('/dashboard', { replace: true })
     }
   }, [navigate])
+
+  // Load SSO availability so the login page can offer a redirect sign-in.
+  useEffect(() => {
+    let active = true
+    settingsService.getPublicSettings()
+      .then(settings => { if (active) setOidc(settings?.oidc || null) })
+      .catch(() => { /* SSO simply stays hidden when this fails */ })
+    return () => { active = false }
+  }, [])
+
+  const handleSsoLogin = async () => {
+    const manager = createOidcManager(oidc)
+    if (manager) {
+      await manager.signinRedirect()
+    }
+  }
 
   const handleChange = useCallback((e) => {
     setFormData(prev => ({
@@ -165,6 +184,16 @@ function Login() {
                 )}
               </button>
             </form>
+
+            {oidc?.enabled && (
+              <div className="login-sso">
+                <div className="login-divider"><span>or</span></div>
+                <button type="button" className="login-sso-button" onClick={handleSsoLogin}>
+                  <Icon name="shield" size={18} />
+                  Sign in with SSO
+                </button>
+              </div>
+            )}
 
             <div className="login-footer">
               <p>Powered by Milvasoft</p>

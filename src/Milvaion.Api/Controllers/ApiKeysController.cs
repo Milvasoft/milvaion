@@ -9,7 +9,6 @@ using Milvaion.Application.Features.ApiKeys.GetApiKeyList;
 using Milvaion.Application.Features.ApiKeys.RevokeApiKey;
 using Milvaion.Application.Features.ApiKeys.UpdateApiKey;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

@@ -6,7 +6,6 @@ using Milvaion.Application.Dtos.ConfigurationDtos;
 using Milvaion.Application.Features.Configuration.GetSystemConfiguration;
 using Milvaion.Application.Features.Configuration.GetSystemResourceUsage;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

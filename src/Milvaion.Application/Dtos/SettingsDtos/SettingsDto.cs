@@ -1,6 +1,4 @@
 using Milvaion.Application.Dtos.ConfigurationDtos;
-using Milvaion.Domain.Enums;
-using Milvaion.Domain.JsonModels;
 
 namespace Milvaion.Application.Dtos.SettingsDtos;
 

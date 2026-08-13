@@ -7,6 +7,7 @@ using Milvaion.Application.Features.Roles.GetRoleList;
 using Milvaion.Application.Features.Roles.UpdateRole;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Domain;
+using Milvaion.Domain.Enums;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Components.Rest.MilvaResponse;
@@ -214,6 +215,36 @@ public class RolesControllerTests(CustomWebApplicationFactory factory, ITestOutp
     }
 
     [Fact]
+    public async Task UpdateRoleAsync_WithExternallyManagedRole_ShouldIgnoreNameChange()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var newRole = await SeedSingleRoleAsync("ExternalGroup", ExternalProvider.Oidc);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateRoleCommand
+        {
+            Id = newRole.Id,
+            Name = new UpdateProperty<string>("RenamedExternalGroup")
+        };
+
+        // Act - the role name mirrors the provider group and is owned there; the rename must be ignored.
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/role", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<int>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+
+        // Verify the name was not changed in the database
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var updatedRole = await dbContext.Roles.FirstOrDefaultAsync(r => r.Id == newRole.Id);
+        updatedRole.Should().NotBeNull();
+        updatedRole.Name.Should().Be("ExternalGroup");
+        updatedRole.Provider.Should().Be(ExternalProvider.Oidc);
+    }
+
+    [Fact]
     public async Task UpdateRoleAsync_WithInvalidId_ShouldReturnError()
     {
         // Arrange
@@ -301,13 +332,14 @@ public class RolesControllerTests(CustomWebApplicationFactory factory, ITestOutp
         await dbContext.SaveChangesAsync();
     }
 
-    private async Task<Role> SeedSingleRoleAsync(string name)
+    private async Task<Role> SeedSingleRoleAsync(string name, ExternalProvider provider = ExternalProvider.Local)
     {
         var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
 
         var role = new Role
         {
             Name = name,
+            Provider = provider,
             CreationDate = DateTime.UtcNow,
             CreatorUserName = GlobalConstant.SystemUsername
         };

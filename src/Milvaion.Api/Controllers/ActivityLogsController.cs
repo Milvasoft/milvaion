@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using Milvaion.Application.Dtos.ActivityLogDtos;
 using Milvaion.Application.Features.ActivityLogs.GetActivityLogList;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

@@ -8,7 +8,6 @@ using Milvaion.Application.Features.Roles.GetRoleDetail;
 using Milvaion.Application.Features.Roles.GetRoleList;
 using Milvaion.Application.Features.Roles.UpdateRole;
 using Milvaion.Application.Utils.Attributes;
-using Milvaion.Domain.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 
 namespace Milvaion.Api.Controllers;

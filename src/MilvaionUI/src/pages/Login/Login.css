@@ -336,3 +336,50 @@
     padding: 2rem;
   }
 }
+
+/* SSO / external identity */
+.login-sso {
+  margin-top: 18px;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 12px;
+  margin: 8px 0 14px;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color, #e2e8f0);
+}
+
+.login-divider span {
+  padding: 0 12px;
+}
+
+.login-sso-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary, #0f172a);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.login-sso-button:hover {
+  background: var(--hover-bg, #f1f5f9);
+  border-color: var(--primary-color, #10b981);
+}

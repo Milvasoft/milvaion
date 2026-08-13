@@ -71,6 +71,121 @@ Milvaion handles token states with specific HTTP status codes:
 
 ---
 
+## External Identity Providers (SSO)
+
+In addition to local username/password login, Milvaion can federate authentication to an external identity provider. Two providers are supported and both are **off by default**, so the application keeps its local login behavior until one is enabled:
+
+- **OIDC (OpenID Connect)** — browser redirect single sign-on (for example Keycloak, Entra ID, Auth0).
+- **LDAP / Active Directory** — the normal username/password form, with the password verified by a directory bind instead of the local hash.
+
+Regardless of the provider, **identity is owned by the provider while permissions stay owned by Milvaion**. On each sign-in Milvaion keeps a *shadow* user record and mirrors the provider's groups as roles; an administrator then assigns the permission set of those roles inside Milvaion.
+
+Authentication is configured under `MilvaionConfig:Authentication`. These values are read at startup, so **changing them requires a restart**.
+
+### OIDC Configuration
+
+```json
+{
+  "MilvaionConfig": {
+    "Authentication": {
+      "Oidc": {
+        "Enabled": true,
+        "Authority": "https://keycloak.example.com/realms/milvaion",
+        "MetadataAddress": "",
+        "ValidIssuers": "",
+        "Audience": "milvaion-spa",
+        "ClientId": "milvaion-spa",
+        "ClientSecret": "",
+        "RequireHttpsMetadata": true,
+        "NameClaim": "preferred_username",
+        "SubjectClaim": "sub",
+        "RolesClaim": "roles",
+        "RolePrefix": ""
+      }
+    }
+  }
+}
+```
+
+| Setting | Description |
+|---------|-------------|
+| `Enabled` | Turns OIDC on. When true the login page shows an SSO button. |
+| `Authority` | Realm/issuer URL as the browser addresses it. Handed to the SPA and, unless `MetadataAddress` overrides it, used by the API for discovery. |
+| `MetadataAddress` | Optional discovery document URL for when the API reaches the provider on a different host than the browser (e.g. a containerized API using `host.docker.internal`). |
+| `ValidIssuers` | Optional comma-separated list of issuer values to accept when browser and API reach the provider on different hosts. |
+| `Audience` | Expected token audience (usually the client id). Empty disables audience validation. |
+| `ClientId` | Public client id the SPA uses for the redirect (PKCE) flow. |
+| `ClientSecret` | Optional secret for a confidential client. Not required to validate tokens. |
+| `RequireHttpsMetadata` | Rejects non-HTTPS metadata/authority. Keep `true` outside local development. |
+| `NameClaim` / `SubjectClaim` / `RolesClaim` | Claims used for the display name, the stable per-user identifier, and the user's roles/groups. |
+| `RolePrefix` | Optional prefix filter: only roles starting with this value are provisioned. Empty takes them all. |
+
+> ⚠️ **Important:** Never commit `ClientSecret` to version control. Use environment variables or a secret store.
+
+### LDAP / Active Directory Configuration
+
+```json
+{
+  "MilvaionConfig": {
+    "Authentication": {
+      "Ldap": {
+        "Enabled": true,
+        "Host": "ldap.example.com",
+        "Port": 636,
+        "UseSsl": true,
+        "BaseDn": "dc=corp,dc=example,dc=com",
+        "BindDn": "svc-milvaion@corp.example.com",
+        "BindPassword": "",
+        "UserDnFormat": "{0}@corp.example.com",
+        "UserSearchFilter": "(sAMAccountName={0})",
+        "GroupMemberAttribute": "memberOf",
+        "RolePrefix": "milvaion"
+      }
+    }
+  }
+}
+```
+
+| Setting | Description |
+|---------|-------------|
+| `Enabled` | Turns directory login on. LDAP users sign in through the normal username/password form. |
+| `Host` / `Port` | Directory server address. |
+| `UseSsl` | Use LDAPS (typically port 636). **Credentials must never cross an unencrypted connection in production.** |
+| `BaseDn` | Search base for user and group lookups. |
+| `BindDn` / `BindPassword` | Optional service account used to look up the user entry and groups. Leave empty to bind directly as the user. |
+| `UserDnFormat` | Template forming the bind DN from the username, e.g. `{0}@corp.example.com`. `{0}` is the submitted username. |
+| `UserSearchFilter` | Filter to locate the user entry for group resolution. |
+| `GroupMemberAttribute` | Attribute listing group memberships. |
+| `RolePrefix` | Optional prefix filter for groups mapped into Milvaion roles. |
+
+> ⚠️ **Important:** Always enable `UseSsl` in production so credentials are never sent over an unencrypted connection. Store `BindPassword` in an environment variable, never in source control.
+
+### Inactive External User Cleanup
+
+Externally provisioned users who have not signed in for `InactiveUserRetentionDays` (default `90`) are pruned automatically; local users are never touched. Set the value to `0` to disable pruning.
+
+```json
+{
+  "MilvaionConfig": {
+    "Authentication": {
+      "InactiveUserRetentionDays": 90
+    }
+  }
+}
+```
+
+### Managing External Users and Roles
+
+Because identity is owned by the provider, some fields are read-only in Milvaion for external records:
+
+- **External users** — name, email, username, password and role membership are owned by the provider. Only Milvaion-owned fields (notification preferences) are editable; changes to the provider-owned fields are ignored.
+- **External roles** — the name mirrors the provider group and cannot be renamed here, but the **permission set is assigned in Milvaion**.
+- **Change password** is rejected for external users: their password lives with the identity provider.
+
+Changing what a role grants (its permission set) or deleting a role takes effect for external users immediately, without waiting for their session to expire.
+
+---
+
 ## Password Security
 
 ### Password Policy Configuration

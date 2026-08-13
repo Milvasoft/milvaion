@@ -511,12 +511,14 @@ public class EntityTests
         var role = new Role
         {
             Name = name,
+            Provider = ExternalProvider.Oidc,
             UserRoleRelations = userRoleRelations,
             RolePermissionRelations = rolePermissionRelations
         };
 
         // Assert
         role.Name.Should().Be(name);
+        role.Provider.Should().Be(ExternalProvider.Oidc);
         role.UserRoleRelations.Should().BeEquivalentTo(userRoleRelations);
         role.RolePermissionRelations.Should().BeEquivalentTo(rolePermissionRelations);
     }
@@ -602,6 +604,10 @@ public class EntityTests
             TwoFactorEnabled = twoFactorEnabled,
             RoleRelations = roleRelations,
             IsDeleted = isDeleted,
+            Provider = ExternalProvider.Ldap,
+            ExternalSubject = "external-subject",
+            Issuer = "ldap.example.com",
+            LastLoginDate = creationDate,
         };
 
         // Assert
@@ -629,6 +635,10 @@ public class EntityTests
         user.TwoFactorEnabled.Should().Be(twoFactorEnabled);
         user.RoleRelations.Should().BeEquivalentTo(roleRelations);
         user.IsDeleted.Should().Be(isDeleted);
+        user.Provider.Should().Be(ExternalProvider.Ldap);
+        user.ExternalSubject.Should().Be("external-subject");
+        user.Issuer.Should().Be("ldap.example.com");
+        user.LastLoginDate.Should().Be(creationDate);
     }
 
     [Fact]
@@ -735,6 +745,7 @@ public class EntityTests
         {
             Id = u.Id,
             UserName = u.UserName,
+            Provider = u.Provider,
             PasswordHash = u.PasswordHash,
             AccessFailedCount = u.AccessFailedCount,
             LockoutEnabled = u.LockoutEnabled,
@@ -838,6 +849,7 @@ public class EntityTests
             Id = u.Id,
             UserName = u.UserName,
             Email = u.Email,
+            Provider = u.Provider,
             PasswordHash = u.PasswordHash,
             Sessions = u.Sessions.Select(s => new UserSession
             {

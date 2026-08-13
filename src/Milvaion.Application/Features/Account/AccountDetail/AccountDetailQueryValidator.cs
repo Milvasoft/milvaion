@@ -11,8 +11,10 @@ public sealed class AccountDetailQueryValidator : AbstractValidator<AccountDetai
     ///<inheritdoc cref="AccountDetailQueryValidator"/>
     public AccountDetailQueryValidator(IMilvaLocalizer localizer)
     {
+        // 0 (or omitted) is allowed: it means "the current user", resolved from the token. SSO users have no
+        // local user id to send. A positive value must still be a real id.
         RuleFor(query => query.UserId)
-            .GreaterThan(0)
+            .GreaterThanOrEqualTo(0)
             .WithMessage(localizer[MessageKey.PleaseSendCorrect, localizer[MessageKey.User]]);
     }
 }

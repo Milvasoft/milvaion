@@ -1,11 +1,10 @@
-using System.ComponentModel;
-using System.Linq;
 using MediatR;
 using Milvaion.Application.Features.Settings.GetSettings;
 using Milvaion.Application.Features.Settings.UpdateSettings;
 using Milvaion.Domain.Enums;
 using Milvaion.Domain.JsonModels;
 using ModelContextProtocol.Server;
+using System.ComponentModel;
 
 namespace Milvaion.Api.Mcp;
 

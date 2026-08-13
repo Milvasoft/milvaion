@@ -46,6 +46,7 @@ public class RoleDtoTests
         {
             Id = r.Id,
             Name = r.Name,
+            Provider = r.Provider,
             Permissions = r.RolePermissionRelations.Select(p => new NameIntNavigationDto
             {
                 Id = p.PermissionId,
