@@ -35,6 +35,7 @@ const JobDetail = lazy(() => import('./pages/Jobs/JobDetail'))
 const JobForm = lazy(() => import('./pages/Jobs/JobForm'))
 const JobHealthScoreReport = lazy(() => import('./pages/Reports/JobHealthScoreReport'))
 const JobList = lazy(() => import('./pages/Jobs/JobList'))
+const LogList = lazy(() => import('./pages/Logs/LogList'))
 const OccurrenceDetail = lazy(() => import('./pages/Occurrences/OccurrenceDetail'))
 const PercentileDurationsReport = lazy(() => import('./pages/Reports/PercentileDurationsReport'))
 const Profile = lazy(() => import('./pages/Profile/Profile'))
@@ -96,6 +97,7 @@ function App() {
                       <Route path="/jobs/:id/edit" element={<JobForm />} />
                       <Route path="/occurrences/:id" element={<OccurrenceDetail />} />
                       <Route path="/executions" element={<ExecutionList />} />
+                      <Route path="/logs" element={<LogList />} />
                       <Route path="/upcoming" element={<UpcomingExecutions />} />
                       <Route path="/workers" element={<WorkerList />} />
                       <Route path="/tags" element={<Tags />} />

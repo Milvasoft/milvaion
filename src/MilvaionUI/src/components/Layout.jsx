@@ -179,6 +179,12 @@ const { title: brandingTitle } = useBranding()
               {!isSidebarCollapsed && <span>Failed Executions</span>}
             </Link>
           </li>
+          <li className={isActive('/logs') ? 'active' : ''}>
+            <Link to="/logs" title="Logs">
+              <Icon name="terminal" size={20} />
+              {!isSidebarCollapsed && <span>Logs</span>}
+            </Link>
+          </li>
           <li className={isActive('/tags') ? 'active' : ''}>
             <Link to="/tags" title="Tags">
               <Icon name="label" size={20} />
