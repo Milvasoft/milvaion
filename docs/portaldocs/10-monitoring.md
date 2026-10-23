@@ -164,8 +164,10 @@ builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);
 builder.Services.AddFileHealthCheck(builder.Configuration);
 
 var host = builder.Build();
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 ```
+
+`RunMilvaionWorkerAsync()` returns exit code `1` when the worker cannot start (e.g. RabbitMQ or Redis is not reachable within `StartupConnectionTimeoutSeconds`), so the process exits and the container restart policy can restart it. Stale health files from a previous run are removed when the worker starts, so a worker that never finished starting is never reported live.
 
 **Kubernetes probes:**
 
@@ -192,7 +194,8 @@ spec:
 ```yaml
 worker:
   healthcheck:
-    test: ["CMD", "test", "-f", "/tmp/live"]
+    # The live file is rewritten every IntervalSeconds; require it to be fresh, not just present.
+    test: ["CMD-SHELL", "[ -n \"$(find /tmp/live -mmin -2)\" ]"]
     interval: 30s
     timeout: 5s
     retries: 3

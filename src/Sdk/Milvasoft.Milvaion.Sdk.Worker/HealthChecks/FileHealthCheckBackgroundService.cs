@@ -11,13 +11,29 @@ namespace Milvasoft.Milvaion.Sdk.Worker.HealthChecks;
 /// Background service that performs periodic health checks using <see cref="HealthCheckService"/> and writes status to file.
 /// Optimized for minimal performance impact on job execution.
 /// </summary>
-public sealed class FileHealthCheckBackgroundService(HealthCheckService healthCheckService, WorkerOptions options, ILoggerFactory loggerFactory) : BackgroundService
+public sealed class FileHealthCheckBackgroundService : BackgroundService
 {
-    private readonly HealthCheckService _healthCheckService = healthCheckService;
-    private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<FileHealthCheckBackgroundService>();
-    private readonly string _liveFilePath = options.HealthCheck.LiveFilePath;
-    private readonly string _readyFilePath = options.HealthCheck.ReadyFilePath;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(options.HealthCheck.IntervalSeconds);
+    private readonly HealthCheckService _healthCheckService;
+    private readonly IMilvaLogger _logger;
+    private readonly string _liveFilePath;
+    private readonly string _readyFilePath;
+    private readonly TimeSpan _checkInterval;
+
+    /// <summary>
+    /// Creates the service and removes health files left over from a previous run of the process.
+    /// Hosted services are constructed before any of them starts, so a worker whose startup fails
+    /// (e.g. RabbitMQ unreachable) never reports a stale "live"/"ready" status.
+    /// </summary>
+    public FileHealthCheckBackgroundService(HealthCheckService healthCheckService, WorkerOptions options, ILoggerFactory loggerFactory)
+    {
+        _healthCheckService = healthCheckService;
+        _logger = loggerFactory.CreateMilvaLogger<FileHealthCheckBackgroundService>();
+        _liveFilePath = options.HealthCheck.LiveFilePath;
+        _readyFilePath = options.HealthCheck.ReadyFilePath;
+        _checkInterval = TimeSpan.FromSeconds(options.HealthCheck.IntervalSeconds);
+
+        CleanupHealthFile();
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

@@ -42,4 +42,4 @@ builder.Services.AddFileHealthCheck(builder.Configuration);
 // Build and run
 var host = builder.Build();
 
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();

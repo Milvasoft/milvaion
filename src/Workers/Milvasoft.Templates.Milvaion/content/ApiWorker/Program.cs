@@ -44,11 +44,12 @@ try
 
     app.UseHealthCheckEndpoints(builder.Configuration);
 
-    await app.RunAsync();
+    return await app.RunMilvaionWorkerAsync();
 }
 catch (Exception ex)
 {
     Console.WriteLine($"Fatal error: {ex.Message}");
-    throw;
+
+    return 1;
 }
 

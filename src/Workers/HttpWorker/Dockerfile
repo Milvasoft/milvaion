@@ -50,9 +50,11 @@ RUN chown -R milvaion:milvaion /app
 # Switch to non-root user
 USER milvaion
 
-# Health check (optional but recommended)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD pgrep -f "dotnet.*HttpWorker" > /dev/null || exit 1
+# Health check: the SDK's FileHealthCheckBackgroundService rewrites Worker:HealthCheck:LiveFilePath
+# (default /tmp/live) every IntervalSeconds while RabbitMQ/Redis are reachable. A process that is
+# alive but never finished starting (or lost its connections) does not refresh it and is reported unhealthy.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD [ -n "$(find /tmp/live -mmin -2 2>/dev/null)" ] || exit 1
 
 # Entry point
 ENTRYPOINT ["dotnet", "HttpWorker.dll"]

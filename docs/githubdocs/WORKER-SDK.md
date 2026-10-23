@@ -170,7 +170,7 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);
 
 var host = builder.Build();
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 ```
 
 ### 4. Run the Worker

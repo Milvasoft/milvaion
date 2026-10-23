@@ -589,7 +589,7 @@ builder.Services.AddHttpClient<IExternalApi, ExternalApiClient>();
 builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);
 
 var host = builder.Build();
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 ```
 
 ### Job Configuration

@@ -68,7 +68,7 @@ using (var scope = host.Services.CreateScope())
         Cron.Daily);
 }
 
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 ```
 
 ### 2. Configure appsettings.json
