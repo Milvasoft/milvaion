@@ -181,6 +181,47 @@ public class FileHealthCheckBackgroundServiceTests(WorkerSdkContainerFixture fix
         }
     }
 
+    [Fact]
+    public async Task FileHealthCheck_ShouldRemoveStaleFiles_WhenConstructed_EvenIfNeverStarted()
+    {
+        // Arrange - files left behind by a previous run of the worker (same container filesystem).
+        var tempDir = Path.Combine(Path.GetTempPath(), $"healthcheck_{Guid.CreateVersion7():N}");
+        Directory.CreateDirectory(tempDir);
+
+        var liveFile = Path.Combine(tempDir, "live");
+        var readyFile = Path.Combine(tempDir, "ready");
+
+        await File.WriteAllTextAsync(liveFile, "ok");
+        await File.WriteAllTextAsync(readyFile, "ok");
+
+        try
+        {
+            var options = new WorkerOptions
+            {
+                HealthCheck = new WorkerHealthCheckOptions
+                {
+                    Enabled = true,
+                    LiveFilePath = liveFile,
+                    ReadyFilePath = readyFile,
+                    IntervalSeconds = 60
+                }
+            };
+
+            // Act - the host constructs hosted services before starting them; if startup then fails
+            // (e.g. RabbitMQ unreachable) this service is never started.
+            _ = new FileHealthCheckBackgroundService(new StubHealthCheckService(HealthStatus.Healthy), options, new LoggerFactory());
+
+            // Assert
+            File.Exists(liveFile).Should().BeFalse("a worker that has not started must not report live from a stale file");
+            File.Exists(readyFile).Should().BeFalse("a worker that has not started must not report ready from a stale file");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+        }
+    }
+
     #region Stubs
 
     private sealed class StubHealthCheckService(HealthStatus status) : HealthCheckService

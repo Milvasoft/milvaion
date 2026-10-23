@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Milvasoft.Milvaion.Sdk.Worker;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Extensions;
 using Quartz;
@@ -79,4 +80,4 @@ builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 // Build and run
 var host = builder.Build();
 
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();

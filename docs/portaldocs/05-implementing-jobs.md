@@ -150,7 +150,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);
 
 var host = builder.Build();
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 ```
 
 ### Scoped vs Singleton Services

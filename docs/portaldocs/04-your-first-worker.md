@@ -287,7 +287,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);
 
 var host = builder.Build();
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 ```
 
 ### IJobContext
@@ -372,7 +372,7 @@ builder.Services.AddScoped<IBillingService, InvoiceService>();
 builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);
 
 var host = builder.Build();
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 
 ```
 
@@ -525,7 +525,7 @@ var app = builder.Build();
 
 // Your existing configurations
 
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();
 ```
 
 ## What's Next?

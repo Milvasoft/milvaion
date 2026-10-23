@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Milvasoft.Milvaion.Sdk.Worker;
 using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Extensions;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using SampleHangfireWorker.Jobs;
@@ -78,4 +79,4 @@ using (var scope = host.Services.CreateScope())
     recurringJobManager.AddOrUpdate<SendEmailJob>("send-email-job", job => job.ExecuteAsync(null, "test@example.com", "Scheduled Notification", CancellationToken.None), "*/10 * * * * *");
 }
 
-await host.RunAsync();
+return await host.RunMilvaionWorkerAsync();

@@ -13,13 +13,30 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Persistence;
 /// Validates RabbitMQ and Redis connectivity at startup.
 /// If connections cannot be established within the configured timeout, throws to stop the host (fail-fast).
 /// </summary>
+/// <remarks>
+/// Throwing alone does not guarantee that the process exits: when the exception escapes <c>Main</c> (plain
+/// <c>await host.RunAsync()</c>) the runtime's unhandled-exception/abort path is taken, which was observed to
+/// segfault or hang at ~100% CPU inside containers, so the container never restarted. On failure a watchdog is
+/// therefore armed that force-terminates the process with a non-zero exit code after <see cref="ForcedExitGracePeriod"/>
+/// unless it has exited by then (e.g. via <see cref="WorkerHostExtensions.RunMilvaionWorkerAsync"/>).
+/// </remarks>
 internal class ConnectionStartupValidator(IOptions<WorkerOptions> options,
                                           ILoggerFactory loggerFactory,
                                           IConnectionMultiplexer redis = null) : IHostedService
 {
+    /// <summary>
+    /// Time given to the host to shut down and flush logs after a failed startup before the process is killed.
+    /// </summary>
+    internal static readonly TimeSpan ForcedExitGracePeriod = TimeSpan.FromSeconds(60);
+
     private readonly WorkerOptions _options = options.Value;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ConnectionStartupValidator>();
     private readonly IConnectionMultiplexer _redis = redis;
+
+    /// <summary>
+    /// Arms the forced-exit watchdog. Replaceable for tests so the test host is not killed.
+    /// </summary>
+    internal Action<TimeSpan> ArmForcedExit { get; init; } = StartupFailureWatchdog.Arm;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -37,8 +54,21 @@ internal class ConnectionStartupValidator(IOptions<WorkerOptions> options,
 
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
-        await ValidateRabbitMQAsync(timeoutCts.Token);
-        await ValidateRedisAsync(timeoutCts.Token);
+        try
+        {
+            await ValidateRabbitMQAsync(timeoutCts.Token);
+            await ValidateRedisAsync(timeoutCts.Token);
+        }
+        catch (InvalidOperationException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            Environment.ExitCode = 1;
+
+            _logger.Fatal(ex, "Startup connection validation failed. The worker process will exit (forced after {Grace}s if it does not exit on its own).", ForcedExitGracePeriod.TotalSeconds);
+
+            ArmForcedExit(ForcedExitGracePeriod);
+
+            throw;
+        }
 
         _logger.Information("All startup connections validated successfully");
     }
