@@ -217,8 +217,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
                 _logger.Information("Worker {WorkerId} (Instance: {InstanceId}) registered in Redis. Total instances: {Count}", registration.WorkerId, registration.InstanceId, instanceCount);
 
-                // Fire-and-forget: sync RoutingPatterns in the DB for this worker's jobs
-                // (and reassign jobs stranded on now-inactive workers).
+                // Fire-and-forget: sync RoutingPatterns in the DB for this worker's own jobs.
                 _ = Task.Run(() => SyncRoutingPatternsAsync(registration, CancellationToken.None), CancellationToken.None);
             }
             else
@@ -238,9 +237,9 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
     /// <summary>
     /// Synchronizes the <see cref="Milvasoft.Milvaion.Sdk.Domain.ScheduledJob.RoutingPattern"/> of a worker's jobs
-    /// in the database whenever the worker (re)registers. If a job type is currently assigned to a different worker
-    /// that is no longer active (no Redis instances), the job is reassigned to the registering worker so it can be
-    /// dispatched again instead of publishing to an unroutable (offline) worker.
+    /// in the database whenever the worker (re)registers. Only jobs whose <c>WorkerId</c> equals the registering
+    /// worker's id are touched. Jobs of the same type that belong to another worker are never reassigned (job type
+    /// names are not globally unique); if that other worker is inactive a warning is logged for an operator instead.
     /// </summary>
     private async Task SyncRoutingPatternsAsync(WorkerDiscoveryRequest registration, CancellationToken cancellationToken)
     {
@@ -267,30 +266,25 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                         continue;
                     }
 
-                    // Case 2: no jobs owned by this worker — check whether this job type is stranded
-                    // on a different worker.
-                    var staleJob = await dbContext.ScheduledJobs
+                    // Case 2: no jobs owned by this worker. Jobs of the same type that belong to a different
+                    // WorkerId are NOT reassigned: the job type name is only unique within a worker, so two
+                    // unrelated workers (different apps) can legitimately offer a class with the same name.
+                    // Moving jobs across WorkerIds because the other worker is briefly offline (e.g. during a
+                    // deploy) silently hijacks them. Stranded jobs are left for an operator; we only warn.
+                    var otherWorkerIds = await dbContext.ScheduledJobs
                         .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId != registration.WorkerId)
-                        .Select(j => new { j.Id, j.WorkerId })
-                        .FirstOrDefaultAsync(cancellationToken);
+                        .Select(j => j.WorkerId)
+                        .Distinct()
+                        .ToListAsync(cancellationToken);
 
-                    if (staleJob == null)
-                        continue;
-
-                    var oldWorker = await _redisWorkerService.GetWorkerAsync(staleJob.WorkerId, cancellationToken);
-                    var isOldWorkerActive = oldWorker?.Instances?.Count > 0;
-
-                    // Only reassign if the previous owner is genuinely gone.
-                    if (!isOldWorkerActive)
+                    foreach (var otherWorkerId in otherWorkerIds)
                     {
-                        var reassigned = await dbContext.ScheduledJobs
-                            .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId == staleJob.WorkerId)
-                            .ExecuteUpdateAsync(s => s
-                                .SetProperty(j => j.WorkerId, registration.WorkerId)
-                                .SetProperty(j => j.RoutingPattern, newPattern), cancellationToken);
+                        var otherWorker = await _redisWorkerService.GetWorkerAsync(otherWorkerId, cancellationToken);
 
-                        if (reassigned > 0)
-                            _logger.Information("Reassigned {Count} stale '{JobType}' jobs from inactive worker '{OldWorker}' to '{NewWorker}' with pattern '{Pattern}'", reassigned, jobTypeName, staleJob.WorkerId, registration.WorkerId, newPattern);
+                        if (otherWorker?.Instances?.Count > 0)
+                            continue;
+
+                        _logger.Warning("Worker '{NewWorker}' offers job type '{JobType}', which is also assigned to currently inactive worker '{OldWorker}'. Jobs are NOT reassigned automatically; if '{OldWorker}' was renamed or retired, recreate those jobs for '{NewWorker}'.", registration.WorkerId, jobTypeName, otherWorkerId, otherWorkerId, registration.WorkerId);
                     }
                 }
                 catch (Exception ex)

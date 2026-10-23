@@ -422,35 +422,42 @@ public class WorkerAutoDiscoveryServiceTests(ServicesWebApplicationFactory facto
     }
 
     [Fact]
-    public async Task ProcessRegistration_ShouldReassignJobsFromInactiveWorker()
+    public async Task ProcessRegistration_ShouldNotReassignJobsOfSameTypeFromInactiveDifferentWorker()
     {
         // Arrange
         await InitializeAsync();
         await PurgeAllQueuesAsync();
 
-        var inactiveWorkerId = $"worker-inactive-{Guid.CreateVersion7():N}";
-        var newWorkerId = $"worker-active-{Guid.CreateVersion7():N}";
-        var newInstanceId = $"{newWorkerId}-inst1";
-        var jobTypeName = $"ReassignJob_{Guid.CreateVersion7():N}";
-        var newPattern = $"worker.{newWorkerId}";
+        // Two unrelated apps both have a job class with the same name (e.g. "DataExportJob").
+        // The owner of the existing job is restarting (no instances in Redis) when the other app's worker registers.
+        var ownerWorkerId = $"dump-worker-{Guid.CreateVersion7():N}";
+        var otherWorkerId = $"saysay-worker-{Guid.CreateVersion7():N}";
+        var otherInstanceId = $"{otherWorkerId}-inst1";
+        var jobTypeName = $"DataExportJob_{Guid.CreateVersion7():N}";
+        var ownerPattern = $"worker.{ownerWorkerId}";
+        var otherPattern = $"worker.{otherWorkerId}";
 
-        // Seed a job owned by a worker that is NOT present in Redis (i.e. inactive).
         var dbContext = GetDbContext();
-        var jobId = Guid.CreateVersion7();
-        await dbContext.ScheduledJobs.AddAsync(new ScheduledJob
+        var jobIds = new[] { Guid.CreateVersion7(), Guid.CreateVersion7() };
+
+        foreach (var id in jobIds)
         {
-            Id = jobId,
-            DisplayName = jobTypeName,
-            JobNameInWorker = jobTypeName,
-            JobData = "{}",
-            ExecuteAt = DateTime.UtcNow.AddMinutes(5),
-            IsActive = true,
-            WorkerId = inactiveWorkerId,
-            RoutingPattern = $"worker.{inactiveWorkerId}",
-            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
-            CreationDate = DateTime.UtcNow,
-            CreatorUserName = "TestUser"
-        });
+            await dbContext.ScheduledJobs.AddAsync(new ScheduledJob
+            {
+                Id = id,
+                DisplayName = jobTypeName,
+                JobNameInWorker = jobTypeName,
+                JobData = "{}",
+                ExecuteAt = DateTime.UtcNow.AddMinutes(5),
+                IsActive = true,
+                WorkerId = ownerWorkerId,
+                RoutingPattern = ownerPattern,
+                ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+                CreationDate = DateTime.UtcNow,
+                CreatorUserName = "TestUser"
+            });
+        }
+
         await dbContext.SaveChangesAsync();
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -468,35 +475,42 @@ public class WorkerAutoDiscoveryServiceTests(ServicesWebApplicationFactory facto
 
         await Task.Delay(3000, cts.Token);
 
-        // Act - a new, active worker registers and advertises the same job type.
+        // Act - the other app's worker registers and advertises a job class with the same name.
         await PublishRegistrationMessageAsync(new WorkerDiscoveryRequest
         {
-            WorkerId = newWorkerId,
-            InstanceId = newInstanceId,
-            DisplayName = "Reassign Target Worker",
+            WorkerId = otherWorkerId,
+            InstanceId = otherInstanceId,
+            DisplayName = "Other App Worker",
             HostName = "test-host",
             IpAddress = "127.0.0.1",
             JobTypes = [jobTypeName],
-            RoutingPatterns = new Dictionary<string, string> { [jobTypeName] = newPattern },
+            RoutingPatterns = new Dictionary<string, string> { [jobTypeName] = otherPattern },
             MaxParallelJobs = 5,
             Version = "1.0.0"
         }, cts.Token);
 
-        // Assert - the stale job should be reassigned to the new worker with the new pattern.
-        var reassigned = await WaitForConditionAsync(
-            async () =>
-            {
-                var freshContext = GetDbContext();
-                var job = await freshContext.ScheduledJobs.AsNoTracking().FirstOrDefaultAsync(j => j.Id == jobId, cts.Token);
-                return job?.WorkerId == newWorkerId && job.RoutingPattern == newPattern;
-            },
+        // Wait until the registration has been processed (worker visible in Redis), then give the
+        // fire-and-forget routing sync time to run.
+        var redisWorkerService = _serviceProvider.GetRequiredService<IRedisWorkerService>();
+        var registered = await WaitForConditionAsync(
+            async () => await redisWorkerService.GetWorkerAsync(otherWorkerId, cts.Token) != null,
             timeout: TimeSpan.FromSeconds(15),
-            pollInterval: TimeSpan.FromMilliseconds(500),
+            pollInterval: TimeSpan.FromMilliseconds(250),
             cancellationToken: cts.Token);
+
+        registered.Should().BeTrue("the registration message should be processed");
+
+        await Task.Delay(3000, cts.Token);
 
         await discoveryService.StopAsync(cts.Token);
 
-        reassigned.Should().BeTrue("jobs stranded on an inactive worker should be reassigned to the newly registered worker");
+        // Assert - the jobs must stay on their original worker with their original routing pattern.
+        var freshContext = GetDbContext();
+        var jobs = await freshContext.ScheduledJobs.AsNoTracking().Where(j => jobIds.Contains(j.Id)).ToListAsync(cts.Token);
+
+        jobs.Should().HaveCount(2);
+        jobs.Should().OnlyContain(j => j.WorkerId == ownerWorkerId && j.RoutingPattern == ownerPattern,
+            "a job must never move to a different worker just because the job type name matches");
     }
 
     private WorkerAutoDiscoveryService CreateWorkerAutoDiscoveryService() => new(
