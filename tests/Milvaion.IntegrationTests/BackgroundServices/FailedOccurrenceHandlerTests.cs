@@ -341,6 +341,61 @@ public class FailedOccurrenceHandlerTests(ServicesWebApplicationFactory factory,
         failedOccurrence!.Exception.Should().Contain("Job failed to complete");
     }
 
+    [Theory]
+    [InlineData("", null)]
+    [InlineData("not json", "\"not json\"")]
+    public async Task ProcessFailedOccurrence_WithJobDataThatIsNotJson_ShouldStoreIt(string jobData, string expectedJobData)
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync($"NotJsonJobDataJob_{Guid.CreateVersion7():N}");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Failed
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var handler = CreateFailedOccurrenceHandler();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await handler.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Act - the jsonb column rejected these as-is and the message was requeued forever
+        await PublishToDlqAsync(job, occurrence, "Job failed", cts.Token, jobData: jobData);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var dbContext = GetDbContext();
+                return await dbContext.FailedOccurrences.AsNoTracking().AnyAsync(f => f.OccurrenceId == occurrence.Id, cts.Token);
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await handler.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("a failed occurrence whose JobData is not JSON should still be stored");
+
+        var failedOccurrence = await GetDbContext().FailedOccurrences
+            .AsNoTracking()
+            .FirstAsync(f => f.OccurrenceId == occurrence.Id, cts.Token);
+
+        failedOccurrence.JobData.Should().Be(expectedJobData);
+    }
+
     [Fact]
     public async Task ProcessFailedOccurrence_ShouldDetermineFailureType_Cancelled()
     {
@@ -691,7 +746,8 @@ public class FailedOccurrenceHandlerTests(ServicesWebApplicationFactory factory,
         CancellationToken cancellationToken,
         int retryCount = 0,
         int maxRetries = 3,
-        JobOccurrenceStatus status = JobOccurrenceStatus.Failed)
+        JobOccurrenceStatus status = JobOccurrenceStatus.Failed,
+        string jobData = null)
     {
         var factory = new ConnectionFactory
         {
@@ -718,7 +774,7 @@ public class FailedOccurrenceHandlerTests(ServicesWebApplicationFactory factory,
             Id = job.Id,
             DisplayName = job.DisplayName,
             JobNameInWorker = job.JobNameInWorker,
-            JobData = job.JobData,
+            JobData = jobData ?? job.JobData,
             Status = status,
             Exception = exception
         };

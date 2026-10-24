@@ -80,6 +80,13 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 
                     TrackMemoryAfterIteration();
                 }
+                catch (Exception ex) when (IsPermanentDataError(ex))
+                {
+                    // The database rejects this row's data; requeueing would fail the same way forever and flood the logs.
+                    _logger.Error(ex, "Dropping DLQ message the database rejects. DeliveryTag: {DeliveryTag}", ea.DeliveryTag);
+
+                    await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: false);
+                }
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "Error processing failed job from DLQ. DeliveryTag: {DeliveryTag}", ea.DeliveryTag);
@@ -182,7 +189,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
             JobDisplayName = message.DisplayName,
             JobNameInWorker = message.JobNameInWorker,
             WorkerId = occurrence.WorkerId,
-            JobData = message.JobData,
+            JobData = NormalizeJobData(message.JobData),
             Exception = truncatedException,
             FailedAt = DateTime.UtcNow,
             RetryCount = messageRetryCount,
@@ -222,6 +229,33 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
             }
         });
     }
+
+    /// <summary>
+    /// The JobData column is jsonb, which rejects anything that is not JSON. Jobs without data arrive with an empty string,
+    /// so empty becomes null and any other non-JSON text is stored as a JSON string.
+    /// </summary>
+    internal static string NormalizeJobData(string jobData)
+    {
+        if (string.IsNullOrWhiteSpace(jobData))
+            return null;
+
+        try
+        {
+            using var _ = JsonDocument.Parse(jobData);
+
+            return jobData;
+        }
+        catch (JsonException)
+        {
+            return JsonSerializer.Serialize(jobData);
+        }
+    }
+
+    /// <summary>
+    /// Postgres data exceptions (class 22, e.g. invalid JSON) and integrity violations (class 23) fail the same way on every retry.
+    /// </summary>
+    private static bool IsPermanentDataError(Exception ex)
+        => ex is DbUpdateException { InnerException: Npgsql.PostgresException pgEx } && (pgEx.SqlState.StartsWith("22") || pgEx.SqlState.StartsWith("23"));
 
     /// <summary>
     /// Extracts OccurrenceId from RabbitMQ message headers.
