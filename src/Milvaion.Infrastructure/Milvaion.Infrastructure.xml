@@ -237,6 +237,17 @@
             Processes a failed job message and stores it in database.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.NormalizeJobData(System.String)">
+            <summary>
+            The JobData column is jsonb, which rejects anything that is not JSON. Jobs without data arrive with an empty string,
+            so empty becomes null and any other non-JSON text is stored as a JSON string.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.IsPermanentDataError(System.Exception)">
+            <summary>
+            Postgres data exceptions (class 22, e.g. invalid JSON) and integrity violations (class 23) fail the same way on every retry.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractCorrelationId(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
             <summary>
             Extracts OccurrenceId from RabbitMQ message headers.
