@@ -14,12 +14,11 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Utils;
 /// </summary>
 public static class JobDataTypeHelper
 {
+    // Only the 1-arg interfaces whose type argument is the job data; the 1-arg result interfaces carry the result type
     private static readonly Type[] _genericJobInterfaces =
     [
         typeof(IJob<>),
-        typeof(IJobWithResult<>),
-        typeof(IAsyncJob<>),
-        typeof(IAsyncJobWithResult<>)
+        typeof(IAsyncJob<>)
     ];
 
     // 1-arg result-only interfaces: IJobWithResult<TResult>, IAsyncJobWithResult<TResult>
@@ -41,6 +40,9 @@ public static class JobDataTypeHelper
     /// Populated at startup from worker configuration.
     /// </summary>
     private static readonly Dictionary<string, List<string>> _dynamicEnumValues = [];
+
+    // Guards against unreasonably deep object graphs; cycles are caught separately
+    private const int _maxSchemaDepth = 16;
 
     /// <summary>
     /// Registers dynamic enum values for a configuration key.
@@ -104,7 +106,7 @@ public static class JobDataTypeHelper
             ["$schema"] = "http://json-schema.org/draft-07/schema#",
             ["type"] = "object",
             ["title"] = jobDataType.Name,
-            ["properties"] = GenerateProperties(jobDataType),
+            ["properties"] = GenerateProperties(jobDataType, [jobDataType]),
             ["required"] = GetRequiredProperties(jobDataType)
         };
 
@@ -188,7 +190,9 @@ public static class JobDataTypeHelper
         };
     }
 
-    private static Dictionary<string, object> GenerateProperties(Type type)
+    /// <param name="type">The type whose properties are described</param>
+    /// <param name="typesInProgress">Types on the current path, so that a self-referencing type ends instead of overflowing the stack</param>
+    private static Dictionary<string, object> GenerateProperties(Type type, HashSet<Type> typesInProgress)
     {
         var properties = new Dictionary<string, object>();
 
@@ -245,7 +249,12 @@ public static class JobDataTypeHelper
             if (IsComplexType(propType) && !propType.IsEnum)
             {
                 propSchema["type"] = "object";
-                propSchema["properties"] = GenerateProperties(propType);
+
+                if (typesInProgress.Count < _maxSchemaDepth && typesInProgress.Add(propType))
+                {
+                    propSchema["properties"] = GenerateProperties(propType, typesInProgress);
+                    typesInProgress.Remove(propType);
+                }
             }
 
             // Get description from XML comments or attributes if available
