@@ -4,6 +4,8 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.DataAccess.EfCore.Utils;
+using Milvasoft.Interception.Ef.Transaction;
 using Milvasoft.Interception.Interceptors.Logging;
 
 namespace Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence;
@@ -12,13 +14,15 @@ namespace Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence;
 /// Handles job occurrence cancellation by publishing cancellation signal to Redis Pub/Sub.
 /// </summary>
 [Log]
+[Transaction]
 [UserActivityTrack(UserActivity.CancelJobOccurrence)]
 public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
                                                 IMilvaionRepositoryBase<JobOccurrenceLog> OccurrenceLogRepository,
                                                 IJobCancellationService CancellationService,
                                                 IRedisSchedulerService SchedulerService,
                                                 IRedisStatsService StatsService,
-                                                IHttpContextAccessor HttpContextAccessor) : IInterceptable, ICommandHandler<CancelJobOccurrenceCommand, bool>
+                                                IHttpContextAccessor HttpContextAccessor,
+                                                IMilvaLogger Logger) : IInterceptable, ICommandHandler<CancelJobOccurrenceCommand, bool>
 {
     private readonly IMilvaionRepositoryBase<JobOccurrence> _occurenceRepository = OccurrenceRepository;
     private readonly IMilvaionRepositoryBase<JobOccurrenceLog> _occurenceLogRepository = OccurrenceLogRepository;
@@ -26,6 +30,7 @@ public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccur
     private readonly IRedisSchedulerService _schedulerService = SchedulerService;
     private readonly IRedisStatsService _statsService = StatsService;
     private readonly IHttpContextAccessor _httpContextAccessor = HttpContextAccessor;
+    private readonly IMilvaLogger _logger = Logger;
 
     /// <inheritdoc/>
     public async Task<Response<bool>> Handle(CancelJobOccurrenceCommand request, CancellationToken cancellationToken)
@@ -43,58 +48,60 @@ public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccur
         if (occurrence.Status != JobOccurrenceStatus.Running)
             return Response<bool>.Error(false, $"Occurrence is not running (Status: {occurrence.Status})");
 
-        // Publish cancellation signal via service
-        var published = await _cancellationService.PublishCancellationAsync(occurrence.CorrelationId,
-                                                                            occurrence.JobId,
-                                                                            occurrence.Id,
-                                                                            request.Reason ?? MessageConstant.CancelledByUser,
-                                                                            cancellationToken);
+        var now = DateTime.UtcNow;
 
-        // Update occurrence status
         occurrence.StatusChangeLogs.Add(new OccurrenceStatusChangeLog
         {
-            Timestamp = DateTime.UtcNow,
+            Timestamp = now,
             From = occurrence.Status,
             To = JobOccurrenceStatus.Cancelled
         });
 
         var message = $"Job cancelled by {_httpContextAccessor.HttpContext?.CurrentUserName() ?? "Anonymous"} . Reason : {request.Reason ?? "No Reason"}";
 
-        occurrence.Status = JobOccurrenceStatus.Cancelled;
-        occurrence.Exception = message;
-        occurrence.EndTime = DateTime.UtcNow;
+        var setPropertyBuilder = new SetPropertyBuilder<JobOccurrence>().SetPropertyValue(o => o.Status, JobOccurrenceStatus.Cancelled)
+                                                                        .SetPropertyValue(o => o.Exception, message)
+                                                                        .SetPropertyValue(o => o.EndTime, now)
+                                                                        .SetPropertyValue(o => o.StatusChangeLogs, occurrence.StatusChangeLogs);
 
         if (occurrence.StartTime.HasValue)
-            occurrence.DurationMs = (int)(DateTime.UtcNow - occurrence.StartTime.Value).TotalMilliseconds;
+            setPropertyBuilder = setPropertyBuilder.SetPropertyValue(o => o.DurationMs, (long)(now - occurrence.StartTime.Value).TotalMilliseconds);
 
-        var log = new JobOccurrenceLog
+        // Conditional, because the worker may report a final status at any moment and that must not be overwritten.
+        var affected = await _occurenceRepository.ExecuteUpdateAsync(o => o.Id == occurrence.Id && o.Status == JobOccurrenceStatus.Running, setPropertyBuilder, cancellationToken: cancellationToken);
+
+        if (affected == 0)
+            return Response<bool>.Error(false, "Occurrence is no longer running");
+
+        await _occurenceLogRepository.AddAsync(new JobOccurrenceLog
         {
             Id = Guid.CreateVersion7(),
             OccurrenceId = occurrence.Id,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = now,
             Level = LogLevel.Warning.ToString(),
             Message = message,
             Category = "Cancellation"
-        };
+        }, cancellationToken: cancellationToken);
 
-        await _occurenceRepository.UpdateAsync(occurrence, cancellationToken: cancellationToken);
-        await _occurenceLogRepository.AddAsync(log, cancellationToken: cancellationToken);
+        // Workers track a run by occurrence id. The correlation id is shared by every step of a workflow run.
+        var published = await _cancellationService.PublishCancellationAsync(occurrence.Id,
+                                                                            occurrence.JobId,
+                                                                            occurrence.Id,
+                                                                            request.Reason ?? MessageConstant.CancelledByUser,
+                                                                            cancellationToken);
 
         // Mark job as completed in Redis (remove from running set)
         await _schedulerService.MarkJobAsCompletedAsync(occurrence.JobId, cancellationToken);
 
-        // Update stats counters (Running -> Cancelled)
-        _ = Task.Run(async () =>
+        // Dashboard counters are not worth failing a cancellation that has already happened.
+        try
         {
-            try
-            {
-                await _statsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Running, JobOccurrenceStatus.Cancelled, cancellationToken);
-            }
-            catch
-            {
-                // Non-critical
-            }
-        }, CancellationToken.None);
+            await _statsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Running, JobOccurrenceStatus.Cancelled, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to update status counters for cancelled occurrence {OccurrenceId}", occurrence.Id);
+        }
 
         return Response<bool>.Success(true, $"Cancellation signal sent to {published} worker(s)");
     }

@@ -80,7 +80,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
                     Level = request.Force ? "Warning" : "Information",
                     Message = request.Force
                         ? $"Job FORCE triggered (bypassing policy): {request.Reason ?? "Manual execution by admin"}"
-                        : $"Job manually triggered: {request.Reason ?? "Manual execution by " + _httpContextAccessor.HttpContext?.CurrentUserName() ?? "Anonymous"}",
+                        : $"Job manually triggered: {request.Reason ?? $"Manual execution by {_httpContextAccessor.HttpContext?.CurrentUserName() ?? "Anonymous"}"}",
                     Category = "ManualTrigger",
                     Data = new Dictionary<string, object>
                     {
@@ -99,25 +99,23 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
             job.JobData = ScheduledJob.FixJobData(request.JobData);
 
             occurrence.Logs[0].Message += $". With custom JobData provided.";
-            occurrence.Logs[0].Data.Add("CustomJobData", request.JobData);
+            // Only the fact: job data can hold secrets and logs are widely readable.
+            occurrence.Logs[0].Data.Add("HasCustomJobData", true);
         }
 
         await _occurrenceRepository.AddAsync(occurrence, cancellationToken: cancellationToken);
 
         // Update stats counters (new Queued occurrence)
-        _ = Task.Run(async () =>
+        try
         {
-            try
-            {
-                await _statsService.IncrementTotalOccurrencesAsync(cancellationToken);
-                await _statsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, cancellationToken);
-                await _statsService.TrackExecutionAsync(occurrence.Id, cancellationToken);
-            }
-            catch
-            {
-                // Non-critical
-            }
-        }, CancellationToken.None);
+            await _statsService.IncrementTotalOccurrencesAsync(CancellationToken.None);
+            await _statsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, CancellationToken.None);
+            await _statsService.TrackExecutionAsync(occurrence.Id, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to update statistics for triggered occurrence {OccurrenceId}", occurrence.Id);
+        }
 
         // Publish SignalR event for occurrence created
         await _eventPublisher.PublishOccurrenceCreatedAsync([occurrence], _logger, cancellationToken);
@@ -139,6 +137,15 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
             });
 
             await _occurrenceRepository.UpdateAsync(occurrence, cancellationToken: cancellationToken);
+
+            try
+            {
+                await _statsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Queued, JobOccurrenceStatus.Failed, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to update status counters for occurrence {OccurrenceId}", occurrence.Id);
+            }
 
             return Response<Guid>.Error(default, "Failed to publish job to RabbitMQ");
         }
