@@ -122,7 +122,7 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
-            // First, delete associated logs atomically
+            // Logs and occurrences go in one statement, over one selected set, so neither can be removed without the other
             var sql = @"
                 WITH to_delete AS (
                     SELECT ""Id"" FROM ""JobOccurrences""
@@ -137,35 +137,25 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
                     DELETE FROM ""JobOccurrenceLogs""
                     WHERE ""OccurrenceId"" IN (SELECT ""Id"" FROM to_delete)
                     RETURNING 1
+                ),
+                deleted_occurrences AS (
+                    DELETE FROM ""JobOccurrences""
+                    WHERE ""Id"" IN (SELECT ""Id"" FROM to_delete)
+                    RETURNING 1
                 )
-                SELECT COUNT(*) FROM deleted_logs";
+                SELECT
+                    (SELECT COUNT(*)::int FROM deleted_occurrences) AS Occurrences,
+                    (SELECT COUNT(*)::int FROM deleted_logs) AS Logs";
 
-            var logsDeletedInBatch = await connection.ExecuteScalarAsync<int>(sql, new
+            var deleted = await connection.QuerySingleAsync<(int Occurrences, int Logs)>(sql, new
             {
                 Status = status,
                 CutoffDate = cutoffDate,
                 BatchSize = batchSize
             });
 
-            // Then delete occurrences
-            var occurrenceSql = @"
-                DELETE FROM ""JobOccurrences""
-                WHERE ""Id"" IN (
-                    SELECT ""Id"" FROM ""JobOccurrences""
-                    WHERE ""Status"" = @Status
-                    AND (
-                        (""EndTime"" IS NOT NULL AND ""EndTime"" < @CutoffDate)
-                        OR (""EndTime"" IS NULL AND ""CreatedAt"" < @CutoffDate)
-                    )
-                    LIMIT @BatchSize
-                )";
-
-            deletedInBatch = await connection.ExecuteAsync(occurrenceSql, new
-            {
-                Status = status,
-                CutoffDate = cutoffDate,
-                BatchSize = batchSize
-            });
+            deletedInBatch = deleted.Occurrences;
+            var logsDeletedInBatch = deleted.Logs;
 
             totalDeleted += deletedInBatch;
             totalLogsDeleted += logsDeletedInBatch;
