@@ -63,22 +63,15 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
   const subscribeToPageOccurrences = useCallback(async (pageOccurrences) => {
     if (!signalRService.isConnected()) return
 
+    // Through the service rather than invoke(): it records the subscription, which is what restores it after a reconnect.
     for (const occId of subscribedOccurrences.current) {
-      try {
-        await signalRService.invoke('UnsubscribeFromOccurrence', occId)
-      } catch (err) {
-        console.error('Failed to unsubscribe from occurrence:', occId, err)
-      }
+      await signalRService.unsubscribeFromOccurrence(occId)
     }
     subscribedOccurrences.current.clear()
 
     for (const occ of pageOccurrences) {
-      try {
-        await signalRService.invoke('SubscribeToOccurrence', occ.id)
-        subscribedOccurrences.current.add(occ.id)
-      } catch (err) {
-        console.error('Failed to subscribe to occurrence:', occ.id, err)
-      }
+      await signalRService.subscribeToOccurrence(occ.id)
+      subscribedOccurrences.current.add(occ.id)
     }
   }, [])
 

@@ -4,6 +4,7 @@ import PropTypes from 'prop-types'
 import Icon from './Icon'
 import NotificationPanel from './NotificationPanel'
 import authService from '../services/authService'
+import signalRService from '../services/signalRService'
 import { useBranding } from '../contexts/BrandingContext'
 import notificationService from '../services/notificationService'
 import { useTheme } from '../contexts/ThemeContext'
@@ -83,6 +84,7 @@ const { title: brandingTitle } = useBranding()
   }
 
   const handleLogout = async () => {
+    await signalRService.disconnect().catch(() => {})
     await authService.logout()
     navigate('/login')
   }
@@ -115,7 +117,7 @@ const { title: brandingTitle } = useBranding()
         <div className="sidebar-header">
           <div className="sidebar-header-top">
             <Link to="/dashboard" className="logo-link">
-              <img src="/logo.png" alt="Milvaion Logo" className="logo" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Milvaion Logo" className="logo" />
               {!isSidebarCollapsed && (
                 <div className="logo-text">
                   <h1>{brandingTitle}</h1>
@@ -127,6 +129,7 @@ const { title: brandingTitle } = useBranding()
                 className="sidebar-toggle"
                 onClick={toggleSidebar}
                 title="Collapse sidebar"
+                aria-label="Collapse sidebar"
               >
                 <Icon name="chevron_left" size={24} />
               </button>
@@ -137,6 +140,7 @@ const { title: brandingTitle } = useBranding()
               className="sidebar-toggle"
               onClick={toggleSidebar}
               title="Expand sidebar"
+              aria-label="Expand sidebar"
             >
               <Icon name="chevron_right" size={24} />
             </button>
@@ -347,6 +351,7 @@ const { title: brandingTitle } = useBranding()
               className="sidebar-action-btn notification-trigger-btn"
               onClick={() => setIsNotificationOpen(true)}
               title="Notifications"
+              aria-label="Notifications"
             >
               <Icon name="notifications" size={20} />
               {unseenCount > 0 && (
@@ -359,6 +364,7 @@ const { title: brandingTitle } = useBranding()
               className="sidebar-action-btn theme-toggle-btn"
               onClick={(e) => toggleTheme(e)}
               title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
               <Icon name={isDark ? 'light_mode' : 'dark_mode'} size={20} />
             </button>
@@ -398,6 +404,7 @@ const { title: brandingTitle } = useBranding()
               className="user-menu-trigger"
               onClick={() => setShowUserMenu(!showUserMenu)}
               title={user?.username || 'User'}
+              aria-label={`Account menu for ${user?.username || 'User'}`}
             >
                 <Icon name="person" size={20} />
               {!isSidebarCollapsed && (

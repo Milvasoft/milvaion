@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import authService from '../../services/authService'
 import settingsService from '../../services/settingsService'
 import { createOidcManager } from '../../services/oidcClient'
@@ -9,6 +9,7 @@ import './Login.css'
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { title: brandingTitle, subtitle: brandingSubtitle } = useBranding()
   const [formData, setFormData] = useState({
     username: '',
@@ -71,8 +72,8 @@ function Login() {
       const result = await authService.login(formData.username, formData.password)
 
       if (result.success) {
-        // Redirect to home page or dashboard
-        navigate('/')
+        // Back to the page that sent the user here, so a deep link survives the login.
+        navigate(location.state?.from ?? '/dashboard', { replace: true })
       } else {
         setError(result.message || 'Login failed. Please check your credentials.')
       }
@@ -92,7 +93,7 @@ function Login() {
           {/* ── Brand Panel (left) ── */}
           <div className="login-brand-panel">
             <div className="login-brand-content">
-              <img src="/logo.png" alt="Milvaion Logo" className="login-logo" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Milvaion Logo" className="login-logo" />
               <h1 className="login-brand-title">{brandingTitle}</h1>
               <p className="login-brand-subtitle">{brandingSubtitle}</p>
               <div className="login-brand-features">
