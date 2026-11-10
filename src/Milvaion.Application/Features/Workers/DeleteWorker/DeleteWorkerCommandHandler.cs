@@ -10,7 +10,7 @@ namespace Milvaion.Application.Features.Workers.DeleteWorker;
 /// Handles the deletion of the worker from Redis.
 /// </summary>
 [Log]
-[UserActivityTrack(UserActivity.DeleteScheduledJob)]
+[UserActivityTrack(UserActivity.DeleteWorker)]
 public record DeleteWorkerCommandHandler(IRedisWorkerService RedisWorkerService) : IInterceptable, ICommandHandler<DeleteWorkerCommand, string>
 {
     private readonly IRedisWorkerService _redisWorkerService = RedisWorkerService;

@@ -32,7 +32,7 @@ public record UpdateFailedOccurrenceCommandHandler(IMilvaionRepositoryBase<Faile
                 setPropertyBuilder = setPropertyBuilder.SetPropertyValue(x => x.ResolvedAt, DateTime.UtcNow);
 
             if (!request.ResolvedBy.IsUpdated)
-                setPropertyBuilder = setPropertyBuilder.SetPropertyValue(x => x.ResolvedBy, _httpContextAccessor.HttpContext.CurrentUserName() ?? "Anonymus");
+                setPropertyBuilder = setPropertyBuilder.SetPropertyValue(x => x.ResolvedBy, _httpContextAccessor.HttpContext.CurrentUserName() ?? "Anonymous");
         }
 
         await _failedOccurrenceRepository.ExecuteUpdateAsync(f => request.IdList.Contains(f.Id), setPropertyBuilder, cancellationToken: cancellationToken);
