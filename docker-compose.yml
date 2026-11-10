@@ -6,7 +6,7 @@
     environment:
       POSTGRES_DB: MilvaionDb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: N4SQp.qW>6?xwWzg
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env}
     ports:
       - "5432:5432"
     volumes:
@@ -82,8 +82,8 @@
     image: rabbitmq:3-management-alpine
     container_name: milvaion-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
     ports:
       - "5672:5672"   # AMQP port
       - "15672:15672" # Management UI
@@ -103,7 +103,7 @@
     image: datalust/seq:latest
     container_name: milvaion-seq
     environment:
-      - SEQ_FIRSTRUN_ADMINPASSWORD=ChangeMe123!
+      - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_FIRSTRUN_ADMINPASSWORD:?copy .env.example to .env}
       - ACCEPT_EULA=Y
     ports:
       - "5341:80" # Seq default UI port mapped to host 5341
@@ -125,7 +125,14 @@
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
-      - MILVAION_ROOT_PASSWORD=admin
+      - MILVAION_ROOT_PASSWORD=${MILVAION_ROOT_PASSWORD:?copy .env.example to .env}
+      - ConnectionStrings__DefaultConnectionString=Host=postgres;Port=5432;Database=MilvaionDb;Username=postgres;Password=${POSTGRES_PASSWORD:?copy .env.example to .env};Pooling=true;Minimum Pool Size=20;Maximum Pool Size=100;Connection Lifetime=900;Connection Idle Lifetime=180;Command Timeout=30
+      - MilvaionConfig__RabbitMQ__Username=${RABBITMQ_DEFAULT_USER:-guest}
+      - MilvaionConfig__RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS:-guest}
+      - MilvaionConfig__ApiKey__Secret=${MILVAION_API_KEY_SECRET:-}
+      - Milvasoft__Identity__Token__SymmetricPublicKey=${MILVAION_JWT_SIGNING_KEY:-}
+      - MilvaionConfig__Developer__EndpointsEnabled=${MILVAION_DEVELOPER_ENDPOINTS_ENABLED:-false}
+      - MilvaionConfig__Developer__ApiDocsEnabled=${MILVAION_API_DOCS_ENABLED:-false}
       - MILVA_ENV=dev
     ports:
       - "5000:5000"  # API + React SPA (http://localhost:5000)
@@ -154,8 +161,8 @@
       - Worker__WorkerId=test-worker
       - Worker__RabbitMQ__Host=rabbitmq
       - Worker__RabbitMQ__Port=5672
-      - Worker__RabbitMQ__Username=guest
-      - Worker__RabbitMQ__Password=guest
+      - Worker__RabbitMQ__Username=${RABBITMQ_DEFAULT_USER:-guest}
+      - Worker__RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS:-guest}
       - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
       - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
       - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
@@ -209,8 +216,8 @@
     image: grafana/grafana:latest
     container_name: milvaion-grafana
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?copy .env.example to .env}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
     ports:
@@ -233,7 +240,7 @@
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://postgres:N4SQp.qW%3E6%3FxwWzg@postgres:5432/MilvaionDb?sslmode=disable"
+      DATABASE_URL: "${PGWEB_DATABASE_URL:?copy .env.example to .env}"
     ports:
       - "8082:8081"
     networks:

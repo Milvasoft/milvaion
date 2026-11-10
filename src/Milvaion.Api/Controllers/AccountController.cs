@@ -2,6 +2,9 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Milvaion.Api.AppStartup;
+using Milvaion.Api.Utils;
 using Milvaion.Application.Dtos.AccountDtos;
 using Milvaion.Application.Dtos.AccountDtos.InternalNotifications.DeleteNotification;
 using Milvaion.Application.Dtos.AccountDtos.InternalNotifications.GetAccountNotifications;
@@ -23,13 +26,9 @@ namespace Milvaion.Api.Controllers;
 [Route(GlobalConstant.FullRoute)]
 [ApiVersion(GlobalConstant.CurrentApiVersion)]
 [ApiExplorerSettings(GroupName = "v1.0")]
+[InteractiveOnly]
 public class AccountController(IMediator mediator) : ControllerBase
 {
-    /// <summary>
-    /// Not validate token endpoint paths.
-    /// </summary>
-    public static List<string> LoginEndpointPaths { get; } = ["login", "refresh"];
-
     private readonly IMediator _mediator = mediator;
 
     /// <summary>
@@ -40,6 +39,7 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns>Token information</returns>
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(StartupExtensions.LoginRateLimitPolicy)]
     public Task<Response<LoginResponseDto>> LoginAsync(LoginCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
@@ -50,6 +50,7 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [HttpPost("login/refresh")]
     [AllowAnonymous]
+    [EnableRateLimiting(StartupExtensions.LoginRateLimitPolicy)]
     public Task<Response<LoginResponseDto>> RefreshLoginAsync(RefreshLoginCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
@@ -90,7 +91,7 @@ public class AccountController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [Auth]
     [HttpPatch("notifications")]
-    public Task<ListResponse<AccountNotificationDto>> AccountDetailsAsync(GetAccountNotificationsQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
+    public Task<ListResponse<AccountNotificationDto>> GetAccountNotificationsAsync(GetAccountNotificationsQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
     /// Marks notifications as seen.

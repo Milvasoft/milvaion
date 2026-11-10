@@ -1,4 +1,5 @@
 import * as signalR from '@microsoft/signalr'
+import authService from './authService'
 
 class SignalRService {
   constructor() {
@@ -37,6 +38,8 @@ class SignalRService {
       this.connection = new signalR.HubConnectionBuilder()
         .withUrl(hubUrl, {
           skipNegotiation: false,
+          // Read on every (re)connect so a renewed token is picked up.
+          accessTokenFactory: () => authService.getAccessToken(),
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents,
         })
         .withAutomaticReconnect({

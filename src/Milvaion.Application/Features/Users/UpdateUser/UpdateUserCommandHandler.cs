@@ -18,7 +18,7 @@ namespace Milvaion.Application.Features.Users.UpdateUser;
 /// <param name="MilvaIdentityOptions"></param>
 /// <param name="MilvaUserManager"></param>
 /// <param name="MilvaPasswordHasher"></param>
-/// <param name="GrantGuard"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateUser)]
@@ -29,7 +29,7 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
                                        Lazy<MilvaIdentityOptions> MilvaIdentityOptions,
                                        Lazy<IMilvaUserManager<User, int>> MilvaUserManager,
                                        Lazy<IMilvaPasswordHasher> MilvaPasswordHasher,
-                                       SuperAdminGrantGuard GrantGuard) : IInterceptable, ICommandHandler<UpdateUserCommand, int>
+                                       IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<UpdateUserCommand, int>
 {
     private readonly IMilvaionRepositoryBase<User> _userRepository = UserRepository;
     private readonly IMilvaionRepositoryBase<UserRoleRelation> _userRoleRelationRepository = UserRoleRelationRepository;
@@ -38,7 +38,7 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
     private readonly Lazy<MilvaIdentityOptions> _milvaIdentityOptions = MilvaIdentityOptions;
     private readonly Lazy<IMilvaPasswordHasher> _milvaPasswordHasher = MilvaPasswordHasher;
     private readonly Lazy<IMilvaUserManager<User, int>> _milvaUserManager = MilvaUserManager;
-    private readonly SuperAdminGrantGuard _grantGuard = GrantGuard;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
@@ -58,11 +58,11 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
             request.Lockout = default;
         }
 
-        if (request.NewPassword.IsUpdated || request.Lockout.IsUpdated)
-            await _grantGuard.EnsureCanManageUserAsync(request.Id, cancellationToken);
+        // A password reset on a super admin is a takeover, so this covers every update and not just role changes.
+        await _privilegeGuard.EnsureCanManageUserAsync(request.Id, cancellationToken);
 
         if (request.RoleIdList.IsUpdated)
-            await _grantGuard.EnsureRoleChangeAllowedAsync(request.Id, request.RoleIdList.Value, cancellationToken);
+            await _privilegeGuard.EnsureCanChangeUserRolesAsync(request.Id, request.RoleIdList.Value, cancellationToken);
 
         var setPropertyBuilder = _userRepository.GetUpdatablePropertiesBuilder(request);
 

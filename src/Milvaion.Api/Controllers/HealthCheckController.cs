@@ -35,6 +35,7 @@ public class HealthCheckController(HealthCheckService healthCheckService) : Cont
     /// Validates all dependencies (Redis, RabbitMQ, Database).
     /// Use this for Kubernetes readiness probes.
     /// </summary>
+    /// <remarks>Anonymous, so it reports states only. Descriptions and data can carry hosts, ports and exception text.</remarks>
     /// <returns>Health check result with all dependency statuses</returns>
     /// <response code="200">Application is ready and all dependencies are healthy</response>
     /// <response code="503">Application is not ready - one or more dependencies are unhealthy</response>
@@ -54,10 +55,8 @@ public class HealthCheckController(HealthCheckService healthCheckService) : Cont
             {
                 Name = e.Key,
                 Status = e.Value.Status.ToString(),
-                Description = e.Value.Description,
                 Duration = e.Value.Duration,
                 Tags = [.. e.Value.Tags],
-                Data = e.Value.Data.ToDictionary(d => d.Key, d => d.Value?.ToString())
             })]
         };
 

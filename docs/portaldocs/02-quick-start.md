@@ -154,7 +154,7 @@ docker logs milvaion-api 2>&1 | grep -i "password"
 
 Open your browser: **http://localhost:5000/api/documentation/index.html**
 
-You'll see the Milvaion rest client. A permanent token will be set up for you.
+You'll see the Milvaion rest client. It is enabled by `MILVAION_API_DOCS_ENABLED` in `.env`; authorize with the access token returned by the login endpoint.
 ![Milvaion Dashboard](./src/scalar.png)
 
 Without proxy, the api will serve only http. For http/https switch on rest client;

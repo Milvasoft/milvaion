@@ -10,16 +10,20 @@ namespace Milvaion.Application.Features.Roles.DeleteRole;
 /// </summary>
 /// <param name="RoleRepository"></param>
 /// <param name="ExternalIdentityService"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [UserActivityTrack(UserActivity.DeleteRole)]
-public record DeleteRoleCommandHandler(IMilvaionRepositoryBase<Role> RoleRepository, IExternalIdentityService ExternalIdentityService) : IInterceptable, ICommandHandler<DeleteRoleCommand, int>
+public record DeleteRoleCommandHandler(IMilvaionRepositoryBase<Role> RoleRepository, IExternalIdentityService ExternalIdentityService, IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<DeleteRoleCommand, int>
 {
     private readonly IMilvaionRepositoryBase<Role> _roleRepository = RoleRepository;
     private readonly IExternalIdentityService _externalIdentityService = ExternalIdentityService;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(DeleteRoleCommand request, CancellationToken cancellationToken)
     {
+        await _privilegeGuard.EnsureCanManageRoleAsync(request.RoleId, cancellationToken);
+
         var role = await _roleRepository.GetForDeleteAsync(request.RoleId, cancellationToken: cancellationToken);
 
         if (role == null)

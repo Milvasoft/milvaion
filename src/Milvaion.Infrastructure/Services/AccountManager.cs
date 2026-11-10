@@ -51,7 +51,7 @@ public class AccountManager(IMilvaionRepositoryBase<UserSession> userSessionRepo
             Scope = "Milvaion",
             TokenType = "Bearer",
             RefreshToken = IdentityHelpers.CreateRefreshToken(),
-            RefreshTokenExpiresIn = _identityOptions.Token.ExpirationMinute * 5760 // 24 hours
+            RefreshTokenExpiresIn = _identityOptions.Token.ExpirationMinute * 5760 // 96 access token lifetimes in seconds: 6 days with the default 90 minutes
         };
 
         var sessionsToRemove = FindSessionsToRemove(user.Sessions, deviceId);
@@ -79,26 +79,6 @@ public class AccountManager(IMilvaionRepositoryBase<UserSession> userSessionRepo
         await _userSessionRepository.AddAsync(newSession, cancellationToken: cancellationToken);
 
         return milvaToken;
-    }
-
-    /// <summary>
-    /// Generates token for ci user.
-    /// Generates access token.
-    /// </summary>
-    /// <returns></returns>
-    public string GenerateToken(User user, DateTime? expiryDate = null)
-    {
-        var permissions = user.RoleRelations.SelectMany(i => i.Role.RolePermissionRelations.Select(i => i.Permission));
-
-        List<Claim> claims = [new(ClaimTypes.Name, user.UserName)];
-
-        claims.AddRange(BuildRoleClaims(permissions));
-
-        expiryDate ??= DateTime.UtcNow.AddYears(20);
-
-        var accessToken = _milvaTokenManager.GenerateToken(expiryDate, claims: [.. claims]);
-
-        return accessToken;
     }
 
     /// <summary>

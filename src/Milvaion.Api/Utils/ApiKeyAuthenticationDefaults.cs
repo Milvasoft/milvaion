@@ -16,6 +16,11 @@ public static class ApiKeyAuthenticationDefaults
     /// Claim added to every api key principal so endpoints can tell a machine caller from an interactive user.
     /// </summary>
     public const string ApiKeyIdClaimName = "akid";
+
+    /// <summary>
+    /// Prefix of an api key principal's name. User names cannot contain ':', so it cannot collide with an account.
+    /// </summary>
+    public const string PrincipalNamePrefix = "apikey:";
 }
 
 /// <summary>

@@ -218,6 +218,9 @@ More than forty tools — reading, triggering, pausing, editing and deleting —
 git clone https://github.com/Milvasoft/milvaion.git
 cd milvaion
 
+# Create the local settings (passwords and signing keys)
+cp .env.example .env
+
 # Start all services
 docker compose up -d
 ```

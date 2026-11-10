@@ -27,5 +27,5 @@ public class DashboardController(IMediator mediator) : ControllerBase
     /// <returns></returns>
     [Auth(PermissionCatalog.ScheduledJobManagement.List)]
     [HttpGet]
-    public Task<Response<DashboardDto>> GetRolesAsync(CancellationToken cancellation) => _mediator.Send(new GetDashboardQuery(), cancellation);
+    public Task<Response<DashboardDto>> GetDashboardAsync(CancellationToken cancellation) => _mediator.Send(new GetDashboardQuery(), cancellation);
 }
