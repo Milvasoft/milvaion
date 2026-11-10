@@ -34,7 +34,7 @@ public sealed class ValidationBehaviorForResponse<TRequest, TResponse>(IEnumerab
     {
         var context = new ValidationContext<TRequest>(request);
 
-        var validationFailures = await Task.WhenAll(_validators.Select(validator => validator.ValidateAsync(context)));
+        var validationFailures = await Task.WhenAll(_validators.Select(validator => validator.ValidateAsync(context, cancellationToken)));
 
         var errors = validationFailures.Where(validationResult => !validationResult.IsValid)
                                        .SelectMany(validationResult => validationResult.Errors)
@@ -88,7 +88,7 @@ public sealed class ValidationBehaviorForResponse<TRequest, TResponse>(IEnumerab
 
             metadataGenerator.GenerateMetadata(response as IHasMetadata);
 
-            if (interceptionOptions.TranslateResultMessages && !r.Messages.IsNullOrEmpty())
+            if (interceptionOptions?.TranslateResultMessages == true && !r.Messages.IsNullOrEmpty())
             {
                 var localizer = _serviceProvider.GetService<IMilvaLocalizer>();
 
