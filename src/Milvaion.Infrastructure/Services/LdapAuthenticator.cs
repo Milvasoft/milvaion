@@ -1,6 +1,8 @@
 using Milvaion.Application.Interfaces;
 using System.DirectoryServices.Protocols;
+using System.Globalization;
 using System.Net;
+using System.Text;
 
 namespace Milvaion.Infrastructure.Services;
 
@@ -24,7 +26,7 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
 
         var userBindDn = string.IsNullOrWhiteSpace(_options.UserDnFormat)
             ? username
-            : string.Format(_options.UserDnFormat, username);
+            : FormatBindName(_options.UserDnFormat, username);
 
         try
         {
@@ -43,6 +45,52 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
             return LdapAuthResult.Fail();
         }
     }
+
+    /// <summary>
+    /// Escapes a value for use inside a search filter (RFC 4515), so the submitted username cannot change the filter.
+    /// </summary>
+    public static string EscapeFilterValue(string value)
+    {
+        var escaped = new StringBuilder(value.Length);
+
+        foreach (var character in value)
+        {
+            if (character is '\\' or '*' or '(' or ')' or '\0')
+                escaped.Append('\\').Append(((int)character).ToString("x2", CultureInfo.InvariantCulture));
+            else
+                escaped.Append(character);
+        }
+
+        return escaped.ToString();
+    }
+
+    /// <summary>
+    /// Escapes a value for use as an attribute value in a distinguished name (RFC 4514).
+    /// </summary>
+    public static string EscapeDnValue(string value)
+    {
+        var escaped = new StringBuilder(value.Length);
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            var edgeSpace = character == ' ' && (i == 0 || i == value.Length - 1);
+
+            if (character is ',' or '+' or '"' or '\\' or '<' or '>' or ';' or '=' || edgeSpace || (character == '#' && i == 0))
+                escaped.Append('\\').Append(character);
+            else
+                escaped.Append(character);
+        }
+
+        return escaped.ToString();
+    }
+
+    /// <summary>
+    /// Fills the bind name template. Only a real DN template needs escaping: a UPN style one such as
+    /// <c>{0}@corp.example.com</c> has no DN syntax for the value to break out of.
+    /// </summary>
+    private static string FormatBindName(string format, string username)
+        => string.Format(format, format.Contains('=') ? EscapeDnValue(username) : username);
 
     private LdapConnection CreateConnection()
     {
@@ -73,7 +121,7 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
             else
                 searchConnection.Bind(new NetworkCredential(userBindDn, userPassword));
 
-            var filter = string.Format(_options.UserSearchFilter ?? "(sAMAccountName={0})", username);
+            var filter = string.Format(_options.UserSearchFilter ?? "(sAMAccountName={0})", EscapeFilterValue(username));
 
             var request = new SearchRequest(_options.BaseDn, filter, SearchScope.Subtree,
                                             "mail", "givenName", "sn", "objectGUID", _options.GroupMemberAttribute);
