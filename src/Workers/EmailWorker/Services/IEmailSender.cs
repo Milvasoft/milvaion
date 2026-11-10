@@ -48,6 +48,11 @@ public class EmailSendResult
     public string ErrorMessage { get; set; }
 
     /// <summary>
+    /// The exception behind the failure, if there was one.
+    /// </summary>
+    public Exception Exception { get; set; }
+
+    /// <summary>
     /// Number of recipients the email was sent to.
     /// </summary>
     public int RecipientCount { get; set; }
@@ -71,9 +76,10 @@ public class EmailSendResult
     /// <summary>
     /// Creates a failure result.
     /// </summary>
-    public static EmailSendResult Failed(string errorMessage) => new()
+    public static EmailSendResult Failed(string errorMessage, Exception exception = null) => new()
     {
         Success = false,
-        ErrorMessage = errorMessage
+        ErrorMessage = errorMessage,
+        Exception = exception
     };
 }

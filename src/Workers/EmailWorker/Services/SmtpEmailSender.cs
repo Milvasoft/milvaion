@@ -83,21 +83,26 @@ public class SmtpEmailSender(IOptions<EmailWorkerOptions> options) : IEmailSende
 
             return EmailSendResult.Succeeded(message.MessageId, recipientCount, stopwatch.ElapsedMilliseconds);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Cancellation and timeout belong to the job executor; reported as a send failure they would go straight to the DLQ
+            throw;
+        }
         catch (AuthenticationException ex)
         {
             return EmailSendResult.Failed($"SMTP authentication failed: {ex.Message}");
         }
         catch (SmtpCommandException ex)
         {
-            return EmailSendResult.Failed($"SMTP server error ({ex.StatusCode}): {ex.Message}");
+            return EmailSendResult.Failed($"SMTP server error ({ex.StatusCode}): {ex.Message}", ex);
         }
         catch (SmtpProtocolException ex)
         {
-            return EmailSendResult.Failed($"SMTP protocol error: {ex.Message}");
+            return EmailSendResult.Failed($"SMTP protocol error: {ex.Message}", ex);
         }
         catch (Exception ex)
         {
-            return EmailSendResult.Failed($"Failed to send email: {ex.Message}");
+            return EmailSendResult.Failed($"Failed to send email: {ex.Message}", ex);
         }
     }
 
