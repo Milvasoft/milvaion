@@ -1,5 +1,4 @@
-﻿using Mapster;
-using Milvaion.Application.Dtos.ContentManagementDtos.ContentDtos;
+﻿using Milvaion.Application.Dtos.ContentManagementDtos.ContentDtos;
 using Milvaion.Domain.ContentManagement;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;
@@ -30,7 +29,7 @@ public record UpdateContentCommandHandler(IMilvaionRepositoryBase<Content> Conte
         {
             await _mediaRepository.ExecuteDeleteAsync(rl => rl.ContentId == request.Id, cancellationToken: cancellationToken);
 
-            var newMedias = request.Medias.Value?.Adapt<List<Media>>();
+            var newMedias = request.Medias.Value?.Select(m => new Media { Value = m.Media, Type = m.Type, ContentId = request.Id }).ToList();
 
             if (newMedias?.Count > 0)
                 await _mediaRepository.BulkAddAsync(newMedias, null, cancellationToken);

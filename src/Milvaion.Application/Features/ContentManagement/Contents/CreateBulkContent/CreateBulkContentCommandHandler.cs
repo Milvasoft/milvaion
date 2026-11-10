@@ -35,7 +35,7 @@ public record CreateBulkContentCommandHandler(IMilvaionRepositoryBase<Content> C
             if (relatedResourceGroup is null)
                 continue;
 
-            var content = request.Adapt<Content>();
+            var content = requestContent.Adapt<Content>();
 
             content.Key = requestContent.Key.Trim();
             content.LanguageId = requestContent.LanguageId;
@@ -55,7 +55,8 @@ public record CreateBulkContentCommandHandler(IMilvaionRepositoryBase<Content> C
             contents.Add(content);
         }
 
-        await _contentRepository.BulkAddAsync(contents, cancellationToken: cancellationToken);
+        // Bulk insert writes a single table and would drop each content's media.
+        await _contentRepository.AddRangeAsync(contents, cancellationToken);
 
         return Response.Success();
     }

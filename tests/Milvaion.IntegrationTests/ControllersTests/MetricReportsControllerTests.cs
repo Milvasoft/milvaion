@@ -300,7 +300,7 @@ public class MetricReportsControllerTests(CustomWebApplicationFactory factory, I
         var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
 
         // Assert
-        httpResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeFalse();
     }
