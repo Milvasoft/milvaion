@@ -13,8 +13,17 @@ on:
       - '**/Directory.Build.props'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  ci-gate:
+    uses: ./.github/workflows/wait-for-ci.yml
+    permissions:
+      actions: read
+
   publish-milvaion-sdk:
+    needs: ci-gate
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +33,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk/Milvasoft.Milvaion.Sdk.csproj
@@ -36,9 +45,11 @@ jobs:
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk/Milvasoft.Milvaion.Sdk.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
       - name: Publish Milvasoft.Milvaion.Sdk to NuGet
+        if: github.event_name != 'pull_request'
         run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
 
   publish-milvaion-sdk-worker:
+    needs: ci-gate
     runs-on: ubuntu-latest
 
     steps:
@@ -48,7 +59,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk.Worker dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj
@@ -60,9 +71,11 @@ jobs:
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
       - name: Publish Milvasoft.Milvaion.Sdk.Worker to NuGet
+        if: github.event_name != 'pull_request'
         run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
 
   publish-milvaion-sdk-worker-quartz:
+    needs: ci-gate
     runs-on: ubuntu-latest
 
     steps:
@@ -72,7 +85,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk.Worker.Quartz dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Quartz/Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj
@@ -84,9 +97,11 @@ jobs:
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Quartz/Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
       - name: Publish Milvasoft.Milvaion.Sdk.Worker.Quartz to NuGet
+        if: github.event_name != 'pull_request'
         run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
 
   publish-milvaion-sdk-worker-hangfire:
+    needs: ci-gate
     runs-on: ubuntu-latest
 
     steps:
@@ -96,7 +111,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk.Worker.Hangfire dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj
@@ -108,4 +123,5 @@ jobs:
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
       - name: Publish Milvasoft.Milvaion.Sdk.Worker.Hangfire to NuGet
+        if: github.event_name != 'pull_request'
         run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate

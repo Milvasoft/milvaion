@@ -13,8 +13,17 @@ on:
       - '**/Directory.Build.props'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  ci-gate:
+    uses: ./.github/workflows/wait-for-ci.yml
+    permissions:
+      actions: read
+
   build-and-publish:
+    needs: ci-gate
     runs-on: ubuntu-latest
     
     steps:
@@ -24,7 +33,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
 
       - name: Restore Milvasoft.Templates.Milvaion dependencies
         run: dotnet restore src/Workers/Milvasoft.Templates.Milvaion/Milvasoft.Templates.Milvaion.csproj
@@ -36,4 +45,5 @@ jobs:
         run: dotnet pack src/Workers/Milvasoft.Templates.Milvaion/Milvasoft.Templates.Milvaion.csproj --no-build --configuration Release -o ./packages
 
       - name: Publish Milvasoft.Templates.Milvaion to NuGet
+        if: github.event_name != 'pull_request'
         run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
