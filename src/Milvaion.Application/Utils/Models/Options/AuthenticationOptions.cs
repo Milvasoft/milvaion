@@ -75,6 +75,33 @@ public class OidcOptions
 
     /// <summary>Optional prefix filter: only roles starting with this are provisioned. Empty takes them all.</summary>
     public string RolePrefix { get; set; }
+
+    /// <summary>
+    /// Explicit grants from a provider role to existing local Milvaion roles (comma-separated), for example
+    /// <c>owner = SuperAdmin</c>. Only what is listed here can reach a local role. Provider roles not listed are mirrored
+    /// as provider roles with an empty permission set.
+    /// </summary>
+    public Dictionary<string, string> RoleMappings { get; set; } = [];
+
+    /// <summary>
+    /// Splits the roles a provider asserted into roles to mirror and local roles granted by <see cref="RoleMappings"/>.
+    /// Keys are matched case-insensitively because environment variable names may be upper-cased by the deployment.
+    /// </summary>
+    public (List<string> MirroredRoles, List<string> LocalRoles) ResolveRoles(IEnumerable<string> assertedRoles)
+    {
+        var mappings = (RoleMappings ?? []).ToLookup(mapping => mapping.Key, mapping => mapping.Value, StringComparer.OrdinalIgnoreCase);
+
+        var asserted = (assertedRoles ?? []).Where(role => string.IsNullOrEmpty(RolePrefix) || role.StartsWith(RolePrefix, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var mirrored = asserted.Where(role => !mappings.Contains(role)).ToList();
+
+        var local = asserted.SelectMany(role => mappings[role])
+                            .SelectMany(value => (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList();
+
+        return (mirrored, local);
+    }
 }
 
 /// <summary>

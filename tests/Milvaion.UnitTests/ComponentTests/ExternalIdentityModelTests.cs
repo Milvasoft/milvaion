@@ -8,6 +8,32 @@ namespace Milvaion.UnitTests.ComponentTests;
 public class ExternalIdentityModelTests
 {
     [Fact]
+    public void ResolveRoles_ShouldGrantMappedLocalRolesAndMirrorTheRest()
+    {
+        // Upper-case keys are what an environment-variable based deployment can deliver.
+        var options = new Milvaion.Application.Utils.Models.Options.OidcOptions
+        {
+            RoleMappings = new() { ["OWNER"] = "SuperAdmin", ["admin"] = "SuperAdmin, Operators" }
+        };
+
+        var (mirrored, local) = options.ResolveRoles(["owner", "admin", "member"]);
+
+        mirrored.Should().Equal("member");
+        local.Should().Equal("SuperAdmin", "Operators");
+    }
+
+    [Fact]
+    public void ResolveRoles_WithoutMappings_ShouldMirrorEverythingAndGrantNothing()
+    {
+        var options = new Milvaion.Application.Utils.Models.Options.OidcOptions { RolePrefix = "milvaion" };
+
+        var (mirrored, local) = options.ResolveRoles(["milvaion-ops", "SuperAdmin"]);
+
+        mirrored.Should().Equal("milvaion-ops");
+        local.Should().BeEmpty();
+    }
+
+    [Fact]
     public void LdapAuthResult_Fail_ShouldReturnUnsuccessfulResult()
     {
         // Act

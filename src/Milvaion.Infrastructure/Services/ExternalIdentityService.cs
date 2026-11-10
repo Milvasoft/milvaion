@@ -57,7 +57,7 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
     {
         // The role set the provider asserted is folded into the cached payload, so a membership change on the
         // provider (new token, same subject) is detected and re-resolved even without an explicit invalidation.
-        var rolesHash = ComputeRolesHash(descriptor.RoleNames);
+        var rolesHash = ComputeRolesHash([.. descriptor.RoleNames ?? [], .. descriptor.LocalRoleNames ?? []]);
         var cacheKey = await BuildCacheKeyAsync(descriptor);
 
         var cached = await _cache.GetAsync<CachedIdentity>(cacheKey);
@@ -158,6 +158,8 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
     {
         var roles = await EnsureRolesAsync(descriptor.RoleNames, descriptor.Provider, cancellationToken);
 
+        roles.AddRange(await GetMappedLocalRolesAsync(descriptor.LocalRoleNames, cancellationToken));
+
         var user = await _userRepository.GetFirstOrDefaultAsync(u => u.Issuer == descriptor.Issuer && u.ExternalSubject == descriptor.Subject,
                                                                 projection: _externalLookup,
                                                                 cancellationToken: cancellationToken);
@@ -198,11 +200,16 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
                 user = created;
             }
         }
-        else if (user.LastLoginDate is null || DateTime.UtcNow - user.LastLoginDate.Value > _lastLoginThrottle)
+        else
         {
-            user.LastLoginDate = DateTime.UtcNow;
+            await SyncIdentityAsync(user, descriptor, cancellationToken);
 
-            await _userRepository.UpdateAsync(user, cancellationToken, u => u.LastLoginDate);
+            if (user.LastLoginDate is null || DateTime.UtcNow - user.LastLoginDate.Value > _lastLoginThrottle)
+            {
+                user.LastLoginDate = DateTime.UtcNow;
+
+                await _userRepository.UpdateAsync(user, cancellationToken, u => u.LastLoginDate);
+            }
         }
 
         // Authorization follows the roles the provider asserted this sign-in, resolved against the
@@ -218,6 +225,54 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
         claims.AddRange(permissionClaims);
 
         return claims;
+    }
+
+    /// <summary>
+    /// Refreshes the shadow record from the provider, which owns the identity. A sign-in that arrived without a user name
+    /// claim stored the subject as the name, so a later token carrying the real one has to replace it.
+    /// </summary>
+    private async Task SyncIdentityAsync(User user, ExternalIdentityDescriptor descriptor, CancellationToken cancellationToken)
+    {
+        var email = string.IsNullOrWhiteSpace(descriptor.Email) ? user.Email : descriptor.Email;
+        var name = string.IsNullOrWhiteSpace(descriptor.Name) ? user.Name : descriptor.Name;
+        var userName = user.UserName;
+
+        if (!string.IsNullOrWhiteSpace(descriptor.UserName) && descriptor.UserName != descriptor.Subject && descriptor.UserName != user.UserName)
+        {
+            var taken = await _userRepository.GetFirstOrDefaultAsync(u => u.UserName == descriptor.UserName && u.Id != user.Id,
+                                                                     projection: u => new User { Id = u.Id },
+                                                                     cancellationToken: cancellationToken);
+
+            if (taken is null)
+                userName = descriptor.UserName;
+        }
+
+        if (userName == user.UserName && email == user.Email && name == user.Name)
+            return;
+
+        user.UserName = userName;
+        user.NormalizedUserName = userName?.ToUpperInvariant();
+        user.Email = email;
+        user.NormalizedEmail = email?.ToUpperInvariant();
+        user.Name = name;
+
+        await _userRepository.UpdateAsync(user, cancellationToken, u => u.UserName, u => u.NormalizedUserName, u => u.Email, u => u.NormalizedEmail, u => u.Name);
+    }
+
+    /// <summary>
+    /// Loads the local roles an explicit mapping grants. Provider-owned roles with the same name do not qualify, and a
+    /// name that matches nothing grants nothing.
+    /// </summary>
+    private async Task<List<Role>> GetMappedLocalRolesAsync(IReadOnlyCollection<string> roleNames, CancellationToken cancellationToken)
+    {
+        var wanted = (roleNames ?? []).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList();
+
+        if (wanted.Count == 0)
+            return [];
+
+        return [.. await _roleRepository.GetAllAsync(condition: r => wanted.Contains(r.Name) && r.Provider == ExternalProvider.Local,
+                                                     projection: _roleWithPermissions,
+                                                     cancellationToken: cancellationToken)];
     }
 
     /// <summary>
@@ -275,6 +330,8 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
     {
         Id = u.Id,
         UserName = u.UserName,
+        Email = u.Email,
+        Name = u.Name,
         LastLoginDate = u.LastLoginDate
     };
 
