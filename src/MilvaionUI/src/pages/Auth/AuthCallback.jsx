@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import settingsService from '../../services/settingsService'
-import { createOidcManager } from '../../services/oidcClient'
+import { createOidcManager, rememberOidcSession } from '../../services/oidcClient'
 
 /**
  * Completes the OIDC redirect. Exchanges the authorization code for tokens, stores the access token
@@ -30,6 +30,7 @@ export default function AuthCallback() {
 
         if (user?.access_token) {
           localStorage.setItem('accessToken', user.access_token)
+          rememberOidcSession(settings.oidc)
 
           if (user.refresh_token)
             localStorage.setItem('refreshToken', user.refresh_token)

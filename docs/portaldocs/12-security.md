@@ -120,6 +120,8 @@ Authentication is configured under `MilvaionConfig:Authentication`. These values
 | `NameClaim` / `SubjectClaim` / `RolesClaim` | Claims used for the display name, the stable per-user identifier, and the user's roles/groups. |
 | `RolePrefix` | Optional prefix filter: only roles starting with this value are provisioned. Empty takes them all. |
 
+The SPA requests the `openid profile email offline_access` scopes and renews expired access tokens with the refresh token, so the client must be allowed `offline_access`. Milvaion reads the user's identity from the **access token**, so it must carry the `NameClaim`, `SubjectClaim`, `RolesClaim` and `email` claims.
+
 > ⚠️ **Important:** Never commit `ClientSecret` to version control. Use environment variables or a secret store.
 
 ### LDAP / Active Directory Configuration
