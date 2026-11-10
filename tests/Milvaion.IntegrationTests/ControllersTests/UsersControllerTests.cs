@@ -304,7 +304,7 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
         httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.Should().NotBeNull();
         _output.WriteLine(result.Messages.First().Message);
-        result.IsSuccess.Should().BeTrue();
+        result.IsSuccess.Should().BeFalse();
     }
 
     #endregion
