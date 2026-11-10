@@ -87,7 +87,7 @@ public class JobHealthScoreReportJob(IOptions<ReporterOptions> options) : IAsync
             report.DisplayName,
             report.Description,
             report.Data,
-            DataSizeBytes = report.Data.Length,
+            DataSizeBytes = System.Text.Encoding.UTF8.GetByteCount(report.Data),
             report.PeriodStartTime,
             report.PeriodEndTime,
             report.GeneratedAt,

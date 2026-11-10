@@ -8,6 +8,7 @@ using Milvasoft.Milvaion.Sdk.Worker.Exceptions;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Persistence;
 using System.Diagnostics;
+using System.Reflection;
 using System.Text.Json;
 
 namespace Milvasoft.Milvaion.Sdk.Worker.Core;
@@ -276,7 +277,7 @@ public class JobExecutor(ILoggerFactory loggerFactory)
             if (asyncJobWithResultInterface != null)
             {
                 var executeMethod = asyncJobWithResultInterface.GetMethod("ExecuteAsync");
-                var task = executeMethod!.Invoke(jobInstance, [context]) as Task;
+                var task = executeMethod!.Invoke(jobInstance, BindingFlags.DoNotWrapExceptions, null, [context], null) as Task;
                 await task!;
 
                 var resultProperty = task.GetType().GetProperty("Result");
@@ -303,7 +304,9 @@ public class JobExecutor(ILoggerFactory loggerFactory)
             if (jobWithResultInterface != null)
             {
                 var executeMethod = jobWithResultInterface.GetMethod("Execute");
-                var result = executeMethod!.Invoke(jobInstance, [context]);
+
+                // DoNotWrapExceptions keeps PermanentJobException and OperationCanceledException recognisable to the callers' catch blocks
+                var result = await Task.Run(() => executeMethod!.Invoke(jobInstance, BindingFlags.DoNotWrapExceptions, null, [context], null), context.CancellationToken);
 
                 if (result == null)
                     return null;

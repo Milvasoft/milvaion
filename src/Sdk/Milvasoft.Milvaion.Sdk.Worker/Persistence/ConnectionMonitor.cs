@@ -54,7 +54,9 @@ public class ConnectionMonitor : IConnectionMonitor
     private const double _jitterFactor = 0.2; // ±20%
 
     // RabbitMQ backoff state
-    private bool _isRabbitHealthy = false;
+    // Optimistic until the first check: a publish that fails still falls back to the local store,
+    // whereas assuming unhealthy delays every status of the first seconds by a whole sync interval.
+    private bool _isRabbitHealthy = true;
     private double _rabbitBackoffSeconds = _initialBackoffSeconds;
     private int _rabbitConsecutiveFailures;
     private bool _wasRabbitHealthy = true;
@@ -301,7 +303,15 @@ public class ConnectionMonitor : IConnectionMonitor
             // Already disposed, ignore
         }
 
-        _backgroundCheckTask?.GetAwaiter().GetResult();
+        try
+        {
+            _backgroundCheckTask?.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when cancelled while backing off
+        }
+
         DisposeConnectionAsync().GetAwaiter().GetResult();
         _cts?.Dispose();
         GC.SuppressFinalize(this);
@@ -324,8 +334,16 @@ public class ConnectionMonitor : IConnectionMonitor
             // Already disposed, ignore
         }
 
-        if (_backgroundCheckTask != null)
-            await _backgroundCheckTask;
+        try
+        {
+            if (_backgroundCheckTask != null)
+                await _backgroundCheckTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when cancelled while backing off
+        }
+
         await DisposeConnectionAsync();
         _cts?.Dispose();
         GC.SuppressFinalize(this);

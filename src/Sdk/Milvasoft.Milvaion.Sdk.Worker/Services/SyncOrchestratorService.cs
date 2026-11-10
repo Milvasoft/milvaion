@@ -21,6 +21,7 @@ public class SyncOrchestratorService(OutboxService outboxService,
     private readonly TimeSpan _syncInterval = TimeSpan.FromSeconds(options.OfflineResilience?.SyncIntervalSeconds ?? 30);
     private readonly TimeSpan _cleanupInterval = TimeSpan.FromHours(options.OfflineResilience?.CleanupIntervalHours ?? 1);
     private readonly TimeSpan _recordRetention = TimeSpan.FromDays(options.OfflineResilience?.RecordRetentionDays ?? 1);
+    private readonly int _maxSyncRetries = Math.Max(1, options.OfflineResilience?.MaxSyncRetries ?? 3);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -43,13 +44,13 @@ public class SyncOrchestratorService(OutboxService outboxService,
                 if (isHealthy)
                 {
                     // Sync status updates
-                    var statusResult = await _outboxService.SyncStatusUpdatesAsync(maxBatchSize: 100, maxRetries: 3, cancellationToken: stoppingToken);
+                    var statusResult = await _outboxService.SyncStatusUpdatesAsync(maxBatchSize: 100, maxRetries: _maxSyncRetries, cancellationToken: stoppingToken);
 
                     if (!statusResult.Skipped && (statusResult.SyncedCount > 0 || statusResult.FailedCount > 0))
                         _logger?.Information("Status sync: {Message} (Synced: {Synced}, Failed: {Failed})", statusResult.Message, statusResult.SyncedCount, statusResult.FailedCount);
 
                     // Sync logs
-                    var logsResult = await _outboxService.SyncLogsAsync(maxBatchSize: 1000, maxRetries: 3, cancellationToken: stoppingToken);
+                    var logsResult = await _outboxService.SyncLogsAsync(maxBatchSize: 1000, maxRetries: _maxSyncRetries, cancellationToken: stoppingToken);
 
                     if (!logsResult.Skipped && (logsResult.SyncedCount > 0 || logsResult.FailedCount > 0))
                         _logger?.Information("Logs sync: {Message} (Synced: {Synced}, Failed: {Failed})", logsResult.Message, logsResult.SyncedCount, logsResult.FailedCount);
@@ -111,9 +112,9 @@ public class SyncOrchestratorService(OutboxService outboxService,
 
         try
         {
-            // Attempt final sync
-            await _outboxService.SyncStatusUpdatesAsync(maxBatchSize: 100, maxRetries: 1, cancellationToken: cancellationToken);
-            await _outboxService.SyncLogsAsync(maxBatchSize: 1000, maxRetries: 1, cancellationToken: cancellationToken);
+            // Attempt final sync. Uses the configured limit: a lower one here would drop records that merely failed once before.
+            await _outboxService.SyncStatusUpdatesAsync(maxBatchSize: 100, maxRetries: _maxSyncRetries, cancellationToken: cancellationToken);
+            await _outboxService.SyncLogsAsync(maxBatchSize: 1000, maxRetries: _maxSyncRetries, cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {

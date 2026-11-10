@@ -2,6 +2,7 @@ using Dapper;
 using Microsoft.Extensions.Options;
 using MilvaionMaintenanceWorker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
+using Milvasoft.Milvaion.Sdk.Worker.Exceptions;
 using Npgsql;
 using System.Text.Json;
 
@@ -60,11 +61,11 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
         }
 
         // 3. Create archive table only if we have records to archive
-        await CreateArchiveTableIfNotExistsAsync(connection, archiveTableName, context);
+        var occurrenceColumns = await EnsureArchiveTableAsync(connection, "JobOccurrences", archiveTableName, context);
 
         // 3.1. Also create archive table for logs
         var archiveLogsTableName = $"{archiveTableName}_Logs";
-        await CreateArchiveLogsTableIfNotExistsAsync(connection, archiveLogsTableName, context);
+        var logColumns = await EnsureArchiveTableAsync(connection, "JobOccurrenceLogs", archiveLogsTableName, context);
 
         // 4. Archive in batches
         var totalArchived = 0;
@@ -75,7 +76,7 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
-            var (archived, logsArchived) = await ArchiveBatchAsync(connection, archiveTableName, archiveLogsTableName, settings.StatusesToArchive, cutoffDate, settings.BatchSize);
+            var (archived, logsArchived) = await ArchiveBatchAsync(connection, archiveTableName, archiveLogsTableName, occurrenceColumns, logColumns, settings.StatusesToArchive, cutoffDate, settings.BatchSize);
 
             totalArchived += archived;
             totalLogsArchived += logsArchived;
@@ -144,102 +145,71 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
         return $"{prefix}_{now:yyyy}_{now:MM}";
     }
 
-    private static async Task CreateArchiveTableIfNotExistsAsync(
-        NpgsqlConnection connection,
-        string archiveTableName,
-        IJobContext context)
+    /// <summary>
+    /// Creates the archive table from the live table's current definition and returns the columns to copy.
+    /// A table from an earlier run of the same month gets any columns added to the live table since.
+    /// </summary>
+    private static async Task<string> EnsureArchiveTableAsync(NpgsqlConnection connection,
+                                                              string sourceTableName,
+                                                              string archiveTableName,
+                                                              IJobContext context)
     {
-        // Check if table exists
-        var tableExists = await connection.ExecuteScalarAsync<bool>(@"
+        // Earlier versions created these tables with a column that never existed on JobOccurrences and a Level of the
+        // wrong type, so every insert failed and they can only be empty. They cannot receive rows and have to be rebuilt.
+        var hasLegacySchema = await connection.ExecuteScalarAsync<bool>(@"
             SELECT EXISTS (
-                SELECT FROM information_schema.tables 
+                SELECT FROM information_schema.columns
                 WHERE table_name = @TableName
+                AND (column_name = 'ScheduledTime' OR (column_name = 'Level' AND data_type = 'integer'))
             )", new { TableName = archiveTableName });
 
-        if (tableExists)
+        if (hasLegacySchema)
         {
-            context.LogInformation($"  Archive table {archiveTableName} already exists");
-            return;
+            var legacyRows = await connection.ExecuteScalarAsync<long>($@"SELECT COUNT(*) FROM ""{archiveTableName}""");
+
+            if (legacyRows > 0)
+                throw new PermanentJobException($"Archive table {archiveTableName} has an outdated schema and contains {legacyRows} rows. Rename it before archiving again.");
+
+            await connection.ExecuteAsync($@"DROP TABLE ""{archiveTableName}""");
+
+            context.LogWarning($"  Replaced empty archive table {archiveTableName} that had an outdated schema");
         }
 
-        context.LogInformation($"  Creating archive table {archiveTableName}...");
-
-        // Create table with same structure as JobOccurrences
-        var createTableSql = $@"
-            CREATE TABLE ""{archiveTableName}"" (
-                ""Id"" uuid NOT NULL,
-                ""JobId"" uuid NOT NULL,
-                ""CorrelationId"" uuid NOT NULL,
-                ""Status"" integer NOT NULL,
-                ""WorkerId"" varchar(200),
-                ""JobName"" varchar(200),
-                ""ScheduledTime"" timestamp with time zone NOT NULL,
-                ""StartTime"" timestamp with time zone,
-                ""EndTime"" timestamp with time zone,
-                ""DurationMs"" bigint,
-                ""Result"" text,
-                ""Exception"" text,
-                ""StatusChangeLogs"" jsonb,
-                ""LastHeartbeat"" timestamp with time zone,
-                ""DispatchRetryCount"" integer NOT NULL DEFAULT 0,
-                ""NextDispatchRetryAt"" timestamp with time zone,
-                ""CreatedAt"" timestamp with time zone NOT NULL,
+        await connection.ExecuteAsync($@"
+            CREATE TABLE IF NOT EXISTS ""{archiveTableName}"" (
+                LIKE ""{sourceTableName}"" INCLUDING DEFAULTS,
                 ""ArchivedAt"" timestamp with time zone NOT NULL DEFAULT NOW(),
                 CONSTRAINT ""PK_{archiveTableName}"" PRIMARY KEY (""Id"")
-            )";
+            )");
 
-        await connection.ExecuteAsync(createTableSql);
-        context.LogInformation($"  [OK] Archive table created");
-    }
+        var columns = (await connection.QueryAsync<(string Name, string Type)>(@"
+            SELECT quote_ident(attname) AS Name, format_type(atttypid, atttypmod) AS Type
+            FROM pg_attribute
+            WHERE attrelid = quote_ident(@TableName)::regclass AND attnum > 0 AND NOT attisdropped
+            ORDER BY attnum", new { TableName = sourceTableName })).ToList();
 
-    private static async Task CreateArchiveLogsTableIfNotExistsAsync(
-        NpgsqlConnection connection,
-        string archiveLogsTableName,
-        IJobContext context)
-    {
-        // Check if table exists
-        var tableExists = await connection.ExecuteScalarAsync<bool>(@"
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = @TableName
-            )", new { TableName = archiveLogsTableName });
+        foreach (var (name, type) in columns)
+            await connection.ExecuteAsync($@"ALTER TABLE ""{archiveTableName}"" ADD COLUMN IF NOT EXISTS {name} {type}");
 
-        if (tableExists)
-        {
-            context.LogInformation($"  Archive logs table {archiveLogsTableName} already exists");
-            return;
-        }
+        context.LogInformation($"  [OK] Archive table {archiveTableName} is ready");
 
-        context.LogInformation($"  Creating archive logs table {archiveLogsTableName}...");
-
-        // Create table with same structure as JobOccurrenceLogs
-        var createTableSql = $@"
-            CREATE TABLE ""{archiveLogsTableName}"" (
-                ""Id"" uuid NOT NULL,
-                ""OccurrenceId"" uuid NOT NULL,
-                ""Level"" integer NOT NULL,
-                ""Message"" text NOT NULL,
-                ""Data"" jsonb,
-                ""Timestamp"" timestamp with time zone NOT NULL,
-                ""ArchivedAt"" timestamp with time zone NOT NULL DEFAULT NOW(),
-                CONSTRAINT ""PK_{archiveLogsTableName}"" PRIMARY KEY (""Id"")
-            )";
-
-        await connection.ExecuteAsync(createTableSql);
-        context.LogInformation($"  [OK] Archive logs table created");
+        return string.Join(", ", columns.Select(c => c.Name));
     }
 
     private static async Task<(int archivedOccurrences, int archivedLogs)> ArchiveBatchAsync(
         NpgsqlConnection connection,
         string archiveTableName,
         string archiveLogsTableName,
+        string occurrenceColumns,
+        string logColumns,
         List<int> statuses,
         DateTime cutoffDate,
         int batchSize)
     {
         var statusFilter = string.Join(", ", statuses);
 
-        // Archive occurrences and their logs atomically
+        // One statement over one selected set: rows are removed only together with their archived copies. SKIP LOCKED
+        // leaves occurrences the status tracker is still updating for the next batch.
         var archiveSql = $@"
             WITH to_archive AS (
                 SELECT ""Id"" FROM ""JobOccurrences""
@@ -248,61 +218,35 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
                     (""EndTime"" IS NOT NULL AND ""EndTime"" < @CutoffDate)
                     OR (""EndTime"" IS NULL AND ""CreatedAt"" < @CutoffDate)
                 )
+                ORDER BY ""Id""
                 LIMIT @BatchSize
-            ),
-            archived_logs AS (
-                INSERT INTO ""{archiveLogsTableName}"" (
-                    ""Id"", ""OccurrenceId"", ""Level"", ""Message"", ""Data"", ""Timestamp"", ""ArchivedAt""
-                )
-                SELECT 
-                    jol.""Id"", jol.""OccurrenceId"", jol.""Level"", jol.""Message"", jol.""Data"", jol.""Timestamp"", NOW()
-                FROM ""JobOccurrenceLogs"" jol
-                INNER JOIN to_archive ta ON jol.""OccurrenceId"" = ta.""Id""
-                RETURNING ""Id""
+                FOR UPDATE SKIP LOCKED
             ),
             deleted_logs AS (
                 DELETE FROM ""JobOccurrenceLogs""
                 WHERE ""OccurrenceId"" IN (SELECT ""Id"" FROM to_archive)
+                RETURNING *
+            ),
+            archived_logs AS (
+                INSERT INTO ""{archiveLogsTableName}"" ({logColumns})
+                SELECT {logColumns} FROM deleted_logs
                 RETURNING 1
             ),
-            inserted AS (
-                INSERT INTO ""{archiveTableName}"" (
-                    ""Id"", ""JobId"", ""CorrelationId"", ""Status"", ""WorkerId"", ""JobName"",
-                    ""ScheduledTime"", ""StartTime"", ""EndTime"", ""DurationMs"",
-                    ""Result"", ""Exception"", ""StatusChangeLogs"",
-                    ""LastHeartbeat"", ""DispatchRetryCount"", ""NextDispatchRetryAt"", ""CreatedAt"", ""ArchivedAt""
-                )
-                SELECT
-                    jo.""Id"", jo.""JobId"", jo.""CorrelationId"", jo.""Status"", jo.""WorkerId"", jo.""JobName"",
-                    jo.""ScheduledTime"", jo.""StartTime"", jo.""EndTime"", jo.""DurationMs"",
-                    jo.""Result"", jo.""Exception"", jo.""StatusChangeLogs"",
-                    jo.""LastHeartbeat"", jo.""DispatchRetryCount"", jo.""NextDispatchRetryAt"", jo.""CreatedAt"", NOW()
-                FROM ""JobOccurrences"" jo
-                INNER JOIN to_archive ta ON jo.""Id"" = ta.""Id""
-                RETURNING ""Id""
+            deleted_occurrences AS (
+                DELETE FROM ""JobOccurrences""
+                WHERE ""Id"" IN (SELECT ""Id"" FROM to_archive)
+                RETURNING *
+            ),
+            archived_occurrences AS (
+                INSERT INTO ""{archiveTableName}"" ({occurrenceColumns})
+                SELECT {occurrenceColumns} FROM deleted_occurrences
+                RETURNING 1
             )
-            SELECT 
-                (SELECT COUNT(*) FROM inserted) as archived_occurrences,
-                (SELECT COUNT(*) FROM archived_logs) as archived_logs";
+            SELECT
+                (SELECT COUNT(*)::int FROM archived_occurrences) AS archived_occurrences,
+                (SELECT COUNT(*)::int FROM archived_logs) AS archived_logs";
 
-        var result = await connection.QueryFirstOrDefaultAsync<(int, int)>(
-            archiveSql,
-            new { CutoffDate = cutoffDate, BatchSize = batchSize });
-
-        // Delete occurrences after logs are archived
-        await connection.ExecuteAsync($@"
-            DELETE FROM ""JobOccurrences""
-            WHERE ""Id"" IN (
-                SELECT ""Id"" FROM ""JobOccurrences""
-                WHERE ""Status"" IN ({statusFilter})
-                AND (
-                    (""EndTime"" IS NOT NULL AND ""EndTime"" < @CutoffDate)
-                    OR (""EndTime"" IS NULL AND ""CreatedAt"" < @CutoffDate)
-                )
-                LIMIT @BatchSize
-            )", new { CutoffDate = cutoffDate, BatchSize = batchSize });
-
-        return result;
+        return await connection.QuerySingleAsync<(int, int)>(archiveSql, new { CutoffDate = cutoffDate, BatchSize = batchSize });
     }
 
     private static async Task CreateArchiveIndexesAsync(
@@ -355,7 +299,7 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
         try
         {
             return await connection.ExecuteScalarAsync<long>(
-                "SELECT pg_total_relation_size(@TableName)",
+                "SELECT pg_total_relation_size(quote_ident(@TableName)::regclass)",
                 new { TableName = table });
         }
         catch

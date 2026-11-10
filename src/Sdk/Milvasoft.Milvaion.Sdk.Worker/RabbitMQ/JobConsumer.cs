@@ -34,7 +34,12 @@ internal enum MessageDisposition
     /// <summary>
     /// Already handled (ACK already sent in Retry/DLQ flow).
     /// </summary>
-    AlreadyHandled
+    AlreadyHandled,
+
+    /// <summary>
+    /// Return the message to the queue (interrupted by worker shutdown).
+    /// </summary>
+    Requeue
 }
 
 /// <summary>
@@ -48,6 +53,8 @@ public class JobConsumer : BackgroundService
     private readonly Dictionary<string, JobConsumerConfig> _jobConfigs;
     private IConnection _connection;
     private IChannel _channel;
+    private string _consumerTag;
+    private readonly TimeSpan _shutdownTimeout;
 
     // Concurrency control
     private SemaphoreSlim _concurrencySemaphore;
@@ -74,8 +81,10 @@ public class JobConsumer : BackgroundService
         _serviceProvider = serviceProvider;
         _logger = logger;
         _options = options.Value;
-        _jobConfigs = jobConsumerOptions.Value ?? new Dictionary<string, JobConsumerConfig>();
+        // Case-insensitive like ResolveJob: a config miss on a job that does resolve would run it without its settings.
+        _jobConfigs = new Dictionary<string, JobConsumerConfig>(jobConsumerOptions.Value ?? new Dictionary<string, JobConsumerConfig>(), StringComparer.OrdinalIgnoreCase);
         _outboxService = outboxService;
+        _shutdownTimeout = serviceProvider.GetService<IOptions<HostOptions>>()?.Value.ShutdownTimeout ?? TimeSpan.FromSeconds(30);
 
         _logger.Debug("[JOBCONSUMER INIT] JobConsumerOptions.Value is null: {IsNull}", jobConsumerOptions.Value == null);
         _logger.Debug("[JOBCONSUMER INIT] Consumers count: {Count}", _jobConfigs.Count);
@@ -89,6 +98,12 @@ public class JobConsumer : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var maxParallelJobs = _options.MaxParallelJobs;
+
+        if (maxParallelJobs <= 0)
+            throw new InvalidOperationException($"MaxParallelJobs must be greater than zero but was {maxParallelJobs}. Set Worker:MaxParallelJobs or the job consumer's MaxParallelJobs.");
+
+        // +1 leaves room for heartbeats; clamped because a ushort overflow to 0 would be an invalid dispatch concurrency
+        var dispatchConcurrency = (ushort)Math.Min(maxParallelJobs + 1, ushort.MaxValue);
 
         // Clamp to ushort.MaxValue (65535) to avoid overflow when casting to ushort for RabbitMQ QoS
         var prefetchCount = Math.Min(maxParallelJobs, ushort.MaxValue);
@@ -119,7 +134,7 @@ public class JobConsumer : BackgroundService
                 RequestedHeartbeat = TimeSpan.FromSeconds(60),
                 // Consumer dispatch concurrency - allows heartbeats to be processed
                 // even when consumer callbacks are busy with long-running jobs
-                ConsumerDispatchConcurrency = (ushort)(maxParallelJobs + 1)
+                ConsumerDispatchConcurrency = dispatchConcurrency
             };
 
             _connection = await factory.CreateConnectionAsync(stoppingToken);
@@ -134,7 +149,7 @@ public class JobConsumer : BackgroundService
              * delivered, just one at a time, so a worker configured for 128 parallel jobs quietly runs them
              * in series. JobConsumer_ShouldHandleConcurrentJobs guards against this.
              */
-            _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions((ushort)(maxParallelJobs + 1)),
+            _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions(dispatchConcurrency),
                                                            stoppingToken);
 
             await _channel.ExchangeDeclareAsync(exchange: WorkerConstant.ExchangeName,
@@ -204,10 +219,10 @@ public class JobConsumer : BackgroundService
                 await ProcessMessageWithConcurrencyControlAsync(ea, stoppingToken);
             };
 
-            await _channel.BasicConsumeAsync(queue: queueName,
-                                             autoAck: false,
-                                             consumer: consumer,
-                                             cancellationToken: stoppingToken);
+            _consumerTag = await _channel.BasicConsumeAsync(queue: queueName,
+                                                            autoAck: false,
+                                                            consumer: consumer,
+                                                            cancellationToken: stoppingToken);
 
             _logger?.Information("Worker {InstanceId} is now consuming from queue '{Queue}'", _options.InstanceId, queueName);
 
@@ -217,12 +232,7 @@ public class JobConsumer : BackgroundService
         {
             _logger?.Information("Worker {InstanceId} is shutting down, waiting for {Count} running jobs...", _options.InstanceId, _runningJobCount);
 
-            // Wait for all running jobs to complete using semaphore
-            // Acquire all slots = all jobs finished
-            for (int i = 0; i < _options.MaxParallelJobs; i++)
-                await _concurrencySemaphore.WaitAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
-
-            _logger?.Information("Worker {InstanceId} all jobs completed", _options.InstanceId);
+            await WaitForRunningJobsAsync();
         }
         catch (Exception ex)
         {
@@ -251,21 +261,89 @@ public class JobConsumer : BackgroundService
             _logger?.Warning(ex, "Failed to send shutdown heartbeat for {InstanceId}", _options.InstanceId);
         }
 
-        if (_channel != null)
-        {
-            await _channel.CloseAsync(cancellationToken);
-            _channel.Dispose();
-        }
-
-        if (_connection != null)
-        {
-            await _connection.CloseAsync(cancellationToken);
-            _connection.Dispose();
-        }
+        // Order matters: running jobs have to settle their message (ACK, or requeue if interrupted) on this channel.
+        await CancelConsumerAsync();
 
         await base.StopAsync(cancellationToken);
 
+        await CloseConnectionAsync(cancellationToken);
+
         _logger?.Information("Worker {InstanceId} stopped", _options.InstanceId);
+    }
+
+    /// <summary>
+    /// Stops new deliveries while keeping the channel open.
+    /// </summary>
+    private async Task CancelConsumerAsync()
+    {
+        if (_channel is not { IsOpen: true } || _consumerTag == null)
+            return;
+
+        using var lockCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        try
+        {
+            await _channelLock.WaitAsync(lockCts.Token);
+
+            try
+            {
+                await _channel.BasicCancelAsync(_consumerTag, cancellationToken: lockCts.Token);
+            }
+            finally
+            {
+                _channelLock.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Worker {InstanceId} could not cancel its RabbitMQ consumer", _options.InstanceId);
+        }
+    }
+
+    /// <summary>
+    /// Acquires every concurrency slot, which means every job has finished, within one overall deadline.
+    /// </summary>
+    private async Task WaitForRunningJobsAsync()
+    {
+        using var timeoutCts = new CancellationTokenSource(_shutdownTimeout);
+
+        try
+        {
+            for (var i = 0; i < _options.MaxParallelJobs; i++)
+                await _concurrencySemaphore.WaitAsync(timeoutCts.Token);
+
+            _logger?.Information("Worker {InstanceId} all jobs completed", _options.InstanceId);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger?.Warning("Worker {InstanceId} gave up waiting for {Count} running job(s) after {Timeout}s. Their messages will be redelivered.", _options.InstanceId, _runningJobCount, _shutdownTimeout.TotalSeconds);
+        }
+    }
+
+    private async Task CloseConnectionAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (_channel != null)
+            {
+                if (_channel.IsOpen)
+                    await _channel.CloseAsync(cancellationToken);
+
+                _channel.Dispose();
+            }
+
+            if (_connection != null)
+            {
+                if (_connection.IsOpen)
+                    await _connection.CloseAsync(cancellationToken);
+
+                _connection.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Worker {InstanceId} failed to close its RabbitMQ connection cleanly", _options.InstanceId);
+        }
     }
 
     /// <summary>
@@ -407,6 +485,10 @@ public class JobConsumer : BackgroundService
                     // ACK was already sent in Retry/DLQ flow - do nothing
                     logger?.Debug("Job {JobId} disposition: AlreadyHandled (ACK sent during Retry/DLQ flow)", job.Id);
                     break;
+
+                case MessageDisposition.Requeue:
+                    await SafeNackAsync(ea.DeliveryTag, logger, correlationId, requeue: true);
+                    break;
             }
         }
         catch (JsonException jsonEx)
@@ -414,6 +496,11 @@ public class JobConsumer : BackgroundService
             // Bad message format - NACK without requeue (send to DLQ)
             _logger?.Error(jsonEx, "Failed to deserialize message. Sending to DLQ.");
             await SafeNackAsync(ea.DeliveryTag, _logger, correlationId);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // e.g. shutdown during a retry backoff: the message goes back to the queue, not to the DLQ
+            await SafeNackAsync(ea.DeliveryTag, logger ?? _logger, correlationId, requeue: true);
         }
         catch (Exception ex)
         {
@@ -515,6 +602,11 @@ public class JobConsumer : BackgroundService
         {
             logger?.Warning("Channel disposed before ACK for job {JobId}, but job completed successfully", jobId);
         }
+        catch (Exception ackEx)
+        {
+            // Must not reach the caller: it would NACK a job that has already finished and send it to the DLQ
+            logger?.Warning(ackEx, "Failed to ACK job {JobId}. The message may be redelivered.", jobId);
+        }
         finally
         {
             _channelLock.Release();
@@ -525,7 +617,7 @@ public class JobConsumer : BackgroundService
     /// Thread-safe NACK operation. IChannel is NOT thread-safe, so we serialize operations.
     /// NACK must not be cancelled - it's a protocol-level finalizer.
     /// </summary>
-    private async Task SafeNackAsync(ulong deliveryTag, IMilvaLogger logger, Guid correlationId)
+    private async Task SafeNackAsync(ulong deliveryTag, IMilvaLogger logger, Guid correlationId, bool requeue = false)
     {
         if (_channel == null || !_channel.IsOpen)
             return;
@@ -548,8 +640,8 @@ public class JobConsumer : BackgroundService
             if (_channel != null && _channel.IsOpen)
             {
                 // NEVER pass cancellationToken here - NACK must complete
-                await _channel.BasicNackAsync(deliveryTag, multiple: false, requeue: false, CancellationToken.None);
-                logger?.Debug("Message NACK'd for CorrelationId {CorrelationId}", correlationId);
+                await _channel.BasicNackAsync(deliveryTag, multiple: false, requeue: requeue, CancellationToken.None);
+                logger?.Debug("Message NACK'd for CorrelationId {CorrelationId} (Requeue: {Requeue})", correlationId, requeue);
             }
         }
         catch (ObjectDisposedException)
@@ -704,7 +796,21 @@ public class JobConsumer : BackgroundService
                     }
                 }
 
-                return MessageDisposition.Nack;
+                // Sent as a DLQ message rather than NACK-ed: a dead-lettered raw job body would be read without its exception
+                await PublishToDLQAsync(new DlqJobMessage
+                {
+                    Id = job.Id,
+                    JobNameInWorker = job.JobNameInWorker,
+                    DisplayName = job.DisplayName,
+                    JobData = job.JobData,
+                    ExecuteAt = job.ExecuteAt,
+                    Exception = $"[PERMANENT FAILURE] No IJob implementation registered for type: {job.JobNameInWorker}",
+                    Status = JobOccurrenceStatus.Failed
+                }, correlationId, retryCount, 0, cancellationToken);
+
+                await SafeAckAsync(deliveryTag, logger, job.Id);
+
+                return MessageDisposition.AlreadyHandled;
             }
 
             // Execute the job
@@ -715,6 +821,15 @@ public class JobConsumer : BackgroundService
                                                         _options,
                                                         _jobConfigs.GetValueOrDefault(job.JobNameInWorker),
                                                         jobCancellationToken);
+
+            // A job interrupted by this worker stopping has not been cancelled by anyone. Reporting and finalizing it as
+            // Cancelled would make a redelivery to this worker skip it, so it goes back to the queue and is re-executed.
+            if (result.Status == JobOccurrenceStatus.Cancelled && cancellationToken.IsCancellationRequested)
+            {
+                logger?.Warning("Job {JobId} (CorrelationId: {CorrelationId}) was interrupted by worker shutdown. Returning it to the queue.", job.Id, correlationId);
+
+                return MessageDisposition.Requeue;
+            }
 
             // Retry logic: If failed and under max retries, republish with incremented retry count
             // Skip retry for permanent failures (e.g., invalid data, business rule violations)
@@ -943,6 +1058,10 @@ public class JobConsumer : BackgroundService
 
     private static IJobBase ResolveJob(string jobType, IServiceProvider serviceProvider)
     {
+        // Exact name is the normal case and builds only the job that will run
+        if (serviceProvider is IKeyedServiceProvider keyedProvider && keyedProvider.GetKeyedService(typeof(IJobBase), jobType) is IJobBase keyedJob)
+            return keyedJob;
+
         var jobs = serviceProvider.GetServices<IJobBase>();
 
         return jobs.FirstOrDefault(j => j.GetType().Name.Equals(jobType, StringComparison.OrdinalIgnoreCase));
@@ -978,9 +1097,9 @@ public class JobConsumer : BackgroundService
                 }
             };
 
-            // Delay before republishing (exponential backoff)
-            // Note: If worker restarts during delay, retry will be lost - this is a known trade-off
-            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+            // Delay before republishing (exponential backoff). The original message stays unacked meanwhile,
+            // so a worker restart during the delay redelivers it instead of losing the retry.
+            await DelayRetryAsync(job.Id, correlationId, delaySeconds, cancellationToken);
 
             await SafePublishAsync(exchange: "",
                                    routingKey: queueName,
@@ -994,6 +1113,27 @@ public class JobConsumer : BackgroundService
         {
             _logger?.Error(ex, "Failed to republish job {JobId} for retry", job.Id);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Waits out a retry backoff, keeping the job heartbeat going so the occurrence is not taken for a zombie.
+    /// </summary>
+    private async Task DelayRetryAsync(Guid jobId, Guid correlationId, int delaySeconds, CancellationToken cancellationToken)
+    {
+        var heartbeatInterval = _outboxService != null ? _options.Heartbeat?.JobHeartbeatIntervalSeconds ?? 60 : 0;
+        var remaining = delaySeconds;
+
+        while (remaining > 0)
+        {
+            var step = heartbeatInterval > 0 ? Math.Min(remaining, heartbeatInterval) : remaining;
+
+            await Task.Delay(TimeSpan.FromSeconds(step), cancellationToken);
+
+            remaining -= step;
+
+            if (remaining > 0 && heartbeatInterval > 0)
+                await _outboxService.PublishJobHeartbeatAsync(correlationId, jobId, _options.WorkerId, _options.InstanceId, CancellationToken.None);
         }
     }
 

@@ -11,6 +11,7 @@ using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Extensions;
 using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Services;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Utils;
+using System.Globalization;
 
 namespace Milvasoft.Milvaion.Sdk.Worker.Hangfire.Filters;
 
@@ -67,34 +68,48 @@ public class MilvaionJobFilter(IExternalJobPublisher publisher,
     /// </summary>
     public void OnCreated(CreatedContext context)
     {
-        var jobType = context.Job?.Type;
-        var methodName = context.Job?.Method?.Name ?? "Execute";
-        var externalJobId = jobType.GetExternalJobId(methodName);
-
-        // Publish registration message to Milvaion
-        var message = new ExternalJobRegistrationMessage
+        try
         {
-            ExternalJobId = externalJobId,
-            Source = _options.Source,
-            DisplayName = $"{jobType.Name}.{methodName}",
-            Description = $"Hangfire job: {jobType.FullName}.{methodName}",
-            JobTypeName = jobType.FullName ?? jobType.Name,
-            WorkerId = _workerOptions?.WorkerId,
-            IsActive = true
-        };
+            if (_publisher == null || _options == null)
+                return;
 
-        Task.Run(async () =>
+            var jobType = context.Job?.Type;
+
+            if (jobType == null)
+                return;
+
+            var methodName = context.Job?.Method?.Name ?? "Execute";
+            var externalJobId = jobType.GetExternalJobId(methodName);
+
+            // Publish registration message to Milvaion
+            var message = new ExternalJobRegistrationMessage
+            {
+                ExternalJobId = externalJobId,
+                Source = _options.Source,
+                DisplayName = $"{jobType.Name}.{methodName}",
+                Description = $"Hangfire job: {jobType.FullName}.{methodName}",
+                JobTypeName = jobType.FullName ?? jobType.Name,
+                WorkerId = _workerOptions?.WorkerId,
+                IsActive = true
+            };
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _publisher.PublishJobRegistrationAsync(message);
+                    _logger?.Debug("Registered Hangfire job with Milvaion: {ExternalJobId}", externalJobId);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Error(ex, "Failed to publish job registration for {ExternalJobId}", externalJobId);
+                }
+            });
+        }
+        catch (Exception ex)
         {
-            try
-            {
-                await _publisher.PublishJobRegistrationAsync(message);
-                _logger?.Debug("Registered Hangfire job with Milvaion: {ExternalJobId}", externalJobId);
-            }
-            catch (Exception ex)
-            {
-                _logger?.Error(ex, "Failed to publish job registration for {ExternalJobId}", externalJobId);
-            }
-        });
+            LogSafeError(ex, "OnCreated", context?.Job?.Type?.Name);
+        }
     }
 
     #endregion
@@ -172,7 +187,9 @@ public class MilvaionJobFilter(IExternalJobPublisher publisher,
             var correlationId = Guid.TryParse(correlationIdStr, out var cid) ? cid : Guid.CreateVersion7();
 
             var endTime = DateTime.UtcNow;
-            var startTime = DateTime.TryParse(startTimeStr, out var st) ? st : endTime;
+
+            // RoundtripKind keeps the stored UTC value; the default would convert it to local time and skew the duration by the UTC offset
+            var startTime = DateTime.TryParse(startTimeStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var st) ? st : endTime;
             var durationMs = (long)(endTime - startTime).TotalMilliseconds;
 
             var status = context.Exception == null ? JobOccurrenceStatus.Completed : JobOccurrenceStatus.Failed;
@@ -237,8 +254,9 @@ public class MilvaionJobFilter(IExternalJobPublisher publisher,
             // Track deletion/cancellation
             if (context.CandidateState is DeletedState)
             {
-                var correlationIdStr = context.GetJobParameter<string>(_correlationIdKey);
-                var correlationId = Guid.TryParse(correlationIdStr, out var cid) ? cid : Guid.CreateVersion7();
+                // A job deleted before it ever ran has no occurrence in Milvaion to cancel
+                if (!Guid.TryParse(context.GetJobParameter<string>(_correlationIdKey), out var correlationId))
+                    return;
 
                 var jobType = context.BackgroundJob.Job.Type;
                 var methodName = context.BackgroundJob.Job.Method.Name;

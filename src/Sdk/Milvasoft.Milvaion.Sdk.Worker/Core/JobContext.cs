@@ -87,7 +87,7 @@ public class JobContext(Guid occurrenceId,
 
             _logs.Add(log);
 
-            if (ExecutorJobConsumerConfig.LogUserFriendlyLogsViaLogger)
+            if (ExecutorJobConsumerConfig?.LogUserFriendlyLogsViaLogger == true)
                 if (Logger != null)
                 {
                     switch (level)
@@ -114,14 +114,8 @@ public class JobContext(Guid occurrenceId,
                     Console.WriteLine($"[{level}] [{category}] {message}");
                 }
 
-            // Publish via OutboxService (fire-and-forget with exception tracking)
-            _ = PublishLogViaOutboxAsync(log).ContinueWith(t =>
-            {
-                if (t.IsFaulted)
-                {
-                    Console.WriteLine($"[LOG PUBLISH FAILED] [{level}] {message} - Error: {t.Exception?.GetBaseException().Message}");
-                }
-            }, TaskScheduler.Default);
+            // Publish via OutboxService (fire-and-forget, failures are logged inside)
+            _ = PublishLogViaOutboxAsync(log);
         }
     }
 
@@ -158,17 +152,11 @@ public class JobContext(Guid occurrenceId,
             _logs.Add(log);
         }
 
-        // Publish with exception tracking
-        _ = PublishLogViaOutboxAsync(log).ContinueWith(t =>
-        {
-            if (t.IsFaulted)
-            {
-                Console.WriteLine($"[LOG PUBLISH FAILED] [Error] {message} - Error: {t.Exception?.GetBaseException().Message}");
-            }
-        }, TaskScheduler.Default);
+        // Fire-and-forget, failures are logged inside
+        _ = PublishLogViaOutboxAsync(log);
 
-        if (ExecutorJobConsumerConfig.LogUserFriendlyLogsViaLogger)
-            Logger.Error(ex, "[UserDefined] {Message}", message);
+        if (ExecutorJobConsumerConfig?.LogUserFriendlyLogsViaLogger == true)
+            Logger?.Error(ex, "[UserDefined] {Message}", message);
     }
 
     /// <summary>
@@ -184,12 +172,8 @@ public class JobContext(Guid occurrenceId,
                 return;
             }
 
-            await _outboxService.PublishLogAsync(OccurrenceId, WorkerId, log, CancellationToken);
-        }
-        catch (OperationCanceledException ex)
-        {
-            Console.WriteLine($"[ERROR] Log publishing was canceled: {ex.Message}");
-            throw; // Re-throw to trigger ContinueWith handler
+            // Not the job's token: the logs written when a job is cancelled or times out would be lost with it
+            await _outboxService.PublishLogAsync(OccurrenceId, WorkerId, log, CancellationToken.None);
         }
         catch (Exception ex)
         {

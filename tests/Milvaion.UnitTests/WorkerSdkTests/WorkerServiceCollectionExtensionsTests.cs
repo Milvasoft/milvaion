@@ -161,6 +161,7 @@ public class WorkerServiceCollectionExtensionsTests
         // Assert
         var localStoreDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(Milvasoft.Milvaion.Sdk.Worker.Persistence.LocalStateStore));
         localStoreDescriptor.Should().BeNull("LocalStateStore should NOT be registered when offline resilience is disabled");
+        services.Should().Contain(d => d.ServiceType == typeof(Milvasoft.Milvaion.Sdk.Worker.Persistence.OutboxService), "statuses and logs are published through OutboxService even without offline resilience");
     }
 
     #endregion

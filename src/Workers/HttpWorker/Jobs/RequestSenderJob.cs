@@ -1,4 +1,7 @@
-﻿using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
+﻿using HttpWorker.Options;
+using HttpWorker.Security;
+using Microsoft.Extensions.Options;
+using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
 using Milvasoft.Milvaion.Sdk.Worker.Exceptions;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -18,14 +21,18 @@ namespace HttpWorker.Jobs;
 /// Returns response summary as result for chaining/debugging.
 /// Uses hybrid HttpClient strategy: IHttpClientFactory for standard requests, custom handler for special cases.
 /// </summary>
-public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) : IAsyncJobWithResult<HttpJobData, string>
+public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory, HttpTargetPolicy targetPolicy, IOptions<HttpWorkerOptions> options) : IAsyncJobWithResult<HttpJobData, string>
 {
     /// <summary>
     /// Named client for standard HTTP requests with connection pooling.
     /// </summary>
     public const string DefaultClientName = "MilvaionHttpWorker";
 
+    private const int _maxErrorBodyLength = 2048;
+
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly HttpTargetPolicy _targetPolicy = targetPolicy;
+    private readonly HttpWorkerOptions _options = options.Value;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -48,9 +55,14 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
 
         context.LogInformation($"Final URL: {finalUrl}");
 
+        _targetPolicy.EnsureJobSettingsAllowed(jobData.IgnoreSslErrors,
+                                               jobData.Proxy != null,
+                                               jobData.ClientCertificate != null && string.IsNullOrEmpty(jobData.ClientCertificate.CertificateBase64) && !string.IsNullOrEmpty(jobData.ClientCertificate.Thumbprint));
+        _targetPolicy.EnsureUrlAllowed(finalUrl);
+
         // 3. Get or create HttpClient based on requirements (Hybrid Strategy)
         HttpClient client;
-        HttpClientHandler customHandler = null;
+        SocketsHttpHandler customHandler = null;
         var requiresCustomHandler = RequiresCustomHandler(jobData);
 
         if (requiresCustomHandler)
@@ -75,13 +87,10 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
             using var request = await BuildRequestAsync(jobData, finalUrl, context);
 
             // 5. Execute with retry policy
-            var response = await ExecuteWithRetryAsync(client, request, jobData, context);
+            using var response = await ExecuteWithRetryAsync(client, request, jobData, context);
 
-            // 6. Process and validate response
-            await ProcessResponseAsync(response, jobData, context);
-
-            // 7. Read and return response body as result
-            var responseBody = await response.Content.ReadAsStringAsync();
+            // 6. Process and validate response, reading the body within the configured limits
+            var responseBody = await ProcessResponseAsync(response, jobData, context);
 
             context.LogInformation($"HTTP request completed successfully with status {(int)response.StatusCode} {response.StatusCode}");
 
@@ -93,6 +102,11 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
                 ContentLength = responseBody.Length,
                 Body = responseBody.Length > jobData.MaxResponseLength ? responseBody[..jobData.MaxResponseLength] + "...(truncated)" : responseBody
             }, _jsonOptions);
+        }
+        catch (HttpRequestException ex) when (ex.InnerException is HttpTargetBlockedException blocked)
+        {
+            // Refused by configuration, so retrying cannot help
+            throw new PermanentJobException(blocked.Message, ex);
         }
         finally
         {
@@ -151,19 +165,22 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
 
     #region HttpClient Configuration
 
-    private static HttpClientHandler CreateHttpHandler(HttpJobData jobData)
+    private SocketsHttpHandler CreateHttpHandler(HttpJobData jobData)
     {
-        var handler = new HttpClientHandler
+        // SocketsHttpHandler rather than HttpClientHandler because only it exposes the connect callback the target policy needs
+        var handler = new SocketsHttpHandler
         {
             AllowAutoRedirect = jobData.FollowRedirects,
             MaxAutomaticRedirections = jobData.MaxRedirects,
             AutomaticDecompression = DecompressionMethods.All,
         };
 
+        _targetPolicy.Apply(handler);
+
         // SSL/TLS settings
         if (jobData.IgnoreSslErrors)
         {
-            handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+            handler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
         }
 
         // Proxy configuration
@@ -192,7 +209,8 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
 
             if (cert != null)
             {
-                handler.ClientCertificates.Add(cert);
+                // Sent regardless of the issuers the server advertises, which is what HttpClientHandler does
+                handler.SslOptions.LocalCertificateSelectionCallback = (_, _, _, _, _) => cert;
             }
         }
 
@@ -263,7 +281,7 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
 
     #region Request Building
 
-    private static async Task<HttpRequestMessage> BuildRequestAsync(HttpJobData jobData, string url, IJobContext context)
+    private async Task<HttpRequestMessage> BuildRequestAsync(HttpJobData jobData, string url, IJobContext context)
     {
         var method = jobData.Method switch
         {
@@ -300,7 +318,7 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
         return request;
     }
 
-    private static async Task AddAuthenticationAsync(HttpRequestMessage request, HttpJobData jobData, IJobContext context)
+    private async Task AddAuthenticationAsync(HttpRequestMessage request, HttpJobData jobData, IJobContext context)
     {
         if (jobData.Authentication == null || jobData.Authentication.Type == HttpAuthType.None)
             return;
@@ -359,14 +377,16 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
         }
     }
 
-    private static async Task<string> FetchOAuth2TokenAsync(HttpAuthentication auth, IJobContext context)
+    private async Task<string> FetchOAuth2TokenAsync(HttpAuthentication auth, IJobContext context)
     {
         if (string.IsNullOrEmpty(auth.TokenUrl))
             throw new PermanentJobException("OAuth2 requires TokenUrl - this is a configuration error");
 
+        _targetPolicy.EnsureUrlAllowed(auth.TokenUrl);
+
         context.LogInformation($"Fetching OAuth2 token from {auth.TokenUrl}");
 
-        using var client = new HttpClient();
+        var client = _httpClientFactory.CreateClient(DefaultClientName);
         var parameters = new Dictionary<string, string>
         {
             ["grant_type"] = auth.GrantType switch
@@ -393,11 +413,11 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
         }
 
         var content = new FormUrlEncodedContent(parameters);
-        var response = await client.PostAsync(auth.TokenUrl, content);
+        using var response = await client.PostAsync(auth.TokenUrl, content, context.CancellationToken);
 
         response.EnsureSuccessStatusCode();
 
-        var json = await response.Content.ReadAsStringAsync();
+        var json = await response.Content.ReadAsStringAsync(context.CancellationToken);
         using var doc = JsonDocument.Parse(json);
 
         return doc.RootElement.TryGetProperty("access_token", out var tokenElement)
@@ -405,7 +425,7 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
             : throw new PermanentJobException("OAuth2 response did not contain access_token - check token endpoint configuration");
     }
 
-    private static async Task<HttpContent> BuildContentAsync(HttpRequestBody body, IJobContext context)
+    private async Task<HttpContent> BuildContentAsync(HttpRequestBody body, IJobContext context)
     {
         var encoding = Encoding.GetEncoding(body.Encoding ?? "utf-8");
 
@@ -461,7 +481,7 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
         }
     }
 
-    private static async Task<MultipartFormDataContent> BuildMultipartContentAsync(HttpRequestBody body, IJobContext context)
+    private async Task<MultipartFormDataContent> BuildMultipartContentAsync(HttpRequestBody body, IJobContext context)
     {
         var content = new MultipartFormDataContent();
 
@@ -487,9 +507,11 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
                 }
                 else if (!string.IsNullOrEmpty(file.ContentUrl))
                 {
+                    _targetPolicy.EnsureUrlAllowed(file.ContentUrl);
+
                     context.LogInformation($"Downloading file from {file.ContentUrl}");
-                    using var client = new HttpClient();
-                    fileBytes = await client.GetByteArrayAsync(file.ContentUrl);
+
+                    fileBytes = await DownloadFileAsync(file.ContentUrl, context.CancellationToken);
                 }
                 else
                 {
@@ -503,6 +525,24 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
         }
 
         return content;
+    }
+
+    private async Task<byte[]> DownloadFileAsync(string url, CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient(DefaultClientName);
+
+        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var limit = _options.MaxFileDownloadBytes;
+
+        var bytes = await ReadBytesAsync(response, limit > 0 ? limit + 1 : 0, cancellationToken);
+
+        if (limit > 0 && bytes.Length > limit)
+            throw new PermanentJobException($"File at {url} is larger than the {limit} byte download limit (HttpWorker:MaxFileDownloadBytes).");
+
+        return bytes;
     }
 
     #endregion
@@ -539,12 +579,14 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
 
             try
             {
-                response = await client.SendAsync(request, context.CancellationToken);
+                // Headers only: the body is read later, within the configured limits
+                response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken);
 
                 // Check if we should retry based on status code
                 if (attempt < maxRetries && retryStatusCodes.Contains((int)response.StatusCode))
                 {
                     context.LogInformation($"Received {(int)response.StatusCode} {response.StatusCode}, will retry...");
+                    response.Dispose();
                     continue;
                 }
 
@@ -562,7 +604,7 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
 
                 throw new TimeoutException($"HTTP request timed out after {jobData.TimeoutSeconds} seconds", ex);
             }
-            catch (HttpRequestException ex)
+            catch (HttpRequestException ex) when (ex.InnerException is not HttpTargetBlockedException)
             {
                 // Connection error
                 lastException = ex;
@@ -610,24 +652,25 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
 
     #region Response Validation
 
-    private static async Task<string> ProcessResponseAsync(HttpResponseMessage response, HttpJobData jobData, IJobContext context)
+    private async Task<string> ProcessResponseAsync(HttpResponseMessage response, HttpJobData jobData, IJobContext context)
     {
         var validation = jobData.Validation;
         var statusCode = (int)response.StatusCode;
-        string responseBody = null;
 
         // Check for permanent failure status codes (should not retry)
         if (statusCode is 400 or 401 or 403 or 404 or 405 or 422)
         {
-            responseBody = await response.Content.ReadAsStringAsync();
-            throw new PermanentJobException($"HTTP {statusCode} {response.StatusCode}: {responseBody}");
+            var errorBody = await ReadBodyAsync(response, _maxErrorBodyLength, jobData, context);
+
+            throw new PermanentJobException($"HTTP {statusCode} {response.StatusCode}: {errorBody.Text}");
         }
 
         if (validation == null)
         {
             // No validation required, just ensure success status code
             response.EnsureSuccessStatusCode();
-            return responseBody;
+
+            return (await ReadBodyAsync(response, _options.MaxResponseBodyBytes, jobData, context)).Text;
         }
 
         // Validate status code
@@ -668,11 +711,20 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
             }
         }
 
-        // Body validations require reading the content
+        // Content-Length is optional, so the limit is also applied to what actually arrives
+        var readLimit = validation.MaxResponseSizeBytes.HasValue
+            ? MinPositive(_options.MaxResponseBodyBytes, validation.MaxResponseSizeBytes.Value + 1)
+            : _options.MaxResponseBodyBytes;
+
+        var body = await ReadBodyAsync(response, readLimit, jobData, context);
+        var responseBody = body.Text;
+
+        if (validation.MaxResponseSizeBytes.HasValue && body.ByteCount > validation.MaxResponseSizeBytes.Value)
+            throw new HttpRequestException($"Response size exceeds maximum {validation.MaxResponseSizeBytes} bytes");
+
+        // Body validations
         if (!string.IsNullOrEmpty(validation.BodyContains) || !string.IsNullOrEmpty(validation.BodyNotContains) || !string.IsNullOrEmpty(validation.JsonPathExpression))
         {
-            responseBody = await response.Content.ReadAsStringAsync();
-
             // Validate body contains
             if (!string.IsNullOrEmpty(validation.BodyContains) && !responseBody.Contains(validation.BodyContains))
                 throw new HttpRequestException($"Response body does not contain expected text: '{validation.BodyContains}'");
@@ -689,6 +741,62 @@ public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) 
         context.LogInformation("Response validation passed");
 
         return responseBody;
+    }
+
+    private static long MinPositive(long configuredLimit, long limit) => configuredLimit > 0 ? Math.Min(configuredLimit, limit) : limit;
+
+    /// <summary>
+    /// Reads at most <paramref name="maxBytes"/> of the body (0 = all of it). With headers-only sends the client's own
+    /// timeout no longer covers the body, so the job's request timeout is applied here.
+    /// </summary>
+    private static async Task<(string Text, long ByteCount)> ReadBodyAsync(HttpResponseMessage response, long maxBytes, HttpJobData jobData, IJobContext context)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
+
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(jobData.TimeoutSeconds));
+
+        byte[] bytes;
+
+        try
+        {
+            bytes = await ReadBytesAsync(response, maxBytes, timeoutCts.Token);
+        }
+        catch (OperationCanceledException ex) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Reading the HTTP response timed out after {jobData.TimeoutSeconds} seconds", ex);
+        }
+
+        if (maxBytes > 0 && bytes.Length >= maxBytes)
+            context.LogWarning($"Response body read up to the limit of {maxBytes} bytes; anything beyond that was ignored.");
+
+        // Decoded through HttpContent so the charset in the response headers is honoured exactly as before
+        using var buffered = new ByteArrayContent(bytes);
+
+        buffered.Headers.ContentType = response.Content.Headers.ContentType;
+
+        return (await buffered.ReadAsStringAsync(context.CancellationToken), bytes.Length);
+    }
+
+    private static async Task<byte[]> ReadBytesAsync(HttpResponseMessage response, long maxBytes, CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+
+        using var buffer = new MemoryStream();
+
+        var chunk = new byte[81920];
+
+        while (maxBytes <= 0 || buffer.Length < maxBytes)
+        {
+            var toRead = maxBytes > 0 ? (int)Math.Min(chunk.Length, maxBytes - buffer.Length) : chunk.Length;
+            var read = await stream.ReadAsync(chunk.AsMemory(0, toRead), cancellationToken);
+
+            if (read == 0)
+                break;
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return buffer.ToArray();
     }
 
     private static void ValidateJsonPath(string json, string jsonPath, string expectedValue, IJobContext context)
