@@ -128,7 +128,7 @@ public class AccountControllerTests(CustomWebApplicationFactory factory, ITestOu
         // Arrange
         beforeLockHttpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         beforeLockLoginResult.Should().NotBeNull();
-        beforeLockLoginResult.Messages[0].Message.Should().Be("The session will be locked after 1 invalid attempts.");
+        beforeLockLoginResult.Messages[0].Message.Should().NotContain("locked", "a wrong password must look the same as an unknown user");
         beforeLockLoginResult.Data.Should().BeNull();
         beforeLockLoginResult.IsSuccess.Should().BeFalse();
         beforeLockLoginResult.IsCachedData.Should().BeFalse();
@@ -142,7 +142,7 @@ public class AccountControllerTests(CustomWebApplicationFactory factory, ITestOu
 
         lockHttpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         lockLoginResult.Should().NotBeNull();
-        lockLoginResult.Messages[0].Message.Should().Be("Your account has been locked due to repeated unsuccessful login attempts. Try again after 4 minutes.");
+        lockLoginResult.Messages[0].Message.Should().NotContain("locked");
         lockLoginResult.Data.Should().BeNull();
         lockLoginResult.IsSuccess.Should().BeFalse();
         lockLoginResult.IsCachedData.Should().BeFalse();
@@ -156,7 +156,7 @@ public class AccountControllerTests(CustomWebApplicationFactory factory, ITestOu
 
         afterLockHttpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         afterLockLoginResult.Should().NotBeNull();
-        afterLockLoginResult.Messages[0].Message.Should().Be("Your account has been locked due to repeated unsuccessful login attempts. Try again after 4 minutes.");
+        afterLockLoginResult.Messages[0].Message.Should().NotContain("locked");
         afterLockLoginResult.Data.Should().BeNull();
         afterLockLoginResult.IsSuccess.Should().BeFalse();
         afterLockLoginResult.IsCachedData.Should().BeFalse();
