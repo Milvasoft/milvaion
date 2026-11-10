@@ -238,6 +238,40 @@ never publishes to and silently stops honouring cancellations.
 | `ConsecutiveFailureThreshold` | `5` | Number of consecutive failures before a job is automatically disabled. Individual jobs can override this with their own AutoDisableThreshold setting. Default: 5 consecutive failures |
 | `FailureWindowMinutes` | `60` | Time window in minutes for counting consecutive failures. Failures older than this window don't count towards the threshold. This prevents jobs from being disabled due to old historical failures. Default: 60 minutes (1 hour) |
 
+### Notifike Delivery Configuration
+
+Milvaion can hand its e-mail alerts and internal notifications to Notifike, the company's notification service, over Notifike's HTTP integration API. It sits under `MilvaionConfig:Notifike`, is **off by default**, and is read at startup. While it is off, or if the base URL or API key is missing or invalid, the local paths work as before.
+
+```json
+{
+  "MilvaionConfig": {
+    "Notifike": {
+      "Enabled": false,
+      "SendOnlyInProduction": true,
+      "BaseUrl": "https://api.notifike.example.com",
+      "ApiKey": "YOUR_NOTIFIKE_API_KEY",
+      "UseForEmail": true,
+      "UseForInternalNotifications": true
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `Enabled` | `false` | Turns Notifike delivery on. |
+| `SendOnlyInProduction` | `true` | Uses Notifike only in the production environment; elsewhere the local paths apply. |
+| `BaseUrl` | empty | Base address of the Notifike API. |
+| `ApiKey` | empty | Key of the Notifike application, sent in the `X-Api-Key` header. Keep it out of source control, for example with `MilvaionConfig__Notifike__ApiKey`. It is never logged or shown in the configuration screens. |
+| `UseForEmail` | `true` | Sends e-mail alerts through Notifike (`POST /api/v1.0/notifications/send`) instead of SMTP. |
+| `UseForInternalNotifications` | `true` | Also puts internal notifications in the recipients' Notifike in-app boxes (`POST /api/v1.0/inApp/send`), with the user name as `UserKey`. |
+
+What changes when it is on:
+
+- **E-mail alerts** go to the `Alerting:Channels:Email:DefaultRecipients` list without using the SMTP settings. The Email channel must still be enabled. A Notifike failure is reported as a failed channel; Milvaion does not fall back to SMTP.
+- **Internal notifications** are still stored locally, because Milvaion's own notification screens read those rows. The Notifike box receives a copy, and a Notifike failure does not affect the local notification.
+- **The Email Worker** is not affected. Its jobs choose an SMTP configuration and can set From, Cc, Bcc, Reply-To, custom headers, receipts and inline images, which Notifike has no equivalent for.
+
 ### BasePath Configuration
 
 Milvaion API supports hosting under a configurable sub-path (e.g. `/milvaion`) so that both the UI and the backend API can be scoped to a URL prefix. This is useful when deploying behind a reverse proxy alongside other services.
