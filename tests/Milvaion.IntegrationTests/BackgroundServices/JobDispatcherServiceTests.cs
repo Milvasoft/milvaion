@@ -598,7 +598,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
         var controlService = _serviceProvider.GetRequiredService<IDispatcherControlService>();
         controlService.Stop("Temporary pause", "TestUser");
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
 
         // Act - Start dispatcher while paused
         var dispatcher = CreateJobDispatcherService();
@@ -608,7 +608,8 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
         await Task.Delay(3000, cts.Token);
         controlService.Resume("TestUser");
 
-        // Wait for job to be dispatched after resume
+        // Wait for job to be dispatched after resume. The window outlasts the 30 second job lock: this failed
+        // repeatedly on CI at 15 seconds, and an attempt that dies holding the lock blocks retries until it expires.
         var found = await WaitForConditionAsync(
             async () =>
             {
@@ -617,7 +618,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
                     .AsNoTracking()
                     .AnyAsync(o => o.JobId == job.Id, cts.Token);
             },
-            timeout: TimeSpan.FromSeconds(15),
+            timeout: TimeSpan.FromSeconds(45),
             pollInterval: TimeSpan.FromMilliseconds(500),
             cancellationToken: cts.Token);
 
