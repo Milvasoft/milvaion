@@ -305,6 +305,28 @@ public class LocalStateStoreTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task GetPending_ShouldStillReturnRecords_WhenJobIsFinalized()
+    {
+        // Arrange - the offline path: final status and logs are stored locally, then the job is finalized
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
+
+        await _localStateStore.RecordJobStartAsync(correlationId, jobId, "TestJob", "worker", CancellationToken.None);
+        await _localStateStore.StoreStatusUpdateAsync(correlationId, jobId, "worker", "instance", JobOccurrenceStatus.Completed);
+        await _localStateStore.StoreLogAsync(correlationId, "worker", new OccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Information", Message = "done" });
+
+        // Act
+        await _localStateStore.FinalizeJobAsync(correlationId, JobOccurrenceStatus.Completed, CancellationToken.None);
+
+        var pendingStatuses = await _localStateStore.GetPendingStatusUpdatesAsync();
+        var pendingLogs = await _localStateStore.GetPendingLogsAsync();
+
+        // Assert
+        pendingStatuses.Should().ContainSingle(u => u.OccurrenceId == correlationId && u.Status == JobOccurrenceStatus.Completed);
+        pendingLogs.Should().ContainSingle(l => l.OccurrenceId == correlationId);
+    }
+
+    [Fact]
     public async Task IsJobFinalizedAsync_ShouldReturnFalse_WhenJobNotExists()
     {
         // Arrange

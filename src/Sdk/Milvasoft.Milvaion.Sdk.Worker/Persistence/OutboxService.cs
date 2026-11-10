@@ -204,7 +204,7 @@ public class OutboxService(ILocalStateStore localStore,
                 // Skip if exceeded max retries
                 if (update.RetryCount >= maxRetries)
                 {
-                    _logger?.Debug("Status update {Id} exceeded max retries ({RetryCount}). Marking as synced to prevent blocking.", update.Id, update.RetryCount);
+                    _logger?.Warning("Dropping status update {Id} ({Status}) for OccurrenceId {OccurrenceId}: it could not be synced after {RetryCount} attempts.", update.Id, update.Status, update.OccurrenceId, update.RetryCount);
 
                     await _localStore.MarkStatusUpdateAsSyncedAsync(update.Id, cancellationToken);
 
@@ -292,7 +292,7 @@ public class OutboxService(ILocalStateStore localStore,
                 // Skip if exceeded max retries
                 if (storedLog.RetryCount >= maxRetries)
                 {
-                    _logger?.Debug("Log {Id} exceeded max retries ({RetryCount}). Marking as synced.", storedLog.Id, storedLog.RetryCount);
+                    _logger?.Warning("Dropping log {Id} for OccurrenceId {OccurrenceId}: it could not be synced after {RetryCount} attempts.", storedLog.Id, storedLog.OccurrenceId, storedLog.RetryCount);
 
                     await _localStore.MarkLogAsSyncedAsync(storedLog.Id, cancellationToken);
 

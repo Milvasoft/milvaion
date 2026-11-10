@@ -24,7 +24,7 @@ public class OfflineResilienceSettings
 
     /// <summary>
     /// Maximum number of retry attempts for failed sync operations.
-    /// After max retries, items are marked as synced to prevent blocking.
+    /// After max retries, items are dropped with a warning to prevent blocking the sync queue.
     /// Default: 3
     /// </summary>
     public int MaxSyncRetries { get; set; } = 3;
