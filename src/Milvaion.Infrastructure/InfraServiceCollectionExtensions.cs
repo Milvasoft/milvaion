@@ -336,12 +336,16 @@ public static class InfraServiceCollectionExtensions
         services.AddHttpClient(nameof(SlackAlertChannel));
         services.AddHttpClient(nameof(TeamsAlertChannel));
 
+        // The webhook URL carries its key, so this client's requests are kept out of the HttpClient logs.
+        services.AddHttpClient(nameof(CrewhallAlertChannel), client => client.Timeout = TimeSpan.FromSeconds(15)).RemoveAllLoggers();
+
         // Register alert channels as Singleton (they are stateless and can be safely shared)
         services.AddSingleton<IAlertChannel, GoogleChatAlertChannel>();
         services.AddSingleton<IAlertChannel, SlackAlertChannel>();
         services.AddSingleton<IAlertChannel, TeamsAlertChannel>();
         services.AddSingleton<IAlertChannel, EmailAlertChannel>();
         services.AddSingleton<IAlertChannel, InternalNotificationAlertChannel>();
+        services.AddSingleton<IAlertChannel, CrewhallAlertChannel>();
 
         // Register the alert notifier orchestrator as Singleton
         services.AddSingleton<IAlertNotifier, AlertNotifier>();
