@@ -52,7 +52,9 @@ public class GetWorkflowRunAnalysisQueryHandler(IMilvaionRepositoryBase<Workflow
 
         if (jobIds.Count > 0)
         {
-            var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), cancellationToken: cancellationToken);
+            var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id),
+                                                             projection: j => new ScheduledJob { Id = j.Id, DisplayName = j.DisplayName },
+                                                             cancellationToken: cancellationToken);
 
             foreach (var job in jobs ?? [])
                 jobNames[job.Id] = job.DisplayName;

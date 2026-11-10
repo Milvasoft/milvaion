@@ -46,7 +46,9 @@ public class GetWorkflowRunDetailQueryHandler(IMilvaionRepositoryBase<WorkflowRu
                 allJobIds.Add(step.JobId.Value);
         }
 
-        var jobs = allJobIds.Count > 0 ? await _jobRepository.GetAllAsync(j => allJobIds.Contains(j.Id), cancellationToken: cancellationToken) : [];
+        var jobs = allJobIds.Count > 0 ? await _jobRepository.GetAllAsync(j => allJobIds.Contains(j.Id),
+                                                                         projection: j => new ScheduledJob { Id = j.Id, DisplayName = j.DisplayName },
+                                                                         cancellationToken: cancellationToken) : [];
 
         foreach (var occ in stepOccurrences ?? [])
         {
