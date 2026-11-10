@@ -45,8 +45,9 @@ public class DeveloperControllerTests(CustomWebApplicationFactory factory, ITest
     {
         // Arrange
         await InitializeAsync();
+        await SeedRootUserAndSuperAdminRoleAsync();
 
-        var client = _factory.CreateClient();
+        var client = await _factory.CreateClient().LoginAsync();
 
         // Act
         var response = await client.GetAsync($"{GlobalConstant.RoutePrefix}/v1.0/developer/export/productRelatedData");
@@ -73,7 +74,9 @@ public class DeveloperControllerTests(CustomWebApplicationFactory factory, ITest
         if (File.Exists(filePath))
             File.Delete(filePath);
 
-        var client = _factory.CreateClient();
+        await SeedRootUserAndSuperAdminRoleAsync();
+
+        var client = await _factory.CreateClient().LoginAsync();
 
         // Act
         var response = await client.GetAsync($"{GlobalConstant.RoutePrefix}/v1.0/developer/import/productRelatedData");
@@ -90,8 +93,9 @@ public class DeveloperControllerTests(CustomWebApplicationFactory factory, ITest
     {
         // Arrange
         await InitializeAsync();
+        await SeedRootUserAndSuperAdminRoleAsync();
 
-        var client = _factory.CreateClient();
+        var client = await _factory.CreateClient().LoginAsync();
 
         // First export data to create the file
         await client.GetAsync($"{GlobalConstant.RoutePrefix}/v1.0/developer/export/productRelatedData");
@@ -117,7 +121,7 @@ public class DeveloperControllerTests(CustomWebApplicationFactory factory, ITest
         await InitializeAsync();
         await SeedRootUserAndSuperAdminRoleAsync("testpass");
 
-        var client = _factory.CreateClient();
+        var client = await _factory.CreateClient().LoginAsync(password: "testpass");
 
         // Act
         var response = await client.PostAsync($"{GlobalConstant.RoutePrefix}/v1.0/developer/database/seed/fake?sameData=true&locale=tr", null);
