@@ -59,12 +59,12 @@ public class SendEmailJob(IEmailSender emailSender) : IAsyncJobWithResult<EmailJ
             if (IsTransientError(result.ErrorMessage))
             {
                 context.LogWarning($"Transient email error (will retry): {result.ErrorMessage}");
-                throw new Exception(result.ErrorMessage); // Will trigger retry
+                throw new InvalidOperationException(result.ErrorMessage, result.Exception); // Will trigger retry
             }
             else
             {
                 context.LogError($"Permanent email error: {result.ErrorMessage}");
-                throw new PermanentJobException(result.ErrorMessage); // No retry
+                throw new PermanentJobException(result.ErrorMessage, result.Exception); // No retry
             }
         }
 
