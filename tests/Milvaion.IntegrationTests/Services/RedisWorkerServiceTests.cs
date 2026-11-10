@@ -182,6 +182,42 @@ public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITes
     }
 
     [Fact]
+    public async Task BulkUpdateHeartbeatsAsync_ShouldBringWorkerBack_WhenInstanceExpiredDuringOutage()
+    {
+        // Arrange
+        await InitializeAsync();
+        await FlushRedisAsync();
+
+        var workerService = GetRedisWorkerService();
+        var registration = CreateTestRegistration("outage-worker", "instance-01");
+
+        await workerService.RegisterWorkerAsync(registration);
+
+        var database = GetRedisDatabase();
+
+        // What an outage longer than the instance TTL leaves behind.
+        await database.KeyDeleteAsync($"{RedisKeyPrefix}workers:outage-worker:instances:instance-01");
+
+        // A lookup made before heartbeats resume must not throw away the registration.
+        (await workerService.GetWorkerAsync("outage-worker")).Should().BeNull();
+        (await database.KeyTimeToLiveAsync($"{RedisKeyPrefix}workers:outage-worker")).Should().BeGreaterThan(TimeSpan.FromDays(1));
+
+        await database.SetAddAsync($"{RedisKeyPrefix}workers:outage-worker:instances", "instance-01");
+
+        // Act
+        var result = await workerService.BulkUpdateHeartbeatsAsync([("outage-worker", "instance-01", 1, 0, 0, DateTime.UtcNow)]);
+
+        // Assert
+        result.Should().Be(1);
+
+        var worker = await workerService.GetWorkerAsync("outage-worker");
+
+        worker.Should().NotBeNull();
+        worker!.JobNames.Should().BeEquivalentTo(registration.JobTypes);
+        worker.Instances.Should().ContainSingle(i => i.InstanceId == "instance-01");
+    }
+
+    [Fact]
     public async Task BulkUpdateHeartbeatsAsync_ShouldReturnZero_WhenListIsEmpty()
     {
         // Arrange

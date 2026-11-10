@@ -26,7 +26,11 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly RedisOptions _options = options.Value;
     private readonly TimeSpan _instanceTTL = TimeSpan.FromMinutes(2); // Auto-expire zombie instances
-    private readonly TimeSpan _workerMetadataTTL = TimeSpan.FromMinutes(5); // Worker metadata expires if no active instances
+
+    // A worker only sends its job types and routing at startup, so this has to outlast an API outage: heartbeats that
+    // resume afterwards recreate the instance, and the worker needs no restart as long as its metadata is still here.
+    private readonly TimeSpan _workerMetadataTTL = TimeSpan.FromDays(7);
+    private readonly TimeSpan _jobCountsTTL = TimeSpan.FromMinutes(5);
     private string WorkersIndexKey => $"{_options.KeyPrefix}workers:index";
 
     /// <inheritdoc/>
@@ -191,6 +195,9 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     new("status", WorkerStatus.Active.ToString())
                 ]));
 
+                // Set only when this heartbeat is recreating an instance that expired during an outage.
+                updateTasks.Add(batch.HashSetAsync(instanceKey, "registeredAt", heartbeatTime, When.NotExists));
+
                 // Re-add to indexes to ensure consistency
                 updateTasks.Add(batch.SetAddAsync(WorkersIndexKey, WorkerId));
                 updateTasks.Add(batch.SetAddAsync(instanceSetKey, InstanceId));
@@ -236,23 +243,9 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 // Get instance IDs
                 var instanceIds = await _db.SetMembersAsync(instanceSetKey);
 
+                // No live instance means offline, not gone: the metadata stays so the next heartbeat can bring the worker back.
                 if (instanceIds.Length == 0)
-                {
-                    _logger.Warning("[GetWorkerAsync] Worker {WorkerId} has metadata but no active instances in index. Removing stale metadata.", workerId);
-
-                    try
-                    {
-                        await _db.KeyDeleteAsync(workerKey);
-                        await _db.SetRemoveAsync($"{_options.KeyPrefix}workers:index", workerId);
-                        _logger.Information("Removed stale worker metadata for {WorkerId}", workerId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Failed to remove stale metadata for {WorkerId}", workerId);
-                    }
-
                     return null;
-                }
 
                 // Fetch all instance data in parallel
                 var instanceKeys = instanceIds.Select(id => (RedisKey)$"{_options.KeyPrefix}workers:{workerId}:instances:{id}").ToArray();
@@ -310,25 +303,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     instances.Add(instance);
                 }
 
-                // If no active instances found after pipeline fetch, remove stale metadata
                 if (instances.IsNullOrEmpty())
-                {
-                    _logger.Warning("[GetWorkerAsync] Worker {WorkerId} metadata exists but all instances expired. Removing stale metadata.", workerId);
-
-                    try
-                    {
-                        await _db.KeyDeleteAsync(workerKey);
-                        await _db.KeyDeleteAsync(instanceSetKey);
-                        await _db.SetRemoveAsync($"{_options.KeyPrefix}workers:index", workerId);
-                        _logger.Information("Removed stale worker metadata for {WorkerId}", workerId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Failed to remove stale metadata for {WorkerId}", workerId);
-                    }
-
                     return null;
-                }
 
                 // Return CachedWorker (not MilvaionWorker entity)
                 var cachedWorker = new CachedWorker
@@ -603,7 +579,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 var key = $"{_options.KeyPrefix}workers:{workerId}:job_counts";
                 await _db.HashIncrementAsync(key, jobType, 1);
-                await _db.KeyExpireAsync(key, _workerMetadataTTL);
+                await _db.KeyExpireAsync(key, _jobCountsTTL);
                 return true;
             },
             fallback: async () => true,
