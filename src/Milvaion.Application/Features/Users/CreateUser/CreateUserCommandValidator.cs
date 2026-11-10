@@ -19,12 +19,12 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
             .NotNullOrEmpty(localizer, MessageKey.GlobalPassword);
 
         RuleFor(query => query.Name)
-            .MaximumLength(70)
-            .WithMessage(localizer[MessageKey.MaxLengthReached, localizer[MessageKey.GlobalName], 70]);
+            .MaximumLength(100)
+            .WithMessage(localizer[MessageKey.MaxLengthReached, localizer[MessageKey.GlobalName], 100]);
 
         RuleFor(query => query.Surname)
-            .MaximumLength(70)
-            .WithMessage(localizer[MessageKey.MaxLengthReached, localizer[MessageKey.GlobalName], 70]);
+            .MaximumLength(100)
+            .WithMessage(localizer[MessageKey.MaxLengthReached, localizer[MessageKey.GlobalNameSurname], 100]);
 
         RuleFor(query => query.RoleIdList)
             .NotNullOrEmpty(localizer, MessageKey.Role);

@@ -24,7 +24,7 @@ public record RefreshLoginCommandHandler(IMilvaionRepositoryBase<User> UserRepos
     {
         var user = await _userRepository.GetFirstOrDefaultAsync(i => i.UserName == request.UserName, User.Projections.Login, cancellationToken: cancellationToken);
 
-        if (user == null)
+        if (user == null || user.IsDeleted || user.LockoutEnd > DateTimeOffset.UtcNow)
             return Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
 
         var relatedSession = user.Sessions.Find(s => s.RefreshToken == request.RefreshToken && s.DeviceId == request.DeviceId);
