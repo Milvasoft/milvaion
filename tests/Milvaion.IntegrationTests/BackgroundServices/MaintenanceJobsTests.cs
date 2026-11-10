@@ -98,6 +98,7 @@ public class MaintenanceJobsTests(ServicesWebApplicationFactory factory, ITestOu
         await using var connection = await OpenConnectionAsync();
 
         await connection.ExecuteAsync($@"CREATE TABLE ""{archiveTable}"" (""Id"" uuid PRIMARY KEY, ""ScheduledTime"" timestamp with time zone NOT NULL)");
+        await connection.ExecuteAsync($@"CREATE TABLE ""{archiveTable}_Logs"" (""Id"" uuid PRIMARY KEY, ""Level"" integer NOT NULL)");
 
         var options = new MaintenanceOptions
         {
