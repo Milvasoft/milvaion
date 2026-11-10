@@ -12,17 +12,22 @@ namespace Milvaion.Application.Features.Users.CreateUser;
 /// </summary>
 /// <param name="UserRepository"></param>
 /// <param name="UserManager"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [UserActivityTrack(UserActivity.CreateUser)]
 public record CreateUserCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
-                                       IMilvaUserManager<User, int> UserManager) : IInterceptable, ICommandHandler<CreateUserCommand, int>
+                                       IMilvaUserManager<User, int> UserManager,
+                                       IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<CreateUserCommand, int>
 {
     private readonly IMilvaionRepositoryBase<User> _userRepository = UserRepository;
     private readonly IMilvaUserManager<User, int> _userManager = UserManager;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(CreateUserCommand request, CancellationToken cancellationToken)
     {
+        await _privilegeGuard.EnsureCanGrantRolesAsync(request.RoleIdList, cancellationToken);
+
         var user = request.Adapt<User>();
 
         var errorMessageForUserName = _userManager.ValidateUserName(user.UserName);

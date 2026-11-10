@@ -53,6 +53,7 @@ public static class InfraServiceCollectionExtensions
     {
         services.AddScoped<IMilvaLogger, MilvaionLogger>();
         services.AddScoped<IPermissionManager, PermissionManager>();
+        services.AddScoped<IPrivilegeGuard, Application.Utils.PermissionManager.PrivilegeGuard>();
         services.AddScoped<IAccountManager, AccountManager>();
         services.AddScoped<ILookupService, LookupService>();
         services.AddScoped<IUIService, UIService>();

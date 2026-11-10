@@ -12,20 +12,26 @@ namespace Milvaion.Application.Features.ApiKeys.UpdateApiKey;
 /// <param name="ApiKeyRepository"></param>
 /// <param name="ApiKeyPermissionRelationRepository"></param>
 /// <param name="ApiKeyCacheInvalidator"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateApiKey)]
 public record UpdateApiKeyCommandHandler(IMilvaionRepositoryBase<MilvaionApiKey> ApiKeyRepository,
                                          IMilvaionRepositoryBase<MilvaionApiKeyPermissionRelation> ApiKeyPermissionRelationRepository,
-                                         IApiKeyCacheInvalidator ApiKeyCacheInvalidator) : IInterceptable, ICommandHandler<UpdateApiKeyCommand, int>
+                                         IApiKeyCacheInvalidator ApiKeyCacheInvalidator,
+                                         IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<UpdateApiKeyCommand, int>
 {
     private readonly IMilvaionRepositoryBase<MilvaionApiKey> _apiKeyRepository = ApiKeyRepository;
     private readonly IMilvaionRepositoryBase<MilvaionApiKeyPermissionRelation> _apiKeyPermissionRelationRepository = ApiKeyPermissionRelationRepository;
     private readonly IApiKeyCacheInvalidator _apiKeyCacheInvalidator = ApiKeyCacheInvalidator;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateApiKeyCommand request, CancellationToken cancellationToken)
     {
+        if (request.PermissionIdList.IsUpdated)
+            await _privilegeGuard.EnsureCanGrantApiKeyPermissionsAsync(request.Id, request.PermissionIdList.Value, cancellationToken);
+
         var setPropertyBuilder = _apiKeyRepository.GetUpdatablePropertiesBuilder(request);
 
         await _apiKeyRepository.ExecuteUpdateAsync(request.Id, setPropertyBuilder, cancellationToken: cancellationToken);

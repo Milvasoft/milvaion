@@ -18,6 +18,7 @@ namespace Milvaion.Application.Features.Users.UpdateUser;
 /// <param name="MilvaIdentityOptions"></param>
 /// <param name="MilvaUserManager"></param>
 /// <param name="MilvaPasswordHasher"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateUser)]
@@ -27,7 +28,8 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
                                        IMilvaionRepositoryBase<UserSessionHistory> UserSessionHistoriesRepository,
                                        Lazy<MilvaIdentityOptions> MilvaIdentityOptions,
                                        Lazy<IMilvaUserManager<User, int>> MilvaUserManager,
-                                       Lazy<IMilvaPasswordHasher> MilvaPasswordHasher) : IInterceptable, ICommandHandler<UpdateUserCommand, int>
+                                       Lazy<IMilvaPasswordHasher> MilvaPasswordHasher,
+                                       IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<UpdateUserCommand, int>
 {
     private readonly IMilvaionRepositoryBase<User> _userRepository = UserRepository;
     private readonly IMilvaionRepositoryBase<UserRoleRelation> _userRoleRelationRepository = UserRoleRelationRepository;
@@ -36,6 +38,7 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
     private readonly Lazy<MilvaIdentityOptions> _milvaIdentityOptions = MilvaIdentityOptions;
     private readonly Lazy<IMilvaPasswordHasher> _milvaPasswordHasher = MilvaPasswordHasher;
     private readonly Lazy<IMilvaUserManager<User, int>> _milvaUserManager = MilvaUserManager;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
@@ -52,12 +55,18 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
             request.Lockout = default;
         }
 
+        // A password reset on a super admin is a takeover, so this covers every update and not just role changes.
+        await _privilegeGuard.EnsureCanManageUserAsync(request.Id, cancellationToken);
+
+        if (request.RoleIdList.IsUpdated)
+            await _privilegeGuard.EnsureCanChangeUserRolesAsync(request.Id, request.RoleIdList.Value, cancellationToken);
+
         var setPropertyBuilder = _userRepository.GetUpdatablePropertiesBuilder(request);
 
         if (request.Lockout.IsUpdated)
         {
             if (request.Lockout.Value)
-                setPropertyBuilder.SetPropertyValue(u => u.LockoutEnd, DateTimeOffset.Now.AddMinutes(_milvaIdentityOptions.Value.Lockout.DefaultLockoutMinute));
+                setPropertyBuilder.SetPropertyValue(u => u.LockoutEnd, DateTimeOffset.UtcNow.AddMinutes(_milvaIdentityOptions.Value.Lockout.DefaultLockoutMinute));
             else
                 setPropertyBuilder.SetPropertyValue(u => u.LockoutEnd, null).SetPropertyValue(u => u.AccessFailedCount, 0);
         }
