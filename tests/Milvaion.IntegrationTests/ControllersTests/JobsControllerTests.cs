@@ -342,7 +342,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
 
         // Assert
-        httpResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.Should().NotBeNull();
         _output.WriteLine(result.Messages.First().Message);
         result.IsSuccess.Should().BeFalse();
@@ -899,6 +899,122 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region Code review regressions
+
+    [Fact]
+    public async Task DeleteJobOccurrenceAsync_ShouldKeepTheJobScheduled()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("StillScheduled", "Job keeps its schedule");
+        var occurrence = await SeedSingleJobOccurrenceAsync(job.Id);
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence")
+        {
+            Content = JsonContent.Create(new DeleteJobOccurrenceCommand { OccurrenceIdList = [occurrence.Id] })
+        };
+        var httpResponse = await client.SendAsync(httpRequest);
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await redisScheduler.GetScheduledTimeAsync(job.Id)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UpdateScheduledJobAsync_WithJobType_ShouldPersistJobName()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("RenamedType", "Job type changes");
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateScheduledJobCommand { Id = job.Id, JobType = new UpdateProperty<string>("OtherJob") };
+
+        // Act
+        var result = await (await client.PutAsJsonAsync($"{_baseUrl}/job", request)).Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        var updatedJob = await _serviceProvider.GetRequiredService<MilvaionDbContext>().ScheduledJobs.AsNoTracking().FirstAsync(j => j.Id == job.Id);
+        updatedJob.JobNameInWorker.Should().Be("OtherJob");
+        updatedJob.Version.Should().Be(job.Version + 1);
+    }
+
+    [Fact]
+    public async Task UpdateScheduledJobAsync_Reactivating_ShouldScheduleFromCronAndResetFailures()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("Comeback", "Reactivated job", false);
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        job.CronExpression = "0 0 * * * *";
+        job.ExecuteAt = DateTime.UtcNow.AddDays(-30);
+        job.AutoDisableSettings = new() { ConsecutiveFailureCount = 5, Threshold = 5, DisableReason = "failed", DisabledAt = DateTime.UtcNow };
+        await dbContext.SaveChangesAsync();
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateScheduledJobCommand { Id = job.Id, IsActive = new UpdateProperty<bool>(true) };
+
+        // Act
+        var result = await (await client.PutAsJsonAsync($"{_baseUrl}/job", request)).Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        var scheduledAt = await _serviceProvider.GetRequiredService<IRedisSchedulerService>().GetScheduledTimeAsync(job.Id);
+        scheduledAt.Should().BeAfter(DateTime.UtcNow);
+        var updatedJob = await _serviceProvider.GetRequiredService<MilvaionDbContext>().ScheduledJobs.AsNoTracking().FirstAsync(j => j.Id == job.Id);
+        updatedJob.AutoDisableSettings.ConsecutiveFailureCount.Should().Be(0);
+        updatedJob.AutoDisableSettings.DisabledAt.Should().BeNull();
+        updatedJob.AutoDisableSettings.Threshold.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task UpdateScheduledJobAsync_Repeatedly_ShouldNotNestVersionHistory()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("Versioned", "Version history");
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act
+        foreach (var value in new[] { "{\"a\":1}", "{\"a\":2}", "{\"a\":3}" })
+            await client.PutAsJsonAsync($"{_baseUrl}/job", new UpdateScheduledJobCommand { Id = job.Id, JobData = new UpdateProperty<string>(value) });
+
+        // Assert
+        var updatedJob = await _serviceProvider.GetRequiredService<MilvaionDbContext>().ScheduledJobs.AsNoTracking().FirstAsync(j => j.Id == job.Id);
+        updatedJob.JobVersions.Should().HaveCount(3);
+        updatedJob.JobVersions.Should().OnlyContain(v => !v.Contains(nameof(ScheduledJob.JobVersions)));
+    }
+
+    [Theory]
+    [InlineData("alpha-job", 1)]
+    [InlineData("%", 0)]
+    public async Task GetJobOccurrencesAsync_WithSearchTerm_ShouldFilterLiterally(string searchTerm, int expectedCount)
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("Search", "Searchable");
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var alpha = await SeedSingleJobOccurrenceAsync(job.Id);
+        var beta = await SeedSingleJobOccurrenceAsync(job.Id);
+        await dbContext.JobOccurrences.Where(o => o.Id == alpha.Id).ExecuteUpdateAsync(s => s.SetProperty(o => o.JobName, "alpha-job"));
+        await dbContext.JobOccurrences.Where(o => o.Id == beta.Id).ExecuteUpdateAsync(s => s.SetProperty(o => o.JobName, "beta-job"));
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act
+        var httpResponse = await client.PatchAsJsonAsync($"{_baseUrl}/occurrences/list", new GetJobOccurrenceListQuery { SearchTerm = searchTerm, PageNumber = 1, RowCount = 10 });
+        var result = await httpResponse.Content.ReadFromJsonAsync<ListResponse<JobOccurrenceListDto>>();
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Data.Should().HaveCount(expectedCount);
+        result.TotalDataCount.Should().Be(expectedCount);
     }
 
     #endregion

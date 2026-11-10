@@ -30,6 +30,12 @@ public sealed class CreateScheduledJobCommandValidator : AbstractValidator<Creat
             .WithMessage(localizer[MessageKey.InvalidCronExpression])
             .When(q => !q.IsExternal && !string.IsNullOrWhiteSpace(q.CronExpression));
 
+        // A valid expression can still have no future occurrence (e.g. a year that has passed).
+        RuleFor(query => query.CronExpression)
+            .Must(HaveFutureOccurrence)
+            .WithMessage(localizer[MessageKey.InvalidCronExpression])
+            .When(q => !q.IsExternal && !string.IsNullOrWhiteSpace(q.CronExpression) && BeValidCronExpression(q.CronExpression));
+
         // Validate ExecuteAt is in future (if provided and no cron)
         RuleFor(query => query.ExecuteAt)
             .Must(date => date > DateTime.UtcNow)
@@ -42,56 +48,15 @@ public sealed class CreateScheduledJobCommandValidator : AbstractValidator<Creat
             .WithMessage(localizer[MessageKey.InvalidJobData])
             .When(q => !q.IsExternal && !string.IsNullOrWhiteSpace(q.JobData));
 
-        // Validate cron expression
-        RuleFor(x => x.CronExpression)
-            .Must(BeValidCronExpression)
-            .When(q => !q.IsExternal && !string.IsNullOrEmpty(q.CronExpression))
-            .WithMessage("Invalid cron expression");
-
-        //// Prevent too frequent recurring jobs
-        //RuleFor(x => x.CronExpression)
-        //    .Must(NotBeMoreFrequentThan1Minute)
-        //    .When(x => !string.IsNullOrEmpty(x.CronExpression))
-        //    .WithMessage("Recurring jobs cannot run more frequently than once per minute");
-
         RuleFor(x => x.ExecuteAt)
-            .LessThan(DateTime.UtcNow.AddYears(1))
+            .Must(date => date < DateTime.UtcNow.AddYears(1))
             .WithMessage("Job execution time cannot be more than 1 year in the future")
             .When(q => !q.IsExternal);
     }
-    private bool BeValidCronExpression(string cronExpression)
-    {
-        try
-        {
-            CronExpression.Parse(cronExpression, CronFormat.IncludeSeconds);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    private static bool BeValidCronExpression(string cronExpression) => CronExpression.TryParse(cronExpression, CronFormat.IncludeSeconds, out _);
 
-    private static bool NotBeMoreFrequentThan1Minute(string cronExpression)
-    {
-        try
-        {
-            var cron = CronExpression.Parse(cronExpression, CronFormat.IncludeSeconds);
-            var now = DateTime.UtcNow;
-            var next1 = cron.GetNextOccurrence(now, TimeZoneInfo.Utc);
-            var next2 = cron.GetNextOccurrence(next1.Value, TimeZoneInfo.Utc);
-
-            if (!next1.HasValue || !next2.HasValue)
-                return true;
-
-            var interval = next2.Value - next1.Value;
-            return interval >= TimeSpan.FromMinutes(1);
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    private static bool HaveFutureOccurrence(string cronExpression)
+        => CronExpression.Parse(cronExpression, CronFormat.IncludeSeconds).GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc).HasValue;
 
     private static bool BeValidJson(string jobData)
     {

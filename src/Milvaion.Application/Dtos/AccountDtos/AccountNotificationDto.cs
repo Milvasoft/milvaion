@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Milvasoft.Attributes.Annotations;
+﻿using Milvasoft.Attributes.Annotations;
 using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Text.Json.Serialization;
@@ -27,7 +26,7 @@ public class AccountNotificationDto : MilvaionBaseDto<long>
     /// </summary>
     [Filterable(false)]
     [Browsable(false)]
-    [LinkedWith<EnumFormatter<AlertType>>(nameof(EntityType), $"{EnumFormatter<AlertType>.FormatterName}.{nameof(AlertType)}")]
+    [LinkedWith<EnumFormatter<AlertType>>(nameof(Type), $"{EnumFormatter<AlertType>.FormatterName}.{nameof(AlertType)}")]
     public string TypeDescription { get; set; }
 
     /// <summary>

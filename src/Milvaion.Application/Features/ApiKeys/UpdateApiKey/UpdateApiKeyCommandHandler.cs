@@ -12,20 +12,31 @@ namespace Milvaion.Application.Features.ApiKeys.UpdateApiKey;
 /// <param name="ApiKeyRepository"></param>
 /// <param name="ApiKeyPermissionRelationRepository"></param>
 /// <param name="ApiKeyCacheInvalidator"></param>
+/// <param name="GrantGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateApiKey)]
 public record UpdateApiKeyCommandHandler(IMilvaionRepositoryBase<MilvaionApiKey> ApiKeyRepository,
                                          IMilvaionRepositoryBase<MilvaionApiKeyPermissionRelation> ApiKeyPermissionRelationRepository,
-                                         IApiKeyCacheInvalidator ApiKeyCacheInvalidator) : IInterceptable, ICommandHandler<UpdateApiKeyCommand, int>
+                                         IApiKeyCacheInvalidator ApiKeyCacheInvalidator,
+                                         SuperAdminGrantGuard GrantGuard) : IInterceptable, ICommandHandler<UpdateApiKeyCommand, int>
 {
     private readonly IMilvaionRepositoryBase<MilvaionApiKey> _apiKeyRepository = ApiKeyRepository;
     private readonly IMilvaionRepositoryBase<MilvaionApiKeyPermissionRelation> _apiKeyPermissionRelationRepository = ApiKeyPermissionRelationRepository;
     private readonly IApiKeyCacheInvalidator _apiKeyCacheInvalidator = ApiKeyCacheInvalidator;
+    private readonly SuperAdminGrantGuard _grantGuard = GrantGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateApiKeyCommand request, CancellationToken cancellationToken)
     {
+        if (request.PermissionIdList.IsUpdated)
+        {
+            var permissionError = await _grantGuard.ValidateApiKeyPermissionsAsync(request.Id, request.PermissionIdList.Value, cancellationToken);
+
+            if (permissionError is not null)
+                return Response<int>.Error(default, permissionError);
+        }
+
         var setPropertyBuilder = _apiKeyRepository.GetUpdatablePropertiesBuilder(request);
 
         await _apiKeyRepository.ExecuteUpdateAsync(request.Id, setPropertyBuilder, cancellationToken: cancellationToken);

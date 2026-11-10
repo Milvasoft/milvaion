@@ -15,7 +15,7 @@ namespace Milvaion.Application.Features.Languages.UpdateLanguage;
 /// <param name="LanguageRepository"></param>
 [Log]
 [Transaction]
-[UserActivityTrack(UserActivity.UpdateRole)]
+[UserActivityTrack(UserActivity.UpdateLanguages)]
 public record UpdateLanguageCommandHandler(IMilvaionRepositoryBase<Language> LanguageRepository) : IInterceptable, ICommandHandler<UpdateLanguageCommand, int>
 {
     private readonly IMilvaionRepositoryBase<Language> _languageRepository = LanguageRepository;

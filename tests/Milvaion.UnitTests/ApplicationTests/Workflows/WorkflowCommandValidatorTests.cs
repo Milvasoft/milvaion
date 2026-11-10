@@ -13,6 +13,35 @@ namespace Milvaion.UnitTests.ApplicationTests.Workflows;
 /// </summary>
 public class WorkflowCommandValidatorTests
 {
+    private static CreateWorkflowStepDto Step(string tempId) => new()
+    {
+        TempId = tempId,
+        StepName = "Step " + tempId,
+        NodeType = WorkflowNodeType.Task,
+        JobId = Guid.CreateVersion7()
+    };
+
+    [Fact]
+    public void CreateWorkflowCommandValidator_WithDuplicateTempIds_ShouldFail()
+    {
+        var command = new CreateWorkflowCommand { Name = "Workflow", Steps = [Step("a"), Step("a")], Edges = [] };
+
+        new CreateWorkflowCommandValidator().Validate(command).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UpdateWorkflowCommandValidator_WithDuplicateTempIds_ShouldFail()
+    {
+        var command = new UpdateWorkflowCommand
+        {
+            WorkflowId = Guid.CreateVersion7(),
+            Steps = new UpdateProperty<List<CreateWorkflowStepDto>>([Step("a"), Step("a")]),
+            Edges = new UpdateProperty<List<CreateWorkflowEdgeDto>>([])
+        };
+
+        new UpdateWorkflowCommandValidator().Validate(command).IsValid.Should().BeFalse();
+    }
+
     [Fact]
     public void CreateWorkflowCommandValidator_WithValidCommand_ShouldPass()
     {

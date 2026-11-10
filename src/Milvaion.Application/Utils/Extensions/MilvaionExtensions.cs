@@ -18,6 +18,27 @@ namespace Milvaion.Application.Utils.Extensions;
 public static partial class MilvaionExtensions
 {
     /// <summary>
+    /// Escape character used with <see cref="ToContainsPattern"/>.
+    /// </summary>
+    public const string LikeEscapeCharacter = "\\";
+
+    /// <summary>
+    /// Builds a contains pattern for ILIKE, treating <paramref name="term"/> literally. Pass
+    /// <see cref="LikeEscapeCharacter"/> as the escape character of the ILIKE call.
+    /// </summary>
+    /// <param name="term"></param>
+    /// <returns></returns>
+    public static string ToContainsPattern(this string term)
+        => $"%{term?.Trim().Replace(LikeEscapeCharacter, LikeEscapeCharacter + LikeEscapeCharacter).Replace("%", LikeEscapeCharacter + "%").Replace("_", LikeEscapeCharacter + "_")}%";
+
+    /// <summary>
+    /// Narrows a counter to <see cref="int"/>, stopping at the limit instead of overflowing.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    public static int ToSaturatedInt(this long value) => (int)Math.Clamp(value, int.MinValue, int.MaxValue);
+
+    /// <summary>
     /// Gets current environment.
     /// </summary>
     /// <returns></returns>

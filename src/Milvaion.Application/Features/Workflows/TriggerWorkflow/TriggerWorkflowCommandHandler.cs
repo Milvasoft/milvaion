@@ -34,6 +34,12 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
         if (steps == null || steps.Count == 0)
             return Response<TriggerWorkflowResponse>.Error(default, "Workflow has no steps.");
 
+        // Workflows saved before Task steps were required to have a job can still hold one without.
+        var stepWithoutJob = steps.FirstOrDefault(s => s.NodeType == WorkflowNodeType.Task && !s.JobId.HasValue);
+
+        if (stepWithoutJob != null)
+            return Response<TriggerWorkflowResponse>.Error(default, $"Step '{stepWithoutJob.StepName}' has no job assigned.");
+
         var correlationId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 

@@ -29,13 +29,13 @@ public class GetDashboardQueryHandler(IRedisStatsService redisStatsService, IRed
         var epm = await epmTask;
 
         // Calculate derived metrics
-        var totalExecutions = (int)stats.GetValueOrDefault("Total", 0);
-        var queuedJobs = (int)stats.GetValueOrDefault("Queued", 0);
-        var runningJobs = (int)stats.GetValueOrDefault("Running", 0);
-        var completedJobs = (int)stats.GetValueOrDefault("Completed", 0);
-        var failedJobs = (int)stats.GetValueOrDefault("Failed", 0);
-        var cancelledJobs = (int)stats.GetValueOrDefault("Cancelled", 0);
-        var timedOutJobs = (int)stats.GetValueOrDefault("TimedOut", 0);
+        var totalExecutions = stats.GetValueOrDefault("Total", 0).ToSaturatedInt();
+        var queuedJobs = stats.GetValueOrDefault("Queued", 0).ToSaturatedInt();
+        var runningJobs = stats.GetValueOrDefault("Running", 0).ToSaturatedInt();
+        var completedJobs = stats.GetValueOrDefault("Completed", 0).ToSaturatedInt();
+        var failedJobs = stats.GetValueOrDefault("Failed", 0).ToSaturatedInt();
+        var cancelledJobs = stats.GetValueOrDefault("Cancelled", 0).ToSaturatedInt();
+        var timedOutJobs = stats.GetValueOrDefault("TimedOut", 0).ToSaturatedInt();
 
         // Calculate average duration from sum and count
         var durationSum = stats.GetValueOrDefault("DurationSum", 0);

@@ -13,6 +13,10 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
     {
         ClassLevelCascadeMode = CascadeMode.Stop;
 
+        RuleFor(query => query.UserName)
+            .NotEmpty()
+            .WithMessage(localizer[MessageKey.CannotBeEmpty, localizer[nameof(LoginCommand.UserName)]]);
+
         RuleFor(query => query.Password)
             .NotEmpty()
             .NotNull()

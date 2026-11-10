@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Milvaion.Application.Dtos.MetricReportDtos;
 using Milvasoft.Components.CQRS.Query;
 using Milvasoft.Components.Rest.MilvaResponse;
@@ -8,20 +9,22 @@ namespace Milvaion.Application.Features.MetricReports.GetLatestMetricReport;
 /// <summary>
 /// Gets latest metric report for a specified metric type.
 /// </summary>
-/// <param name="metricReportRepository"></param>
-public class GetLatestMetricReportQueryHandler(IMilvaionRepositoryBase<MetricReport> metricReportRepository) : IInterceptable, IQueryHandler<GetLatestMetricReportQuery, MetricReportDetailDto>
+/// <param name="milvaionDbContextAccessor"></param>
+public class GetLatestMetricReportQueryHandler(IMilvaionDbContextAccessor milvaionDbContextAccessor) : IInterceptable, IQueryHandler<GetLatestMetricReportQuery, MetricReportDetailDto>
 {
-    private readonly IMilvaionRepositoryBase<MetricReport> _metricReportRepository = metricReportRepository;
+    private readonly IMilvaionDbContextAccessor _milvaionDbContextAccessor = milvaionDbContextAccessor;
 
     /// <inheritdoc />
     public async Task<Response<MetricReportDetailDto>> Handle(GetLatestMetricReportQuery request, CancellationToken cancellationToken)
     {
-        var reports = await _metricReportRepository.GetAllAsync(
-            condition: r => r.MetricType == request.MetricType,
-            projection: MetricReportDetailDto.Projection,
-            cancellationToken: cancellationToken);
-
-        var report = reports?.OrderByDescending(r => r.GeneratedAt).FirstOrDefault();
+        // Reports carry a large payload, so only the newest one may be read.
+        var report = await _milvaionDbContextAccessor.GetDbContext()
+                                                     .Set<MetricReport>()
+                                                     .AsNoTracking()
+                                                     .Where(r => r.MetricType == request.MetricType)
+                                                     .OrderByDescending(r => r.GeneratedAt)
+                                                     .Select(MetricReportDetailDto.Projection)
+                                                     .FirstOrDefaultAsync(cancellationToken);
 
         if (report == null)
             return Response<MetricReportDetailDto>.Error(default, "Metric report not found for the specified type");

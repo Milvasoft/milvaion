@@ -13,7 +13,7 @@ public class DeleteJobOccurrenceCommandValidator : AbstractValidator<DeleteJobOc
     {
         RuleFor(x => x.OccurrenceIdList)
             .NotEmpty()
-            .WithMessage(localizer[MessageKey.PleaseSendCorrect, MessageKey.OccurrenceId]);
+            .WithMessage(localizer[MessageKey.PleaseSendCorrect, localizer[MessageKey.OccurrenceId]]);
 
         RuleForEach(query => query.OccurrenceIdList)
             .Must(id => Guid.Empty != id)
