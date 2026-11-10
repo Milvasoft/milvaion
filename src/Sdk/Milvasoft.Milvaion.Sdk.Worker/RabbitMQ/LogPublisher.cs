@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
-using RabbitMQ.Client;
+using Milvasoft.Milvaion.Sdk.Worker.Persistence;
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
@@ -33,13 +33,14 @@ public interface ILogPublisher : IAsyncDisposable
 /// <summary>
 /// Publishes worker logs to RabbitMQ with batching for high-throughput scenarios.
 /// Logs are buffered and sent in batches to reduce RabbitMQ overhead.
+/// A batch that cannot be published is moved to the local store when one is available;
+/// otherwise it is held in memory and retried first, so logs keep their order.
 /// </summary>
-public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) : ILogPublisher
+public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory, ILocalStateStore localStore = null) : ILogPublisher
 {
-    private readonly WorkerOptions _options = options;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogPublisher>();
-    private IConnection _connection;
-    private IChannel _channel;
+    private readonly ResilientPublisherChannel _channel = new(options, loggerFactory.CreateMilvaLogger<LogPublisher>(), WorkerConstant.Queues.WorkerLogs);
+    private readonly ILocalStateStore _localStore = localStore;
     private bool _disposed;
 
     // Batching configuration
@@ -47,13 +48,18 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
     private readonly SemaphoreSlim _flushLock = new(1, 1);
     private readonly int _batchSize = 50; // Flush when 50 logs accumulated
     private readonly TimeSpan _flushInterval = TimeSpan.FromMilliseconds(500); // Or every 500ms
+    private readonly Lock _timerLock = new();
     private Timer _flushTimer;
-    private DateTime _lastFlushTime = DateTime.UtcNow;
+    private const int _maxBufferedLogs = 10_000;
+    private long _droppedLogs;
 
-    public async Task PublishLogAsync(Guid occurrenceId,
-                                      string workerId,
-                                      OccurrenceLog log,
-                                      CancellationToken cancellationToken = default)
+    // The batch whose publish failed and could not be persisted. Accessed under _flushLock.
+    private List<WorkerLogMessage> _unpublishedBatch;
+
+    public Task PublishLogAsync(Guid occurrenceId,
+                                string workerId,
+                                OccurrenceLog log,
+                                CancellationToken cancellationToken = default)
     {
         try
         {
@@ -66,20 +72,10 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
             };
 
             // Add to buffer
-            _logBuffer.Enqueue(message);
+            EnqueueBounded(message);
 
             // Start flush timer if not already running
-            _flushTimer ??= new Timer(async _ =>
-            {
-                try
-                {
-                    await FlushLogsAsync(CancellationToken.None);
-                }
-                catch (Exception timerEx)
-                {
-                    _logger?.Error(timerEx, "Timer flush failed - logs remain in buffer for next flush");
-                }
-            }, null, _flushInterval, _flushInterval);
+            EnsureFlushTimer();
 
             // Flush immediately if batch size reached
             if (_logBuffer.Count >= _batchSize)
@@ -104,41 +100,42 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
         {
             _logger?.Error(ex, "Failed to buffer log for OccurrenceId: {OccurrenceId}", occurrenceId);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
     /// Manually flushes all buffered logs immediately.
     /// Public method for explicit flush before job completion.
     /// </summary>
-    public async Task FlushAsync(CancellationToken cancellationToken = default) => await FlushLogsAsync(cancellationToken);
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        // One flush sends at most one batch. Bounded by what is buffered now, so concurrent producers cannot keep this looping.
+        var remainingFlushes = _logBuffer.Count / (_batchSize * 2) + 1;
+
+        while (remainingFlushes-- > 0 && await FlushLogsAsync(cancellationToken))
+        {
+        }
+    }
 
     /// <summary>
-    /// Flushes buffered logs to RabbitMQ as a single batch message.
+    /// Flushes one batch of buffered logs to RabbitMQ as a single message.
     /// </summary>
-    private async Task FlushLogsAsync(CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> if a batch was published; <see langword="false"/> if there was nothing to send or it went to the local store.</returns>
+    private async Task<bool> FlushLogsAsync(CancellationToken cancellationToken)
     {
         // Wait for lock instead of skipping (prevent log loss)
         await _flushLock.WaitAsync(cancellationToken);
 
         try
         {
-            if (_logBuffer.IsEmpty)
-                return;
-
-            // Dequeue all logs
-            var batch = new List<WorkerLogMessage>();
-            while (_logBuffer.TryDequeue(out var log) && batch.Count < _batchSize * 2) // Max 100 per flush
-            {
-                batch.Add(log);
-            }
+            var batch = _unpublishedBatch ?? DequeueBatch();
 
             if (batch.IsNullOrEmpty())
-                return;
+                return false;
 
             try
             {
-                await EnsureConnectionAsync(cancellationToken);
-
                 // Publish as single batch message
                 var batchMessage = new WorkerLogBatchMessage
                 {
@@ -149,24 +146,27 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
                 var json = JsonSerializer.Serialize(batchMessage);
                 var body = Encoding.UTF8.GetBytes(json);
 
-                await _channel.BasicPublishAsync(exchange: string.Empty,
-                                                 routingKey: WorkerConstant.Queues.WorkerLogs,
-                                                 mandatory: false,
-                                                 body: body,
-                                                 cancellationToken: cancellationToken);
+                await _channel.PublishAsync(WorkerConstant.Queues.WorkerLogs, body, persistent: true, cancellationToken);
 
-                _lastFlushTime = DateTime.UtcNow;
+                _unpublishedBatch = null;
+
                 _logger.Debug("Flushed {Count} logs to RabbitMQ as single batch message", batch.Count);
+
+                return true;
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "Failed to flush logs batch. Re-queuing {Count} logs for retry.", batch.Count);
-
-                // Re-queue logs on failure to prevent data loss
-                foreach (var log in batch)
+                if (await TryStoreLocallyAsync(batch))
                 {
-                    _logBuffer.Enqueue(log);
+                    _logger?.Warning(ex, "Failed to flush logs batch. Stored {Count} logs locally for later sync.", batch.Count);
+                    _unpublishedBatch = null;
+
+                    return false;
                 }
+
+                _logger?.Error(ex, "Failed to flush logs batch. Keeping {Count} logs for retry.", batch.Count);
+
+                _unpublishedBatch = batch;
 
                 throw; // Re-throw to trigger retry mechanism
             }
@@ -177,57 +177,78 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
         }
     }
 
-    private async Task EnsureConnectionAsync(CancellationToken cancellationToken)
+    private List<WorkerLogMessage> DequeueBatch()
     {
-        if (_connection == null || !_connection.IsOpen)
+        var batch = new List<WorkerLogMessage>();
+
+        while (batch.Count < _batchSize * 2 && _logBuffer.TryDequeue(out var log)) // Max 100 per flush
+            batch.Add(log);
+
+        return batch;
+    }
+
+    private async Task<bool> TryStoreLocallyAsync(List<WorkerLogMessage> batch)
+    {
+        if (_localStore == null)
+            return false;
+
+        var stored = 0;
+
+        try
         {
-            var factory = new ConnectionFactory
+            foreach (var message in batch)
             {
-                HostName = _options.RabbitMQ.Host,
-                Port = _options.RabbitMQ.Port,
-                UserName = _options.RabbitMQ.Username,
-                Password = _options.RabbitMQ.Password,
-                VirtualHost = _options.RabbitMQ.VirtualHost
-            };
+                await _localStore.StoreLogAsync(message.OccurrenceId, message.WorkerId, message.Log, CancellationToken.None);
+                stored++;
+            }
 
-            _connection = await factory.CreateConnectionAsync(cancellationToken);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to store logs batch locally");
 
-            // With PublisherConfirms on (the default), BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
-            _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions(), cancellationToken);
+            // Already stored entries are not retried, they would be delivered twice.
+            batch.RemoveRange(0, stored);
 
-            await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.WorkerLogs,
-                                             durable: true,
-                                             exclusive: false,
-                                             autoDelete: false,
-                                             arguments: _options.RabbitMQ.BuildQueueArguments(),
-                                             cancellationToken: cancellationToken);
+            return false;
         }
     }
 
-    /// <summary>
-    /// Dispose failed connection to allow reconnection on next attempt.
-    /// </summary>
-    private async Task DisposeConnectionAsync()
+    private void EnqueueBounded(WorkerLogMessage message)
     {
-        try
+        if (_logBuffer.Count >= _maxBufferedLogs && _logBuffer.TryDequeue(out _))
         {
-            if (_channel != null)
-            {
-                await _channel.CloseAsync();
-                _channel.Dispose();
-                _channel = null;
-            }
+            var dropped = Interlocked.Increment(ref _droppedLogs);
 
-            if (_connection != null)
-            {
-                await _connection.CloseAsync();
-                _connection.Dispose();
-                _connection = null;
-            }
+            if (dropped == 1 || dropped % 1000 == 0)
+                _logger?.Warning("Log buffer is full ({Capacity}). {Dropped} oldest log(s) dropped so far.", _maxBufferedLogs, dropped);
         }
-        catch
+
+        _logBuffer.Enqueue(message);
+    }
+
+    private void EnsureFlushTimer()
+    {
+        if (_flushTimer != null)
+            return;
+
+        lock (_timerLock)
         {
-            // Ignore disposal errors
+            if (_flushTimer != null || _disposed)
+                return;
+
+            _flushTimer = new Timer(async _ =>
+            {
+                try
+                {
+                    await FlushLogsAsync(CancellationToken.None);
+                }
+                catch (Exception timerEx)
+                {
+                    _logger?.Debug(timerEx, "Timer flush failed - logs remain in buffer for next flush");
+                }
+            }, null, _flushInterval, _flushInterval);
         }
     }
 
@@ -235,21 +256,33 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
     {
         // Registered as both LogPublisher and ILogPublisher singletons pointing at the same instance,
         // so the DI container disposes it twice - guard against re-entering with an already-disposed _flushLock.
-        if (_disposed)
-            return;
+        Timer timer;
 
-        _disposed = true;
-
-        // Flush remaining logs before disposal
-        if (_flushTimer != null)
+        lock (_timerLock)
         {
-            await _flushTimer.DisposeAsync();
+            if (_disposed)
+                return;
+
+            _disposed = true;
+
+            timer = _flushTimer;
             _flushTimer = null;
         }
 
-        await FlushLogsAsync(CancellationToken.None);
+        // Flush remaining logs before disposal
+        if (timer != null)
+            await timer.DisposeAsync();
 
-        await DisposeConnectionAsync();
+        try
+        {
+            await FlushAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Failed to flush remaining logs during shutdown");
+        }
+
+        await _channel.DisposeAsync();
 
         _flushLock?.Dispose();
 

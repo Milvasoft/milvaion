@@ -4,8 +4,10 @@ public class OfflineResilienceSettings
 {
     /// <summary>
     /// Enable offline resilience (local state persistence).
-    /// When enabled, status updates and logs are stored locally first,
-    /// then synced to scheduler when connection is available.
+    /// When enabled, status updates and logs that cannot be published are stored locally
+    /// and synced to scheduler when connection is available.
+    /// When disabled, they are still published but are lost if RabbitMQ is unavailable,
+    /// and redelivered messages are no longer detected as already finalized.
     /// Default: true
     /// </summary>
     public bool Enabled { get; set; } = true;
