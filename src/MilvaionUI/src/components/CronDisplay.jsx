@@ -26,34 +26,3 @@ export default function CronDisplay({ expression, showTooltip = true }) {
     )
   }
 }
-
-// CSS can be in your global styles or inline
-const styles = `
-  .cron-display-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .cron-readable {
-    color: #1890ff;
-    font-weight: 500;
-  }
-
-  .cron-expression {
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    color: #888;
-    cursor: help;
-  }
-
-  .cron-none {
-    color: #999;
-    font-style: italic;
-  }
-
-  .cron-error {
-    color: #f56c6c;
-    cursor: help;
-  }
-`

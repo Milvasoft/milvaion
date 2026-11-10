@@ -42,7 +42,7 @@ function formatDuration(ms) {
  * Kartın sağ üstündeki durum rozeti. Çalışmamış bir adım için "Idle" gösterir -
  * rozeti hiç göstermemek, adımı tanım ekranındaki gibi durumsuz gösterirdi.
  */
-/* eslint-disable react/prop-types */
+ 
 export function RunStatusBadge({ run }) {
   if (!run) {
     return (

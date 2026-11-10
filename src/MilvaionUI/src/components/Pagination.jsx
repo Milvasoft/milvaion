@@ -1,7 +1,7 @@
 import Icon from './Icon'
 import './Pagination.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * Page navigation for a server-paged list.

@@ -151,7 +151,7 @@ export default function CronExpressionInput({ value, onChange, required = false,
         />
       )}
 
-      <style jsx>{`
+      <style>{`
         .cron-expression-container {
           width: 100%;
         }

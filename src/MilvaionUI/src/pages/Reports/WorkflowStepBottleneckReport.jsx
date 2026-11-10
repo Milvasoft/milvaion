@@ -10,8 +10,6 @@ import { formatDateTime, formatDateShort } from '../../utils/dateUtils'
 import './ReportDetail.css'
 import { SkeletonChart } from '../../components/Skeleton'
 
-const STEP_COLORS = ['#6366f1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6']
-
 function WorkflowStepBottleneckReport() {
   const navigate = useNavigate()
   const [reports, setReports] = useState([])

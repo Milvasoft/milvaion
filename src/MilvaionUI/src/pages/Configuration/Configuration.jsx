@@ -6,7 +6,7 @@ import { getApiErrorMessage } from '../../utils/errorUtils'
 import { buildSections, systemIdentity, offSwitches } from './configSpec'
 import './Configuration.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * System configuration - redesign.

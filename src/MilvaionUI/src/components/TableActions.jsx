@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import Icon from './Icon'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * A row action button.

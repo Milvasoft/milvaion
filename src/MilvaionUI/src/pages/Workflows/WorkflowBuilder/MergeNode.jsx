@@ -3,7 +3,7 @@ import { Handle, Position } from 'reactflow'
 import Icon from '../../../components/Icon'
 import { RunStatusBadge, RunMetaRow } from './NodeRunParts'
 
-/* eslint-disable react/prop-types */
+ 
 function MergeNode({ data, selected }) {
   const { step, onDelete, readOnly, run, dimmed, incomingCount } = data
 

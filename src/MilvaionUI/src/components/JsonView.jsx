@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import Icon from './Icon'
 import './JsonView.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * The application's JSON surface, reading and writing.
