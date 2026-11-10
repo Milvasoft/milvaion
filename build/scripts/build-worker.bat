@@ -54,7 +54,7 @@ if "%Registry%"=="" (
 
 REM Paths
 set "ScriptDir=%~dp0"
-for %%i in ("%ScriptDir%..") do set "RootDir=%%~fi"
+for %%i in ("%ScriptDir%..\..") do set "RootDir=%%~fi"
 set "Dockerfile=%RootDir%\src\Workers\SampleWorker\Dockerfile"
 
 REM Display configuration
