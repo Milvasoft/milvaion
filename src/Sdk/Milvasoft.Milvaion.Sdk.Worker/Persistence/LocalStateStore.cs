@@ -157,7 +157,8 @@ public class LocalStateStore : ILocalStateStore
 
     /// <summary>
     /// Get pending status updates that need to be synced to scheduler.
-    /// Excludes updates from finalized jobs to prevent duplicates.
+    /// Records of finalized jobs are included: a job's final status is usually the record that had to be stored
+    /// locally, and finalization only guards against re-executing a redelivered message.
     /// </summary>
     public async Task<List<StoredStatusUpdate>> GetPendingStatusUpdatesAsync(int maxCount = 100, CancellationToken cancellationToken = default)
     {
@@ -280,7 +281,7 @@ public class LocalStateStore : ILocalStateStore
 
     /// <summary>
     /// Get pending logs that need to be synced to scheduler.
-    /// Excludes logs from finalized jobs to prevent duplicates.
+    /// Logs of finalized jobs are included, see <see cref="GetPendingStatusUpdatesAsync"/>.
     /// </summary>
     public async Task<List<StoredLog>> GetPendingLogsAsync(int maxCount = 1000, CancellationToken cancellationToken = default)
     {
@@ -785,10 +786,8 @@ public static class SqlQueries
                 s.Id, s.OccurrenceId, s.JobId, s.WorkerId, s.InstanceId, s.Status, s.StartTime, s.EndTime,
                 s.DurationMs, s.Result, s.Exception, s.CreatedAt, s.RetryCount
             FROM StatusUpdates s
-            LEFT JOIN JobExecutions j ON s.OccurrenceId = j.OccurrenceId
             WHERE s.IsSynced = 0
-            AND (j.IsFinalized IS NULL OR j.IsFinalized = 0)
-            ORDER BY s.CreatedAt ASC
+            ORDER BY s.CreatedAt ASC, s.Id ASC
             LIMIT @MaxCount
     ";
 
@@ -813,10 +812,8 @@ public static class SqlQueries
                 l.Id, l.OccurrenceId, l.WorkerId, l.Timestamp, l.Level, l.Message, 
                 l.Category, l.ExceptionType, l.Data, l.CreatedAt, l.RetryCount
             FROM Logs l
-            LEFT JOIN JobExecutions j ON l.OccurrenceId = j.OccurrenceId
-            WHERE l.IsSynced = 0 
-            AND (j.IsFinalized IS NULL OR j.IsFinalized = 0)
-            ORDER BY l.CreatedAt ASC
+            WHERE l.IsSynced = 0
+            ORDER BY l.CreatedAt ASC, l.Id ASC
             LIMIT @MaxCount
     ";
 
