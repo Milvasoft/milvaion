@@ -230,7 +230,9 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
         if (wanted.Count == 0)
             return [];
 
-        var existing = (await _roleRepository.GetAllAsync(condition: r => wanted.Contains(r.Name),
+        // Only roles that belong to this provider. Without the filter, a directory group that happens to be named
+        // like a local role (for example SuperAdmin) would grant that role's permissions.
+        var existing = (await _roleRepository.GetAllAsync(condition: r => wanted.Contains(r.Name) && r.Provider == provider,
                                                           projection: _roleWithPermissions,
                                                           cancellationToken: cancellationToken)).ToList();
 
@@ -248,12 +250,13 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
             {
                 // Two different users signing in at once can both try to create the same provider role.
                 // The unique index on the name rejects the duplicate; re-read the winner instead of failing.
-                var created = await _roleRepository.GetFirstOrDefaultAsync(r => r.Name == name,
+                var created = await _roleRepository.GetFirstOrDefaultAsync(r => r.Name == name && r.Provider == provider,
                                                                            projection: _roleWithPermissions,
                                                                            cancellationToken: cancellationToken);
 
+                // Null when the unique name belongs to a local role or another provider. That group simply grants nothing.
                 if (created is null)
-                    throw;
+                    continue;
 
                 existing.Add(created);
             }

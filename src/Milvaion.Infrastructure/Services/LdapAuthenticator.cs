@@ -1,6 +1,7 @@
 using Milvaion.Application.Interfaces;
 using System.DirectoryServices.Protocols;
 using System.Net;
+using System.Text;
 
 namespace Milvaion.Infrastructure.Services;
 
@@ -24,7 +25,7 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
 
         var userBindDn = string.IsNullOrWhiteSpace(_options.UserDnFormat)
             ? username
-            : string.Format(_options.UserDnFormat, username);
+            : string.Format(_options.UserDnFormat, EscapeDnValue(username));
 
         try
         {
@@ -73,7 +74,7 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
             else
                 searchConnection.Bind(new NetworkCredential(userBindDn, userPassword));
 
-            var filter = string.Format(_options.UserSearchFilter ?? "(sAMAccountName={0})", username);
+            var filter = string.Format(_options.UserSearchFilter ?? "(sAMAccountName={0})", EscapeFilterValue(username));
 
             var request = new SearchRequest(_options.BaseDn, filter, SearchScope.Subtree,
                                             "mail", "givenName", "sn", "objectGUID", _options.GroupMemberAttribute);
@@ -81,6 +82,11 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
             var response = (SearchResponse)searchConnection.SendRequest(request);
 
             if (response.Entries.Count == 0)
+                return new LdapAuthResult { Success = true, Subject = userBindDn, Groups = [] };
+
+            // With an OR-shaped search filter a login name can match several people. Reading the first
+            // one would hand this user somebody else's groups.
+            if (response.Entries.Count > 1)
                 return new LdapAuthResult { Success = true, Subject = userBindDn, Groups = [] };
 
             var entry = response.Entries[0];
@@ -100,6 +106,55 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
             // The bind worked but the lookup did not: still a valid login, just without roles this time.
             return new LdapAuthResult { Success = true, Subject = userBindDn, Groups = [] };
         }
+    }
+
+    /// <summary>
+    /// Escapes a value for use inside an LDAP search filter (RFC 4515).
+    /// </summary>
+    internal static string EscapeFilterValue(string value)
+    {
+        var escaped = new StringBuilder(value.Length);
+
+        foreach (var c in value)
+        {
+            escaped.Append(c switch
+            {
+                '\\' => @"\5c",
+                '*' => @"\2a",
+                '(' => @"\28",
+                ')' => @"\29",
+                '\0' => @"\00",
+                _ => c.ToString()
+            });
+        }
+
+        return escaped.ToString();
+    }
+
+    /// <summary>
+    /// Escapes a value for use as an attribute value inside a distinguished name (RFC 4514).
+    /// </summary>
+    internal static string EscapeDnValue(string value)
+    {
+        var escaped = new StringBuilder(value.Length + 4);
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+
+            var mustEscape = c is ',' or '+' or '"' or '\\' or '<' or '>' or ';' or '='
+                             || (c is '#' or ' ' && i == 0)
+                             || (c == ' ' && i == value.Length - 1);
+
+            if (c == '\0')
+                escaped.Append(@"\00");
+            else if (mustEscape)
+                escaped.Append('\\').Append(c);
+            else
+                escaped.Append(c);
+        }
+
+        return escaped.ToString();
     }
 
     private List<string> ExtractGroups(SearchResultEntry entry)
