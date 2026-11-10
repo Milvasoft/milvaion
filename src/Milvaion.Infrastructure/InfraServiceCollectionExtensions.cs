@@ -326,6 +326,11 @@ public static class InfraServiceCollectionExtensions
         // Configure AlertingOptions from appsettings
         services.AddOptions<AlertingOptions>().Bind(configuration.GetSection(AlertingOptions.SectionKey)).ValidateDataAnnotations();
 
+        // Optional delivery of e-mails and internal notifications through Notifike
+        services.AddOptions<NotifikeOptions>().Bind(configuration.GetSection(NotifikeOptions.SectionKey));
+        services.AddHttpClient(nameof(NotifikeTransport), client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddSingleton<INotifikeTransport, NotifikeTransport>();
+
         // Register HttpClient for alert channels (if not already registered)
         services.AddHttpClient(nameof(GoogleChatAlertChannel));
         services.AddHttpClient(nameof(SlackAlertChannel));
