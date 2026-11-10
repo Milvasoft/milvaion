@@ -171,33 +171,6 @@ class AuthService {
     return !!this.getAccessToken()
   }
 
-  isTokenExpired(token) {
-    if (!token) return true
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      const exp = payload.exp * 1000
-      return Date.now() >= exp
-    } catch {
-      return true
-    }
-  }
-
-  shouldRefreshToken() {
-    const token = this.getAccessToken()
-    if (!token) return false
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      const exp = payload.exp * 1000
-      const now = Date.now()
-      const timeUntilExpiry = exp - now
-
-      return timeUntilExpiry < 5 * 60 * 1000
-    } catch {
-      return false
-    }
-  }
 }
 
 export default new AuthService()
