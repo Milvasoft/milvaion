@@ -15,34 +15,33 @@ public class RedisHealthCheck(IConnectionMultiplexer redis) : IHealthCheck
     private readonly IConnectionMultiplexer _redis = redis;
 
     /// <inheritdoc/>
-    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
         try
         {
             if (_redis == null || !_redis.IsConnected)
             {
-                return Task.FromResult(HealthCheckResult.Unhealthy("Redis connection is not available", null, new Dictionary<string, object>
+                return HealthCheckResult.Unhealthy("Redis connection is not available", null, new Dictionary<string, object>
                 {
                     ["ConnectionStatus"] = "Disconnected"
-                }));
+                });
             }
 
-            var database = _redis.GetDatabase();
-            var latency = _redis.GetDatabase().Ping();
+            var latency = await _redis.GetDatabase().PingAsync();
 
-            return Task.FromResult(HealthCheckResult.Healthy("Redis connection is healthy", new Dictionary<string, object>
+            return HealthCheckResult.Healthy("Redis connection is healthy", new Dictionary<string, object>
             {
                 ["ConnectionStatus"] = "Connected",
                 ["LatencyMs"] = latency.TotalMilliseconds,
                 ["IsConnected"] = _redis.IsConnected
-            }));
+            });
         }
         catch (Exception ex)
         {
-            return Task.FromResult(HealthCheckResult.Unhealthy("Redis health check failed", ex, new Dictionary<string, object>
+            return HealthCheckResult.Unhealthy("Redis health check failed", ex, new Dictionary<string, object>
             {
                 ["Error"] = ex.Message
-            }));
+            });
         }
     }
 }

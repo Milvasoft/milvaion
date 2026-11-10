@@ -40,10 +40,7 @@ public static class WorkerServiceCollectionExtensions
         services.AddMilvaionWorker(configuration);
 
         // 2. Auto-discover IJob implementations
-        var jobTypes = Assembly.GetEntryAssembly()?
-                               .GetTypes()
-                               .Where(t => typeof(IJobBase).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-                               .ToDictionary(t => t.Name, t => t) ?? [];
+        var jobTypes = DiscoverJobTypes();
 
         // 3. Load job consumer configurations
         var jobConsumersSection = configuration.GetSection(JobConsumerOptions.SectionKey);
@@ -104,15 +101,12 @@ public static class WorkerServiceCollectionExtensions
             throw new InvalidOperationException($"Configuration found in 'JobConsumers' section without corresponding job class: {configList}. Implement the job class or remove the configuration entry.");
         }
 
-        // 6. Register validated jobs and set JobType on configs
+        // 6. Register validated jobs
         foreach (var (jobName, jobType) in jobTypes)
         {
-            // Register job as transient
+            // Register job as transient. Keyed so that running a job does not construct every other job and its dependencies.
             services.AddTransient(typeof(IJobBase), jobType);
-
-            // Set JobType on config for job data discovery
-            if (jobConfigs.TryGetValue(jobName, out var config))
-                config.JobType = jobType;
+            services.AddKeyedTransient(typeof(IJobBase), jobName, jobType);
 
             Console.WriteLine($"Registered job: {jobName} → {jobType.FullName}");
         }
@@ -173,11 +167,15 @@ public static class WorkerServiceCollectionExtensions
             services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
             {
                 var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
-                var connectionString = string.IsNullOrEmpty(options.Redis.Password)
-                    ? options.Redis.ConnectionString + ",abortConnect=false"
-                    : $"{options.Redis.ConnectionString},password={options.Redis.Password},abortConnect=false";
+                var redisConfiguration = StackExchange.Redis.ConfigurationOptions.Parse(options.Redis.ConnectionString);
 
-                return StackExchange.Redis.ConnectionMultiplexer.Connect(connectionString);
+                // Set as a property: appended to the connection string, a password containing ',' or '=' would be misread
+                if (!string.IsNullOrEmpty(options.Redis.Password))
+                    redisConfiguration.Password = options.Redis.Password;
+
+                redisConfiguration.AbortOnConnectFail = false;
+
+                return StackExchange.Redis.ConnectionMultiplexer.Connect(redisConfiguration);
             });
         }
 
@@ -293,9 +291,7 @@ public static class WorkerServiceCollectionExtensions
         // Register FileHealthCheckBackgroundService if enabled
         if (workerOptions?.HealthCheck?.Enabled ?? false)
         {
-            services.AddHealthChecks()
-                    .AddCheck<RedisHealthCheck>("Redis", tags: ["redis", "cache"])
-                    .AddCheck<RabbitMQHealthCheck>("RabbitMQ", tags: ["rabbitmq", "messaging"]);
+            AddWorkerHealthChecks(services, workerOptions);
 
             services.AddHostedService(sp =>
             {
@@ -318,16 +314,25 @@ public static class WorkerServiceCollectionExtensions
         var workerOptions = workerSection.Get<WorkerOptions>();
 
         // Register FileHealthCheckBackgroundService if enabled
-        if (workerOptions.HealthCheck.Enabled)
+        if (workerOptions?.HealthCheck?.Enabled ?? false)
         {
-            services.AddHealthChecks()
-                    .AddCheck<RedisHealthCheck>("Redis", tags: ["redis", "cache"])
-                    .AddCheck<RabbitMQHealthCheck>("RabbitMQ", tags: ["rabbitmq", "messaging"]);
+            AddWorkerHealthChecks(services, workerOptions);
 
             Console.WriteLine($"Endpoint-based health check enabled. File: {workerOptions.HealthCheck.LiveFilePath}, Interval: {workerOptions.HealthCheck.IntervalSeconds}s");
         }
 
         return services;
+    }
+
+    private static void AddWorkerHealthChecks(IServiceCollection services, WorkerOptions workerOptions)
+    {
+        var healthChecks = services.AddHealthChecks();
+
+        // The Redis check needs the multiplexer, which is only registered when Redis is configured
+        if (!string.IsNullOrEmpty(workerOptions.Redis?.ConnectionString))
+            healthChecks.AddCheck<RedisHealthCheck>("Redis", tags: ["redis", "cache"]);
+
+        healthChecks.AddCheck<RabbitMQHealthCheck>("RabbitMQ", tags: ["rabbitmq", "messaging"]);
     }
 
     public static IApplicationBuilder UseHealthCheckEndpoints(this WebApplication app, IConfiguration configuration)
@@ -336,7 +341,7 @@ public static class WorkerServiceCollectionExtensions
         var workerOptions = workerSection.Get<WorkerOptions>();
 
         // Register FileHealthCheckBackgroundService if enabled
-        if (workerOptions.HealthCheck.Enabled)
+        if (workerOptions?.HealthCheck?.Enabled ?? false)
         {
             // Health check endpoints
             app.MapGet("/health", () => Results.Ok("Ok")).WithName("HealthCheck");
@@ -412,10 +417,7 @@ public static class WorkerServiceCollectionExtensions
         var workerId = workerOptions?.WorkerId ?? Environment.MachineName;
 
         // Discover job types from entry assembly
-        var discoveredJobTypes = Assembly.GetEntryAssembly()?
-                                         .GetTypes()
-                                         .Where(t => typeof(IJobBase).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-                                         .ToDictionary(t => t.Name, t => t) ?? [];
+        var discoveredJobTypes = DiscoverJobTypes();
 
         var jobConfigs = new Dictionary<string, JobConsumerConfig>();
 
@@ -514,11 +516,47 @@ public static class WorkerServiceCollectionExtensions
                 return new WorkerListenerPublisher(baseOptions, logger, sp, jobConfigs);
             });
 
-            // Register cancellation listener service
-            services.AddHostedService<CancellationListenerService>();
+            // Cancellation arrives over Redis Pub/Sub, so without Redis there is nothing to listen to
+            if (!string.IsNullOrEmpty(workerOptions?.Redis?.ConnectionString))
+                services.AddHostedService<CancellationListenerService>();
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Finds the job implementations in the entry assembly, keyed by the short name jobs are dispatched by.
+    /// </summary>
+    private static Dictionary<string, Type> DiscoverJobTypes()
+    {
+        var assembly = Assembly.GetEntryAssembly();
+
+        if (assembly == null)
+            return [];
+
+        Type[] types;
+
+        try
+        {
+            types = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            // A type with a missing dependency must not hide the jobs that did load
+            types = [.. ex.Types.Where(t => t != null)];
+        }
+
+        var jobTypes = types.Where(t => typeof(IJobBase).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract).ToList();
+
+        var duplicates = jobTypes.GroupBy(t => t.Name)
+                                 .Where(g => g.Count() > 1)
+                                 .Select(g => string.Join(", ", g.Select(t => t.FullName)))
+                                 .ToList();
+
+        if (duplicates.Count > 0)
+            throw new InvalidOperationException($"Job class names must be unique because jobs are dispatched by short name. Conflicting types: {string.Join("; ", duplicates)}");
+
+        return jobTypes.ToDictionary(t => t.Name, t => t);
     }
 
     /// <summary>
