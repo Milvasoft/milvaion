@@ -450,6 +450,55 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
     }
 
     [Fact]
+    public async Task JobConsumer_ShouldRequeueRunningJob_OnShutdown()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CallbackAsyncJob(async () =>
+            {
+                started.TrySetResult(true);
+                await Task.Delay(TimeSpan.FromMinutes(1), CurrentJobToken.Value);
+            }));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var consumer = new JobConsumer(sp,
+                                       Microsoft.Extensions.Options.Options.Create(CreateWorkerOptions()),
+                                       Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+                                       sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        await consumer.StartAsync(cts.Token);
+        await Task.Delay(2000, cts.Token);
+
+        await PublishJobToExchangeAsync(CreateScheduledJob(nameof(CallbackAsyncJob)), Guid.CreateVersion7(), "test-consumer.callbackjob", cts.Token);
+
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(15), cts.Token);
+
+        // Act
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert - back on its queue for the next worker, and not dead-lettered
+        var rabbitFactory = new ConnectionFactory { HostName = GetRabbitMqHost(), Port = GetRabbitMqPort(), UserName = "guest", Password = "guest" };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cts.Token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cts.Token);
+
+        var requeued = await channel.BasicGetAsync($"{WorkerConstant.Queues.Jobs}.test-consumer.wildcard", autoAck: true, cts.Token);
+        var deadLettered = await channel.BasicGetAsync(WorkerConstant.Queues.FailedOccurrences, autoAck: true, cts.Token);
+
+        requeued.Should().NotBeNull("a job interrupted by shutdown should be returned to the queue");
+        requeued!.Redelivered.Should().BeTrue();
+        deadLettered.Should().BeNull();
+    }
+
+    [Fact]
     public async Task JobConsumer_ShouldAckMessage_WhenJobSucceeds()
     {
         // Arrange
@@ -1221,6 +1270,8 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
         public Task<string> ExecuteAsync(IJobContext context) => Task.FromResult("Custom result from job");
     }
 
+    private static readonly AsyncLocal<CancellationToken> CurrentJobToken = new();
+
     private sealed class CallbackAsyncJob(Func<Task> onExecute) : IAsyncJob
     {
         public CallbackAsyncJob(Action onExecute) : this(() =>
@@ -1230,7 +1281,12 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
         })
         { }
 
-        public async Task ExecuteAsync(IJobContext context) => await onExecute();
+        public async Task ExecuteAsync(IJobContext context)
+        {
+            CurrentJobToken.Value = context.CancellationToken;
+
+            await onExecute();
+        }
     }
 
     private sealed class CorrelationCaptureJob(Action<Guid> onCapture) : IAsyncJob
