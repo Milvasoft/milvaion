@@ -47,7 +47,8 @@ public class GetSystemConfigurationQueryHandler(IConfiguration configuration, Mi
             },
             Redis = new RedisConfigDto
             {
-                ConnectionString = _milvaionConfig.Redis.ConnectionString,
+                // Endpoints only: the options part of a StackExchange connection string can hold the password.
+                ConnectionString = string.Join(',', (_milvaionConfig.Redis.ConnectionString ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(part => !part.Contains('='))),
                 Database = _milvaionConfig.Redis.Database,
                 ConnectTimeout = _milvaionConfig.Redis.ConnectTimeout,
                 DefaultLockTtlSeconds = _milvaionConfig.Redis.DefaultLockTtlSeconds,

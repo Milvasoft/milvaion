@@ -1,7 +1,6 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Primitives;
 using Milvasoft.Core.Exceptions;
 using Milvasoft.Identity.Abstract;
 using System.Security.Claims;
@@ -28,7 +27,11 @@ public static partial class MilvaionExtensions
     /// <param name="httpContext"></param>
     /// <returns></returns>
     public static string GetTokenFromHeader(this HttpContext httpContext)
-         => httpContext.Request.Headers.Authorization.FirstOrDefault()?.Split(" ").LastOrDefault();
+    {
+        var header = httpContext.Request.Headers.Authorization.FirstOrDefault();
+
+        return header?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true ? header["Bearer ".Length..].Trim() : null;
+    }
 
     /// <summary>
     /// Checks whether the current user is the user whose name is given as a parameter via HttpContext.
@@ -87,16 +90,9 @@ public static partial class MilvaionExtensions
     /// <returns></returns>
     public static void ThrowIfCurrentUserNotAuthorized(this HttpContext httpContext, params List<string> permissions)
     {
-        var currentUserPermissonExists = httpContext.Items.TryGetValue(GlobalConstant.CurrentUserPermissionsKey, out var contextItem);
-
-        if (!currentUserPermissonExists)
-            httpContext.Response.ThrowWithForbidden();
-
-        var currentUserPermissons = (IEnumerable<string>)contextItem;
-
         permissions.Add(PermissionCatalog.App.SuperAdmin);
 
-        var hasPermission = currentUserPermissons.Any(permissions.Contains);
+        var hasPermission = httpContext.User.FindAll(ClaimTypes.Role).Any(claim => permissions.Contains(claim.Value));
 
         if (!hasPermission)
             httpContext.Response.ThrowWithForbidden();
@@ -109,19 +105,12 @@ public static partial class MilvaionExtensions
     /// <returns></returns>
     public static string GetIpAddress(this HttpContext httpContext)
     {
-        var realIpExists = httpContext.Request.Headers.TryGetValue(GlobalConstant.RealIpHeaderKey, out StringValues realIpAddress);
+        // Client supplied headers are never read here. Behind a proxy listed in MilvaionConfig:ForwardedHeaders the
+        // forwarded headers middleware has already put the real client address on the connection.
+        var requestIp = httpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString();
 
-        string requestIp;
-
-        if (realIpExists)
-            requestIp = realIpAddress.ToString();
-        else
-        {
-            requestIp = httpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString();
-
-            if (requestIp == GlobalConstant.DefaultIp)
-                requestIp = httpContext.Connection.LocalIpAddress?.MapToIPv4().ToString();
-        }
+        if (requestIp == GlobalConstant.DefaultIp)
+            requestIp = httpContext.Connection.LocalIpAddress?.MapToIPv4().ToString();
 
         return requestIp;
     }

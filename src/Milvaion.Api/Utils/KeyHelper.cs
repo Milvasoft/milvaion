@@ -39,15 +39,13 @@ public static class KeyHelper
     /// </param>
     public static string GenerateApiKey(byte[] secret, int apiKeyId, int keyVersion, DateTime? expiresAt)
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
+        // Left on, the handler stamps a one hour expiry on a key that was asked to never expire.
+        var tokenHandler = new JwtSecurityTokenHandler { SetDefaultTimesOnTokenCreation = false };
 
         var claimsIdentity = new ClaimsIdentity();
 
         claimsIdentity.AddClaim(new Claim(JwtRegisteredClaimNames.Jti, apiKeyId.ToString()));
         claimsIdentity.AddClaim(new Claim(KeyVersionClaimName, keyVersion.ToString()));
-
-        if (expiresAt.HasValue)
-            claimsIdentity.AddClaim(new Claim(ClaimTypes.Expired, ((DateTimeOffset)expiresAt.Value).ToUnixTimeSeconds().ToString()));
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -86,7 +84,7 @@ public static class KeyHelper
 
         DateTime? expiresAt = null;
 
-        var expiredClaim = principal.FindFirstValue(ClaimTypes.Expired);
+        var expiredClaim = principal.FindFirstValue(JwtRegisteredClaimNames.Exp);
 
         if (!string.IsNullOrWhiteSpace(expiredClaim) && long.TryParse(expiredClaim, out var unixTime))
         {

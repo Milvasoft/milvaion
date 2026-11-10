@@ -1,4 +1,5 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Milvaion.Application.Utils.Attributes;
 using Milvasoft.Components.Rest.MilvaResponse;
@@ -8,10 +9,16 @@ namespace Milvaion.Api.Controllers;
 /// <summary>
 /// Developer endpoints.
 /// </summary>
+/// <remarks>
+/// Only registered when <c>MilvaionConfig:Developer:EndpointsEnabled</c> is true, see
+/// <see cref="AppStartup.DeveloperEndpointsFeatureProvider"/>. Even then everything except the bootstrap requires
+/// super admin.
+/// </remarks>
 [ApiController]
 [Route(GlobalConstant.FullRoute)]
 [ApiVersion(GlobalConstant.CurrentApiVersion)]
 [ApiExplorerSettings(GroupName = "v1.0")]
+[Auth(PermissionCatalog.App.SuperAdmin)]
 public class DeveloperController(IDeveloperService developerService) : ControllerBase
 {
     private readonly IDeveloperService _developerService = developerService;
@@ -38,9 +45,11 @@ public class DeveloperController(IDeveloperService developerService) : Controlle
     public Task<Response> SeedFakeDataAsync(bool sameData = true, string locale = "tr") => _developerService.SeedFakeDataAsync(sameData, locale);
 
     /// <summary>
-    /// Initial migration operation.
+    /// Initial migration operation. Anonymous because no user exists yet the first time it runs; it does nothing
+    /// on an initialized database.
     /// </summary>
     /// <returns></returns>
+    [AllowAnonymous]
     [HttpPost("database/init")]
     public async Task<Response> InitDatabaseAsync() => await _developerService.InitDatabaseAsync();
 
@@ -48,7 +57,6 @@ public class DeveloperController(IDeveloperService developerService) : Controlle
     /// Resets ui related data.
     /// </summary>
     /// <returns></returns>
-    [Auth]
     [HttpPost("database/reset/ui")]
     public async Task<Response> ResetUIRelatedDataAsync() => await _developerService.ResetUIRelatedDataAsync();
 
