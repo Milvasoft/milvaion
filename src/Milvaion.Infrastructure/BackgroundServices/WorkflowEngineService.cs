@@ -10,7 +10,9 @@ using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Infrastructure.BackgroundServices.Base;
+using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Services.Redis;
 using Milvaion.Infrastructure.Telemetry;
 using Milvaion.Infrastructure.Workflows;
 using Milvasoft.Core.Abstractions;
@@ -37,6 +39,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<WorkflowEngineService>();
     private readonly WorkflowEngineOptions _options = options.Value;
     private readonly BackgroundServiceMetrics _metrics = serviceProvider.GetRequiredService<BackgroundServiceMetrics>();
+    private readonly string _instanceId = $"{Environment.MachineName}:{Environment.ProcessId}:{Guid.NewGuid():N}";
+    private const string _engineLockName = "workflow_engine";
+    private static readonly TimeSpan _engineLockTtl = TimeSpan.FromSeconds(30);
 
     private static readonly List<string> _workflowUpdateProps = [nameof(Workflow.LastScheduledRunAt)];
     private static readonly List<string> _workflowRunUpdateProps = [nameof(WorkflowRun.Status), nameof(WorkflowRun.StartTime), nameof(WorkflowRun.EndTime), nameof(WorkflowRun.DurationMs), nameof(WorkflowRun.Error)];
@@ -61,7 +66,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         _logger.Information("Workflow engine service starting...");
 
         // Wait for database to be ready
-        for (int attempt = 1; attempt <= 30; attempt++)
+        var databaseReady = false;
+
+        for (int attempt = 1; attempt <= 30 && !databaseReady; attempt++)
         {
             try
             {
@@ -71,15 +78,20 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 if (await dbContext.Database.CanConnectAsync(cancellationToken))
                 {
                     _logger.Debug("Database connection ready on attempt {Attempt}", attempt);
-                    break;
+                    databaseReady = true;
+                    continue;
                 }
             }
-            catch
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.Information("Database not ready yet (attempt {Attempt}/30). Waiting 2s...", attempt);
-                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                _logger.Information("Database not ready yet (attempt {Attempt}/30): {Error}. Waiting 2s...", attempt, ex.Message);
             }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
         }
+
+        if (!databaseReady)
+            _logger.Warning("Database was not reachable after 30 attempts. Workflow engine starts anyway and retries on each poll.");
 
         _logger.Debug("Calling base.StartAsync...");
         await base.StartAsync(cancellationToken);
@@ -97,8 +109,12 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
             try
             {
-                await CheckCronWorkflowsAsync(stoppingToken);
-                await ProcessWorkflowRunsAsync(stoppingToken);
+                // One instance per pass: there is no claim on a pending step, so two engines would both publish it.
+                await _serviceProvider.GetRequiredService<IRedisLockService>().RunExclusiveAsync(_engineLockName, _instanceId, _engineLockTtl, async ct =>
+                {
+                    await CheckCronWorkflowsAsync(ct);
+                    await ProcessWorkflowRunsAsync(ct);
+                }, _logger, stoppingToken);
 
                 _metrics.RecordServiceIteration(ServiceName);
             }
@@ -170,7 +186,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
                     await mediator.Send(command, cancellationToken);
 
-                    workflow.LastScheduledRunAt = now;
+                    // The slot, not the clock: recording "now" shifts the base of the next calculation on short periods.
+                    // The newest elapsed slot, so that catching up after downtime fires once rather than slot by slot.
+                    workflow.LastScheduledRunAt = cronExpr.GetOccurrences(nextOccurrence.Value, now, TimeZoneInfo.Utc, fromInclusive: true, toInclusive: true).Last();
 
                     triggeredWorkflows.Add(workflow);
 
@@ -283,7 +301,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             await dbContext.BulkUpdateAsync(runsToUpdate, bc => bc.PropertiesToIncludeOnUpdate = _workflowRunUpdateProps, cancellationToken: cancellationToken);
 
         if (occurrencesToUpdate.Count > 0)
-            await dbContext.BulkUpdateAsync(occurrencesToUpdate, bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceUpdateProps, cancellationToken: cancellationToken);
+            await dbContext.BulkUpdateGuardedAsync(occurrencesToUpdate, static (_, row) => row.Status != JobOccurrenceStatus.Completed, bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceUpdateProps, cancellationToken);
 
         // Batch dispatch all ready steps
         if (validDispatches.Count > 0)
@@ -872,7 +890,18 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
 
         // Atomically persist all occurrence status changes and logs before any RabbitMQ publish
-        await dbContext.BulkUpdateAsync(dispatches.Select(d => d.Occurrence).ToList(), bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceDispatchProps, cancellationToken: cancellationToken);
+        // A step that completed in the meantime must not be set back to Queued or published again.
+        var rejected = (await dbContext.BulkUpdateGuardedAsync(dispatches.Select(d => d.Occurrence).ToList(),
+                                                               static (_, row) => row.Status != JobOccurrenceStatus.Completed,
+                                                               bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceDispatchProps,
+                                                               cancellationToken)).Select(o => o.Id).ToHashSet();
+
+        if (rejected.Count > 0)
+        {
+            dispatches = [.. dispatches.Where(d => !rejected.Contains(d.Occurrence.Id))];
+            logs.RemoveAll(l => rejected.Contains(l.OccurrenceId));
+        }
+
         await dbContext.BulkInsertAsync(logs, cancellationToken: cancellationToken);
 
         // Publish to RabbitMQ and collect results
