@@ -36,6 +36,16 @@ public class DatabaseMaintenanceJob(IOptions<MaintenanceOptions> options) : IAsy
             {
                 context.LogInformation($"Processing table: {table}");
 
+                // Table names end up inside SQL text, which cannot be parameterized for these commands
+                var tableExists = await connection.ExecuteScalarAsync<bool>(@"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = ANY(current_schemas(false)) AND table_name = @Table)", new { Table = table });
+
+                if (!tableExists)
+                {
+                    context.LogWarning($"[WARNING] Skipping unknown table: {table}");
+                    results[table] = new { Error = "Table not found" };
+                    continue;
+                }
+
                 // Get table size before maintenance
                 var sizeBefore = await GetTableSizeAsync(connection, table);
                 context.LogInformation($"Size before: {FormatBytes(sizeBefore)}");
