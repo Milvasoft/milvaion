@@ -29,7 +29,7 @@ public class NotificationCleanupJob(IOptions<MaintenanceOptions> options) : IAsy
         try
         {
             var sql = @" DELETE FROM ""InternalNotifications"" WHERE ""SeenDate"" < now() - interval '1 day' * @seenRetentionDays
-OR (""SeenDate"" IS NULL AND ""CreatedDate"" < now() - interval '1 day' * @unseenRetentionDays)";
+OR (""SeenDate"" IS NULL AND ""CreationDate"" < now() - interval '1 day' * @unseenRetentionDays)";
 
             context.LogInformation($"Executing cleanup query...");
 
