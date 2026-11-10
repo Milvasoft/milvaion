@@ -145,6 +145,7 @@ Authentication is configured under `MilvaionConfig:Authentication`. These values
 | `RequireHttpsMetadata` | Rejects non-HTTPS metadata/authority. Keep `true` outside local development. |
 | `NameClaim` / `SubjectClaim` / `RolesClaim` | Claims used for the display name, the stable per-user identifier, and the user's roles/groups. |
 | `RolePrefix` | Optional prefix filter: only roles starting with this value are provisioned. Empty takes them all. |
+| `RoleMappings` | Explicit grants from a provider role to existing local roles, comma-separated, for example `RoleMappings__owner=SuperAdmin`. Only listed roles reach local roles. Unlisted provider roles are mirrored with an empty permission set. |
 
 The SPA requests the `openid profile email offline_access` scopes and renews expired access tokens with the refresh token, so the client must be allowed `offline_access`. Milvaion reads the user's identity from the **access token**, so it must carry the `NameClaim`, `SubjectClaim`, `RolesClaim` and `email` claims.
 

@@ -62,4 +62,7 @@ public sealed record ExternalIdentityDescriptor
 
     /// <summary>Role/group names carried by the provider. Milvaion mirrors these as roles and their permissions are assigned here.</summary>
     public IReadOnlyCollection<string> RoleNames { get; init; } = [];
+
+    /// <summary>Existing local role names granted through an explicit mapping. These are never created.</summary>
+    public IReadOnlyCollection<string> LocalRoleNames { get; init; } = [];
 }
