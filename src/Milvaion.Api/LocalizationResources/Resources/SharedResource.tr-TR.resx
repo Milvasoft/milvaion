@@ -857,6 +857,9 @@ Maksimum dosya boyutu:
   <data name="AlertChannelType.InternalNotification" xml:space="preserve">
     <value>Uygulama İçi Bildirim</value>
   </data>
+  <data name="AlertChannelType.Crewhall" xml:space="preserve">
+    <value>Crewhall</value>
+  </data>
   <data name="QueueHealthStatus" xml:space="preserve">
     <value>Kuyruk Sağlığı</value>
   </data>
