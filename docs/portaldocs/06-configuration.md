@@ -272,6 +272,44 @@ What changes when it is on:
 - **Internal notifications** are still stored locally, because Milvaion's own notification screens read those rows. The Notifike box receives a copy, and a Notifike failure does not affect the local notification.
 - **The Email Worker** is not affected. Its jobs choose an SMTP configuration and can set From, Cc, Bcc, Reply-To, custom headers, receipts and inline images, which Notifike has no equivalent for.
 
+### Crewhall Alert Channel Configuration
+
+Crewhall is an optional alert channel that posts alerts to a Crewhall chat through an incoming webhook. It sits under `MilvaionConfig:Alerting:Channels:Crewhall`, next to the other channels described in the [Alerting guide](./19-alerting.md), and is **off by default**. An enabled channel without a valid webhook URL for its default chat skips the alert.
+
+```json
+{
+  "MilvaionConfig": {
+    "Alerting": {
+      "Channels": {
+        "Crewhall": {
+          "Enabled": false,
+          "SendOnlyInProduction": true,
+          "DefaultChat": "alerts",
+          "Chats": [
+            {
+              "Chat": "alerts",
+              "WebhookUrl": "https://crewhall.example.com/api/hooks/<id>?key=<key>"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `Enabled` | `false` | Enables the channel. |
+| `SendOnlyInProduction` | global `SendOnlyInProduction` | Sends only in the production environment. When unset, the global alerting setting applies. |
+| `DefaultChat` | `alerts` | Name of the entry in `Chats` that receives alerts. Shown in the configuration screens. |
+| `Chats[].Chat` | - | Name of the chat entry. |
+| `Chats[].WebhookUrl` | - | Incoming webhook URL from the chat's webhook settings in Crewhall. The key is part of the URL, so treat it as a secret, for example with `MilvaionConfig__Alerting__Channels__Crewhall__Chats__0__WebhookUrl`. It is never logged or shown in the configuration screens. |
+
+Alerts are posted as cards. Crewhall accepts 60 requests a minute per webhook; requests over that limit are reported as a failed channel and are not retried. The "View Details" button needs an absolute link, so set `Alerting:MilvaionAppUrl` to get it.
+
+Fresh installations route alerts to `Crewhall` from the `Routes` lists in appsettings. On an existing installation the routing already lives in the database, so select `Crewhall` per alert on the Settings screen.
+
 ### BasePath Configuration
 
 Milvaion API supports hosting under a configurable sub-path (e.g. `/milvaion`) so that both the UI and the backend API can be scoped to a URL prefix. This is useful when deploying behind a reverse proxy alongside other services.
