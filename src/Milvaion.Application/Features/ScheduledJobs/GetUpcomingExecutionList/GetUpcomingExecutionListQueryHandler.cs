@@ -120,11 +120,11 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
             // Searching cannot start from Redis - the sorted set holds no names, so filtering
             // after the range read would only ever search the first page of the timeline.
             // Start from the database instead and ask Redis for the times of what matched.
-            var searchTerm = $"%{request.SearchTerm.Trim()}%";
+            var searchTerm = request.SearchTerm.ToContainsPattern();
 
             var matchedIds = await context.Set<ScheduledJob>()
                                           .AsNoTracking()
-                                          .Where(j => j.IsActive && EF.Functions.ILike(j.DisplayName, searchTerm))
+                                          .Where(j => j.IsActive && EF.Functions.ILike(j.DisplayName, searchTerm, MilvaionExtensions.LikeEscapeCharacter))
                                           .Select(j => j.Id)
                                           .Take(_healthScanLimit)
                                           .ToListAsync(cancellationToken);
@@ -189,9 +189,9 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
-            var searchTerm = $"%{request.SearchTerm.Trim()}%";
+            var searchTerm = request.SearchTerm.ToContainsPattern();
 
-            query = query.Where(j => EF.Functions.ILike(j.DisplayName, searchTerm));
+            query = query.Where(j => EF.Functions.ILike(j.DisplayName, searchTerm, MilvaionExtensions.LikeEscapeCharacter));
         }
 
         var candidates = await query.OrderBy(j => j.DisplayName)
@@ -246,9 +246,9 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
-            var searchTerm = $"%{request.SearchTerm.Trim()}%";
+            var searchTerm = request.SearchTerm.ToContainsPattern();
 
-            query = query.Where(w => EF.Functions.ILike(w.Name, searchTerm));
+            query = query.Where(w => EF.Functions.ILike(w.Name, searchTerm, MilvaionExtensions.LikeEscapeCharacter));
         }
 
         var workflows = await query.Select(w => new WorkflowRow

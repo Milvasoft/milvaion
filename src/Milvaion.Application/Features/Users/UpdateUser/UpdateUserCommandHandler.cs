@@ -18,6 +18,7 @@ namespace Milvaion.Application.Features.Users.UpdateUser;
 /// <param name="MilvaIdentityOptions"></param>
 /// <param name="MilvaUserManager"></param>
 /// <param name="MilvaPasswordHasher"></param>
+/// <param name="GrantGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateUser)]
@@ -27,7 +28,8 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
                                        IMilvaionRepositoryBase<UserSessionHistory> UserSessionHistoriesRepository,
                                        Lazy<MilvaIdentityOptions> MilvaIdentityOptions,
                                        Lazy<IMilvaUserManager<User, int>> MilvaUserManager,
-                                       Lazy<IMilvaPasswordHasher> MilvaPasswordHasher) : IInterceptable, ICommandHandler<UpdateUserCommand, int>
+                                       Lazy<IMilvaPasswordHasher> MilvaPasswordHasher,
+                                       SuperAdminGrantGuard GrantGuard) : IInterceptable, ICommandHandler<UpdateUserCommand, int>
 {
     private readonly IMilvaionRepositoryBase<User> _userRepository = UserRepository;
     private readonly IMilvaionRepositoryBase<UserRoleRelation> _userRoleRelationRepository = UserRoleRelationRepository;
@@ -36,6 +38,7 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
     private readonly Lazy<MilvaIdentityOptions> _milvaIdentityOptions = MilvaIdentityOptions;
     private readonly Lazy<IMilvaPasswordHasher> _milvaPasswordHasher = MilvaPasswordHasher;
     private readonly Lazy<IMilvaUserManager<User, int>> _milvaUserManager = MilvaUserManager;
+    private readonly SuperAdminGrantGuard _grantGuard = GrantGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
@@ -43,7 +46,10 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
         // Externally owned users: identity, password and role membership are owned by the provider. The UI sends those fields anyway, so instead of rejecting we ignore them here and apply only the Milvaion-owned fields (notification preferences).
         var existing = await _userRepository.GetByIdAsync(request.Id, projection: u => new User { Id = u.Id, Provider = u.Provider }, cancellationToken: cancellationToken);
 
-        if (existing is not null && existing.Provider != ExternalProvider.Local)
+        if (existing is null)
+            return Response<int>.Error(default, MessageKey.UserNotFound);
+
+        if (existing.Provider != ExternalProvider.Local)
         {
             request.Name = default;
             request.Surname = default;
@@ -52,12 +58,18 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
             request.Lockout = default;
         }
 
+        if (request.NewPassword.IsUpdated || request.Lockout.IsUpdated)
+            await _grantGuard.EnsureCanManageUserAsync(request.Id, cancellationToken);
+
+        if (request.RoleIdList.IsUpdated)
+            await _grantGuard.EnsureRoleChangeAllowedAsync(request.Id, request.RoleIdList.Value, cancellationToken);
+
         var setPropertyBuilder = _userRepository.GetUpdatablePropertiesBuilder(request);
 
         if (request.Lockout.IsUpdated)
         {
             if (request.Lockout.Value)
-                setPropertyBuilder.SetPropertyValue(u => u.LockoutEnd, DateTimeOffset.Now.AddMinutes(_milvaIdentityOptions.Value.Lockout.DefaultLockoutMinute));
+                setPropertyBuilder.SetPropertyValue(u => u.LockoutEnd, DateTimeOffset.UtcNow.AddMinutes(_milvaIdentityOptions.Value.Lockout.DefaultLockoutMinute));
             else
                 setPropertyBuilder.SetPropertyValue(u => u.LockoutEnd, null).SetPropertyValue(u => u.AccessFailedCount, 0);
         }
@@ -86,7 +98,11 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
 
             if (addedEntities?.Count > 0)
                 await _userRoleRelationRepository.BulkAddAsync(addedEntities, null, cancellationToken);
+        }
 
+        // Anything that changes what the user may do, or whether they may be here at all, ends their existing sessions.
+        if (request.RoleIdList.IsUpdated || request.NewPassword.IsUpdated || (request.Lockout.IsUpdated && request.Lockout.Value))
+        {
             var user = await _userRepository.GetByIdAsync(request.Id, projection: User.Projections.UpdateUserWithSessions, cancellationToken: cancellationToken);
 
             await _userSessionRepository.ExecuteDeleteAsync(UserSession.Conditions.DeleteAllSessions(user.UserName), cancellationToken: cancellationToken);

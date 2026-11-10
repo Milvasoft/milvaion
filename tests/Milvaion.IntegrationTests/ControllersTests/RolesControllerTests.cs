@@ -11,6 +11,7 @@ using Milvaion.Domain.Enums;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Components.Rest.MilvaResponse;
+using Milvasoft.Identity.Abstract;
 using Milvasoft.Types.Structs;
 using System.Net;
 using System.Net.Http.Json;
@@ -23,6 +24,104 @@ namespace Milvaion.IntegrationTests.ControllersTests;
 public class RolesControllerTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
 {
     private const string _baseUrl = $"{GlobalConstant.RoutePrefix}/v1.0/roles";
+
+    #region SuperAdmin grants
+
+    private async Task<(HttpClient Client, int RoleId)> LoginAsDelegatedRoleAdminAsync()
+    {
+        var superAdminUser = await SeedRootUserAndSuperAdminRoleAsync();
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+
+        var permission = new Permission
+        {
+            Id = 2,
+            Name = "Update",
+            NormalizedName = "UPDATE",
+            Description = "Role update",
+            PermissionGroup = "RoleManagement",
+            PermissionGroupDescription = "Roles"
+        };
+
+        var role = new Role
+        {
+            Name = "RoleAdmin",
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = GlobalConstant.SystemUsername,
+            RolePermissionRelations = [new() { Permission = permission }]
+        };
+
+        await dbContext.Roles.AddAsync(role);
+        await dbContext.SaveChangesAsync();
+
+        var user = new User
+        {
+            UserName = "roleadmin",
+            NormalizedUserName = "ROLEADMIN",
+            Email = "roleadmin@test.local",
+            NormalizedEmail = "ROLEADMIN@TEST.LOCAL",
+            Name = "Role",
+            Surname = "Admin",
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = GlobalConstant.SystemUsername,
+            RoleRelations = [new() { RoleId = role.Id }]
+        };
+
+        dbContext.ServiceProvider.GetService<IMilvaUserManager<User, int>>().SetPasswordHash(user, "defaultpass");
+
+        await dbContext.Users.AddAsync(user);
+        await dbContext.SaveChangesAsync();
+
+        return (await _factory.CreateClient().LoginAsync("roleadmin"), role.Id);
+    }
+
+    [Fact]
+    public async Task UpdateRoleAsync_GrantingSuperAdminWithoutHoldingIt_ShouldBeForbidden()
+    {
+        // Arrange
+        var (client, roleId) = await LoginAsDelegatedRoleAdminAsync();
+        var request = new UpdateRoleCommand { Id = roleId, PermissionIdList = new UpdateProperty<List<int>>([1, 2]) };
+
+        // Act
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/role", request);
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        (await dbContext.Set<RolePermissionRelation>().AnyAsync(r => r.RoleId == roleId && r.PermissionId == 1)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateRoleAsync_WithoutTouchingSuperAdmin_ShouldStillWorkForDelegatedAdmin()
+    {
+        // Arrange
+        var (client, roleId) = await LoginAsDelegatedRoleAdminAsync();
+        var request = new UpdateRoleCommand { Id = roleId, PermissionIdList = new UpdateProperty<List<int>>([2]) };
+
+        // Act
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/role", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<int>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateRoleAsync_WithUnknownPermission_ShouldReturnError()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateRoleCommand { Id = 1, PermissionIdList = new UpdateProperty<List<int>>([1, 9999]) };
+
+        // Act
+        var result = await (await client.PutAsJsonAsync($"{_baseUrl}/role", request)).Content.ReadFromJsonAsync<Response<int>>();
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+    }
+
+    #endregion
 
     #region GetRoles
 

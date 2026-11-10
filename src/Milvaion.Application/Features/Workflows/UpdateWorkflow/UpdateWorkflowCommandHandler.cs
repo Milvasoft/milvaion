@@ -22,12 +22,10 @@ namespace Milvaion.Application.Features.Workflows.UpdateWorkflow;
 [Transaction]
 public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> WorkflowRepository,
                                             IMilvaionRepositoryBase<WorkflowRun> RunRepository,
-                                            IMilvaionRepositoryBase<JobOccurrence> JobOccurrenceRepository,
                                             IMilvaionRepositoryBase<ScheduledJob> JobRepository) : IInterceptable, ICommandHandler<UpdateWorkflowCommand, Guid>
 {
     private readonly IMilvaionRepositoryBase<Workflow> _workflowRepository = WorkflowRepository;
     private readonly IMilvaionRepositoryBase<WorkflowRun> _runRepository = RunRepository;
-    private readonly IMilvaionRepositoryBase<JobOccurrence> _jobOccurrenceRepository = JobOccurrenceRepository;
     private readonly IMilvaionRepositoryBase<ScheduledJob> _jobRepository = JobRepository;
 
     /// <inheritdoc/>
@@ -87,7 +85,7 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
 
         if (request.IsActive.IsUpdated)
         {
-            workflowDefinitionChanged |= workflow.IsActive != request.IsActive.Value;
+            // Pausing or resuming does not change what the workflow does, so it is not a new version.
             workflow.IsActive = request.IsActive.Value;
         }
 
@@ -147,7 +145,9 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
         var allJobIds = requestJobIds.Union(snapshotJobIds).ToList();
 
         var jobs = allJobIds.Count > 0
-            ? await _jobRepository.GetAllAsync(j => allJobIds.Contains(j.Id), cancellationToken: cancellationToken)
+            ? await _jobRepository.GetAllAsync(j => allJobIds.Contains(j.Id),
+                                               projection: j => new ScheduledJob { Id = j.Id, DisplayName = j.DisplayName, Version = j.Version },
+                                               cancellationToken: cancellationToken)
             : [];
 
         bool stepsActuallyChanged = false;
@@ -236,15 +236,10 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
                 });
             }
 
-            // Delete orphaned JobOccurrences for removed steps
-            var requestedStepIds = tempIdToRealId.Values.ToHashSet();
-            var removedStepIds = existingSteps.Where(s => !requestedStepIds.Contains(s.Id)).Select(s => s.Id).ToList();
-
-            if (removedStepIds.Count > 0)
-                await _jobOccurrenceRepository.ExecuteDeleteAsync(o => removedStepIds.Contains(o.WorkflowStepId.Value), cancellationToken: cancellationToken);
-
-            // Check if steps actually changed
-            stepsActuallyChanged = existingSteps.Count != workflow.Definition.Steps.Count || existingEdges.Count != workflow.Definition.Edges.Count;
+            // Check if steps actually changed. Occurrences of removed steps stay: they are the history of past runs.
+            stepsActuallyChanged = existingSteps.Count != workflow.Definition.Steps.Count
+                                   || existingEdges.Count != workflow.Definition.Edges.Count
+                                   || !existingEdges.Select(EdgeIdentity).ToHashSet().SetEquals(workflow.Definition.Edges.Select(EdgeIdentity));
 
             if (!stepsActuallyChanged)
             {
@@ -321,4 +316,7 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
 
         return Response<Guid>.Success(workflow.Id, "Workflow updated successfully.");
     }
+
+    private static (Guid, Guid, string, string, string, int, string) EdgeIdentity(WorkflowEdgeDefinition edge)
+        => (edge.SourceStepId, edge.TargetStepId, edge.SourcePort, edge.TargetPort, edge.Label, edge.Order, edge.EdgeConfigJson);
 }

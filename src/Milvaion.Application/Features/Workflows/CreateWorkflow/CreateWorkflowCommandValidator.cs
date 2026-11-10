@@ -12,6 +12,9 @@ public sealed class CreateWorkflowCommandValidator : AbstractValidator<CreateWor
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Steps).NotEmpty().WithMessage("Workflow must have at least one step.");
+        RuleFor(x => x.Steps)
+            .Must(steps => steps == null || steps.Where(s => !string.IsNullOrWhiteSpace(s.TempId)).GroupBy(s => s.TempId).All(g => g.Count() == 1))
+            .WithMessage("Each step must have a unique TempId.");
         RuleFor(x => x.TimeoutSeconds).GreaterThan(0).When(x => x.TimeoutSeconds.HasValue).WithMessage("TimeoutSeconds must be positive.");
         RuleFor(x => x.MaxStepRetries).GreaterThanOrEqualTo(0).WithMessage("MaxStepRetries cannot be negative.");
         RuleFor(x => x.CronExpression)

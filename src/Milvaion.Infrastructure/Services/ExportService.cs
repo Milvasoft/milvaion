@@ -37,10 +37,10 @@ public partial class ExportService(IServiceProvider serviceProvider) : IExportSe
     /// <returns></returns>
     public async Task<Response<ExportResult>> DynamicExportToExcelAsync(ExportRequest request, CancellationToken cancellationToken)
     {
-        _httpContextAccessor.HttpContext.ThrowIfCurrentUserNotAuthorized(request.GetRequiredPermissions());
-
         if (!request.IsValid())
             return Response<ExportResult>.Error(null, MessageKey.InvalidParameterException);
+
+        _httpContextAccessor.HttpContext.ThrowIfCurrentUserNotAuthorized(request.GetRequiredPermissions());
 
         var query = request.ListRequest == null
             ? Activator.CreateInstance(request.GetQueryType())

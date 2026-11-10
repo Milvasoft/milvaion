@@ -18,7 +18,7 @@ public class DeleteMetricReportCommandHandler(IMilvaionRepositoryBase<MetricRepo
         var report = await _metricReportRepository.GetByIdAsync(request.Id, cancellationToken: cancellationToken);
 
         if (report == null)
-            return (Response<Guid>)Response.Error("Metric report not found");
+            return Response<Guid>.Error(default, "Metric report not found");
 
         await _metricReportRepository.DeleteAsync(report, cancellationToken: cancellationToken);
 

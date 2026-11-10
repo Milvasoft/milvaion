@@ -82,7 +82,7 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
         var userLocked = _milvaUserManager.IsLockedOut(user);
 
         // If the user is locked out and the unlock date has passed.
-        if (userLocked && DateTime.UtcNow > user.LockoutEnd.Value.DateTime)
+        if (userLocked && DateTimeOffset.UtcNow > user.LockoutEnd.Value)
         {
             //We reset the duration of the locked user.
             _milvaUserManager.ConfigureLockout(user, false);
@@ -98,12 +98,12 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
 
     private Response<LoginResponseDto> PrepareLockoutResponse(User user)
     {
-        var remainingLockoutEnd = user.LockoutEnd - DateTime.UtcNow;
+        var remainingLockoutEnd = user.LockoutEnd - DateTimeOffset.UtcNow;
 
         string message;
 
-        if (remainingLockoutEnd.Value.Hours > 0)
-            message = _milvaLocalizer[MessageKey.Locked, _milvaLocalizer[MessageKey.Hours, remainingLockoutEnd.Value.Hours]];
+        if (remainingLockoutEnd.Value.TotalHours >= 1)
+            message = _milvaLocalizer[MessageKey.Locked, _milvaLocalizer[MessageKey.Hours, (int)remainingLockoutEnd.Value.TotalHours]];
         else if (remainingLockoutEnd.Value.Minutes > 0)
             message = _milvaLocalizer[MessageKey.Locked, _milvaLocalizer[MessageKey.Minutes, remainingLockoutEnd.Value.Minutes]];
         else

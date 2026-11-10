@@ -50,8 +50,6 @@ public sealed class UpdateScheduledJobCommandValidator : AbstractValidator<Updat
         }
     }
 
-    private static bool BeInFuture(DateTime dateTime) => dateTime > DateTime.UtcNow;
-
     private static bool BeValidJson(string json)
     {
         if (string.IsNullOrWhiteSpace(json))

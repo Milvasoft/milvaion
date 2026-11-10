@@ -22,7 +22,7 @@ public sealed class CreateApiKeyCommandValidator : AbstractValidator<CreateApiKe
             .MaximumLength(500);
 
         RuleFor(command => command.ExpiresAt)
-            .GreaterThan(DateTime.UtcNow)
+            .Must(expiresAt => expiresAt > DateTime.UtcNow)
             .When(command => command.ExpiresAt.HasValue)
             .WithMessage(localizer[MessageKey.PleaseSendCorrect, localizer[MessageKey.GlobalName]]);
     }

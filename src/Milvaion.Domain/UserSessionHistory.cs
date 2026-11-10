@@ -56,13 +56,12 @@ public class UserSessionHistory : AuditableEntity<long>
     /// <summary>
     /// Initializes new instance of <see cref="UserSessionHistory"/> with given <paramref name="session"/>.
     /// </summary>
+    /// <remarks>The tokens are deliberately not copied: an archive has no use for them and they may still be valid.</remarks>
     /// <param name="session"></param>
     public UserSessionHistory(UserSession session)
     {
         UserId = session.UserId;
         UserName = session.UserName;
-        AccessToken = session.AccessToken;
-        RefreshToken = session.RefreshToken;
         ExpiryDate = session.ExpiryDate;
         DeviceId = session.DeviceId;
         IpAddress = session.IpAddress;
