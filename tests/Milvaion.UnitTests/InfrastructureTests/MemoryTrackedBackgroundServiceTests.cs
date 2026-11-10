@@ -39,7 +39,7 @@ public class MemoryTrackedBackgroundServiceTests
 
         // Act
         await service.StartAsync(CancellationToken.None);
-        await Task.Delay(200);
+        await service.WaitForExecutionAsync();
         await service.StopAsync(CancellationToken.None);
 
         // Assert
@@ -55,7 +55,7 @@ public class MemoryTrackedBackgroundServiceTests
 
         // Act
         await service.StartAsync(CancellationToken.None);
-        await Task.Delay(200);
+        await service.WaitForExecutionAsync();
         var stats = service.GetStats();
         await service.StopAsync(CancellationToken.None);
 
@@ -74,7 +74,7 @@ public class MemoryTrackedBackgroundServiceTests
 
         // Act
         await service.StartAsync(CancellationToken.None);
-        await Task.Delay(200);
+        await service.WaitForExecutionAsync();
         var stats = service.GetStats();
         await service.StopAsync(CancellationToken.None);
 
@@ -124,7 +124,7 @@ public class MemoryTrackedBackgroundServiceTests
 
         // Act
         await service.StartAsync(CancellationToken.None);
-        await Task.Delay(200);
+        await service.WaitForExecutionAsync();
 
         // Assert - TrackMemory was called inside ExecuteWithMemoryTrackingAsync
         service.TrackMemoryCalled.Should().BeTrue();
@@ -143,7 +143,7 @@ public class MemoryTrackedBackgroundServiceTests
 
         // Act
         await service.StartAsync(CancellationToken.None);
-        await Task.Delay(200);
+        await service.WaitForExecutionAsync();
         await service.StopAsync(CancellationToken.None);
 
         // Assert - TrackMemory was called but returned early due to interval check
@@ -156,16 +156,24 @@ public class MemoryTrackedBackgroundServiceTests
     private sealed class TestBackgroundService(ILoggerFactory loggerFactory, BackgroundServiceOptions options, IMemoryStatsRegistry registry = null)
         : MemoryTrackedBackgroundService(loggerFactory, options, registry)
     {
+        private readonly TaskCompletionSource _executed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public bool ExecuteWithTrackingCalled { get; private set; }
         public bool TrackMemoryCalled { get; private set; }
 
         protected override string ServiceName => "TestService";
+
+        /// <summary>
+        /// Waits for the first iteration. A fixed delay raced the host on busy CI runners and failed the gate on releases.
+        /// </summary>
+        public Task WaitForExecutionAsync() => _executed.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
         protected override Task ExecuteWithMemoryTrackingAsync(CancellationToken stoppingToken)
         {
             ExecuteWithTrackingCalled = true;
             TrackMemoryCalled = true;
             TrackMemoryAfterIteration();
+            _executed.TrySetResult();
             return Task.CompletedTask;
         }
     }
