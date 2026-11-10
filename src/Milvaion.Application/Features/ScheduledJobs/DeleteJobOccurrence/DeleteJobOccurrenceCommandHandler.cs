@@ -1,4 +1,3 @@
-using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
@@ -13,10 +12,9 @@ namespace Milvaion.Application.Features.ScheduledJobs.DeleteJobOccurrence;
 /// </summary>
 [Log]
 [UserActivityTrack(UserActivity.DeleteJobOccurrence)]
-public record DeleteJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository, IRedisSchedulerService RedisSchedulerService) : IInterceptable, ICommandHandler<DeleteJobOccurrenceCommand, List<Guid>>
+public record DeleteJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository) : IInterceptable, ICommandHandler<DeleteJobOccurrenceCommand, List<Guid>>
 {
     private readonly IMilvaionRepositoryBase<JobOccurrence> _occurrenceRepository = OccurrenceRepository;
-    private readonly IRedisSchedulerService _redisSchedulerService = RedisSchedulerService;
 
     /// <inheritdoc/>
     public async Task<Response<List<Guid>>> Handle(DeleteJobOccurrenceCommand request, CancellationToken cancellationToken)
@@ -31,10 +29,6 @@ public record DeleteJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccur
 
         if (canBeDeletedOccurrences.IsNullOrEmpty())
             return Response<List<Guid>>.Error(default, "Job occurrence not found");
-
-        var jobIds = canBeDeletedOccurrences.Select(j => j.JobId).ToList();
-
-        await _redisSchedulerService.RemoveFromScheduledSetBulkAsync(jobIds, cancellationToken);
 
         await _occurrenceRepository.DeleteAsync(canBeDeletedOccurrences, cancellationToken: cancellationToken);
 

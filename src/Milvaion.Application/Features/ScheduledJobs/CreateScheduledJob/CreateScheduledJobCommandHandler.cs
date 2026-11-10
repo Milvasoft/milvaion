@@ -2,6 +2,7 @@
 using Mapster;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Components.CQRS.Command;
+using Milvasoft.Components.Rest.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Interception.Interceptors.Logging;
@@ -34,7 +35,12 @@ public record CreateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
         {
             var cronExpression = CronExpression.Parse(request.CronExpression, CronFormat.IncludeSeconds);
 
-            executeAt = cronExpression.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc)!.Value;
+            var nextOccurrence = cronExpression.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc);
+
+            if (!nextOccurrence.HasValue)
+                return Response<Guid>.Error(default, MessageKey.InvalidCronExpression);
+
+            executeAt = nextOccurrence.Value;
         }
         else
         {
@@ -89,15 +95,21 @@ public record CreateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
         await _scheduledjobRepository.AddAsync(scheduledjob, cancellationToken);
 
         // Add to Redis ZSET for time-based scheduling
-        await _redisSchedulerService.AddToScheduledSetAsync(scheduledjob.Id,
-                                                            scheduledjob.ExecuteAt,
-                                                            cancellationToken);
+        var scheduled = await _redisSchedulerService.AddToScheduledSetAsync(scheduledjob.Id,
+                                                                            scheduledjob.ExecuteAt,
+                                                                            cancellationToken);
 
         // Cache job details in Redis Hash
         await _redisSchedulerService.CacheJobDetailsAsync(scheduledjob,
                                                           ttl: TimeSpan.FromHours(24), // 24 hour cache
                                                           cancellationToken);
 
-        return Response<Guid>.Success(scheduledjob.Id);
+        var response = Response<Guid>.Success(scheduledjob.Id);
+
+        // The job is safely stored, so this is not a failure, but until the next startup recovery it will not run.
+        if (!scheduled && scheduledjob.IsActive)
+            response.AddMessage("The job was saved but could not be added to the schedule. It will start after the next API restart.", MessageType.Warning);
+
+        return response;
     }
 }
