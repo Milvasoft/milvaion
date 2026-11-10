@@ -27,9 +27,9 @@ public class GetWorkflowListQueryHandler(IMilvaionRepositoryBase<Workflow> workf
             }
             else
             {
-                string searchTerm = $"%{request.SearchTerm?.Trim()}%";
-                predicate = w => EF.Functions.ILike(w.Name, searchTerm) ||
-                                 EF.Functions.ILike(w.Tags, searchTerm);
+                string searchTerm = request.SearchTerm.ToContainsPattern();
+                predicate = w => EF.Functions.ILike(w.Name, searchTerm, MilvaionExtensions.LikeEscapeCharacter) ||
+                                 EF.Functions.ILike(w.Tags, searchTerm, MilvaionExtensions.LikeEscapeCharacter);
             }
         }
 

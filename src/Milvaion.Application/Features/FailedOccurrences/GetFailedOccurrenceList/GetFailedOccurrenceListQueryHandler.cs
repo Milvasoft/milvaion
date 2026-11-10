@@ -20,12 +20,14 @@ public class GetFailedOccurrenceListQueryHandler(IMilvaionRepositoryBase<FailedO
     {
         Expression<Func<FailedOccurrence, bool>> predicate = null;
 
-        var searchTerm = $"%{request.SearchTerm?.Trim()}%";
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            var searchTerm = request.SearchTerm.ToContainsPattern();
 
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-            predicate = c => EF.Functions.ILike(c.JobDisplayName, searchTerm) ||
-                             EF.Functions.ILike(c.JobNameInWorker, searchTerm) ||
-                             EF.Functions.ILike(c.ResolutionNote, searchTerm);
+            predicate = c => EF.Functions.ILike(c.JobDisplayName, searchTerm, MilvaionExtensions.LikeEscapeCharacter) ||
+                             EF.Functions.ILike(c.JobNameInWorker, searchTerm, MilvaionExtensions.LikeEscapeCharacter) ||
+                             EF.Functions.ILike(c.ResolutionNote, searchTerm, MilvaionExtensions.LikeEscapeCharacter);
+        }
 
         var response = await _failedOccurrenceRepository.GetAllAsync(request, condition: predicate, projection: FailedOccurrenceListDto.Projection, cancellationToken: cancellationToken);
 
