@@ -67,6 +67,8 @@ public class AdminService(IServiceProvider serviceProvider) : IAdminService
         // Use runtime control service instead of config
         var dispatcherControl = _serviceProvider.GetRequiredService<IDispatcherControlService>();
 
+        await dispatcherControl.RefreshAsync(cancellationToken);
+
         var dispatcherEnabled = dispatcherControl.IsEnabled;
 
         // Resolve scoped repository inside a scope
@@ -624,31 +626,5 @@ internal class BloatedTableRawDto
     public long live_tuples { get; set; }
     public DateTime? last_vacuum { get; set; }
     public DateTime? last_analyze { get; set; }
-}
-
-/// <summary>
-/// Raw DTO for occurrence growth query (matches PostgreSQL column names).
-/// </summary>
-internal class OccurrenceGrowthRawDto
-{
-    public DateTime day { get; set; }
-    public int status { get; set; }
-    public int count { get; set; }
-    public int? avg_exception_size { get; set; }
-    public int? avg_log_count { get; set; }
-}
-
-/// <summary>
-/// Raw DTO for large occurrence query (matches PostgreSQL column names).
-/// </summary>
-internal class LargeOccurrenceRawDto
-{
-    public Guid Id { get; set; }
-    public string JobName { get; set; }
-    public int Status { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public int logs_size { get; set; }
-    public int exception_size { get; set; }
-    public int status_logs_size { get; set; }
 }
 #pragma warning restore IDE1006 // Naming Styles
