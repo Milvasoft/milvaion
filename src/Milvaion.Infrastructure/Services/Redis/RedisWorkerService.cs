@@ -6,6 +6,7 @@ using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using StackExchange.Redis;
+using System.Globalization;
 using System.Text.Json;
 
 namespace Milvaion.Infrastructure.Services.Redis;
@@ -280,14 +281,14 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     var lastHeartbeatStr = instanceDict.GetValueOrDefault("lastHeartbeat");
                     var registeredAtStr = instanceDict.GetValueOrDefault("registeredAt");
 
-                    if (string.IsNullOrWhiteSpace(lastHeartbeatStr) || !DateTime.TryParse(lastHeartbeatStr, out var lastHeartbeat))
+                    if (string.IsNullOrWhiteSpace(lastHeartbeatStr) || !DateTime.TryParse(lastHeartbeatStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var lastHeartbeat))
                     {
                         _logger.Warning("[GetWorkerAsync] Instance {InstanceId} has invalid lastHeartbeat: {Value}. Skipping.", instanceId, lastHeartbeatStr);
                         await _db.SetRemoveAsync(instanceSetKey, instanceId);
                         continue;
                     }
 
-                    if (string.IsNullOrWhiteSpace(registeredAtStr) || !DateTime.TryParse(registeredAtStr, out var registeredAt))
+                    if (string.IsNullOrWhiteSpace(registeredAtStr) || !DateTime.TryParse(registeredAtStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var registeredAt))
                     {
                         _logger.Warning("[GetWorkerAsync] Instance {InstanceId} has invalid registeredAt: {Value}. Using lastHeartbeat as fallback.", instanceId, registeredAtStr);
                         registeredAt = lastHeartbeat;
@@ -341,7 +342,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     MaxParallelJobs = int.Parse(workerDict.GetValueOrDefault("maxParallelJobs", "0")),
                     Version = workerDict.GetValueOrDefault("version"),
                     Metadata = JsonSerializer.Deserialize<WorkerMetadata>(workerDict.GetValueOrDefault("metadata", "{}")),
-                    RegisteredAt = DateTime.Parse(workerDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O"))),
+                    RegisteredAt = DateTime.Parse(workerDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O")), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
                     Status = instances.Any(i => i.Status == WorkerStatus.Active) ? WorkerStatus.Active : WorkerStatus.Zombie,
                     LastHeartbeat = !instances.IsNullOrEmpty() ? instances.Max(i => i.LastHeartbeat) : null,
                     CurrentJobs = instances.Sum(i => i.CurrentJobs),
@@ -425,13 +426,13 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         var lastHeartbeatStr = instanceDict.GetValueOrDefault("lastHeartbeat");
                         var registeredAtStr = instanceDict.GetValueOrDefault("registeredAt");
 
-                        if (string.IsNullOrWhiteSpace(lastHeartbeatStr) || !DateTime.TryParse(lastHeartbeatStr, out var lastHeartbeat))
+                        if (string.IsNullOrWhiteSpace(lastHeartbeatStr) || !DateTime.TryParse(lastHeartbeatStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var lastHeartbeat))
                         {
                             _logger.Warning("[GetAllWorkersAsync] Instance {InstanceId} has invalid lastHeartbeat: {Value}. Skipping.", instanceId, lastHeartbeatStr);
                             continue;
                         }
 
-                        if (string.IsNullOrWhiteSpace(registeredAtStr) || !DateTime.TryParse(registeredAtStr, out var registeredAt))
+                        if (string.IsNullOrWhiteSpace(registeredAtStr) || !DateTime.TryParse(registeredAtStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var registeredAt))
                         {
                             registeredAt = lastHeartbeat;
                         }
@@ -464,7 +465,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         MaxParallelJobs = int.Parse(metaDict.GetValueOrDefault("maxParallelJobs", "0")),
                         Version = metaDict.GetValueOrDefault("version"),
                         Metadata = JsonSerializer.Deserialize<WorkerMetadata>(metaDict.GetValueOrDefault("metadata", "{}")),
-                        RegisteredAt = DateTime.Parse(metaDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O"))),
+                        RegisteredAt = DateTime.Parse(metaDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O")), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
                         Status = instances.Any(i => i.Status == WorkerStatus.Active) ? WorkerStatus.Active : WorkerStatus.Zombie,
                         LastHeartbeat = instances.Max(i => i.LastHeartbeat),
                         CurrentJobs = instances.Sum(i => i.CurrentJobs),
@@ -552,10 +553,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         }
                     }
 
-                    // Get current job count for this specific consumer (jobType)
-                    var currentCount = await _db.HashGetAsync(jobCountsKey, jobType);
-
-                    int current = currentCount.HasValue && int.TryParse(currentCount.ToString(), out var c) ? c : 0;
+                    var current = await GetConsumerJobCountAsync(workerId, jobKey: jobType, jobCountsKey);
 
                     return (current, consumerMaxParallel);
                 }
@@ -569,6 +567,35 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             operationName: "GetConsumerCapacity",
             cancellationToken: cancellationToken
         );
+
+    /// <summary>
+    /// Totals the running jobs of one type. The status tracker counts per instance, so the total covers the live instances.
+    /// An instance's count is capped by the job count it reports in its heartbeat: the counters are only decremented on a
+    /// Running to final transition, and without the cap a job lost to the zombie detector would hold capacity indefinitely.
+    /// </summary>
+    private async Task<int> GetConsumerJobCountAsync(string workerId, string jobKey, string workerLevelCountsKey)
+    {
+        var instanceIds = await _db.SetMembersAsync($"{_options.KeyPrefix}workers:{workerId}:instances");
+
+        var batch = _db.CreateBatch();
+
+        var workerLevelCount = batch.HashGetAsync(workerLevelCountsKey, jobKey);
+        var perInstance = instanceIds.Select(id => (Count: batch.HashGetAsync($"{_options.KeyPrefix}workers:{workerId}:instances:{id}:job_counts", jobKey),
+                                                    Reported: batch.HashGetAsync($"{_options.KeyPrefix}workers:{workerId}:instances:{id}", "currentJobs"))).ToList();
+
+        batch.Execute();
+
+        await Task.WhenAll(perInstance.SelectMany(p => new[] { p.Count, p.Reported }).Append(workerLevelCount));
+
+        var total = ParseCount(workerLevelCount.Result);
+
+        foreach (var (count, reported) in perInstance)
+            total += Math.Min(ParseCount(count.Result), ParseCount(reported.Result));
+
+        return total;
+    }
+
+    private static int ParseCount(RedisValue value) => value.HasValue && int.TryParse(value.ToString(), out var parsed) ? parsed : 0;
 
     /// <inheritdoc/>
     public Task IncrementConsumerJobCountAsync(string workerId, string jobType, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
@@ -756,9 +783,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     // ✅ Remove from instance index SET
                     await _db.SetRemoveAsync(instanceSetKey, instanceId);
 
-                    // ✅ Clean up consumer count key for this instance (single key, no SCAN!)
-                    // Pattern changed: consumer:{workerId}:{jobType}:count (shared across all instances)
-                    // No per-instance keys anymore, so no cleanup needed here
+                    // Delete the instance's per-job-type running counters
+                    await _db.KeyDeleteAsync($"{instanceKey}:job_counts");
 
                     _logger.Information("Worker instance {InstanceId} removed from Redis", instanceId);
 

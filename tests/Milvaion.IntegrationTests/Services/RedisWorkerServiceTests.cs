@@ -351,6 +351,51 @@ public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITes
     }
 
     [Fact]
+    public async Task GetConsumerCapacityAsync_ShouldSumInstanceCounters_CappedByReportedJobs()
+    {
+        // Arrange
+        await InitializeAsync();
+        await FlushRedisAsync();
+
+        var workerService = GetRedisWorkerService();
+
+        var metadata = JsonSerializer.Serialize(new
+        {
+            JobConfigs = new[]
+            {
+                new { JobType = "EmailJob", ConsumerId = "email-consumer", MaxParallelJobs = 3, ExecutionTimeoutSeconds = 60 }
+            }
+        });
+
+        foreach (var instanceId in new[] { "instance-01", "instance-02" })
+        {
+            var registration = CreateTestRegistration("sum-worker", instanceId);
+            registration.Metadata = metadata;
+            await workerService.RegisterWorkerAsync(registration);
+        }
+
+        // What the status tracker writes. Instance 02 has drifted: 5 counted, but only 1 job actually running.
+        await workerService.BatchUpdateConsumerJobCountsAsync(new Dictionary<string, int>
+        {
+            ["sum-worker:instance-01:EmailJob"] = 2,
+            ["sum-worker:instance-02:EmailJob"] = 5
+        });
+
+        await workerService.BulkUpdateHeartbeatsAsync(
+        [
+            ("sum-worker", "instance-01", 2, 0L, 0d, DateTime.UtcNow),
+            ("sum-worker", "instance-02", 1, 0L, 0d, DateTime.UtcNow)
+        ]);
+
+        // Act
+        var (currentJobs, maxParallelJobs) = await workerService.GetConsumerCapacityAsync("sum-worker", "EmailJob");
+
+        // Assert
+        currentJobs.Should().Be(3);
+        maxParallelJobs.Should().Be(3);
+    }
+
+    [Fact]
     public async Task GetConsumerCapacityAsync_ShouldReturnNullMax_WhenJobTypeNotInConfig()
     {
         // Arrange
