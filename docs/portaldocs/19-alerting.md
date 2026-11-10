@@ -211,9 +211,13 @@ Slack integration uses incoming webhooks.
 3. Enable Incoming Webhooks
 4. Add to Workspace and copy URL
 
+### Crewhall
+
+Posts alert cards to a Crewhall chat through an incoming webhook. See [Crewhall Alert Channel Configuration](./06-configuration.md#crewhall-alert-channel-configuration) for the settings.
+
 ### Email
 
-SMTP-based email alerts with HTML formatting.
+SMTP-based email alerts with HTML formatting. They can be delivered through Notifike instead; see [Notifike Delivery Configuration](./06-configuration.md#notifike-delivery-configuration).
 
 ```json
 {

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
+using Milvaion.Application.Dtos.NotificationDtos;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Constants;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -11,14 +13,19 @@ using System.Text.Json;
 namespace Milvaion.Infrastructure.Services.Alerting.Channels;
 
 /// <summary>
-/// Alert channel implementation for Email using SMTP.
+/// Alert channel implementation for Email using SMTP, or Notifike when that delivery is active.
 /// </summary>
 /// <remarks>
 /// Initializes a new instance of the <see cref="EmailAlertChannel"/> class.
 /// </remarks>
-public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<IMilvaLogger> logger) : AlertChannelBase<EmailChannelOptions>(alertingOptions)
+public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions,
+                               Lazy<IMilvaLogger> logger,
+                               INotifikeTransport notifikeTransport = null) : AlertChannelBase<EmailChannelOptions>(alertingOptions)
 {
     private readonly Lazy<IMilvaLogger> _logger = logger;
+    private readonly INotifikeTransport _notifikeTransport = notifikeTransport;
+
+    private bool UseNotifike => _notifikeTransport?.CanSendEmail == true;
 
     /// <inheritdoc/>
     public override string ChannelName => nameof(AlertChannelType.Email);
@@ -33,6 +40,10 @@ public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<I
         if (!base.CanSend())
             return false;
 
+        // Notifike does not need the SMTP settings
+        if (UseNotifike)
+            return _channelOptions.DefaultRecipients?.Count > 0;
+
         // Additional validation for email configuration
         return !string.IsNullOrWhiteSpace(_channelOptions.SmtpHost)
                && !string.IsNullOrWhiteSpace(_channelOptions.SenderEmail)
@@ -44,6 +55,9 @@ public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<I
     {
         if (_channelOptions.DefaultRecipients.IsNullOrEmpty())
             return ChannelResult.Skipped(ChannelName, "No recipients configured");
+
+        if (UseNotifike)
+            return await SendThroughNotifikeAsync(alertType, payload, cancellationToken);
 
         using var smtpClient = CreateSmtpClient();
         using var mailMessage = CreateMailMessage(alertType, payload);
@@ -61,6 +75,23 @@ public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<I
 
         return ChannelResult.Successful(ChannelName);
     }
+
+    private async Task<ChannelResult> SendThroughNotifikeAsync(AlertType alertType, AlertPayload payload, CancellationToken cancellationToken)
+    {
+        var result = await _notifikeTransport.SendEmailAsync(new NotifikeEmail
+        {
+            Subject = CreateSubject(alertType, payload),
+            HtmlBody = CreateEmailBody(alertType, payload),
+            Recipients = _channelOptions.DefaultRecipients,
+            IsHighPriority = payload.Severity == AlertSeverity.Critical,
+            Tag = alertType.ToString()
+        }, cancellationToken);
+
+        return result.Success ? ChannelResult.Successful(ChannelName) : ChannelResult.Failed(ChannelName, result.Error);
+    }
+
+    private static string CreateSubject(AlertType alertType, AlertPayload payload)
+        => $"{GetSeverityEmoji(payload.Severity)} [{payload.Severity}] {payload.Title ?? alertType.ToString()}";
 
     private SmtpClient CreateSmtpClient()
     {
@@ -82,8 +113,7 @@ public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<I
 
     private MailMessage CreateMailMessage(AlertType alertType, AlertPayload payload)
     {
-        var severityEmoji = GetSeverityEmoji(payload.Severity);
-        var subject = $"{severityEmoji} [{payload.Severity}] {payload.Title ?? alertType.ToString()}";
+        var subject = CreateSubject(alertType, payload);
 
         // Handle DisplayName - can be null/empty
         var displayName = string.IsNullOrWhiteSpace(_channelOptions.DisplayName)
