@@ -47,7 +47,7 @@ public class GetSystemConfigurationQueryHandler(IConfiguration configuration, Mi
             },
             Redis = new RedisConfigDto
             {
-                ConnectionString = _milvaionConfig.Redis.ConnectionString,
+                ConnectionString = GetRedisEndpoints(_milvaionConfig.Redis.ConnectionString),
                 Database = _milvaionConfig.Redis.Database,
                 ConnectTimeout = _milvaionConfig.Redis.ConnectTimeout,
                 DefaultLockTtlSeconds = _milvaionConfig.Redis.DefaultLockTtlSeconds,
@@ -274,6 +274,21 @@ public class GetSystemConfigurationQueryHandler(IConfiguration configuration, Mi
     /// always carried.
     /// </remarks>
     private static SystemResourcesDto GetSystemResources() => SystemResourceReader.ToSystemResources(SystemResourceReader.Read());
+
+    /// <summary>
+    /// Reduces a Redis connection string to its endpoints. Options such as password= must not leave the server.
+    /// </summary>
+    internal static string GetRedisEndpoints(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return connectionString;
+
+        var endpoints = connectionString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                        .Where(part => !part.Contains('=') || part.Contains("://"))
+                                        .Select(part => part[(part.LastIndexOf('@') + 1)..]);
+
+        return string.Join(",", endpoints);
+    }
 
     private static string ExtractFromConnectionString(string connectionString, string key)
     {
