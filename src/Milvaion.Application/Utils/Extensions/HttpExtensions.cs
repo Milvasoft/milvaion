@@ -1,9 +1,9 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using Milvasoft.Core.Exceptions;
-using Milvasoft.Identity.Abstract;
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 
@@ -67,16 +67,11 @@ public static partial class MilvaionExtensions
     /// <returns></returns>
     public static IEnumerable<Claim> GetCurrentUserClaims(this HttpContext httpContext)
     {
-        if (!httpContext.User.Identity.IsAuthenticated)
+        if (httpContext.User.Identity?.IsAuthenticated != true)
             return [];
 
-        var token = httpContext.GetTokenFromHeader();
-
-        var tokenManager = httpContext.RequestServices.GetService<IMilvaTokenManager>();
-
-        var claimsPrincipal = tokenManager.GetClaimsPrincipalIfValid(token);
-
-        return claimsPrincipal?.Claims ?? [];
+        // Authentication has already validated the credential, whichever scheme it came through.
+        return httpContext.User.Claims;
     }
 
     /// <summary>
@@ -87,16 +82,7 @@ public static partial class MilvaionExtensions
     /// <returns></returns>
     public static void ThrowIfCurrentUserNotAuthorized(this HttpContext httpContext, params List<string> permissions)
     {
-        var currentUserPermissonExists = httpContext.Items.TryGetValue(GlobalConstant.CurrentUserPermissionsKey, out var contextItem);
-
-        if (!currentUserPermissonExists)
-            httpContext.Response.ThrowWithForbidden();
-
-        var currentUserPermissons = (IEnumerable<string>)contextItem;
-
-        permissions.Add(PermissionCatalog.App.SuperAdmin);
-
-        var hasPermission = currentUserPermissons.Any(permissions.Contains);
+        var hasPermission = httpContext.GetCurrentUserPermissions().Any(permission => permission == PermissionCatalog.App.SuperAdmin || permissions.Contains(permission));
 
         if (!hasPermission)
             httpContext.Response.ThrowWithForbidden();
@@ -109,11 +95,13 @@ public static partial class MilvaionExtensions
     /// <returns></returns>
     public static string GetIpAddress(this HttpContext httpContext)
     {
-        var realIpExists = httpContext.Request.Headers.TryGetValue(GlobalConstant.RealIpHeaderKey, out StringValues realIpAddress);
-
         string requestIp;
 
-        if (realIpExists)
+        // The header is only as trustworthy as whoever set it, so it counts only when the connection comes from a
+        // proxy on the local network. Anyone connecting directly could otherwise claim any address.
+        if (IsLocalNetworkAddress(httpContext.Connection.RemoteIpAddress)
+            && httpContext.Request.Headers.TryGetValue(GlobalConstant.RealIpHeaderKey, out StringValues realIpAddress)
+            && IPAddress.TryParse(realIpAddress.ToString(), out _))
             requestIp = realIpAddress.ToString();
         else
         {
@@ -124,6 +112,26 @@ public static partial class MilvaionExtensions
         }
 
         return requestIp;
+    }
+
+    private static bool IsLocalNetworkAddress(IPAddress address)
+    {
+        // In-process hosts have no remote address, and nothing can reach them over the network.
+        if (address is null || IPAddress.IsLoopback(address))
+            return true;
+
+        if (address.IsIPv4MappedToIPv6)
+            address = address.MapToIPv4();
+
+        if (address.AddressFamily == AddressFamily.InterNetworkV6)
+            return address.IsIPv6LinkLocal || address.IsIPv6UniqueLocal;
+
+        var bytes = address.GetAddressBytes();
+
+        return bytes[0] == 10
+               || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
+               || (bytes[0] == 192 && bytes[1] == 168)
+               || (bytes[0] == 169 && bytes[1] == 254);
     }
 
     /// <summary>
