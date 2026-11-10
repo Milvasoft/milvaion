@@ -58,6 +58,7 @@ public class GetSettingsQueryHandler(ISettingsProvider settingsProvider, IOption
         Add(nameof(AlertChannelType.Teams), channel.Teams.Enabled, channel.Teams.SendOnlyInProduction, channel.Teams.DefaultChannel);
         Add(nameof(AlertChannelType.Email), channel.Email.Enabled, channel.Email.SendOnlyInProduction, channel.Email.DisplayName);
         Add(nameof(AlertChannelType.InternalNotification), channel.InternalNotification.Enabled, channel.InternalNotification.SendOnlyInProduction, "Dashboard");
+        Add(nameof(AlertChannelType.Crewhall), channel.Crewhall.Enabled, channel.Crewhall.SendOnlyInProduction, channel.Crewhall.DefaultChat);
 
         return channels;
 

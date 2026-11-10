@@ -67,6 +67,7 @@ public class AlertChannelsOptions
     public TeamsChannelOptions Teams { get; set; } = new();
     public EmailChannelOptions Email { get; set; } = new();
     public InternalNotificationChannelOptions InternalNotification { get; set; } = new();
+    public CrewhallChannelOptions Crewhall { get; set; } = new();
 }
 
 /// <summary>
@@ -222,6 +223,38 @@ public class InternalNotificationChannelOptions : ChannelConfigBase
 }
 
 /// <summary>
+/// Crewhall chat channel configuration.
+/// </summary>
+public class CrewhallChannelOptions : ChannelConfigBase
+{
+    /// <summary>
+    /// Gets or sets the default chat to send alerts to when not specified.
+    /// </summary>
+    public string DefaultChat { get; set; } = "alerts";
+
+    /// <summary>
+    /// Gets or sets the configured chats with their incoming webhook URLs.
+    /// </summary>
+    public List<CrewhallChatConfig> Chats { get; set; } = [];
+}
+
+/// <summary>
+/// Crewhall chat configuration.
+/// </summary>
+public class CrewhallChatConfig
+{
+    /// <summary>
+    /// Gets or sets the chat identifier/name.
+    /// </summary>
+    public string Chat { get; set; }
+
+    /// <summary>
+    /// Gets or sets the incoming webhook URL of this chat. It carries the key, so it is a secret: never log or return it.
+    /// </summary>
+    public string WebhookUrl { get; set; }
+}
+
+/// <summary>
 /// Base configuration for alert types.
 /// </summary>
 public class AlertConfigBase
@@ -252,7 +285,8 @@ public enum AlertChannelType
     Slack,
     Teams,
     Email,
-    InternalNotification
+    InternalNotification,
+    Crewhall
 }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

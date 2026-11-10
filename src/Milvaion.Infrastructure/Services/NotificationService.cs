@@ -23,13 +23,16 @@ namespace Milvaion.Infrastructure.Services;
 /// <param name="notificationRepository"></param>
 /// <param name="userRepository"></param>
 /// <param name="logger"></param>
+/// <param name="notifikeTransport"></param>
 public class NotificationService(IMilvaionRepositoryBase<InternalNotification> notificationRepository,
                                  IMilvaionRepositoryBase<User> userRepository,
-                                 Lazy<IMilvaLogger> logger) : INotificationService
+                                 Lazy<IMilvaLogger> logger,
+                                 INotifikeTransport notifikeTransport = null) : INotificationService
 {
     private readonly IMilvaionRepositoryBase<InternalNotification> _notificationRepository = notificationRepository;
     private readonly IMilvaionRepositoryBase<User> _userRepository = userRepository;
     private readonly Lazy<IMilvaLogger> _logger = logger;
+    private readonly INotifikeTransport _notifikeTransport = notifikeTransport;
     private static readonly JsonSerializerOptions _safeJsonOptions = new()
     {
         WriteIndented = false,
@@ -95,11 +98,34 @@ public class NotificationService(IMilvaionRepositoryBase<InternalNotification> n
             }
 
             await _notificationRepository.BulkAddAsync(newNotifications, cancellationToken: cancellationToken);
+
+            await SendToNotifikeAsync(request, usersToNotify, jsonData, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Value.Error(ex, LogTemplate.Exception, ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Copies the notification to the recipients' Notifike boxes. The local rows stay, because Milvaion's own
+    /// notification screens read them.
+    /// </summary>
+    private async Task SendToNotifikeAsync(InternalNotificationRequest request, List<User> users, string jsonData, CancellationToken cancellationToken)
+    {
+        if (_notifikeTransport?.CanSendInApp != true)
+            return;
+
+        await _notifikeTransport.SendInAppAsync(new NotifikeInAppNotification
+        {
+            Type = request.Type.ToString(),
+            Text = request.Text,
+            Link = request.ActionLink,
+            EntityType = request.RelatedEntity == NotificationEntity.None ? null : request.RelatedEntity.ToString(),
+            EntityId = request.RelatedEntityId,
+            DataJson = jsonData,
+            UserKeys = [.. users.Select(u => u.UserName)]
+        }, cancellationToken);
     }
 
     /// <summary>

@@ -57,7 +57,7 @@ public class MilvaionSettingsTools(IMediator mediator, McpPermissionGuard guard)
     /// Enables/disables a single alert type and sets its channels.
     /// </summary>
     [McpServerTool(Name = "configure_notification", ReadOnly = false)]
-    [Description("Enables or disables a single alert type and sets which channels it routes to. Channel names must come from get_settings 'availableChannels' (e.g. Email, Slack, Teams, GoogleChat, InternalNotification). Applies at runtime across all instances.")]
+    [Description("Enables or disables a single alert type and sets which channels it routes to. Channel names must come from get_settings 'availableChannels' (e.g. Email, Slack, Teams, GoogleChat, InternalNotification, Crewhall). Applies at runtime across all instances.")]
     public async Task<object> ConfigureNotificationAsync(
         [Description("The alert type to configure.")] AlertType alertType,
         [Description("Whether this alert is sent at all.")] bool enabled,

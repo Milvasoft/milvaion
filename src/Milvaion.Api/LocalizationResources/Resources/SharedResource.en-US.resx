@@ -857,6 +857,9 @@ Maximum file size:
   <data name="AlertChannelType.InternalNotification" xml:space="preserve">
     <value>Internal Notification</value>
   </data>
+  <data name="AlertChannelType.Crewhall" xml:space="preserve">
+    <value>Crewhall</value>
+  </data>
   <data name="QueueHealthStatus" xml:space="preserve">
     <value>Queue Health Status</value>
   </data>

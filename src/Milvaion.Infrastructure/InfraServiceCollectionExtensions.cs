@@ -327,10 +327,18 @@ public static class InfraServiceCollectionExtensions
         // Configure AlertingOptions from appsettings
         services.AddOptions<AlertingOptions>().Bind(configuration.GetSection(AlertingOptions.SectionKey)).ValidateDataAnnotations();
 
+        // Optional delivery of e-mails and internal notifications through Notifike
+        services.AddOptions<NotifikeOptions>().Bind(configuration.GetSection(NotifikeOptions.SectionKey));
+        services.AddHttpClient(nameof(NotifikeTransport), client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddSingleton<INotifikeTransport, NotifikeTransport>();
+
         // Register HttpClient for alert channels (if not already registered)
         services.AddHttpClient(nameof(GoogleChatAlertChannel));
         services.AddHttpClient(nameof(SlackAlertChannel));
         services.AddHttpClient(nameof(TeamsAlertChannel));
+
+        // The webhook URL carries its key, so this client's requests are kept out of the HttpClient logs.
+        services.AddHttpClient(nameof(CrewhallAlertChannel), client => client.Timeout = TimeSpan.FromSeconds(15)).RemoveAllLoggers();
 
         // Register alert channels as Singleton (they are stateless and can be safely shared)
         services.AddSingleton<IAlertChannel, GoogleChatAlertChannel>();
@@ -338,6 +346,7 @@ public static class InfraServiceCollectionExtensions
         services.AddSingleton<IAlertChannel, TeamsAlertChannel>();
         services.AddSingleton<IAlertChannel, EmailAlertChannel>();
         services.AddSingleton<IAlertChannel, InternalNotificationAlertChannel>();
+        services.AddSingleton<IAlertChannel, CrewhallAlertChannel>();
 
         // Register the alert notifier orchestrator as Singleton
         services.AddSingleton<IAlertNotifier, AlertNotifier>();

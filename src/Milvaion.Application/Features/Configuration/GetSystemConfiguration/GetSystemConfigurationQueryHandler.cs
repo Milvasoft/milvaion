@@ -239,6 +239,9 @@ public class GetSystemConfigurationQueryHandler(IConfiguration configuration, Mi
 
             if (c.InternalNotification is not null)
                 Add("In-app", c.InternalNotification.Enabled, c.InternalNotification.SendOnlyInProduction, "Dashboard");
+
+            if (c.Crewhall is not null)
+                Add("Crewhall", c.Crewhall.Enabled, c.Crewhall.SendOnlyInProduction, c.Crewhall.DefaultChat);
         }
 
         return new AlertingConfigDto
