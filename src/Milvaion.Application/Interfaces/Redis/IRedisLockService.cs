@@ -79,4 +79,14 @@ public interface IRedisLockService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if released, false if lock not found or owned by another instance</returns>
     Task<bool> ReleaseNamedLockAsync(string lockName, string workerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Extends a named distributed lock held by <paramref name="workerId"/>.
+    /// </summary>
+    /// <param name="lockName">Unique name for the lock</param>
+    /// <param name="workerId">Worker identifier (must match the one who acquired the lock)</param>
+    /// <param name="ttl">New time-to-live</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if extended, false if the lock was lost</returns>
+    Task<bool> ExtendNamedLockAsync(string lockName, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default);
 }

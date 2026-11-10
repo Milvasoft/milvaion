@@ -252,13 +252,8 @@ public class RedisLockService : IRedisLockService
                         local released = 0
                         local owner = ARGV[1]
                         for i, key in ipairs(KEYS) do
-                            local currentOwner = redis.call('GET', key)
-                            if currentOwner then
-                                if currentOwner == owner then
-                                    redis.call('DEL', key)
-                                    released = released + 1
-                                end
-                            else
+                            if redis.call('GET', key) == owner then
+                                redis.call('DEL', key)
                                 released = released + 1
                             end
                         end
@@ -345,6 +340,19 @@ public class RedisLockService : IRedisLockService
             },
             fallback: async () => false,
             operationName: "ReleaseNamedLock",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task<bool> ExtendNamedLockAsync(string lockName, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                var result = await _database.ScriptEvaluateAsync(_checkOwnerAndExtendTTLScript, [$"{_options.KeyPrefix}global_lock:{lockName}"], [workerId, (int)ttl.TotalSeconds]);
+
+                return (int)result == 1;
+            },
+            fallback: async () => false,
+            operationName: "ExtendNamedLock",
             cancellationToken: cancellationToken
         );
 }
