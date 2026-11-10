@@ -9,6 +9,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
+using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
@@ -52,7 +53,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
     private readonly SemaphoreSlim _channelLock = new(1, 1);
 
-    private readonly JobOccurrenceStatus[] _finalStatuses =
+    private static readonly JobOccurrenceStatus[] _finalStatuses =
     [
         JobOccurrenceStatus.Completed,
         JobOccurrenceStatus.Failed,
@@ -60,7 +61,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         JobOccurrenceStatus.TimedOut
     ];
 
-    private readonly JobOccurrenceStatus[] _nonFinalStatuses =
+    private static readonly JobOccurrenceStatus[] _nonFinalStatuses =
     [
         JobOccurrenceStatus.Queued,
         JobOccurrenceStatus.Running
@@ -68,7 +69,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
     //  Batch processing — stores the RabbitMQ delivery tag alongside each message so the
     //  ACK can be deferred until after the batch is persisted to the database.
-    private readonly System.Collections.Concurrent.ConcurrentQueue<(JobStatusUpdateMessage Message, ulong DeliveryTag)> _statusBatch = new();
+    //  The channel travels with the tag: a delivery tag is only valid on the channel that delivered it.
+    private readonly System.Collections.Concurrent.ConcurrentQueue<BatchItem> _statusBatch = new();
     private readonly SemaphoreSlim _batchLock = new(1, 1);
 
     // Retry queue for Redis completion updates that failed or timed out.
@@ -143,56 +145,27 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             }
         }, stoppingToken);
 
-        var retryCount = 0;
-        const int maxRetries = 10;
-        const int retryDelaySeconds = 5;
-
-        while (!stoppingToken.IsCancellationRequested && retryCount < maxRetries)
+        await RabbitMQChannelExtensions.RunConsumerLoopAsync(ConnectAndConsumeAsync, _logger, ServiceName, failures =>
         {
-            try
+            _metrics.RecordServiceError(ServiceName, "RabbitMQ_Connection_Failed");
+
+            _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
             {
-                await ConnectAndConsumeAsync(stoppingToken);
-
-                // If we reach here, connection was successful
-                retryCount = 0;
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.Information("Status tracking is shutting down");
-                break;
-            }
-            catch (Exception ex)
-            {
-                retryCount++;
-
-                _metrics.RecordServiceError(ServiceName, "RabbitMQ_Connection_Failed");
-                _logger.Error(ex, "StatusTrackerService connection failed (attempt {Retry}/{MaxRetries})", retryCount, maxRetries);
-
-                if (retryCount >= maxRetries)
-                {
-                    _logger.Fatal("StatusTrackerService failed to connect after {MaxRetries} attempts. Service will be disabled until application restart.", maxRetries);
-
-                    _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
-                    {
-                        Title = "StatusTracker Service Stopped",
-                        Message = $"StatusTrackerService failed to connect to RabbitMQ after {maxRetries} attempts. Service is disabled until application restart.",
-                        Severity = AlertSeverity.Critical,
-                        Source = nameof(StatusTrackerService),
-                        ThreadKey = "service-degraded-statustracker"
-                    });
-
-                    break;
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds * retryCount), stoppingToken);
-            }
-        }
+                Title = "StatusTracker Service Degraded",
+                Message = $"StatusTrackerService failed to connect to RabbitMQ after {failures} attempts. Status updates are not being processed; the service keeps retrying.",
+                Severity = AlertSeverity.Critical,
+                Source = nameof(StatusTrackerService),
+                ThreadKey = "service-degraded-statustracker"
+            });
+        }, stoppingToken);
     }
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
         // Get channel from shared connection factory
-        _channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        var channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+
+        _channel = channel;
 
         // Subscribe to channel events
         _channel.ChannelShutdownAsync += async (sender, args) =>
@@ -210,7 +183,10 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                                          cancellationToken: stoppingToken);
 
         // Set prefetch count
-        await _channel.BasicQosAsync(0, 10, false, stoppingToken);
+        // Twice the batch size, so a batch can fill up while the previous one is being written.
+        var prefetch = (ushort)Math.Clamp(_options.BatchSize * 2, 10, ushort.MaxValue);
+
+        await _channel.BasicQosAsync(0, prefetch, false, stoppingToken);
 
         _logger.Information("StatusTracker connected to RabbitMQ (shared connection). Queue: {Queue}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.StatusUpdates, _channel.ChannelNumber);
 
@@ -221,7 +197,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         {
             try
             {
-                await ProcessStatusUpdateAsync(ea, stoppingToken);
+                await ProcessStatusUpdateAsync(ea, channel, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -254,19 +230,13 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
         _logger.Information("StatusTrackerService consuming from {Queue}. ConsumerTag: {ConsumerTag}, ChannelOpen: {IsOpen}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.StatusUpdates, consumerTag, _channel.IsOpen, _channel.ChannelNumber);
 
-        // Keep running until cancellation
-        try
-        {
-            await Task.Delay(Timeout.Infinite, stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.Information("StatusTracker consumer loop cancelled gracefully");
-            throw;
-        }
+        // Keep running until cancellation or channel death
+        await channel.WaitForShutdownAsync(stoppingToken);
+
+        await channel.SafeCloseAsync(_logger, CancellationToken.None);
     }
 
-    private async Task ProcessStatusUpdateAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private async Task ProcessStatusUpdateAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
     {
         try
         {
@@ -278,7 +248,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 _logger.Debug("Failed to deserialize status update message");
                 _metrics.RecordStatusUpdateFailure("Deserialization_Failed");
 
-                await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+                await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
 
                 return;
             }
@@ -300,7 +270,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             //  Add to batch queue together with its delivery tag (NO DB operation here!).
             //  ACK is deferred until ProcessBatchAsync persists the batch to the database,
             //  guaranteeing at-least-once delivery if the app crashes before the DB write.
-            _statusBatch.Enqueue((message, ea.DeliveryTag));
+            _statusBatch.Enqueue(new BatchItem(message, ea.DeliveryTag, channel));
 
             //  Trigger immediate batch if full
             if (_statusBatch.Count >= _options.BatchSize)
@@ -311,7 +281,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
             _logger.Error(ex, "Failed to process status update message");
 
-            await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+            await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
         }
     }
 
@@ -340,114 +310,29 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
             _metrics.SetStatusBatchSize(batch.Count);
 
-            // Retry logic for optimistic concurrency conflicts
-            const int maxRetries = 3;
-            var retryCount = 0;
-            var retryDelay = TimeSpan.FromMilliseconds(50); // Start with 50ms
-
-            while (retryCount < maxRetries)
+            try
             {
-                try
-                {
-                    await using var scope = _serviceProvider.CreateAsyncScope();
-                    var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+                await PersistBatchAndAckAsync(batch, sw, cancellationToken);
+            }
+            catch (Exception ex) when (RabbitMQChannelExtensions.IsPermanentDataError(ex))
+            {
+                _logger.Error(ex, "Status update batch contains data the database rejects. Isolating the offending message(s).");
 
-                    // Deduplicate by OccurrenceId (message.OccurrenceId is Occurrence.Id)
-                    var (statusByOccurrenceId, allDeliveryTags) = DeduplicateByOccurrenceId(batch);
-                    var occurrenceIds = statusByOccurrenceId.Keys.ToList();
+                await IsolatePoisonMessagesAsync(batch, cancellationToken);
+            }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "40P01") // Deadlock
+            {
+                _metrics.RecordStatusUpdateFailure("Database_Deadlock");
+                _logger.Warning(pgEx, "Deadlock detected in status batch processing. Updates will be retried in next batch.");
 
-                    _logger.Debug("Processing batch: {Count} unique status updates. Sample OccurrenceIds: {Samples}", occurrenceIds.Count, string.Join(", ", occurrenceIds.Take(3)));
+                RequeueMessages(batch);
+            }
+            catch (Exception ex)
+            {
+                _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
+                _logger.Error(ex, "Failed to process status update batch");
 
-                    //  Single query for all occurrences (ORDER BY Id to prevent deadlock)
-                    var occurrences = await FetchOccurrencesAsync(dbContext, occurrenceIds, cancellationToken);
-
-                    if (occurrences.IsNullOrEmpty())
-                    {
-                        _logger.Warning("No matching occurrences found for {Count} status updates. OccurrenceIds: {Ids}", batch.Count, string.Join(", ", occurrenceIds.Take(5)));
-
-                        // ACK the stale messages so they don't block the queue — there is nothing to persist.
-                        foreach (var tag in allDeliveryTags)
-                            await _channel.SafeAckAsync(tag, _channelLock, _logger, cancellationToken);
-
-                        return;
-                    }
-
-                    // Apply status updates and collect side effects
-                    var updateResult = await ApplyStatusUpdatesAsync(occurrences, statusByOccurrenceId, cancellationToken);
-
-                    // Persist changes to database
-                    await PersistOccurrenceChangesAsync(dbContext, occurrences, cancellationToken);
-
-                    // Process circuit breaker updates for jobs
-                    if (updateResult.CircuitBreakerUpdates.Count > 0 && _autoDisableOptions.Enabled)
-                        await ProcessCircuitBreakerUpdatesAsync(dbContext, updateResult.CircuitBreakerUpdates, cancellationToken);
-
-                    // Batch update consumer counters (SINGLE Redis Lua script call!)
-                    if (updateResult.ConsumerCounterUpdates.Count > 0)
-                        await UpdateConsumerCountersBatchAsync(updateResult.ConsumerCounterUpdates, cancellationToken);
-
-                    // Update Redis state (running/completed markers)
-                    await UpdateRedisStateAsync(occurrences, cancellationToken);
-
-                    // Publish SignalR events
-                    await PublishSignalREventsAsync(scope, occurrences, cancellationToken);
-
-                    // Send job execution failed alerts (fire-and-forget)
-                    SendJobExecutionFailedAlerts(updateResult.FailedOccurrences);
-
-                    // Record metrics
-                    RecordBatchMetrics(sw, batch.Count, occurrences);
-
-                    _logger.Debug("Processed {Count} status updates in batch (RetryCount: {RetryCount})", batch.Count, retryCount);
-
-                    // ACK all messages only after the batch has been successfully persisted to the database.
-                    foreach (var tag in allDeliveryTags)
-                        await _channel.SafeAckAsync(tag, _channelLock, _logger, cancellationToken);
-
-                    // SUCCESS - Exit retry loop
-                    break;
-                }
-                catch (DbUpdateConcurrencyException concurrencyEx)
-                {
-                    retryCount++;
-
-                    if (retryCount >= maxRetries)
-                    {
-                        _metrics.RecordStatusUpdateFailure("Concurrency_Conflict_Max_Retries");
-                        _logger.Error(concurrencyEx, "Concurrency conflict after {MaxRetries} retries. Status updates will be retried in next batch.", maxRetries);
-
-                        // Re-queue failed messages for next batch
-                        RequeueMessages(batch);
-
-                        break;
-                    }
-
-                    _logger.Warning(concurrencyEx, "Concurrency conflict detected in status batch processing (Retry {RetryCount}/{MaxRetries}). Retrying after {Delay}ms...", retryCount, maxRetries, retryDelay.TotalMilliseconds);
-
-                    // Exponential backoff: 50ms, 100ms, 200ms
-                    await Task.Delay(retryDelay, cancellationToken);
-                    retryDelay = TimeSpan.FromMilliseconds(retryDelay.TotalMilliseconds * 2);
-                }
-                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "40P01") // Deadlock
-                {
-                    _metrics.RecordStatusUpdateFailure("Database_Deadlock");
-                    _logger.Warning(pgEx, "Deadlock detected in status batch processing. Updates will be retried in next batch.");
-
-                    // Re-queue messages for next batch
-                    RequeueMessages(batch);
-
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
-                    _logger.Error(ex, "Failed to process status update batch");
-
-                    // Re-queue messages for next batch
-                    RequeueMessages(batch);
-
-                    break;
-                }
+                RequeueMessages(batch);
             }
         }
         finally
@@ -457,11 +342,104 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
+    /// Persists a batch and applies its side effects. Messages are acknowledged only after the write.
+    /// </summary>
+    private async Task PersistBatchAndAckAsync(List<BatchItem> batch, Stopwatch sw, CancellationToken cancellationToken)
+    {
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+        // Deduplicate by OccurrenceId (message.OccurrenceId is Occurrence.Id)
+        var statusByOccurrenceId = DeduplicateByOccurrenceId(batch);
+        var occurrenceIds = statusByOccurrenceId.Keys.ToList();
+
+        _logger.Debug("Processing batch: {Count} unique status updates. Sample OccurrenceIds: {Samples}", occurrenceIds.Count, string.Join(", ", occurrenceIds.Take(3)));
+
+        //  Single query for all occurrences (ORDER BY Id to prevent deadlock)
+        var occurrences = await FetchOccurrencesAsync(dbContext, occurrenceIds, cancellationToken);
+
+        if (occurrences.IsNullOrEmpty())
+        {
+            _logger.Warning("No matching occurrences found for {Count} status updates. OccurrenceIds: {Ids}", batch.Count, string.Join(", ", occurrenceIds.Take(5)));
+
+            // ACK the stale messages so they don't block the queue — there is nothing to persist.
+            await AckAsync(batch, cancellationToken);
+
+            return;
+        }
+
+        // Apply status updates and collect side effects
+        var updateResult = await ApplyStatusUpdatesAsync(occurrences, statusByOccurrenceId, cancellationToken);
+
+        // Persist changes to database
+        await PersistOccurrenceChangesAsync(dbContext, occurrences, cancellationToken);
+
+        // Process circuit breaker updates for jobs
+        if (updateResult.CircuitBreakerUpdates.Count > 0 && _autoDisableOptions.Enabled)
+            await ProcessCircuitBreakerUpdatesAsync(dbContext, updateResult.CircuitBreakerUpdates, cancellationToken);
+
+        // Batch update consumer counters (SINGLE Redis Lua script call!)
+        if (updateResult.ConsumerCounterUpdates.Count > 0)
+            await UpdateConsumerCountersBatchAsync(updateResult.ConsumerCounterUpdates, cancellationToken);
+
+        // Update Redis state (running/completed markers)
+        await UpdateRedisStateAsync(occurrences, cancellationToken);
+
+        // Publish SignalR events
+        await PublishSignalREventsAsync(scope, occurrences, cancellationToken);
+
+        // Send job execution failed alerts (fire-and-forget)
+        SendJobExecutionFailedAlerts(updateResult.FailedOccurrences);
+
+        // Record metrics
+        RecordBatchMetrics(sw, batch.Count, occurrences);
+
+        _logger.Debug("Processed {Count} status updates in batch", batch.Count);
+
+        // ACK all messages only after the batch has been successfully persisted to the database.
+        await AckAsync(batch, cancellationToken);
+    }
+
+    private async Task AckAsync(List<BatchItem> batch, CancellationToken cancellationToken)
+    {
+        foreach (var item in batch)
+            await item.Channel.SafeAckAsync(item.DeliveryTag, _channelLock, _logger, cancellationToken);
+    }
+
+    /// <summary>
+    /// Writes the messages of a rejected batch one at a time, so one bad message cannot hold back the others.
+    /// Only messages the database rejects outright are dropped; a transient failure goes back to the batch queue.
+    /// </summary>
+    private async Task IsolatePoisonMessagesAsync(List<BatchItem> batch, CancellationToken cancellationToken)
+    {
+        foreach (var item in batch)
+        {
+            try
+            {
+                await PersistBatchAndAckAsync([item], Stopwatch.StartNew(), cancellationToken);
+            }
+            catch (Exception ex) when (RabbitMQChannelExtensions.IsPermanentDataError(ex))
+            {
+                _metrics.RecordStatusUpdateFailure("Poison_Message");
+                _logger.Error(ex, "Dropping status update the database rejects. OccurrenceId: {OccurrenceId}, Status: {Status}", item.Message.OccurrenceId, item.Message.Status);
+
+                await item.Channel.SafeNackAsync(item.DeliveryTag, _channelLock, _logger, cancellationToken, requeue: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Status update for occurrence {OccurrenceId} will be retried in the next batch", item.Message.OccurrenceId);
+
+                _statusBatch.Enqueue(item);
+            }
+        }
+    }
+
+    /// <summary>
     /// Dequeues all messages (with their delivery tags) from the batch queue.
     /// </summary>
-    private List<(JobStatusUpdateMessage Message, ulong DeliveryTag)> DequeueBatch()
+    private List<BatchItem> DequeueBatch()
     {
-        var batch = new List<(JobStatusUpdateMessage Message, ulong DeliveryTag)>();
+        var batch = new List<BatchItem>();
 
         while (_statusBatch.TryDequeue(out var item))
             batch.Add(item);
@@ -472,28 +450,23 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     /// <summary>
     /// Re-queues messages back to the batch queue for retry (delivery tags preserved — NOT ACK'd).
     /// </summary>
-    private void RequeueMessages(List<(JobStatusUpdateMessage Message, ulong DeliveryTag)> batch)
+    private void RequeueMessages(List<BatchItem> batch)
     {
         foreach (var item in batch)
             _statusBatch.Enqueue(item);
     }
 
     /// <summary>
-    /// Deduplicates messages by OccurrenceId (last update wins) and collects all delivery tags.
-    /// Returns both the deduplicated status map and ALL delivery tags (including duplicates) for ACK.
+    /// Deduplicates messages by OccurrenceId (last update wins).
     /// </summary>
-    private static (Dictionary<Guid, JobStatusUpdateMessage> StatusMap, List<ulong> AllDeliveryTags) DeduplicateByOccurrenceId(List<(JobStatusUpdateMessage Message, ulong DeliveryTag)> batch)
+    private static Dictionary<Guid, JobStatusUpdateMessage> DeduplicateByOccurrenceId(List<BatchItem> batch)
     {
         var statusByOccurrenceId = new Dictionary<Guid, JobStatusUpdateMessage>(batch.Count);
-        var allDeliveryTags = new List<ulong>(batch.Count);
 
-        foreach (var (message, deliveryTag) in batch)
-        {
-            statusByOccurrenceId[message.OccurrenceId] = message; // Last update wins
-            allDeliveryTags.Add(deliveryTag);
-        }
+        foreach (var item in batch)
+            statusByOccurrenceId[item.Message.OccurrenceId] = item.Message; // Last update wins
 
-        return (statusByOccurrenceId, allDeliveryTags);
+        return statusByOccurrenceId;
     }
 
     /// <summary>
@@ -601,7 +574,9 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
             // Apply field updates
             occurrence.Status = message.Status;
-            occurrence.WorkerId = message.WorkerId;
+
+            if (!string.IsNullOrEmpty(message.WorkerId))
+                occurrence.WorkerId = message.WorkerId;
 
             if (message.StartTime.HasValue)
                 occurrence.StartTime = message.StartTime;
@@ -664,20 +639,25 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Persists occurrence changes to database using bulk update.
+    /// Persists occurrence changes. The status read for this batch may be out of date by now (another instance,
+    /// or the zombie detector), so a late non-final update is checked against the locked row: it must never
+    /// overwrite a final status. Rows rejected that way are removed from <paramref name="occurrences"/>.
     /// </summary>
-    private static Task PersistOccurrenceChangesAsync(MilvaionDbContext dbContext,
-                                                      List<JobOccurrence> occurrences,
-                                                      CancellationToken cancellationToken)
+    private static async Task PersistOccurrenceChangesAsync(MilvaionDbContext dbContext,
+                                                            List<JobOccurrence> occurrences,
+                                                            CancellationToken cancellationToken)
     {
-        // Sort occurrences by Id before bulk update to prevent deadlock
-        occurrences.Sort((a, b) => a.Id.CompareTo(b.Id));
+        var rejected = await dbContext.BulkUpdateGuardedAsync(occurrences,
+                                                              (occurrence, row) => !(_finalStatuses.Contains(row.Status) && _nonFinalStatuses.Contains(occurrence.Status)),
+                                                              bc => bc.PropertiesToIncludeOnUpdate = _updatePropNames,
+                                                              cancellationToken);
 
-        // BulkUpdate with RowVersion concurrency check
-        return dbContext.BulkUpdateAsync(occurrences, (bc) =>
+        if (rejected.Count > 0)
         {
-            bc.PropertiesToIncludeOnUpdate = _updatePropNames;
-        }, cancellationToken: cancellationToken);
+            var rejectedIds = rejected.Select(o => o.Id).ToHashSet();
+
+            occurrences.RemoveAll(o => rejectedIds.Contains(o.Id));
+        }
     }
 
     /// <summary>
@@ -1047,24 +1027,29 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     {
         _logger.Information("StatusTrackerService stopping...");
 
+        // Cancels the consumer and batch loop and waits for them, so nothing else touches the batch below.
+        await base.StopAsync(cancellationToken);
+
         try
         {
             //  Process remaining status updates
             await ProcessBatchAsync(CancellationToken.None);
+
+            // Otherwise jobs stay flagged as running in Redis until the zombie detector's reconcile grace period ends.
+            await DrainPendingRedisCompletionsAsync(CancellationToken.None);
         }
         catch (Exception ex)
         {
             _logger.Warning(ex, "Failed to process remaining batch during shutdown");
         }
 
-        // Dispose semaphores
-        _batchLock?.Dispose();
-        _channelLock?.Dispose();
-
         // Close only channel (connection is managed by RabbitMQConnectionFactory)
         await _channel.SafeCloseAsync(_logger, cancellationToken);
 
-        await base.StopAsync(cancellationToken);
+        // Dispose semaphores last: the work above still needs them
+        _batchLock?.Dispose();
+        _channelLock?.Dispose();
+
         _logger.Information("StatusTrackerService stopped");
     }
 
@@ -1120,6 +1105,11 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     #region Internal Records
+
+    /// <summary>
+    /// A received message waiting to be persisted.
+    /// </summary>
+    private readonly record struct BatchItem(JobStatusUpdateMessage Message, ulong DeliveryTag, IChannel Channel);
 
     /// <summary>
     /// Represents a circuit breaker update for a job.

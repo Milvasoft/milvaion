@@ -47,12 +47,26 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     private readonly SemaphoreSlim _channelLock = new(1, 1);
 
     // Batch processing
-    private readonly ConcurrentQueue<WorkerLogMessage> _logBatch = new();
+    private readonly ConcurrentQueue<LogItem> _logBatch = new();
     private readonly SemaphoreSlim _batchLock = new(1, 1);
     private const int _maxQueueSize = 100000; // Prevent unbounded memory growth
 
     // Pending logs - waiting for occurrence to be created (FK constraint race condition)
     private readonly ConcurrentQueue<(WorkerLogMessage Log, int RetryCount, DateTime AddedAt)> _pendingLogs = new();
+
+    /// <summary>
+    /// One received RabbitMQ message. It may carry many logs and is acknowledged once the last of them is settled.
+    /// </summary>
+    private sealed class Delivery(IChannel channel, ulong deliveryTag, int logCount)
+    {
+        private int _remaining = logCount;
+
+        public IChannel Channel { get; } = channel;
+        public ulong DeliveryTag { get; } = deliveryTag;
+        public bool SettleOne() => Interlocked.Decrement(ref _remaining) == 0;
+    }
+
+    private readonly record struct LogItem(WorkerLogMessage Message, Delivery Delivery);
     private const int _maxPendingRetries = 20; // ~10 seconds with 500ms interval
     private static readonly TimeSpan _pendingMaxAge = TimeSpan.FromMinutes(2);
 
@@ -78,65 +92,42 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             {
                 await Task.Delay(_options.BatchIntervalMs, stoppingToken);
 
-                await ProcessBatchAsync(stoppingToken);
+                try
+                {
+                    await ProcessBatchAsync(stoppingToken);
 
-                // Retry pending logs (waiting for occurrence to be created)
-                await RetryPendingLogsAsync(stoppingToken);
+                    // Retry pending logs (waiting for occurrence to be created)
+                    await RetryPendingLogsAsync(stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // An escaped exception would end this loop silently while the consumer keeps filling the queue.
+                    _logger.Error(ex, "Error in log batch loop");
+                }
 
                 TrackMemoryAfterIteration();
             }
         }, stoppingToken);
 
-        var retryCount = 0;
-        const int maxRetries = 10;
-        const int retryDelaySeconds = 5;
-
-        while (!stoppingToken.IsCancellationRequested && retryCount < maxRetries)
+        await RabbitMQChannelExtensions.RunConsumerLoopAsync(ConnectAndConsumeAsync, _logger, ServiceName, failures =>
         {
-            try
+            _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
             {
-                await ConnectAndConsumeAsync(stoppingToken);
-
-                // If we reach here, connection was successful
-                retryCount = 0;
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.Information("Log collection is shutting down");
-
-                break;
-            }
-            catch (Exception ex)
-            {
-                retryCount++;
-
-                _logger.Error(ex, "LogCollectorService connection failed (attempt {Retry}/{MaxRetries})", retryCount, maxRetries);
-
-                if (retryCount >= maxRetries)
-                {
-                    _logger.Fatal("LogCollectorService failed to connect after {MaxRetries} attempts. Service will be disabled until application restart.", maxRetries);
-
-                    _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
-                    {
-                        Title = "LogCollector Service Stopped",
-                        Message = $"LogCollectorService failed to connect to RabbitMQ after {maxRetries} attempts. Service is disabled until application restart.",
-                        Severity = AlertSeverity.Critical,
-                        Source = nameof(LogCollectorService),
-                        ThreadKey = "service-degraded-logcollector"
-                    });
-
-                    break;
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds * retryCount), stoppingToken);
-            }
-        }
+                Title = "LogCollector Service Degraded",
+                Message = $"LogCollectorService failed to connect to RabbitMQ after {failures} attempts. Logs are not being collected; the service keeps retrying.",
+                Severity = AlertSeverity.Critical,
+                Source = nameof(LogCollectorService),
+                ThreadKey = "service-degraded-logcollector"
+            });
+        }, stoppingToken);
     }
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
         // Get channel from shared connection factory
-        _channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        var channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+
+        _channel = channel;
 
         // Declare queue (idempotent)
         await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.WorkerLogs,
@@ -147,7 +138,8 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                                          cancellationToken: stoppingToken);
 
         // Set prefetch count
-        await _channel.BasicQosAsync(0, 10, false, stoppingToken);
+        // Messages stay unacked until written, so the window has to cover at least a full batch.
+        await _channel.BasicQosAsync(0, (ushort)Math.Clamp(_options.BatchSize * 2, 10, ushort.MaxValue), false, stoppingToken);
 
         _logger.Information("LogCollector connected to RabbitMQ (shared connection). Queue: {Queue}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.WorkerLogs, _channel.ChannelNumber);
 
@@ -158,7 +150,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         {
             try
             {
-                await ProcessLogMessageAsync(ea, stoppingToken);
+                await ProcessLogMessageAsync(ea, channel, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -173,78 +165,66 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
         _logger.Information("LogCollectorService is now consuming messages...");
 
-        // Keep running until cancellation
-        await Task.Delay(Timeout.Infinite, stoppingToken);
+        // Keep running until cancellation or channel death
+        await channel.WaitForShutdownAsync(stoppingToken);
+
+        await channel.SafeCloseAsync(_logger, CancellationToken.None);
     }
 
-    private async Task ProcessLogMessageAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private async Task ProcessLogMessageAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
     {
         try
         {
-            // Try to parse as batch message first (new format)
+            // Try to parse as batch message first (new format), then the single message format (backward compatibility)
             var batchMessage = JsonSerializer.Deserialize<WorkerLogBatchMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+
+            List<WorkerLogMessage> logs;
 
             if (batchMessage != null && batchMessage.Count > 0)
             {
-                // Batch message - add all logs
-                foreach (var log in batchMessage.Logs)
-                {
-                    _logBatch.Enqueue(log);
-                }
-
-                _logger.Debug("Received batch message with {Count} logs", batchMessage.Count);
-
-                // Trigger immediate batch if queue is full
-                if (_logBatch.Count >= _options.BatchSize)
-                {
-                    await ProcessBatchAsync(cancellationToken);
-                }
-
-                // ACK the message (safe operation)
-                await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
-                return;
+                logs = batchMessage.Logs;
             }
-
-            // Fallback: Try single message format (backward compatibility)
-            var singleMessage = JsonSerializer.Deserialize<WorkerLogMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
-
-            if (singleMessage == null)
+            else
             {
-                _logger.Debug("Failed to deserialize log message");
-                await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
-                return;
+                var singleMessage = JsonSerializer.Deserialize<WorkerLogMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+
+                if (singleMessage == null)
+                {
+                    _logger.Debug("Failed to deserialize log message");
+                    await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+                    return;
+                }
+
+                logs = [singleMessage];
             }
 
-            // Check queue size limit before enqueuing (backpressure)
+            // Backpressure: losing logs is better than running out of memory
             if (_logBatch.Count >= _maxQueueSize)
             {
                 _logger.Warning("Log batch queue is full ({Count} messages). Dropping message to prevent OOM.", _logBatch.Count);
-                await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+                await channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
                 return;
             }
 
-            // Add to batch queue (NO DB operation here!)
-            _logBatch.Enqueue(singleMessage);
+            // Add to batch queue (NO DB operation here!). The message is acknowledged after its logs are written.
+            var delivery = new Delivery(channel, ea.DeliveryTag, logs.Count);
+
+            foreach (var log in logs)
+                _logBatch.Enqueue(new LogItem(log, delivery));
 
             // Trigger immediate batch if queue is full
             if (_logBatch.Count >= _options.BatchSize)
-            {
                 await ProcessBatchAsync(cancellationToken);
-            }
-
-            // ACK the message (safe operation)
-            await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process log message");
-            await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+            await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
         }
     }
 
     /// <summary>
     /// Process batch of logs - single DB transaction for all logs.
-    /// Uses optimistic concurrency control to prevent lost updates when multiple instances run concurrently.
     /// </summary>
     private async Task ProcessBatchAsync(CancellationToken cancellationToken)
     {
@@ -259,142 +239,141 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             if (_logBatch.IsEmpty)
                 return;
 
-            var batch = new List<WorkerLogMessage>();
+            var batch = new List<LogItem>();
 
             // Dequeue logs with max limit to prevent OOM from processing too many at once
             var maxBatchSize = Math.Min(_options.BatchSize * 10, 10000); // Max 10x batch size or 10k messages
-            var dequeueCount = 0;
 
-            while (_logBatch.TryDequeue(out var message) && dequeueCount < maxBatchSize)
-            {
-                batch.Add(message);
-                dequeueCount++;
-            }
+            while (batch.Count < maxBatchSize && _logBatch.TryDequeue(out var item))
+                batch.Add(item);
 
             if (batch.Count == 0)
                 return;
 
             _metrics.SetLogBatchSize(batch.Count);
 
-            // Retry logic for optimistic concurrency conflicts
-            const int maxRetries = 3;
-            var retryCount = 0;
-            var retryDelay = TimeSpan.FromMilliseconds(50); // Start with 50ms
-
-            while (retryCount < maxRetries)
+            try
             {
-                try
-                {
-                    await using var scope = _serviceProvider.CreateAsyncScope();
-                    var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+                await PersistLogsAsync(batch, cancellationToken);
 
-                    // Group by OccurrenceId
-                    var logsByOccurrence = batch.GroupBy(m => m.OccurrenceId).ToList();
+                _metrics.RecordLogsCollected(batch.Count);
+                _metrics.RecordLogBatchDuration(sw.Elapsed.TotalMilliseconds, batch.Count);
 
-                    var logsToInsert = batch.Where(l => l?.Log != null).Select(l => new JobOccurrenceLog
-                    {
-                        Id = Guid.CreateVersion7(),
-                        OccurrenceId = l.OccurrenceId,
-                        Level = l.Log.Level,
-                        Category = l.Log.Category,
-                        ExceptionType = l.Log.ExceptionType,
-                        Message = l.Log.Message,
-                        Data = l.Log.Data,
-                        Timestamp = l.Log.Timestamp,
-                    });
+                _logger.Debug("Processed {Count} logs in batch", batch.Count);
 
-                    if (!logsToInsert.IsNullOrEmpty())
-                        await dbContext.BulkInsertAsync(logsToInsert, cancellationToken: cancellationToken);
+                await SettleAsync(batch, cancellationToken);
+            }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503") // FK constraint violation
+            {
+                _logger.Debug(pgEx, "FK constraint violation - occurrence not yet created. {Count} logs moved to pending queue.", batch.Count);
 
-                    #region Send Socket Events
+                // Move to pending queue - occurrence might not be created yet
+                foreach (var item in batch)
+                    _pendingLogs.Enqueue((item.Message, 0, DateTime.UtcNow));
 
-                    // Trigger SignalR events after DB update
-                    var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+                await SettleAsync(batch, cancellationToken);
+            }
+            catch (Exception ex) when (RabbitMQChannelExtensions.IsPermanentDataError(ex))
+            {
+                _logger.Error(ex, "Log batch contains data the database rejects. Isolating the offending log(s).");
 
-                    if (eventPublisher != null)
-                    {
-                        //  Collect events first, then publish in batch
-                        var publishTasks = new List<Task>(batch.Count);
+                await IsolatePoisonLogsAsync(batch, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to process log batch");
 
-                        foreach (var logToInsert in batch)
-                            publishTasks.Add(eventPublisher.PublishLogAddedAsync(logToInsert.OccurrenceId, logToInsert.Log, cancellationToken));
-
-                        // Wait for all events to complete (with timeout)
-                        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-                        var completedTask = await Task.WhenAny(Task.WhenAll(publishTasks), timeoutTask);
-
-                        if (completedTask == timeoutTask)
-                            _logger.Warning("SignalR event publishing timed out after 5 seconds for {Count} events", publishTasks.Count);
-                    }
-
-                    #endregion
-
-                    // Record metrics
-                    _metrics.RecordLogsCollected(batch.Count);
-                    _metrics.RecordLogBatchDuration(sw.Elapsed.TotalMilliseconds, batch.Count);
-
-                    _logger.Debug("Processed {Count} logs in batch (RetryCount: {RetryCount})", batch.Count, retryCount);
-
-                    // SUCCESS - Exit retry loop
-                    break;
-                }
-                catch (DbUpdateConcurrencyException concurrencyEx)
-                {
-                    retryCount++;
-
-                    if (retryCount >= maxRetries)
-                    {
-                        _logger.Error(concurrencyEx, "Concurrency conflict after {MaxRetries} retries. Logs will be retried in next batch.", maxRetries);
-
-                        // Re-queue failed logs for next batch
-                        foreach (var log in batch)
-                            _logBatch.Enqueue(log);
-
-                        break;
-                    }
-
-                    _logger.Warning(concurrencyEx, "Concurrency conflict detected in log batch processing (Retry {RetryCount}/{MaxRetries}). Retrying after {Delay}ms...", retryCount, maxRetries, retryDelay.TotalMilliseconds);
-
-                    // Exponential backoff: 50ms, 100ms, 200ms
-                    await Task.Delay(retryDelay, cancellationToken);
-                    retryDelay = TimeSpan.FromMilliseconds(retryDelay.TotalMilliseconds * 2);
-                }
-                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "40P01") // Deadlock
-                {
-                    _logger.Warning(pgEx, "Deadlock detected in log batch processing. Logs will be retried in next batch.");
-
-                    // Re-queue logs for next batch
-                    foreach (var log in batch)
-                        _logBatch.Enqueue(log);
-
-                    break;
-                }
-                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503") // FK constraint violation
-                {
-                    _logger.Debug(pgEx, "FK constraint violation - occurrence not yet created. {Count} logs moved to pending queue.", batch.Count);
-
-                    // Move to pending queue - occurrence might not be created yet
-                    foreach (var log in batch)
-                        _pendingLogs.Enqueue((log, 0, DateTime.UtcNow));
-
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "Failed to process log batch");
-
-                    // Re-queue logs for next batch
-                    foreach (var log in batch)
-                        _logBatch.Enqueue(log);
-
-                    break;
-                }
+                // Re-queue logs for next batch (deadlocks and outages land here)
+                foreach (var item in batch)
+                    _logBatch.Enqueue(item);
             }
         }
         finally
         {
             // Release the batch lock
             _batchLock.Release();
+        }
+    }
+
+    private async Task PersistLogsAsync(List<LogItem> batch, CancellationToken cancellationToken)
+    {
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+        var logsToInsert = batch.Where(i => i.Message?.Log != null).Select(i => ToEntity(i.Message)).ToList();
+
+        if (logsToInsert.Count > 0)
+            await dbContext.BulkInsertAsync(logsToInsert, cancellationToken: cancellationToken);
+
+        // Trigger SignalR events after DB update
+        var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+
+        if (eventPublisher == null)
+            return;
+
+        try
+        {
+            await Task.WhenAll(batch.Where(i => i.Message?.Log != null)
+                                    .Select(i => eventPublisher.PublishLogAddedAsync(i.Message.OccurrenceId, i.Message.Log, cancellationToken)))
+                      .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            _logger.Warning("SignalR event publishing timed out after 5 seconds for {Count} events", batch.Count);
+        }
+    }
+
+    private static JobOccurrenceLog ToEntity(WorkerLogMessage message) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        OccurrenceId = message.OccurrenceId,
+        Level = message.Log.Level,
+        Category = message.Log.Category,
+        ExceptionType = message.Log.ExceptionType,
+        Message = message.Log.Message,
+        Data = message.Log.Data,
+        Timestamp = message.Log.Timestamp,
+    };
+
+    private async Task SettleAsync(List<LogItem> batch, CancellationToken cancellationToken)
+    {
+        foreach (var item in batch)
+        {
+            if (item.Delivery.SettleOne())
+                await item.Delivery.Channel.SafeAckAsync(item.Delivery.DeliveryTag, _channelLock, _logger, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Writes a rejected batch one log at a time, so a single bad log cannot hold back the rest of the queue.
+    /// </summary>
+    private async Task IsolatePoisonLogsAsync(List<LogItem> batch, CancellationToken cancellationToken)
+    {
+        foreach (var item in batch)
+        {
+            try
+            {
+                await PersistLogsAsync([item], cancellationToken);
+                await SettleAsync([item], cancellationToken);
+            }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503")
+            {
+                _pendingLogs.Enqueue((item.Message, 0, DateTime.UtcNow));
+
+                await SettleAsync([item], cancellationToken);
+            }
+            catch (Exception ex) when (RabbitMQChannelExtensions.IsPermanentDataError(ex))
+            {
+                _logger.Error(ex, "Dropping log the database rejects. OccurrenceId: {OccurrenceId}", item.Message?.OccurrenceId);
+
+                await SettleAsync([item], cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Log for occurrence {OccurrenceId} will be retried in the next batch", item.Message?.OccurrenceId);
+
+                _logBatch.Enqueue(item);
+            }
         }
     }
 
@@ -473,17 +452,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             // Insert logs that now have occurrence
             if (logsWithOccurrence.Count > 0)
             {
-                var logsToInsert = logsWithOccurrence.Where(l => l.Log != null).Select(l => new JobOccurrenceLog
-                {
-                    Id = Guid.CreateVersion7(),
-                    OccurrenceId = l.OccurrenceId,
-                    Level = l.Log.Level,
-                    Category = l.Log.Category,
-                    ExceptionType = l.Log.ExceptionType,
-                    Message = l.Log.Message,
-                    Data = l.Log.Data,
-                    Timestamp = l.Log.Timestamp,
-                }).ToList();
+                var logsToInsert = logsWithOccurrence.Where(l => l.Log != null).Select(ToEntity).ToList();
 
                 await dbContext.BulkInsertAsync(logsToInsert, cancellationToken: cancellationToken);
 
@@ -517,6 +486,9 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     {
         _logger.Information("LogCollectorService stopping...");
 
+        // Cancels the consumer and batch loop and waits for them, so nothing else touches the batch below.
+        await base.StopAsync(cancellationToken);
+
         try
         {
             // Process remaining logs before shutdown
@@ -527,14 +499,13 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             _logger.Warning(ex, "Failed to process remaining logs during shutdown");
         }
 
-        // Dispose semaphores
-        _batchLock?.Dispose();
-        _channelLock?.Dispose();
-
         // Close only channel (connection is managed by RabbitMQConnectionFactory)
         await _channel.SafeCloseAsync(_logger, cancellationToken);
 
-        await base.StopAsync(cancellationToken);
+        // Dispose semaphores last: the work above still needs them
+        _batchLock?.Dispose();
+        _channelLock?.Dispose();
+
         _logger.Information("LogCollectorService stopped");
     }
 }

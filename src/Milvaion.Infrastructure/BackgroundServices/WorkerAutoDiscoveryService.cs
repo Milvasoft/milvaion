@@ -47,11 +47,6 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private IChannel _registrationChannel;
     private IChannel _heartbeatChannel;
 
-    // Set at the very start of StopAsync, before channels are closed - StopAsync closes the channels
-    // (triggering ChannelShutdownAsync) before base.StopAsync() cancels stoppingToken, so relying on
-    // stoppingToken.IsCancellationRequested alone to detect "graceful shutdown" is racy.
-    private volatile bool _stopRequested;
-
     // Heartbeat batch processing with per-instance deduplication
     private readonly SemaphoreSlim _batchLock = new(1, 1);
 
@@ -61,7 +56,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
     // Per-instance deduplication: only keep latest heartbeat per instance
     // This dramatically reduces Redis load when workers send many heartbeats rapidly
-    private readonly ConcurrentDictionary<string, (WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag, DateTime ReceivedAt)> _latestHeartbeats = new();
+    // The channel travels with the tag: a delivery tag is only valid on the channel that delivered it.
+    private readonly ConcurrentDictionary<string, (WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag, IChannel Channel, DateTime ReceivedAt)> _latestHeartbeats = new();
 
     /// <inheritdoc/>
     protected override string ServiceName => "WorkerAutoDiscovery";
@@ -88,46 +84,44 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(100, stoppingToken); // Process every 100ms
-                await ProcessHeartbeatBatchAsync(stoppingToken);
+
+                try
+                {
+                    await ProcessHeartbeatBatchAsync(stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.Error(ex, "Error in heartbeat batch loop");
+                }
+
                 TrackMemoryAfterIteration();
             }
         }, stoppingToken);
 
-        try
+        // Started once here: ConnectAndConsumeAsync runs again on every reconnect.
+        _ = Task.Run(async () => await CleanupZombieWorkersAsync(stoppingToken), stoppingToken);
+
+        await RabbitMQChannelExtensions.RunConsumerLoopAsync(ConnectAndConsumeAsync, _logger, ServiceName, failures =>
         {
-            await ConnectAndConsumeAsync(stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.Information("Worker auto discovery is shutting down");
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Fatal error in worker auto discovery");
-            throw;
-        }
+            _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
+            {
+                Title = "WorkerAutoDiscovery Service Degraded",
+                Message = $"WorkerAutoDiscoveryService failed to connect to RabbitMQ after {failures} attempts. Workers cannot register; the service keeps retrying.",
+                Severity = AlertSeverity.Critical,
+                Source = nameof(WorkerAutoDiscoveryService),
+                ThreadKey = "service-degraded-workerautodiscovery"
+            });
+        }, stoppingToken);
     }
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
         // Get channels from shared connection factory
-        _registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-        _heartbeatChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        var registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        var heartbeatChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
 
-        // Track channel health — if either channel dies, break out of Delay(Infinite) to trigger retry
-        var channelDiedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-
-        _registrationChannel.ChannelShutdownAsync += async (sender, args) =>
-        {
-            _logger.Warning("WorkerAutoDiscovery registration channel shutdown. Reason: {Reason}", args.ReplyText);
-            await channelDiedCts.CancelAsync();
-        };
-
-        _heartbeatChannel.ChannelShutdownAsync += async (sender, args) =>
-        {
-            _logger.Warning("WorkerAutoDiscovery heartbeat channel shutdown. Reason: {Reason}", args.ReplyText);
-            await channelDiedCts.CancelAsync();
-        };
+        _registrationChannel = registrationChannel;
+        _heartbeatChannel = heartbeatChannel;
 
         // Declare queues
         await _registrationChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, _rabbitMQOptions.BuildQueueArguments(), cancellationToken: stoppingToken);
@@ -144,7 +138,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
         registrationConsumer.ReceivedAsync += async (model, ea) =>
         {
-            await ProcessRegistrationAsync(ea, stoppingToken);
+            await ProcessRegistrationAsync(ea, registrationChannel, stoppingToken);
 
             TrackMemoryAfterIteration();
         };
@@ -156,34 +150,23 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
         heartbeatConsumer.ReceivedAsync += async (model, ea) =>
         {
-            await ProcessHeartbeatAsync(ea, stoppingToken);
+            await ProcessHeartbeatAsync(ea, heartbeatChannel, stoppingToken);
 
             TrackMemoryAfterIteration();
         };
 
         await _heartbeatChannel.BasicConsumeAsync(WorkerConstant.Queues.WorkerHeartbeat, false, heartbeatConsumer, stoppingToken);
 
-        // Start zombie worker cleanup task (detect dead workers and cleanup their consumer counts)
-        _ = Task.Run(async () => await CleanupZombieWorkersAsync(stoppingToken), stoppingToken);
+        // Keep running until cancellation or until either channel dies
+        await Task.WhenAny(registrationChannel.WaitForShutdownAsync(stoppingToken), heartbeatChannel.WaitForShutdownAsync(stoppingToken));
 
-        // Keep running until cancellation OR channel death
-        try
-        {
-            await Task.Delay(Timeout.Infinite, channelDiedCts.Token);
-        }
-        catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested && !_stopRequested)
-        {
-            // Channel died, not graceful shutdown — throw to trigger retry loop
-            _logger.Warning("WorkerAutoDiscovery channel died. Will reconnect...");
-            throw new InvalidOperationException("RabbitMQ channel closed unexpectedly. Reconnecting...");
-        }
+        stoppingToken.ThrowIfCancellationRequested();
 
-        // Cleanup channels before retry
-        await _registrationChannel.SafeCloseAsync(_logger, default);
-        await _heartbeatChannel.SafeCloseAsync(_logger, default);
+        await registrationChannel.SafeCloseAsync(_logger, CancellationToken.None);
+        await heartbeatChannel.SafeCloseAsync(_logger, CancellationToken.None);
     }
 
-    private async Task ProcessRegistrationAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private async Task ProcessRegistrationAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
     {
         try
         {
@@ -200,7 +183,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             {
                 _logger.Debug("Failed to deserialize worker registration");
 
-                await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+                await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
 
                 return;
             }
@@ -225,13 +208,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 _logger.Error("Failed to register worker {WorkerId} in Redis", registration.WorkerId);
             }
 
-            await _registrationChannel.SafeAckAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+            await channel.SafeAckAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process worker registration");
 
-            await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+            await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
     }
 
@@ -299,7 +282,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         }
     }
 
-    private async Task ProcessHeartbeatAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private async Task ProcessHeartbeatAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
     {
         try
         {
@@ -313,7 +296,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
             if (heartbeat == null)
             {
-                await _heartbeatChannel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+                await channel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -322,28 +305,12 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             {
                 _logger.Warning("Worker instance {InstanceId} is shutting down gracefully, performing immediate cleanup", heartbeat.InstanceId);
 
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var redisScheduler = scope.ServiceProvider.GetService<IRedisSchedulerService>();
-
-                if (redisScheduler != null)
-                {
-                    try
-                    {
-                        var removed = await redisScheduler.RemoveAllRunningJobsForWorkerAsync(heartbeat.InstanceId, cancellationToken);
-                        _logger.Information("Cleaned up {Count} running jobs for shutting down instance {InstanceId}", removed, heartbeat.InstanceId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Failed to cleanup running jobs for {InstanceId}", heartbeat.InstanceId);
-                    }
-                }
-
                 var success = await _redisWorkerService.RemoveWorkerInstanceAsync(heartbeat.WorkerId, heartbeat.InstanceId, cancellationToken);
 
                 if (success)
                     _logger.Information("Worker instance {InstanceId} cleaned up successfully on graceful shutdown", heartbeat.InstanceId);
 
-                await _heartbeatChannel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+                await channel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -356,7 +323,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             _latestHeartbeats.AddOrUpdate(
                 instanceKey,
                 // Add new entry
-                (heartbeat, ea.DeliveryTag, now),
+                (heartbeat, ea.DeliveryTag, channel, now),
                 // Update existing: keep newer heartbeat, ACK older delivery tag immediately
                 (key, existing) =>
                 {
@@ -364,13 +331,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                     if (heartbeat.Timestamp >= existing.Heartbeat.Timestamp)
                     {
                         // New heartbeat is newer - ACK the old one
-                        _ = _heartbeatChannel.SafeAckAsync(existing.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
-                        return (heartbeat, ea.DeliveryTag, now);
+                        _ = existing.Channel.SafeAckAsync(existing.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+                        return (heartbeat, ea.DeliveryTag, channel, now);
                     }
                     else
                     {
                         // Existing heartbeat is newer - ACK the incoming one
-                        _ = _heartbeatChannel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+                        _ = channel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
                         return existing;
                     }
                 });
@@ -380,7 +347,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process worker heartbeat");
-            await _heartbeatChannel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+            await channel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
         }
     }
 
@@ -402,13 +369,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
 
             // Snapshot and clear the dictionary atomically
-            var snapshot = new List<(string InstanceId, WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag)>();
+            var snapshot = new List<(string InstanceId, WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag, IChannel Channel)>();
 
             foreach (var kvp in _latestHeartbeats)
             {
                 if (_latestHeartbeats.TryRemove(kvp.Key, out var entry))
                 {
-                    snapshot.Add((kvp.Key, entry.Heartbeat, entry.DeliveryTag));
+                    snapshot.Add((kvp.Key, entry.Heartbeat, entry.DeliveryTag, entry.Channel));
                 }
             }
 
@@ -421,8 +388,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
 
             // ACK each message individually (can't use bulk ACK with deduplication since delivery tags aren't sequential)
-            foreach (var (InstanceId, Heartbeat, DeliveryTag) in snapshot)
-                await _heartbeatChannel.SafeAckAsync(DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+            foreach (var (_, _, DeliveryTag, Channel) in snapshot)
+                await Channel.SafeAckAsync(DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
 
             // Record metrics
             _metrics.RecordWorkerHeartbeats(successCount);
@@ -448,31 +415,30 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     /// <returns></returns>
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _stopRequested = true;
-
         _logger.Information("Worker auto discovery is stopping...");
+
+        // Cancels the consumers and batch loop and waits for them, so nothing else touches the batch below.
+        await base.StopAsync(cancellationToken);
 
         // Process remaining heartbeats before shutdown
         try
         {
             await ProcessHeartbeatBatchAsync(CancellationToken.None);
-            _logger.Information("Processed remaining {Count} heartbeats during shutdown", _latestHeartbeats.Count);
         }
         catch (Exception ex)
         {
             _logger.Warning(ex, "Failed to process remaining heartbeats during shutdown");
         }
 
-        // Dispose semaphores
-        _batchLock?.Dispose();
-        _heartbeatChannelLock?.Dispose();
-        _registrationChannelLock?.Dispose();
-
         // Close only channels (connection is managed by RabbitMQConnectionFactory)
         await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
         await _heartbeatChannel.SafeCloseAsync(_logger, cancellationToken);
 
-        await base.StopAsync(cancellationToken);
+        // Dispose semaphores last: the work above still needs them
+        _batchLock?.Dispose();
+        _heartbeatChannelLock?.Dispose();
+        _registrationChannelLock?.Dispose();
+
         _logger.Information("Worker auto discovery stopped");
     }
 
@@ -501,7 +467,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                             continue;
 
                         var now = DateTime.UtcNow;
-                        var heartbeatTimeoutSeconds = worker.Metadata.HeartbeatInterval * 3;
+                        // A worker that reports no interval must not count as dead on sight.
+                        var heartbeatTimeoutSeconds = worker.Metadata?.HeartbeatInterval > 0 ? worker.Metadata.HeartbeatInterval * 3 : 60;
                         var deadInstances = worker.Instances.Where(i => i.LastHeartbeat != default && (now - i.LastHeartbeat).TotalSeconds > heartbeatTimeoutSeconds).ToList();
 
                         foreach (var deadInstance in deadInstances)
