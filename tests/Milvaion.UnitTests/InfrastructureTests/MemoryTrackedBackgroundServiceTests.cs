@@ -150,17 +150,6 @@ public class MemoryTrackedBackgroundServiceTests
         service.TrackMemoryCalled.Should().BeTrue();
     }
 
-    [Fact]
-    public void ForceGarbageCollection_ShouldNotThrow()
-    {
-        // Arrange
-        var service = CreateService();
-
-        // Act & Assert
-        var act = () => service.CallForceGarbageCollection();
-        act.Should().NotThrow();
-    }
-
     /// <summary>
     /// Concrete test implementation of MemoryTrackedBackgroundService.
     /// </summary>
@@ -179,7 +168,5 @@ public class MemoryTrackedBackgroundServiceTests
             TrackMemoryAfterIteration();
             return Task.CompletedTask;
         }
-
-        public void CallForceGarbageCollection() => ForceGarbageCollection();
     }
 }

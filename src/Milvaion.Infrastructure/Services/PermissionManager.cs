@@ -92,6 +92,8 @@ public class PermissionManager(IMilvaionRepositoryBase<Permission> permissionRep
 
         permissions = await GetAllPermissionsAsync(cancellationToken);
 
+        PermissionCatalog.Permissions.Clear();
+
         foreach (var permission in permissions)
             PermissionCatalog.Permissions.Add(permission);
 

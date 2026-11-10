@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Domain;
@@ -26,6 +27,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 public class ApiKeyExpiryMonitorService(IServiceScopeFactory scopeFactory,
                                         IAlertNotifier alertNotifier,
                                         IConnectionMultiplexer redis,
+                                        IOptions<RedisOptions> redisOptions,
                                         ILogger<ApiKeyExpiryMonitorService> logger) : BackgroundService
 {
     /// <summary>How long before expiry a key is considered "expiring".</summary>
@@ -40,6 +42,7 @@ public class ApiKeyExpiryMonitorService(IServiceScopeFactory scopeFactory,
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IConnectionMultiplexer _redis = redis;
+    private readonly RedisOptions _redisOptions = redisOptions.Value;
     private readonly ILogger<ApiKeyExpiryMonitorService> _logger = logger;
 
     /// <inheritdoc/>
@@ -106,7 +109,7 @@ public class ApiKeyExpiryMonitorService(IServiceScopeFactory scopeFactory,
             var state = expired ? "expired" : "expiring";
 
             // Only alert once per key+state per TTL, across all instances.
-            var firstTime = await db.StringSetAsync($"milvaion:apikey-alert:{key.Id}:{state}", "1", _dedupTtl, When.NotExists);
+            var firstTime = await db.StringSetAsync($"{_redisOptions.KeyPrefix}apikey-alert:{key.Id}:{state}", "1", _dedupTtl, When.NotExists);
 
             if (!firstTime)
                 continue;

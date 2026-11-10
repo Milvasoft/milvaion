@@ -96,7 +96,7 @@ public static class InfraServiceCollectionExtensions
 
         services.AddMilvaCronJob<RedisStatSyncJob>(c =>
         {
-            c.TimeZoneInfo = TimeZoneInfo.Local;
+            c.TimeZoneInfo = TimeZoneInfo.Utc;
             c.CronExpression = @"0 */30 * * * *"; // Every 30 min
             c.CronFormat = CronFormat.IncludeSeconds;
         });

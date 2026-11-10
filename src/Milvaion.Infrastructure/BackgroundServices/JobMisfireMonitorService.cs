@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
@@ -27,6 +28,7 @@ public class JobMisfireMonitorService(IServiceScopeFactory scopeFactory,
                                       IRedisSchedulerService redisScheduler,
                                       IAlertNotifier alertNotifier,
                                       IConnectionMultiplexer redis,
+                                      IOptions<RedisOptions> redisOptions,
                                       ILogger<JobMisfireMonitorService> logger) : BackgroundService
 {
     /// <summary>How late a still-scheduled job must be before it counts as a misfire.</summary>
@@ -39,6 +41,7 @@ public class JobMisfireMonitorService(IServiceScopeFactory scopeFactory,
     private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IConnectionMultiplexer _redis = redis;
+    private readonly RedisOptions _redisOptions = redisOptions.Value;
     private readonly ILogger<JobMisfireMonitorService> _logger = logger;
 
     /// <inheritdoc/>
@@ -110,7 +113,7 @@ public class JobMisfireMonitorService(IServiceScopeFactory scopeFactory,
             var scheduledEpoch = new DateTimeOffset(scheduledAt, TimeSpan.Zero).ToUnixTimeSeconds();
 
             // One alert per missed slot, across all instances.
-            var firstTime = await db.StringSetAsync($"milvaion:misfire-alert:{jobId}:{scheduledEpoch}", "1", _dedupTtl, When.NotExists);
+            var firstTime = await db.StringSetAsync($"{_redisOptions.KeyPrefix}misfire-alert:{jobId}:{scheduledEpoch}", "1", _dedupTtl, When.NotExists);
             if (!firstTime)
                 continue;
 
