@@ -26,7 +26,9 @@ public class GetWorkflowDetailQueryHandler(IMilvaionRepositoryBase<Workflow> wor
         var jobIds = workflow.Definition?.Steps?.Where(s => s.JobId.HasValue).Select(s => s.JobId.Value).Distinct().ToList() ?? [];
         var jobInfoById = new Dictionary<Guid, (string DisplayName, string WorkerId, string JobNameInWorker)>();
 
-        var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), cancellationToken: cancellationToken);
+        var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id),
+                                                         projection: j => new ScheduledJob { Id = j.Id, DisplayName = j.DisplayName, WorkerId = j.WorkerId, JobNameInWorker = j.JobNameInWorker },
+                                                         cancellationToken: cancellationToken);
 
         foreach (var job in jobs)
             jobInfoById[job.Id] = (job.DisplayName, job.WorkerId, job.JobNameInWorker);

@@ -56,6 +56,11 @@ public sealed class UpdateWorkflowCommandValidator : AbstractValidator<UpdateWor
             .When(x => x.Steps.IsUpdated)
             .WithMessage("Workflow must have at least one step.");
 
+        RuleFor(x => x.Steps.Value)
+            .Must(steps => steps == null || steps.Where(s => !string.IsNullOrWhiteSpace(s.TempId)).GroupBy(s => s.TempId).All(g => g.Count() == 1))
+            .When(x => x.Steps.IsUpdated)
+            .WithMessage("Each step must have a unique TempId.");
+
         RuleFor(x => x.Edges.Value)
             .Must(edges => edges == null || edges.All(e => !string.IsNullOrWhiteSpace(e.SourceTempId) && !string.IsNullOrWhiteSpace(e.TargetTempId)))
             .When(x => x.Edges.IsUpdated)

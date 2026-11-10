@@ -25,19 +25,9 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
         // Validate all referenced jobs exist
         var jobIds = request.Steps.Where(s => s.NodeType == WorkflowNodeType.Task && s.JobId.HasValue).Select(s => s.JobId!.Value).Distinct().ToList();
 
-        var existingJobIds = new HashSet<Guid>();
+        var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), projection: ScheduledJob.Projections.OnlyId, cancellationToken: cancellationToken);
 
-        var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), cancellationToken: cancellationToken);
-
-        foreach (var jobId in jobIds)
-        {
-            var job = jobs.FirstOrDefault(j => j.Id == jobId);
-
-            if (job != null)
-                existingJobIds.Add(jobId);
-        }
-
-        var missingJobs = jobIds.Except(existingJobIds).ToList();
+        var missingJobs = jobIds.Except(jobs.Select(j => j.Id)).ToList();
 
         if (missingJobs.Count > 0)
             return Response<Guid>.Error(default, $"Jobs not found: {string.Join(", ", missingJobs)}");
@@ -45,7 +35,7 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
         var tempIdToRealId = new Dictionary<string, Guid>();
 
         foreach (var step in request.Steps)
-            tempIdToRealId[step.TempId ?? Guid.CreateVersion7().ToString()] = Guid.CreateVersion7();
+            tempIdToRealId[step.TempId] = Guid.CreateVersion7();
 
         // Validate DAG (no cycles)
         if (!request.Steps.ValidateDAG(request.Edges))
@@ -70,12 +60,9 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             }
         };
 
-        var tempIds = request.Steps.Select(s => s.TempId).ToList();
-
-        for (int i = 0; i < request.Steps.Count; i++)
+        foreach (var stepCmd in request.Steps)
         {
-            var stepCmd = request.Steps[i];
-            var stepId = tempIdToRealId[stepCmd.TempId ?? tempIds[i] ?? Guid.CreateVersion7().ToString()];
+            var stepId = tempIdToRealId[stepCmd.TempId];
 
             workflow.Definition.Steps.Add(new WorkflowStepDefinition
             {
