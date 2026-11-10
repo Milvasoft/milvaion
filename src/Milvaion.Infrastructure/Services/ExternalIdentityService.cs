@@ -1,4 +1,5 @@
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Utils.PermissionManager;
 using Milvaion.Domain;
 using Milvasoft.Caching.Redis.Accessor;
 using System.Linq.Expressions;
@@ -221,20 +222,26 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
 
     /// <summary>
     /// Loads the provider's roles with their permissions, creating any that do not exist yet (with an
-    /// empty permission set for an admin to fill in).
+    /// empty permission set for an admin to fill in). Only roles owned by this provider can match: a group
+    /// named after a local role, or after one mirrored from another provider, is dropped instead of inheriting it.
     /// </summary>
     private async Task<List<Role>> EnsureRolesAsync(IReadOnlyCollection<string> roleNames, ExternalProvider provider, CancellationToken cancellationToken)
     {
-        var wanted = (roleNames ?? []).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList();
+        var wanted = (roleNames ?? []).Where(n => !string.IsNullOrWhiteSpace(n))
+                                      .Where(n => !string.Equals(n, nameof(PermissionCatalog.App.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                                      .Distinct()
+                                      .ToList();
 
         if (wanted.Count == 0)
             return [];
 
-        var existing = (await _roleRepository.GetAllAsync(condition: r => wanted.Contains(r.Name),
-                                                          projection: _roleWithPermissions,
-                                                          cancellationToken: cancellationToken)).ToList();
+        var matches = (await _roleRepository.GetAllAsync(condition: r => wanted.Contains(r.Name),
+                                                         projection: _roleWithPermissions,
+                                                         cancellationToken: cancellationToken)).ToList();
 
-        foreach (var name in wanted.Except(existing.Select(r => r.Name)))
+        var existing = matches.Where(r => r.Provider == provider).ToList();
+
+        foreach (var name in wanted.Except(matches.Select(r => r.Name)))
         {
             var role = new Role { Name = name, Provider = provider, RolePermissionRelations = [] };
 
@@ -255,7 +262,8 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
                 if (created is null)
                     throw;
 
-                existing.Add(created);
+                if (created.Provider == provider)
+                    existing.Add(created);
             }
         }
 

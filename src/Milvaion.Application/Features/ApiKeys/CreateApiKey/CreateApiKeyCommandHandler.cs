@@ -17,18 +17,23 @@ namespace Milvaion.Application.Features.ApiKeys.CreateApiKey;
 /// </remarks>
 /// <param name="ApiKeyRepository"></param>
 /// <param name="ApiKeyGenerator"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.CreateApiKey)]
 public record CreateApiKeyCommandHandler(IMilvaionRepositoryBase<MilvaionApiKey> ApiKeyRepository,
-                                         IApiKeyGenerator ApiKeyGenerator) : IInterceptable, ICommandHandler<CreateApiKeyCommand, CreatedApiKeyDto>
+                                         IApiKeyGenerator ApiKeyGenerator,
+                                         IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<CreateApiKeyCommand, CreatedApiKeyDto>
 {
     private readonly IMilvaionRepositoryBase<MilvaionApiKey> _apiKeyRepository = ApiKeyRepository;
     private readonly IApiKeyGenerator _apiKeyGenerator = ApiKeyGenerator;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<CreatedApiKeyDto>> Handle(CreateApiKeyCommand request, CancellationToken cancellationToken)
     {
+        await _privilegeGuard.EnsureCanGrantApiKeyPermissionsAsync(null, request.PermissionIdList, cancellationToken);
+
         var apiKey = request.Adapt<MilvaionApiKey>();
 
         apiKey.KeyVersion = _apiKeyGenerator.CurrentKeyVersion;
