@@ -1,6 +1,6 @@
 import './TriggerResult.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * The body of a "something was triggered" dialog, and the config that builds one.

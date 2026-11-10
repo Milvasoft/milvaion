@@ -19,6 +19,10 @@ if (isLocalhost) {
   if (typeof caches !== 'undefined')
     caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {})
 } else {
+  // Earlier releases cached authenticated API responses here. Nothing writes to it any more; drop what is left.
+  if (typeof caches !== 'undefined')
+    caches.delete('api-cache').catch(() => {})
+
   const updateSW = registerSW({
     onNeedRefresh() {
       console.log('🔄 New content available, please refresh.')

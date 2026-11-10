@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FluentAssertions;
 using Hangfire;
 using Hangfire.Client;
@@ -59,17 +60,14 @@ public class MilvaionJobFilterTests
         // Act
         _filter.OnPerforming(context);
 
-        // Allow fire-and-forget Task.Run to complete
-        Thread.Sleep(500);
-
-        // Assert
-        _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
+        // Assert - published from a fire-and-forget Task.Run
+        VerifyEventually(() => _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
             It.Is<ExternalJobOccurrenceMessage>(m =>
                 m.Status == JobOccurrenceStatus.Running &&
                 m.EventType == ExternalOccurrenceEventType.Starting &&
                 m.Source == "Hangfire" &&
                 m.WorkerId == "hangfire-test-worker"),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Once));
     }
 
     [Fact]
@@ -119,16 +117,13 @@ public class MilvaionJobFilterTests
         // Act
         _filter.OnPerformed(context);
 
-        // Allow fire-and-forget Task.Run to complete
-        Thread.Sleep(500);
-
-        // Assert
-        _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
+        // Assert - published from a fire-and-forget Task.Run
+        VerifyEventually(() => _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
             It.Is<ExternalJobOccurrenceMessage>(m =>
                 m.Status == JobOccurrenceStatus.Completed &&
                 m.EventType == ExternalOccurrenceEventType.Completed &&
                 m.Exception == null),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Once));
     }
 
     [Fact]
@@ -143,15 +138,12 @@ public class MilvaionJobFilterTests
         // Act
         _filter.OnPerformed(context);
 
-        // Allow fire-and-forget Task.Run to complete
-        Thread.Sleep(500);
-
-        // Assert
-        _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
+        // Assert - published from a fire-and-forget Task.Run
+        VerifyEventually(() => _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
             It.Is<ExternalJobOccurrenceMessage>(m =>
                 m.Status == JobOccurrenceStatus.Failed &&
                 m.Exception != null),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Once));
     }
 
     #endregion
@@ -183,15 +175,12 @@ public class MilvaionJobFilterTests
         // Act
         _filter.OnCreated(context);
 
-        // Allow fire-and-forget Task.Run to complete
-        Thread.Sleep(500);
-
-        // Assert
-        _publisherMock.Verify(x => x.PublishJobRegistrationAsync(
+        // Assert - published from a fire-and-forget Task.Run
+        VerifyEventually(() => _publisherMock.Verify(x => x.PublishJobRegistrationAsync(
             It.Is<ExternalJobRegistrationMessage>(m =>
                 m.Source == "Hangfire" &&
                 m.IsActive == true),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Once));
     }
 
     #endregion
@@ -210,15 +199,12 @@ public class MilvaionJobFilterTests
         // Act
         _filter.OnStateElection(context);
 
-        // Allow fire-and-forget Task.Run to complete
-        Thread.Sleep(500);
-
-        // Assert
-        _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
+        // Assert - published from a fire-and-forget Task.Run
+        VerifyEventually(() => _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
             It.Is<ExternalJobOccurrenceMessage>(m =>
                 m.Status == JobOccurrenceStatus.Cancelled &&
                 m.EventType == ExternalOccurrenceEventType.Cancelled),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Once));
     }
 
     [Fact]
@@ -254,6 +240,27 @@ public class MilvaionJobFilterTests
     }
 
     #endregion
+
+    /// <summary>
+    /// Retries a Moq verification until it passes. A fixed sleep lost the race on a busy thread pool.
+    /// </summary>
+    private static void VerifyEventually(Action verify)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        while (true)
+        {
+            try
+            {
+                verify();
+                return;
+            }
+            catch (MockException) when (stopwatch.Elapsed < TimeSpan.FromSeconds(10))
+            {
+                Thread.Sleep(25);
+            }
+        }
+    }
 
     #region Context Factories
 

@@ -8,10 +8,10 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 
 # Copy package files
-COPY ["src/MilvaionUI/package.json", "./"]
+COPY ["src/MilvaionUI/package.json", "src/MilvaionUI/package-lock.json", "./"]
 
-# Install dependencies (npm install is more flexible than npm ci)
-RUN npm install --silent --legacy-peer-deps
+# Install exactly what the lock file pins
+RUN npm ci --silent
 
 # Copy source files
 COPY ["src/MilvaionUI/", "./"]
@@ -96,6 +96,6 @@ USER milvaion
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:5000/api/health || exit 1
+  CMD curl -f http://localhost:5000/api/v1/healthcheck/live || exit 1
 
 ENTRYPOINT ["dotnet", "Milvaion.Api.dll"]

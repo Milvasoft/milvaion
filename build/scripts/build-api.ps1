@@ -36,7 +36,7 @@ function Write-Error { Write-Host "❌ $args" -ForegroundColor Red }
 function Write-Step { Write-Host "`n🔹 $args" -ForegroundColor Yellow }
 
 # Paths
-$rootDir = Split-Path -Parent $PSScriptRoot
+$rootDir = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $dockerfile = Join-Path $rootDir "src/Milvaion.Api/Dockerfile"
 
 Write-Host @"

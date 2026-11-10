@@ -23,6 +23,32 @@ public class CronProjectorTests
     /// </summary>
     private const string _hourlyCron = "0 0 * * * *";
 
+    [Theory]
+    [InlineData("0 0 0 30 2 *")] // February 30th never occurs
+    [InlineData("0 0 0 31 4 *")] // April has 30 days
+    public void GetNextOccurrence_ShouldReturnNull_WhenExpressionNeverFires(string cron)
+    {
+        CronProjector.GetNextOccurrence(cron, null, _now, _pollingIntervalSeconds).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("0 * * * *")] // five fields: the format here is seconds-first
+    [InlineData("not a cron")]
+    public void GetNextOccurrence_ShouldReturnNull_WhenExpressionCannotBeParsed(string cron)
+    {
+        CronProjector.GetNextOccurrence(cron, null, _now, _pollingIntervalSeconds).Should().BeNull();
+    }
+
+    [Fact]
+    public void GetNextOccurrence_ShouldRollOverTheYearAndHonourLeapDays()
+    {
+        var newYear = CronProjector.GetNextOccurrence("0 0 0 1 1 *", new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc), _now, _pollingIntervalSeconds);
+        var leapDay = CronProjector.GetNextOccurrence("0 0 0 29 2 *", new DateTime(2026, 7, 19, 0, 0, 0, DateTimeKind.Utc), _now, _pollingIntervalSeconds);
+
+        newYear.Should().Be(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        leapDay.Should().Be(new DateTime(2028, 2, 29, 0, 0, 0, DateTimeKind.Utc));
+    }
+
     [Fact]
     public void GetNextOccurrence_ShouldCountFromLastRun_NotFromNow()
     {

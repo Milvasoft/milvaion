@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Milvaion.Api.AppStartup;
+using Milvaion.Domain;
 using Npgsql;
 using Respawn;
 using System.Security.Cryptography;
@@ -22,7 +23,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     /// </summary>
     protected virtual string DatabaseName => "testDb";
 
-    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:latest")
+    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("testDb")
         .WithUsername("root")
         .WithPassword("postgres")
@@ -146,7 +147,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     {
         DbAdapter = DbAdapter.Postgres,
         SchemasToInclude = ["public"],
-        TablesToIgnore = ["__EFMigrationsHistory"]
+        TablesToIgnore = [TableNames.EfMigrationHistory]
     });
 
     public async Task ResetDatabase()

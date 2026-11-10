@@ -5,7 +5,6 @@
     <BuildType Name="TemplateTest" />
   </Configurations>
   <Folder Name="/build/">
-    <File Path="build/docker-compose.yml" />
     <File Path="build/README.md" />
     <File Path="docker-compose.yml" />
   </Folder>
@@ -25,33 +24,32 @@
     <File Path=".github/workflows/worker-template-nuget-publish.yml" />
   </Folder>
   <Folder Name="/build/scripts/">
-    <File Path="build/build-all.bat" />
-    <File Path="build/build-all.ps1" />
-    <File Path="build/build-all.sh" />
-    <File Path="build/build-api.bat" />
-    <File Path="build/build-api.ps1" />
-    <File Path="build/build-api.sh" />
-    <File Path="build/build-email-worker.bat" />
-    <File Path="build/build-email-worker.ps1" />
-    <File Path="build/build-email-worker.sh" />
-    <File Path="build/build-http-worker.bat" />
-    <File Path="build/build-http-worker.ps1" />
-    <File Path="build/build-http-worker.sh" />
-    <File Path="build/build-maintenance-worker.bat" />
-    <File Path="build/build-maintenance-worker.ps1" />
-    <File Path="build/build-maintenance-worker.sh" />
-    <File Path="build/build-sql-worker.bat" />
-    <File Path="build/build-sql-worker.ps1" />
-    <File Path="build/build-sql-worker.sh" />
-    <File Path="build/build-worker.bat" />
-    <File Path="build/build-worker.ps1" />
-    <File Path="build/build-worker.sh" />
-    <File Path="build/build.bat" />
-    <File Path="build/build.sh" />
-    <File Path="build/quick-start.ps1" />
-    <File Path="build/quick-start.sh" />
-    <File Path="build/QUICKSTART.md" />
-    <File Path="build/README.md" />
+    <File Path="build/scripts/build-all.bat" />
+    <File Path="build/scripts/build-all.ps1" />
+    <File Path="build/scripts/build-all.sh" />
+    <File Path="build/scripts/build-api.bat" />
+    <File Path="build/scripts/build-api.ps1" />
+    <File Path="build/scripts/build-api.sh" />
+    <File Path="build/scripts/build-email-worker.bat" />
+    <File Path="build/scripts/build-email-worker.ps1" />
+    <File Path="build/scripts/build-email-worker.sh" />
+    <File Path="build/scripts/build-http-worker.bat" />
+    <File Path="build/scripts/build-http-worker.ps1" />
+    <File Path="build/scripts/build-http-worker.sh" />
+    <File Path="build/scripts/build-maintenance-worker.bat" />
+    <File Path="build/scripts/build-maintenance-worker.ps1" />
+    <File Path="build/scripts/build-maintenance-worker.sh" />
+    <File Path="build/scripts/build-sql-worker.bat" />
+    <File Path="build/scripts/build-sql-worker.ps1" />
+    <File Path="build/scripts/build-sql-worker.sh" />
+    <File Path="build/scripts/build-worker.bat" />
+    <File Path="build/scripts/build-worker.ps1" />
+    <File Path="build/scripts/build-worker.sh" />
+    <File Path="build/scripts/build.bat" />
+    <File Path="build/scripts/build.sh" />
+    <File Path="build/scripts/quick-start.ps1" />
+    <File Path="build/scripts/quick-start.sh" />
+    <File Path="build/scripts/QUICKSTART.md" />
   </Folder>
   <Folder Name="/docs/" />
   <Folder Name="/docs/githubdocs/">

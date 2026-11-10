@@ -4,33 +4,31 @@ import authService from './authService'
 class SignalRService {
   constructor() {
     this.connection = null
-    this.isConnecting = false
+    this.connectPromise = null
+    this.retryTimer = null
     this.reconnectAttempts = 0
     this.maxReconnectAttempts = 5
     this.listeners = new Map()
     this.subscribedOccurrences = new Set()
   }
 
-  async connect() {
+  connect() {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
-      return
+      return Promise.resolve()
     }
 
-    if (this.isConnecting) {
-      await new Promise(resolve => {
-        const checkInterval = setInterval(() => {
-          if (!this.isConnecting) {
-            clearInterval(checkInterval)
-            resolve()
-          }
-        }, 100)
+    // Concurrent callers share the one attempt in flight.
+    if (!this.connectPromise) {
+      this.connectPromise = this._startConnection().finally(() => {
+        this.connectPromise = null
       })
-      return
     }
 
-    try {
-      this.isConnecting = true
+    return this.connectPromise
+  }
 
+  async _startConnection() {
+    try {
       const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
       const basePath = (window.__MILVAION_CONFIG__?.basePath ?? import.meta.env.VITE_BASE_PATH ?? '').replace(/\/$/, '')
       const hubUrl = `${apiUrl}${basePath}/hubs/jobs`
@@ -58,7 +56,6 @@ class SignalRService {
         if (error) {
           console.warn('SignalR connection closed:', error.message)
         }
-        this.isConnecting = false
       })
 
       this.connection.onreconnecting((error) => {
@@ -105,10 +102,8 @@ class SignalRService {
 
       if (this.reconnectAttempts < this.maxReconnectAttempts && !isExtensionError) {
         console.log(`🔄 Retrying connection (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`)
-        setTimeout(() => this.connect(), 5000 * this.reconnectAttempts)
+        this.retryTimer = setTimeout(() => this.connect(), 5000 * this.reconnectAttempts)
       }
-    } finally {
-      this.isConnecting = false
     }
   }
 
@@ -125,6 +120,9 @@ class SignalRService {
   }
 
   async disconnect() {
+    clearTimeout(this.retryTimer)
+    this.reconnectAttempts = 0
+
     if (this.connection) {
       this.subscribedOccurrences.clear()
       this.listeners.clear()

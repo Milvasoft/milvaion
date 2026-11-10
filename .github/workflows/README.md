@@ -43,6 +43,9 @@ The following workflows build and push Docker images to Docker Hub:
    - Version file: `src/Workers/SampleWorker/VERSION`
    - Image tags: `milvaion-sample-worker:latest`, `milvaion-sample-worker:{VERSION}`
 
+All of these wait for the `CI - Build & Test` run of the same commit (`wait-for-ci.yml`) and do not publish if it fails.
+A manual `workflow_dispatch` run skips the wait. After a flaky CI failure, re-run CI and then the failed publish run.
+
 ### NuGet Package Publishes
 
 The following workflows publish packages to NuGet.org:
@@ -58,6 +61,8 @@ The following workflows publish packages to NuGet.org:
    - Triggers on changes to: `src/Workers/Milvasoft.Templates.Milvaion/`
    - Publishes: `Milvasoft.Templates.Milvaion`
    - Version is determined from project file (.csproj)
+
+Both wait for CI in the same way. On a pull request they only build and pack; nothing is pushed to NuGet.org.
 
 ## Version Management
 

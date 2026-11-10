@@ -20,6 +20,10 @@
 **/npm-debug.log
 **/obj
 **/secrets.dev.yaml
+**/coverage*.json
+docs
+tests/**
+!tests/**/*.csproj
 **/values.dev.yaml
 LICENSE
 README.md

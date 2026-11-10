@@ -1,7 +1,7 @@
 import Icon from './Icon'
 import { formatDateTime, formatRelativeTime } from '../utils/dateUtils'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * The pieces every list table in the app is built from.

@@ -9,8 +9,17 @@ on:
       - '**/Directory.Build.props'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  ci-gate:
+    uses: ./.github/workflows/wait-for-ci.yml
+    permissions:
+      actions: read
+
   build:
+    needs: ci-gate
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
