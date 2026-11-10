@@ -101,6 +101,11 @@ public class JobOccurrenceDetailDto : MilvaionBaseDto<Guid>
     public string ExternalJobId { get; set; }
 
     /// <summary>
+    /// Most recent logs returned with the detail. The paged log list serves the rest.
+    /// </summary>
+    public const int MaxLogsInDetail = 1000;
+
+    /// <summary>
     /// Projection expression for mapping ScheduledJob scheduledjob to ScheduledJobListDto.
     /// </summary>
     [JsonIgnore]
@@ -120,7 +125,7 @@ public class JobOccurrenceDetailDto : MilvaionBaseDto<Guid>
         Result = r.Result,
         Exception = r.Exception,
         CreatedAt = r.CreatedAt,
-        Logs = r.Logs,
+        Logs = r.Logs.OrderByDescending(l => l.Timestamp).Take(MaxLogsInDetail).ToList(),
         StatusChangeLogs = r.StatusChangeLogs,
         LastHeartbeat = r.LastHeartbeat,
         JobVersion = r.JobVersion,
