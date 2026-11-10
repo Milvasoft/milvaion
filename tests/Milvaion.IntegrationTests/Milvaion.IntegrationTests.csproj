@@ -20,6 +20,7 @@
 	<ItemGroup>
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
 		<PackageReference Include="Bogus" Version="35.6.5" />
+		<PackageReference Include="Dapper" Version="2.1.79" />
 		<PackageReference Include="FluentAssertions" Version="[7.0.0]" />
 		<PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="10.0.11" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
@@ -47,6 +48,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <!-- Linked rather than referenced: worker projects are executables that would copy their appsettings.json over the API's -->
+	  <Compile Include="..\..\src\Workers\MilvaionMaintenanceWorker\Options\MaintenanceOptions.cs" Link="BackgroundServices\Linked\MaintenanceOptions.cs" />
+	  <Compile Include="..\..\src\Workers\MilvaionMaintenanceWorker\Jobs\OccurrenceArchiveJob.cs" Link="BackgroundServices\Linked\OccurrenceArchiveJob.cs" />
+	  <Compile Include="..\..\src\Workers\MilvaionMaintenanceWorker\Jobs\OccurrenceRetentionJob.cs" Link="BackgroundServices\Linked\OccurrenceRetentionJob.cs" />
 	  <ProjectReference Include="..\..\src\Milvaion.Api\Milvaion.Api.csproj" />
 	  <ProjectReference Include="..\..\src\Sdk\Milvasoft.Milvaion.Sdk.Worker\Milvasoft.Milvaion.Sdk.Worker.csproj" />
 	  <ProjectReference Include="..\..\src\Sdk\Milvasoft.Milvaion.Sdk.Worker.Quartz\Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj" />

@@ -37,6 +37,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Linked rather than referenced: worker projects are executables that would copy their appsettings.json over the API's -->
+    <Compile Include="..\..\src\Workers\HttpWorker\Options\HttpWorkerOptions.cs" Link="WorkerTests\Linked\HttpWorkerOptions.cs" />
+    <Compile Include="..\..\src\Workers\HttpWorker\Security\HttpTargetPolicy.cs" Link="WorkerTests\Linked\HttpTargetPolicy.cs" />
+    <Compile Include="..\..\src\Workers\SqlWorker\Options\SqlWorkerOptions.cs" Link="WorkerTests\Linked\SqlWorkerOptions.cs" />
+    <Compile Include="..\..\src\Workers\SqlWorker\Jobs\SqlJobData.cs" Link="WorkerTests\Linked\SqlJobData.cs" />
+    <Compile Include="..\..\src\Workers\SqlWorker\Services\SqlStatementGuard.cs" Link="WorkerTests\Linked\SqlStatementGuard.cs" />
     <ProjectReference Include="..\..\src\Milvaion.Api\Milvaion.Api.csproj" />
     <ProjectReference Include="..\..\src\Milvaion.Application\Milvaion.Application.csproj" />
     <ProjectReference Include="..\..\src\Milvaion.Domain\Milvaion.Domain.csproj" />

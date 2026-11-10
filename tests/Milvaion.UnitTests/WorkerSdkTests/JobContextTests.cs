@@ -277,6 +277,17 @@ public class JobContextTests
     }
 
     [Fact]
+    public void Log_ShouldNotThrow_WhenJobConsumerConfigIsMissing()
+    {
+        // Arrange
+        var context = new JobContext(_correlationId, _scheduledJob, _workerId, _loggerMock.Object, _outboxServiceMock.Object, null, CancellationToken.None);
+
+        // Act & Assert
+        context.Invoking(c => c.Log("message")).Should().NotThrow();
+        context.Invoking(c => c.LogError("error")).Should().NotThrow();
+    }
+
+    [Fact]
     public void LogUserFriendlyLogsViaLogger_ShouldNotLogToLogger_WhenDisabled()
     {
         // Arrange

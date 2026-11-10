@@ -785,6 +785,44 @@ public class OutboxServiceTests
 
     #endregion
 
+    #region Offline resilience disabled
+
+    [Fact]
+    public async Task PublishStatusUpdateAsync_ShouldStillPublish_WhenResilienceDisabledAndMonitorUnhealthy()
+    {
+        // Arrange
+        _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(false);
+
+        var outboxService = new OutboxService(new NullLocalStateStore(), _statusPublisherMock.Object, _logPublisherMock.Object, _connectionMonitorMock.Object, _loggerMock.Object);
+
+        var occurrenceId = Guid.CreateVersion7();
+
+        // Act
+        await outboxService.PublishStatusUpdateAsync(occurrenceId, Guid.CreateVersion7(), "worker", "instance", JobOccurrenceStatus.Completed);
+
+        // Assert
+        _statusPublisherMock.Verify(x => x.PublishStatusAsync(occurrenceId, It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), JobOccurrenceStatus.Completed, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PublishLogAsync_ShouldStillPublish_WhenResilienceDisabledAndMonitorUnhealthy()
+    {
+        // Arrange
+        _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(false);
+
+        var outboxService = new OutboxService(new NullLocalStateStore(), _statusPublisherMock.Object, _logPublisherMock.Object, _connectionMonitorMock.Object, _loggerMock.Object);
+
+        var log = new OccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Information", Message = "m" };
+
+        // Act
+        await outboxService.PublishLogAsync(Guid.CreateVersion7(), "worker", log);
+
+        // Assert
+        _logPublisherMock.Verify(x => x.PublishLogAsync(It.IsAny<Guid>(), "worker", log, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
     private OutboxService CreateOutboxService(bool isRabbitMQHealthy)
     {
         _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(isRabbitMQHealthy);

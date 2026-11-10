@@ -228,6 +228,9 @@ public class JobDataTypeHelperTests
     [Fact]
     public void GetJobDataType_ShouldReturnType_ForIJobWithResult()
     {
+        JobDataTypeHelper.GetJobDataType(typeof(ResultOnlyJob)).Should().BeNull("the type argument of a result-only job is its result");
+        JobDataTypeHelper.GenerateSchema(typeof(SelfReferencingData)).Should().ContainKey("properties", "a self-referencing type must end instead of overflowing the stack");
+
         var result = JobDataTypeHelper.GetJobDataType(typeof(TypedJobWithResult));
         result.Should().Be<SampleJobData>();
     }
@@ -440,6 +443,17 @@ public class JobDataTypeHelperTests
     #endregion
 
     #region Test Types
+
+    private sealed class ResultOnlyJob : IAsyncJobWithResult<string>
+    {
+        public Task<string> ExecuteAsync(IJobContext context) => Task.FromResult("done");
+    }
+
+    private sealed class SelfReferencingData
+    {
+        public string Name { get; set; }
+        public SelfReferencingData Parent { get; set; }
+    }
 
     private sealed class SimpleJob : IAsyncJob
     {
