@@ -5,6 +5,7 @@ using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using StackExchange.Redis;
+using System.Globalization;
 
 namespace Milvaion.Infrastructure.Services.Redis;
 
@@ -819,9 +820,9 @@ public class RedisSchedulerService : IRedisSchedulerService
                 ZombieTimeoutMinutes = dict.TryGetValue("ZombieTimeoutMinutes", out var timeoutStr) && int.TryParse(timeoutStr, out var timeout) ? timeout : null,
                 ExecutionTimeoutSeconds = dict.TryGetValue("ExecutionTimeoutSeconds", out var execTimeoutStr) && int.TryParse(execTimeoutStr, out var execTimeout) ? execTimeout : null,
                 Version = dict.TryGetValue("Version", out var versionStr) && int.TryParse(versionStr, out var version) ? version : 1,
-                CreationDate = string.IsNullOrEmpty(dict.GetValueOrDefault("CreationDate")) ? null : DateTime.Parse(dict["CreationDate"]),
+                CreationDate = string.IsNullOrEmpty(dict.GetValueOrDefault("CreationDate")) ? null : DateTime.Parse(dict["CreationDate"], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
                 CreatorUserName = string.IsNullOrEmpty(dict.GetValueOrDefault("CreatorUserName")) ? null : dict["CreatorUserName"],
-                ExecuteAt = dict.TryGetValue("ExecuteAt", out var executeAtStr) && DateTime.TryParse(executeAtStr, out var executeAt) ? executeAt : DateTime.MinValue,
+                ExecuteAt = dict.TryGetValue("ExecuteAt", out var executeAtStr) && DateTime.TryParse(executeAtStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var executeAt) ? executeAt : DateTime.MinValue,
                 IsExternal = dict.TryGetValue("IsExternal", out var isExternalStr) && bool.TryParse(isExternalStr, out var isExternal) && isExternal,
                 ExternalJobId = dict.GetValueOrDefault("ExternalJobId"),
             };
