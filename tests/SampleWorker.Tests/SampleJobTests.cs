@@ -60,17 +60,17 @@ public class SampleJobTests
     }
 
     [Fact]
-    public async Task SampleSendEmailJob_ShouldComplete_WhenJobDataIsNull()
+    public async Task SampleSendEmailJob_ShouldNotFail_WhenJobDataIsNull()
     {
-        // Job uses context.GetData<EmailJobData>() which returns null gracefully
+        // Job uses context.GetData<EmailJobData>() which returns null gracefully. It then simulates 30s of work,
+        // so reaching the 1s timeout rather than failing is what shows the null data was handled.
         var result = await JobTestRunner
             .For(new SampleSendEmailJob())
             .WithTimeout(1)
             .WithLoggerFactory(CreateLoggerFactory())
             .RunAsync();
 
-        result.Status.Should().Be(JobOccurrenceStatus.Completed);
-        result.Exception.Should().BeNull();
+        result.Status.Should().Be(JobOccurrenceStatus.TimedOut);
     }
 
     [Fact]
