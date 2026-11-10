@@ -27,4 +27,10 @@ public interface IDispatcherControlService
     /// Gets the current stop reason if dispatcher is stopped.
     /// </summary>
     string GetStopReason();
+
+    /// <summary>
+    /// Picks up a stop or resume requested through another API instance.
+    /// Keeps the last known state when the shared store cannot be read.
+    /// </summary>
+    Task RefreshAsync(CancellationToken cancellationToken = default);
 }
