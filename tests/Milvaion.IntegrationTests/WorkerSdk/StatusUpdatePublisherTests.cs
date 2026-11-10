@@ -24,6 +24,47 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     [Fact]
+    public async Task PublishStatusAsync_ShouldRecover_AfterBrokerClosesTheChannel()
+    {
+        // Arrange - redeclaring the existing classic queue as quorum makes the broker close the channel with a 406
+        await PurgeStatusUpdatesQueueAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var options = new WorkerOptions { RabbitMQ = new RabbitMQSettings { Host = GetRabbitMqHost(), Port = GetRabbitMqPort(), QueueType = RabbitMQQueueType.Quorum } };
+
+        await using var publisher = new StatusUpdatePublisher(options, GetLoggerFactory());
+
+        var rabbitFactory = new ConnectionFactory { HostName = GetRabbitMqHost(), Port = GetRabbitMqPort(), UserName = "guest", Password = "guest" };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cts.Token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cts.Token);
+
+        Task Publish() => publisher.PublishStatusAsync(Guid.CreateVersion7(), Guid.CreateVersion7(), "worker", "instance", JobOccurrenceStatus.Running, cancellationToken: cts.Token);
+
+        await FluentActions.Awaiting(Publish).Should().ThrowAsync<Exception>();
+
+        try
+        {
+            // Act - once the cause is gone, the same publisher must work again
+            await channel.QueueDeleteAsync(WorkerConstant.Queues.StatusUpdates, ifUnused: false, ifEmpty: false, cancellationToken: cts.Token);
+
+            await Publish();
+
+            // Assert
+            var message = await channel.BasicGetAsync(WorkerConstant.Queues.StatusUpdates, autoAck: true, cts.Token);
+
+            message.Should().NotBeNull();
+            message!.BasicProperties.Persistent.Should().BeTrue("a durable queue only keeps persistent messages across a broker restart");
+        }
+        finally
+        {
+            // The other tests expect the classic queue
+            await channel.QueueDeleteAsync(WorkerConstant.Queues.StatusUpdates, ifUnused: false, ifEmpty: false, cancellationToken: CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task PublishStatusAsync_ShouldPublishRunningStatus()
     {
         // Arrange

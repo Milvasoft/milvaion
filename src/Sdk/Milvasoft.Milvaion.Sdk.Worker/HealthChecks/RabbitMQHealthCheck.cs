@@ -19,9 +19,10 @@ public class RabbitMQHealthCheck(IConnectionMonitor connectionMonitor) : IHealth
     {
         try
         {
-            var isHealthy = await _connectionMonitor.RefreshStatusAsync();
+            // The return value also covers Redis, which has its own health check
+            await _connectionMonitor.RefreshStatusAsync();
 
-            if (isHealthy)
+            if (_connectionMonitor.IsRabbitMQHealthy)
             {
                 return HealthCheckResult.Healthy("RabbitMQ connection is healthy", new Dictionary<string, object>
                 {

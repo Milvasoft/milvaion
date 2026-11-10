@@ -1,9 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
-using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
 
@@ -43,8 +42,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
 {
     private readonly WorkerOptions _options = options;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<StatusUpdatePublisher>();
-    private IConnection _connection;
-    private IChannel _channel;
+    private readonly ResilientPublisherChannel _channel = new(options, loggerFactory.CreateMilvaLogger<StatusUpdatePublisher>(), WorkerConstant.Queues.StatusUpdates);
 
     public async Task PublishStatusAsync(Guid occurrenceId,
                                          Guid jobId,
@@ -60,8 +58,6 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
     {
         try
         {
-            await EnsureConnectionAsync(cancellationToken);
-
             var message = new JobStatusUpdateMessage
             {
                 OccurrenceId = occurrenceId,
@@ -80,11 +76,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
             var json = JsonSerializer.Serialize(message);
             var body = Encoding.UTF8.GetBytes(json);
 
-            await _channel.BasicPublishAsync(exchange: string.Empty,
-                                             routingKey: WorkerConstant.Queues.StatusUpdates,
-                                             mandatory: false,
-                                             body: body,
-                                             cancellationToken: cancellationToken);
+            await _channel.PublishAsync(WorkerConstant.Queues.StatusUpdates, body, persistent: true, cancellationToken);
 
             _logger?.Debug("Published status update: {Status} for OccurrenceId: {OccurrenceId}", status, occurrenceId);
         }
@@ -99,8 +91,6 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
     {
         try
         {
-            await EnsureConnectionAsync(cancellationToken);
-
             var heartbeat = new WorkerHeartbeatMessage
             {
                 WorkerId = _options.WorkerId,
@@ -113,11 +103,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
             var json = JsonSerializer.Serialize(heartbeat);
             var body = Encoding.UTF8.GetBytes(json);
 
-            await _channel.BasicPublishAsync(exchange: string.Empty,
-                                             routingKey: WorkerConstant.Queues.WorkerHeartbeat,
-                                             mandatory: false,
-                                             body: body,
-                                             cancellationToken: cancellationToken);
+            await _channel.PublishAsync(WorkerConstant.Queues.WorkerHeartbeat, body, persistent: false, cancellationToken);
 
             _logger?.Information("Published shutdown heartbeat for {InstanceId}", _options.InstanceId);
         }
@@ -127,63 +113,9 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
         }
     }
 
-    private async Task EnsureConnectionAsync(CancellationToken cancellationToken)
-    {
-        if (_connection == null || !_connection.IsOpen)
-        {
-            var factory = new ConnectionFactory
-            {
-                HostName = _options.RabbitMQ.Host,
-                Port = _options.RabbitMQ.Port,
-                UserName = _options.RabbitMQ.Username,
-                Password = _options.RabbitMQ.Password,
-                VirtualHost = _options.RabbitMQ.VirtualHost
-            };
-
-            _connection = await factory.CreateConnectionAsync(cancellationToken);
-
-            // With PublisherConfirms on (the default), BasicPublishAsync below awaits the broker's ack, per https://www.rabbitmq.com/docs/publishers#data-safety.
-            _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions(), cancellationToken);
-
-            await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.StatusUpdates,
-                                             durable: true,
-                                             exclusive: false,
-                                             autoDelete: false,
-                                             arguments: _options.RabbitMQ.BuildQueueArguments(),
-                                             cancellationToken: cancellationToken);
-        }
-    }
-
-    /// <summary>
-    /// Dispose failed connection to allow reconnection on next attempt.
-    /// </summary>
-    private async Task DisposeConnectionAsync()
-    {
-        try
-        {
-            if (_channel != null)
-            {
-                await _channel.CloseAsync();
-                _channel.Dispose();
-                _channel = null;
-            }
-
-            if (_connection != null)
-            {
-                await _connection.CloseAsync();
-                _connection.Dispose();
-                _connection = null;
-            }
-        }
-        catch
-        {
-            // Ignore disposal errors
-        }
-    }
-
     public async ValueTask DisposeAsync()
     {
-        await DisposeConnectionAsync();
+        await _channel.DisposeAsync();
         GC.SuppressFinalize(this);
     }
 }

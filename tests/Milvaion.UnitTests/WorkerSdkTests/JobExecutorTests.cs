@@ -162,6 +162,42 @@ public class JobExecutorTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ShouldReportPermanentFailure_WhenSyncJobWithResultThrowsPermanentException()
+    {
+        // Arrange
+        var mockJob = new Mock<IJobWithResult<string>>();
+        mockJob.Setup(x => x.Execute(It.IsAny<IJobContext>())).Throws(new Milvasoft.Milvaion.Sdk.Worker.Exceptions.PermanentJobException("bad data"));
+
+        var workerOptions = new WorkerOptions { WorkerId = "test-worker" };
+        workerOptions.RegenerateInstanceId();
+
+        // Act
+        var result = await _jobExecutor.ExecuteAsync(mockJob.Object, CreateScheduledJob(Guid.CreateVersion7(), "SyncResult"), Guid.CreateVersion7(), null, workerOptions, new JobConsumerConfig { ExecutionTimeoutSeconds = 60 }, CancellationToken.None);
+
+        // Assert
+        result.Status.Should().Be(JobOccurrenceStatus.Failed);
+        result.IsPermanentFailure.Should().BeTrue();
+        result.Exception.Should().NotContain("TargetInvocationException");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldReportCancelled_WhenSyncJobWithResultIsCancelled()
+    {
+        // Arrange
+        var mockJob = new Mock<IJobWithResult<string>>();
+        mockJob.Setup(x => x.Execute(It.IsAny<IJobContext>())).Throws(new OperationCanceledException());
+
+        var workerOptions = new WorkerOptions { WorkerId = "test-worker" };
+        workerOptions.RegenerateInstanceId();
+
+        // Act
+        var result = await _jobExecutor.ExecuteAsync(mockJob.Object, CreateScheduledJob(Guid.CreateVersion7(), "SyncResult"), Guid.CreateVersion7(), null, workerOptions, new JobConsumerConfig { ExecutionTimeoutSeconds = 60 }, CancellationToken.None);
+
+        // Assert
+        result.Status.Should().Be(JobOccurrenceStatus.Cancelled);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ShouldReturnFailed_WhenJobThrowsException()
     {
         // Arrange

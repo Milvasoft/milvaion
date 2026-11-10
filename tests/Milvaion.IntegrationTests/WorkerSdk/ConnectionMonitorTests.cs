@@ -18,15 +18,15 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 public class ConnectionMonitorTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     [Fact]
-    public void IsRabbitMQHealthy_ShouldReturnFalse_Initially()
+    public void IsRabbitMQHealthy_ShouldBeOptimistic_BeforeFirstCheckCompletes()
     {
-        // Arrange - Before background check completes, status should be false
+        // Arrange - A failed publish still falls back to the local store, so startup statuses are not held back
         var options = CreateWorkerOptions();
 
         using var monitor = new ConnectionMonitor(options, GetLogger());
 
         // Assert
-        monitor.IsRabbitMQHealthy.Should().BeFalse();
+        monitor.IsRabbitMQHealthy.Should().BeTrue();
     }
 
     [Fact]

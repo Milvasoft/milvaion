@@ -13,12 +13,12 @@ public class HealthCheckOptions
     /// <summary>
     /// Health check file path.
     /// </summary>
-    public string ReadyFilePath { get; set; } = "/tmp/live";
+    public string ReadyFilePath { get; set; } = "/tmp/ready";
 
     /// <summary>
     /// Health check file path.
     /// </summary>
-    public string LiveFilePath { get; set; } = "/tmp/ready";
+    public string LiveFilePath { get; set; } = "/tmp/live";
 
     /// <summary>
     /// Health check interval in seconds.

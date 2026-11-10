@@ -205,7 +205,7 @@ public class MilvaionJobFilterTests
         _publisherMock.Setup(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var context = CreateElectStateContext(new DeletedState());
+        var context = CreateElectStateContext(new DeletedState(), Guid.CreateVersion7());
 
         // Act
         _filter.OnStateElection(context);
@@ -219,6 +219,22 @@ public class MilvaionJobFilterTests
                 m.Status == JobOccurrenceStatus.Cancelled &&
                 m.EventType == ExternalOccurrenceEventType.Cancelled),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void OnStateElection_WithDeletedState_ShouldNotPublish_WhenJobNeverRan()
+    {
+        // Arrange
+        var context = CreateElectStateContext(new DeletedState());
+
+        // Act
+        _filter.OnStateElection(context);
+
+        // Allow fire-and-forget Task.Run to potentially fire
+        Thread.Sleep(500);
+
+        // Assert
+        _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -288,13 +304,16 @@ public class MilvaionJobFilterTests
         return new CreatedContext(createContext, backgroundJob, false, null);
     }
 
-    private static ElectStateContext CreateElectStateContext(IState candidateState)
+    private static ElectStateContext CreateElectStateContext(IState candidateState, Guid? correlationId = null)
     {
         var job = CreateHangfireJob();
         var backgroundJob = new BackgroundJob("test-job-id", job, DateTime.UtcNow);
         var storage = new Mock<JobStorage>();
         var connection = new Mock<IStorageConnection>();
         var transaction = new Mock<IWriteOnlyTransaction>();
+
+        if (correlationId.HasValue)
+            connection.Setup(x => x.GetJobParameter("test-job-id", "Milvaion_CorrelationId")).Returns($"\"{correlationId}\"");
 
         var applyContext = new ApplyStateContext(storage.Object, connection.Object, transaction.Object, backgroundJob, candidateState, null);
         return new ElectStateContext(applyContext);

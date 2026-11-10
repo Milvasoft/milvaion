@@ -28,7 +28,7 @@ public class RedisCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWi
         context.LogInformation($"Key prefix: {settings.KeyPrefix}");
 
         // Connect to Redis
-        var redis = await ConnectionMultiplexer.ConnectAsync(_options.RedisConnectionString);
+        await using var redis = await ConnectionMultiplexer.ConnectAsync(_options.RedisConnectionString);
         var db = redis.GetDatabase();
         var server = redis.GetServer(redis.GetEndPoints().First());
 
@@ -132,21 +132,13 @@ public class RedisCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWi
         {
             scannedCount++;
 
-            // Check TTL - if no TTL and key exists, it might be stale
+            // Locks with a TTL expire on their own
             var ttl = await db.KeyTimeToLiveAsync(key);
 
-            if (!ttl.HasValue)
+            if (!ttl.HasValue && await IsIdleForAsync(db, key, TimeSpan.FromHours(staleLockHours), context))
             {
-                // Key has no TTL - check if it's old by trying to get creation time from value
-                var value = await db.StringGetAsync(key);
-
-                if (value.HasValue)
-                {
-                    // If lock value contains a timestamp, check if it's stale
-                    // Otherwise, delete locks without TTL (they should always have TTL)
-                    await db.KeyDeleteAsync(key);
-                    staleCount++;
-                }
+                await db.KeyDeleteAsync(key);
+                staleCount++;
             }
 
             context.CancellationToken.ThrowIfCancellationRequested();
@@ -155,6 +147,26 @@ public class RedisCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWi
         context.LogInformation($"  [OK] Scanned {scannedCount} lock keys, deleted {staleCount} stale locks");
 
         return staleCount;
+    }
+
+    /// <summary>
+    /// Whether the key has gone untouched for the given time. Lock values only hold an owner id, so the idle time is the
+    /// only available age. When Redis cannot report it the lock is kept: wrongly deleting a live lock allows a double dispatch.
+    /// </summary>
+    private static async Task<bool> IsIdleForAsync(IDatabase db, RedisKey key, TimeSpan threshold, IJobContext context)
+    {
+        try
+        {
+            var idleTime = await db.KeyIdleTimeAsync(key);
+
+            return idleTime >= threshold;
+        }
+        catch (RedisServerException ex)
+        {
+            context.LogWarning($"  Keeping lock {key}: its idle time is not available ({ex.Message})");
+
+            return false;
+        }
     }
 
     private static async Task<int> CleanOrphanedRunningStatesAsync(IServer server,
