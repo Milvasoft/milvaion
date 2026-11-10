@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Milvaion.Api.AppStartup;
 using Npgsql;
 using Respawn;
+using System.Security.Cryptography;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using Testcontainers.Redis;
@@ -57,6 +58,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     // Lock ensures parallel collection fixtures don't race on env vars during host build.
     // Each factory sets env vars and triggers host build atomically.
     private static readonly SemaphoreSlim _hostBuildLock = new(1, 1);
+
+    // Shared so a host rebuilt through WithWebHostBuilder accepts tokens signed by the original one.
+    private static readonly string _testJwtKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    private static readonly string _testApiKeySecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     public async Task InitializeAsync()
     {
@@ -114,6 +119,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
             Environment.SetEnvironmentVariable("MilvaionConfig__WorkflowEngine__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__LogCollector__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__Logging__Seq__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__Developer__EndpointsEnabled", "true");
+            Environment.SetEnvironmentVariable("MilvaionConfig__RateLimiting__LoginPermitPerMinute", "0");
+            Environment.SetEnvironmentVariable("Milvasoft__Identity__Token__SymmetricPublicKey", _testJwtKey);
+            Environment.SetEnvironmentVariable("MilvaionConfig__ApiKey__Secret", _testApiKeySecret);
 
             // Allow subclasses to inject additional env vars before the host build.
             ConfigureAdditionalEnvironmentVariables();
