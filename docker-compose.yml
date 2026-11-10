@@ -1,4 +1,10 @@
-﻿services:
+﻿# Development stack. Everything except the API is published on 127.0.0.1 only; remove the prefix from a port
+# mapping if a worker on another machine has to reach that service.
+# The defaults below are development values: set POSTGRES_PASSWORD, SEQ_ADMIN_PASSWORD, GRAFANA_ADMIN_PASSWORD and
+# MILVAION_ROOT_PASSWORD (a .env file next to this one works) before exposing this stack to anyone.
+# pgweb gives full database access and only starts with: docker compose --profile debug up -d
+
+services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
@@ -6,9 +12,9 @@
     environment:
       POSTGRES_DB: MilvaionDb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: N4SQp.qW>6?xwWzg
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-N4SQp.qW>6?xwWzg}"
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     command:
@@ -65,7 +71,7 @@
     image: redis:7-alpine
     container_name: milvaion-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -85,8 +91,8 @@
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     ports:
-      - "5672:5672"   # AMQP port
-      - "15672:15672" # Management UI
+      - "127.0.0.1:5672:5672"   # AMQP port
+      - "127.0.0.1:15672:15672" # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -100,13 +106,13 @@
 
   # Seq log server
   seq:
-    image: datalust/seq:latest
+    image: datalust/seq:2026.1
     container_name: milvaion-seq
     environment:
-      - SEQ_FIRSTRUN_ADMINPASSWORD=ChangeMe123!
+      - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_ADMIN_PASSWORD:-ChangeMe123!}
       - ACCEPT_EULA=Y
     ports:
-      - "5341:80" # Seq default UI port mapped to host 5341
+      - "127.0.0.1:5341:80" # Seq default UI port mapped to host 5341
     volumes:
       - seq_data:/data
     networks:
@@ -125,7 +131,8 @@
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
-      - MILVAION_ROOT_PASSWORD=admin
+      - MILVAION_ROOT_PASSWORD=${MILVAION_ROOT_PASSWORD:-admin}
+      - "ConnectionStrings__DefaultConnectionString=Host=postgres;Port=5432;Database=MilvaionDb;Username=postgres;Password=${POSTGRES_PASSWORD:-N4SQp.qW>6?xwWzg};Pooling=true;Minimum Pool Size=20;Maximum Pool Size=100;Connection Lifetime=900;Connection Idle Lifetime=180;Command Timeout=30"
       - MILVA_ENV=dev
     ports:
       - "5000:5000"  # API + React SPA (http://localhost:5000)
@@ -182,10 +189,10 @@
 
   # Prometheus - Metrics Collector
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.16.0
     container_name: milvaion-prometheus
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./build/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -193,7 +200,6 @@
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
     networks:
       - milvaion-network
     restart: unless-stopped
@@ -206,15 +212,15 @@
 
   # Grafana - Metrics Visualization
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.3.0
     container_name: milvaion-grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_SERVER_ROOT_URL=http://localhost:3001
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3001:3000" # 3000 is the Vite dev server
     volumes:
       - grafana_data:/var/lib/grafana
       - ./build/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -226,16 +232,20 @@
     labels:
       - "com.milvaion.service=grafana"
       - "com.milvaion.description=Grafana metrics dashboard"
+
+  # Database browser without authentication of its own. Only started with --profile debug.
   pgweb:
-    image: sosedoff/pgweb:latest
+    image: sosedoff/pgweb:0.17.0
+    profiles: ["debug"]
     container_name: milvaion-pgweb
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://postgres:N4SQp.qW%3E6%3FxwWzg@postgres:5432/MilvaionDb?sslmode=disable"
+      # URL-encoded, so it is not derived from POSTGRES_PASSWORD; set PGWEB_DATABASE_URL when that changes.
+      DATABASE_URL: "${PGWEB_DATABASE_URL:-postgres://postgres:N4SQp.qW%3E6%3FxwWzg@postgres:5432/MilvaionDb?sslmode=disable}"
     ports:
-      - "8082:8081"
+      - "127.0.0.1:8082:8081"
     networks:
       - milvaion-network
     restart: unless-stopped

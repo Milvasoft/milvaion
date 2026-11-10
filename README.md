@@ -572,7 +572,7 @@ docker compose up -d
 
 - **API**: http://localhost:5000
 - **Dashboard**: http://localhost:5000
-- **Grafana**: http://localhost:3000 (admin/admin)
+- **Grafana**: http://localhost:3001 (admin/admin)
 - **Prometheus**: http://localhost:9090
 - **RabbitMQ Management**: http://localhost:15672 (guest/guest)
 - **Seq Logs**: http://localhost:5341
