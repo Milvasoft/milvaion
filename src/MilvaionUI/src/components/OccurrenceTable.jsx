@@ -16,7 +16,7 @@ import {
 import { formatDurationMs } from '../utils/dateUtils'
 import { statusOf, occurrenceDurationMs, OCCURRENCE_STATUS_FILTERS } from '../utils/occurrenceStatus'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * A list of executions, for embedding in a detail page.

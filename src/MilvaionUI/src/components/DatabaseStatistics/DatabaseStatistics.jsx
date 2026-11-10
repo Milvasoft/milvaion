@@ -124,7 +124,6 @@ const loadTableBloat = async () => {
   }
 
   const isLoading = loading.tables || loading.indexes || loading.cache || loading.bloat
-  const hasAnyError = errors.tables || errors.indexes || errors.cache || errors.bloat
 
   if (isLoading) {
     return (

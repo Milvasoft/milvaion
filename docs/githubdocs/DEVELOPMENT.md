@@ -188,7 +188,7 @@ milvaion/
 │
 ├── docker-compose.yml                # Full stack compose
 ├── docker-compose.infra.yml          # Infrastructure only
-└── Milvaion.sln                      # Solution file
+└── Milvaion.slnx                     # Solution file
 ```
 
 ---
@@ -204,7 +204,7 @@ dotnet run
 ```
 
 **Using Visual Studio:**
-1. Open `Milvaion.sln`
+1. Open `Milvaion.slnx`
 2. Set `Milvaion.Api` as startup project
 3. Press F5 or click "Start"
 

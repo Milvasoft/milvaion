@@ -1,7 +1,7 @@
 import { BaseEdge, EdgeLabelRenderer, getBezierPath } from 'reactflow'
 import Icon from '../../../components/Icon'
 
-/* eslint-disable react/prop-types */
+ 
 export default function CustomEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, markerEnd, data, selected }) {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Icon from '../../components/Icon'
 import './DataMappingEditor.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 // Parse JSON Schema properties into a flat field descriptor list.
 // Nested objects are flattened as dotted paths (e.g. complexProp.title).

@@ -1,7 +1,7 @@
 import JsonView from './JsonView'
 import './JsonEditor.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * A labelled JSON field.

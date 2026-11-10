@@ -39,7 +39,7 @@ function Write-Error { Write-Host "[ERROR] $args" -ForegroundColor Red }
 function Write-Step { Write-Host "`n[STEP] $args" -ForegroundColor Yellow }
 
 # Paths
-$rootDir = Split-Path -Parent $PSScriptRoot
+$rootDir = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $dockerfile = Join-Path $rootDir "src/Workers/EmailWorker/Dockerfile"
 
 Write-Host @"

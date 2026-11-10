@@ -6,7 +6,7 @@ import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonDashboard } from '../../components/Skeleton'
 import './Dashboard.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * Dashboard - redesign.

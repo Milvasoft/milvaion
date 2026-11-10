@@ -874,7 +874,7 @@ sum by (service) (rate(milvaion_background_service_errors_total[5m]))
 
 #### Access Dashboards
 
-1. **Grafana UI**: http://localhost:3000 (default: admin/admin)
+1. **Grafana UI**: http://localhost:3001 (default: admin/admin)
 2. **Milvaion API Dashboard**: Pre-loaded as "Milvaion API Dashboard"
 3. **Background Services Dashboard**: Pre-loaded as "Milvaion Background Services"
 

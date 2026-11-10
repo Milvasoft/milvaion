@@ -73,7 +73,7 @@ fi
 
 # Get script directory and root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DOCKERFILE="$ROOT_DIR/src/Workers/HttpWorker/Dockerfile"
 
 echo ""

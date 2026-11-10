@@ -3,7 +3,7 @@ import { Handle, Position } from 'reactflow'
 import Icon from '../../../components/Icon'
 import { RunStatusBadge, RunMetaRow, BranchLabels } from './NodeRunParts'
 
-/* eslint-disable react/prop-types */
+ 
 function StepNode({ data, selected }) {
   const { step, jobsMap, onDelete, readOnly, run, dimmed, branches } = data
 

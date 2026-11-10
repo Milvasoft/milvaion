@@ -11,6 +11,7 @@ using Milvasoft.Core.Helpers;
 using Milvasoft.Identity.Abstract;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
+using System.Collections.Concurrent;
 using Xunit.Abstractions;
 
 namespace Milvaion.IntegrationTests.TestBase;
@@ -21,6 +22,9 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
     protected IServiceProvider _serviceProvider;
     protected IServiceScope _serviceScope;
     protected ITestOutputHelper _output = output;
+
+    // Contexts handed out by GetDbContext outlive the call, so their scopes are disposed with the test.
+    private readonly ConcurrentBag<AsyncServiceScope> _contextScopes = [];
 
     public virtual Task InitializeAsync() => InitializeAsync(null, null);
 
@@ -48,27 +52,40 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
             _serviceProvider = _factory.Services.CreateScope().ServiceProvider;
         }
 
-        try
+        var opt = new DbContextOptionsBuilder<MilvaionDbContext>()
+              .UseNpgsql(connectionString, b => b.MigrationsHistoryTable(TableNames.EfMigrationHistory).MigrationsAssembly("Milvaion.Api").EnableRetryOnFailure())
+              .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTrackingWithIdentityResolution);
+
+        await using (var context = new MilvaionDbContext(opt.Options))
         {
-            var opt = new DbContextOptionsBuilder<MilvaionDbContext>()
-                  .UseNpgsql(connectionString, b => b.MigrationsHistoryTable(TableNames.EfMigrationHistory).MigrationsAssembly("Milvaion.Api").EnableRetryOnFailure())
-                  .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTrackingWithIdentityResolution);
+            try
+            {
+                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
 
-            using var context = new MilvaionDbContext(opt.Options);
+                if (!pendingMigrations.IsNullOrEmpty())
+                    await context.Database.MigrateAsync();
+            }
+            catch (Exception ex)
+            {
+                _output.WriteLine($"Applying migrations failed: {ex}");
 
-            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+                // The host runs the same migrations from a hosted service, so losing that race is expected. Carrying
+                // on without the schema is not: every test would fail with an unrelated "relation does not exist".
+                var deadline = DateTime.UtcNow.AddSeconds(60);
 
-            if (!pendingMigrations.IsNullOrEmpty())
-                await context.Database.MigrateAsync();
-        }
-        catch (Exception)
-        {
-            // Handle exception
+                while (!(await context.Database.GetPendingMigrationsAsync()).IsNullOrEmpty())
+                {
+                    if (DateTime.UtcNow > deadline)
+                        throw;
+
+                    await Task.Delay(500);
+                }
+            }
         }
 
         var dbContext = _serviceProvider.GetService<MilvaionDbContext>();
 
-        await dbContext.Database.ExecuteSqlRawAsync(_resetAutoIncrementQuery);
+        await dbContext.Database.ExecuteSqlRawAsync(CustomWebApplicationFactory.ResetAutoIncrementQuery);
 
         await _factory.CreateRespawner();
         await SetupTestJobQueueAsync();
@@ -116,30 +133,89 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
             // Non-critical: tests that don't publish jobs still pass even if this setup fails.
         }
     }
-    private const string _resetAutoIncrementQuery = @"
-        DO $$
-        DECLARE
-            seq RECORD;
-        BEGIN
-            FOR seq IN
-                SELECT sequencename, schemaname
-                FROM pg_sequences
-                WHERE schemaname = 'public'
-            LOOP
-                EXECUTE format('ALTER SEQUENCE %I.%I RESTART WITH 5000', seq.schemaname, seq.sequencename);
-            END LOOP;
-        END
-        $$;
-    ";
-    public virtual Task DisposeAsync() => _factory.ResetDatabase();
+
+    public virtual async Task DisposeAsync()
+    {
+        foreach (var scope in _contextScopes)
+            await scope.DisposeAsync();
+
+        _contextScopes.Clear();
+
+        await _factory.ResetDatabase();
+    }
 
     public virtual MilvaionDbContext GetDbContext()
     {
-        var scope = _serviceProvider.CreateScope();
+        var scope = _serviceProvider.CreateAsyncScope();
+
+        _contextScopes.Add(scope);
 
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
         return dbContext;
+    }
+
+    /// <summary>
+    /// Seeds a user holding exactly <paramref name="permissions"/> through a role of its own.
+    /// </summary>
+    public virtual async Task<User> SeedUserWithPermissionsAsync(string userName, string password = "defaultpass", params string[] permissions)
+    {
+        var dbContext = _serviceProvider.GetService<MilvaionDbContext>();
+
+        var seededPermissions = permissions.Select((permission, index) => new Permission
+        {
+            // Clear of the super admin's fixed id and of the sequences, which restart at 5000.
+            Id = 100 + index,
+            // Stored split: the token's claim is "<group>.<name>", which is what PermissionCatalog constants hold.
+            Name = permission.Split('.')[1],
+            Description = permission,
+            NormalizedName = permission.Split('.')[1].MilvaNormalize(),
+            PermissionGroup = permission.Split('.')[0],
+            PermissionGroupDescription = permission
+        }).ToList();
+
+        await dbContext.Permissions.AddRangeAsync(seededPermissions);
+
+        var role = new Role
+        {
+            Name = $"{userName}Role",
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = GlobalConstant.SystemUsername,
+            RolePermissionRelations = [.. seededPermissions.Select(permission => new RolePermissionRelation { PermissionId = permission.Id })]
+        };
+
+        await dbContext.Roles.AddAsync(role);
+
+        await dbContext.SaveChangesAsync();
+
+        var user = new User
+        {
+            UserName = userName,
+            NormalizedUserName = userName.ToUpperInvariant(),
+            Email = $"{userName}@milvasoft.com",
+            NormalizedEmail = $"{userName}@milvasoft.com".ToUpperInvariant(),
+            Name = userName,
+            Surname = "User",
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = GlobalConstant.SystemUsername,
+            EmailConfirmed = true,
+            PhoneNumberConfirmed = true,
+            RoleRelations =
+            [
+                new()
+                {
+                    RoleId = role.Id
+                }
+            ]
+        };
+
+        dbContext.ServiceProvider.GetService<IMilvaUserManager<User, int>>().SetPasswordHash(user, password);
+
+        await dbContext.Users.AddAsync(user);
+
+        await dbContext.SaveChangesAsync();
+
+        return user;
     }
 
     public virtual async Task<User> SeedRootUserAndSuperAdminRoleAsync(string rootPassword = "defaultpass")

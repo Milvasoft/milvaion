@@ -4,7 +4,7 @@ import jobService from '../services/jobService'
 import useInfiniteScroll from '../hooks/useInfiniteScroll'
 import './JobSelect.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /** How many jobs one page of the dropdown holds. */
 const _pageSize = 50

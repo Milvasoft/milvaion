@@ -4,7 +4,7 @@ import DataMappingEditor from '../DataMappingEditor'
 import ConditionBuilder from './ConditionBuilder'
 import JobSelect from '../../../components/JobSelect'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * Node tipleri. Açıklamalar motorun gerçek davranışını anlatıyor: Condition bir iş

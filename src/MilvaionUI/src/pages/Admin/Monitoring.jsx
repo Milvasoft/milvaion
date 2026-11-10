@@ -8,14 +8,13 @@ import CollapsibleSection from '../../components/CollapsibleSection'
 import { SkeletonDashboard } from '../../components/Skeleton'
 import './Monitoring.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * System monitoring - redesign.
  *
  * Everything here is prefixed `mvm-` and the stylesheet is not imported globally, so this
- * can be kept or dropped without touching anything else. `AdminDashboard.jsx` is left in
- * place; swapping the route back is one line.
+ * can be kept or dropped without touching anything else.
  *
  * The page it replaces laid out five equal-weight cards in a grid. That is the wrong shape
  * for a monitoring screen, because a monitoring screen is read to answer one question -
