@@ -31,11 +31,11 @@ public class GetScheduledJobListQueryHandler(IMilvaionRepositoryBase<ScheduledJo
             }
             else
             {
-                string searchTerm = $"%{request.SearchTerm?.Trim()}%";
+                string searchTerm = request.SearchTerm.ToContainsPattern();
 
-                predicate = c => EF.Functions.ILike(c.DisplayName, searchTerm) ||
-                                 EF.Functions.ILike(c.Tags, searchTerm) ||
-                                 EF.Functions.ILike(c.JobNameInWorker, searchTerm);
+                predicate = c => EF.Functions.ILike(c.DisplayName, searchTerm, MilvaionExtensions.LikeEscapeCharacter) ||
+                                 EF.Functions.ILike(c.Tags, searchTerm, MilvaionExtensions.LikeEscapeCharacter) ||
+                                 EF.Functions.ILike(c.JobNameInWorker, searchTerm, MilvaionExtensions.LikeEscapeCharacter);
             }
         }
 

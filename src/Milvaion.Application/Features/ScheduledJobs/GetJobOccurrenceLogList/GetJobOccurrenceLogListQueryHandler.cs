@@ -98,9 +98,9 @@ public class GetJobOccurrenceLogListQueryHandler(IMilvaionDbContextAccessor milv
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
-            var searchTerm = $"%{request.SearchTerm.Trim()}%";
+            var searchTerm = request.SearchTerm.ToContainsPattern();
 
-            query = query.Where(l => EF.Functions.ILike(l.Message, searchTerm));
+            query = query.Where(l => EF.Functions.ILike(l.Message, searchTerm, MilvaionExtensions.LikeEscapeCharacter));
         }
 
         return query;
