@@ -43,7 +43,7 @@ curl -X PATCH http://localhost:5000/api/v1/jobs \
 
 Every endpoint that accepts an interactive session also accepts an api key. The permission requirements are identical — a key without `ScheduledJobManagement.List` gets the same 403 a user without it would.
 
-The one exception is the api key endpoints themselves. Those require an interactive session, so a leaked key cannot mint replacements for itself and survive being revoked.
+The exceptions are the api key and account endpoints. Those require an interactive session, so a leaked key cannot mint replacements for itself and survive being revoked.
 
 ## Choosing Permissions
 
@@ -60,7 +60,7 @@ Grant the narrowest set that does the job. Two common shapes:
 
 - `ScheduledJobManagement.Trigger`
 
-Avoid granting `App.SuperAdmin` to a key. It bypasses every other check, which defeats the point of scoping the key at all.
+`App.SuperAdmin` cannot be granted to a key: it bypasses every other check, which defeats the point of scoping the key at all. As with roles, you can only grant permissions you hold yourself.
 
 ## Revoking and Deleting
 

@@ -71,6 +71,32 @@ Milvaion handles token states with specific HTTP status codes:
 
 ---
 
+## Required Configuration
+
+No secret is shipped in `appsettings.json`. Set these through the environment (or a secret store) on every deployment:
+
+| Variable | Purpose |
+|----------|---------|
+| `ConnectionStrings__DefaultConnectionString` | Database connection, including its password. |
+| `Milvasoft__Identity__Token__SymmetricPublicKey` | Signing key for login tokens. |
+| `MilvaionConfig__ApiKey__Secret` | Signing secret for api keys. |
+| `MilvaionConfig__RabbitMQ__Username` / `MilvaionConfig__RabbitMQ__Password` | Broker credentials (default `guest`). |
+
+If a signing key is not set the API still starts, but generates a random one for that process and logs a warning: sessions and api keys stop working at every restart, and replicas reject each other's tokens.
+
+For the local `docker-compose` stack, copy `.env.example` to `.env`.
+
+These are off unless you turn them on:
+
+| Variable | Effect |
+|----------|--------|
+| `MilvaionConfig__Developer__EndpointsEnabled` | Registers the developer endpoints (database reset, seed, export). Everything but `database/init` requires super admin. |
+| `MilvaionConfig__Developer__ApiDocsEnabled` | Serves the OpenAPI document and Scalar reference. |
+
+Client addresses are only taken from `X-Forwarded-For` when the sending proxy is listed under `MilvaionConfig__ForwardedHeaders__KnownProxies__0` or `MilvaionConfig__ForwardedHeaders__KnownNetworks__0`. Login and token refresh are limited per client address by `MilvaionConfig__RateLimiting__LoginPermitPerMinute` (default 60, `0` disables); behind a proxy that is not listed, every client shares one limit.
+
+---
+
 ## External Identity Providers (SSO)
 
 In addition to local username/password login, Milvaion can federate authentication to an external identity provider. Two providers are supported and both are **off by default**, so the application keeps its local login behavior until one is enabled:
@@ -78,7 +104,7 @@ In addition to local username/password login, Milvaion can federate authenticati
 - **OIDC (OpenID Connect)** — browser redirect single sign-on (for example Keycloak, Entra ID, Auth0).
 - **LDAP / Active Directory** — the normal username/password form, with the password verified by a directory bind instead of the local hash.
 
-Regardless of the provider, **identity is owned by the provider while permissions stay owned by Milvaion**. On each sign-in Milvaion keeps a *shadow* user record and mirrors the provider's groups as roles; an administrator then assigns the permission set of those roles inside Milvaion.
+Regardless of the provider, **identity is owned by the provider while permissions stay owned by Milvaion**. On each sign-in Milvaion keeps a *shadow* user record and mirrors the provider's groups as roles; an administrator then assigns the permission set of those roles inside Milvaion. A group can only map to a role that provider owns: a group named after a local role, such as `SuperAdmin`, is ignored.
 
 Authentication is configured under `MilvaionConfig:Authentication`. These values are read at startup, so **changing them requires a restart**.
 
