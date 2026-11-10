@@ -15,14 +15,18 @@ namespace Milvaion.Application.Features.Users.CreateUser;
 [Log]
 [UserActivityTrack(UserActivity.CreateUser)]
 public record CreateUserCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
-                                       IMilvaUserManager<User, int> UserManager) : IInterceptable, ICommandHandler<CreateUserCommand, int>
+                                       IMilvaUserManager<User, int> UserManager,
+                                       SuperAdminGrantGuard GrantGuard) : IInterceptable, ICommandHandler<CreateUserCommand, int>
 {
     private readonly IMilvaionRepositoryBase<User> _userRepository = UserRepository;
     private readonly IMilvaUserManager<User, int> _userManager = UserManager;
+    private readonly SuperAdminGrantGuard _grantGuard = GrantGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(CreateUserCommand request, CancellationToken cancellationToken)
     {
+        await _grantGuard.EnsureRoleChangeAllowedAsync(null, request.RoleIdList, cancellationToken);
+
         var user = request.Adapt<User>();
 
         var errorMessageForUserName = _userManager.ValidateUserName(user.UserName);
