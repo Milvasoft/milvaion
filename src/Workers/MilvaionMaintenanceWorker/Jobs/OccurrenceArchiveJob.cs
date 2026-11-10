@@ -154,12 +154,13 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
                                                               string archiveTableName,
                                                               IJobContext context)
     {
-        // Earlier versions created this table with a column that never existed on JobOccurrences, so every
-        // insert failed and the table can only be empty. It cannot receive rows and has to be rebuilt.
+        // Earlier versions created these tables with a column that never existed on JobOccurrences and a Level of the
+        // wrong type, so every insert failed and they can only be empty. They cannot receive rows and have to be rebuilt.
         var hasLegacySchema = await connection.ExecuteScalarAsync<bool>(@"
             SELECT EXISTS (
                 SELECT FROM information_schema.columns
-                WHERE table_name = @TableName AND column_name = 'ScheduledTime'
+                WHERE table_name = @TableName
+                AND (column_name = 'ScheduledTime' OR (column_name = 'Level' AND data_type = 'integer'))
             )", new { TableName = archiveTableName });
 
         if (hasLegacySchema)
