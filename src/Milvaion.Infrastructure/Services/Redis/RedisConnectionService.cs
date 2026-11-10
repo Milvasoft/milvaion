@@ -63,7 +63,8 @@ public class RedisConnectionService : IDisposable, IAsyncDisposable
                     configOptions.Password = _options.Password;
                 }
 
-                _logger.Information("Connecting to Redis: {ConnectionString}, ConnectRetry: 3, ReconnectRetryPolicy: ExponentialRetry(5000ms)", _options.ConnectionString);
+                // Endpoints only: the connection string can carry the password.
+                _logger.Information("Connecting to Redis: {Endpoints}, ConnectRetry: 3, ReconnectRetryPolicy: ExponentialRetry(5000ms)", string.Join(", ", configOptions.EndPoints));
 
                 var connection = ConnectionMultiplexer.Connect(configOptions);
 

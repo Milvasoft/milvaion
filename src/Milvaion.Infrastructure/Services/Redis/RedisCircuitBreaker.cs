@@ -53,6 +53,7 @@ public class RedisCircuitBreaker(ILoggerFactory loggerFactory) : IRedisCircuitBr
     private long _totalOperations = 0;
     private long _totalFailures = 0;
     private DateTime _statsResetTime = DateTime.UtcNow;
+    private bool _halfOpenProbeInFlight;
     private readonly int _failureThreshold = 5;
     private readonly TimeSpan _openTimeout = TimeSpan.FromSeconds(30);
     private readonly TimeSpan _statsResetInterval = TimeSpan.FromHours(1); // Reset stats every hour
@@ -77,6 +78,7 @@ public class RedisCircuitBreaker(ILoggerFactory loggerFactory) : IRedisCircuitBr
     {
         bool shouldUseFallback;
         bool shouldTransitionToHalfOpen;
+        var isProbe = false;
 
         lock (_lock)
         {
@@ -96,19 +98,26 @@ public class RedisCircuitBreaker(ILoggerFactory loggerFactory) : IRedisCircuitBr
             // Check if circuit should transition from Open to HalfOpen
             shouldTransitionToHalfOpen = _state == CircuitState.Open && DateTime.UtcNow - _lastFailureTime > _openTimeout;
 
-            shouldUseFallback = _state == CircuitState.Open && !shouldTransitionToHalfOpen;
+            // HalfOpen lets a single call through to test Redis; the rest wait for its verdict on the fallback.
+            shouldUseFallback = (_state == CircuitState.Open && !shouldTransitionToHalfOpen) || (_state == CircuitState.HalfOpen && _halfOpenProbeInFlight);
 
             if (shouldTransitionToHalfOpen)
             {
                 _logger.Information("Circuit breaker transitioning from Open to HalfOpen for {Operation}. Testing if Redis recovered.", operationName);
                 _state = CircuitState.HalfOpen;
             }
+
+            if (_state == CircuitState.HalfOpen && !shouldUseFallback)
+            {
+                _halfOpenProbeInFlight = true;
+                isProbe = true;
+            }
         }
 
         // Use fallback outside lock if circuit is open
         if (shouldUseFallback)
         {
-            _logger.Warning("Circuit breaker is OPEN for {Operation}. Using fallback. Time until retry: {TimeUntilRetry}s", operationName, (_openTimeout - (DateTime.UtcNow - _lastFailureTime.Value)).TotalSeconds);
+            _logger.Warning("Circuit breaker is not closed for {Operation}. Using fallback.", operationName);
 
             if (fallback != null)
                 return await fallback();
@@ -146,6 +155,18 @@ public class RedisCircuitBreaker(ILoggerFactory loggerFactory) : IRedisCircuitBr
         {
             return await HandleFailureAsync(fallback, operationName, ex, cancellationToken);
         }
+        finally
+        {
+            if (isProbe)
+            {
+                lock (_lock)
+                {
+                    _halfOpenProbeInFlight = false;
+
+                    // The probe ended without a verdict (for example it was cancelled): let the next call try.
+                }
+            }
+        }
     }
 
     private Task<T> HandleFailureAsync<T>(Func<Task<T>> fallback,
@@ -161,7 +182,7 @@ public class RedisCircuitBreaker(ILoggerFactory loggerFactory) : IRedisCircuitBr
 
             _logger.Error(exception, "Redis operation failed: {Operation}, Consecutive failures: {Failures}/{Threshold}", operationName, _consecutiveFailures, _failureThreshold);
 
-            if (_consecutiveFailures >= _failureThreshold && _state != CircuitState.Open)
+            if ((_consecutiveFailures >= _failureThreshold || _state == CircuitState.HalfOpen) && _state != CircuitState.Open)
             {
                 _state = CircuitState.Open;
                 _logger.Fatal("Circuit breaker OPENED for Redis operations after {Failures} consecutive failures. Circuit will remain open for {Timeout}s before attempting recovery.", _consecutiveFailures, _openTimeout.TotalSeconds);

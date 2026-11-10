@@ -9,9 +9,10 @@ namespace Milvaion.Infrastructure.HealthChecks;
 /// <remarks>
 /// Initializes a new instance of the <see cref="RedisHealthCheck"/> class.
 /// </remarks>
-public class RedisHealthCheck(RedisConnectionService redisConnection) : IHealthCheck
+public class RedisHealthCheck(RedisConnectionService redisConnection, IRedisCircuitBreaker circuitBreaker = null) : IHealthCheck
 {
     private readonly RedisConnectionService _redisConnection = redisConnection;
+    private readonly IRedisCircuitBreaker _circuitBreaker = circuitBreaker;
 
     /// <inheritdoc/>
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
@@ -19,6 +20,16 @@ public class RedisHealthCheck(RedisConnectionService redisConnection) : IHealthC
         try
         {
             var isHealthy = await _redisConnection.IsHealthyAsync(cancellationToken);
+
+            // Connected, but the scheduler's Redis calls are short-circuited to their fallbacks.
+            if (isHealthy && _circuitBreaker != null && _circuitBreaker.State != Services.Redis.Utils.CircuitState.Closed)
+            {
+                return HealthCheckResult.Degraded($"Redis circuit breaker is {_circuitBreaker.State}", null, new Dictionary<string, object>
+                {
+                    ["ConnectionStatus"] = "Connected",
+                    ["CircuitState"] = _circuitBreaker.State.ToString()
+                });
+            }
 
             if (isHealthy)
             {

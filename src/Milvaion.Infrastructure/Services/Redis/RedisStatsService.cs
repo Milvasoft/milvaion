@@ -254,6 +254,9 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             // counters, and the real-time increments keep the live deltas accurate between syncs.
             // Autovacuum's ANALYZE keeps these statistics fresh.
             //
+            // Queued and Running are the exception: they are too rare to appear in the most-common-values
+            // list, where a missing status would read as zero. Those rows are few, so they are counted exactly.
+            //
             // Duration stays an exact aggregate over a 7-day window - it needs real sums, and that
             // window is small and cheap.
             var sql = @"
@@ -287,8 +290,8 @@ public class RedisStatsService(IConnectionMultiplexer redis,
                  )
                  SELECT
                      (SELECT total FROM tbl)::bigint AS ""TotalExecutions"",
-                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '0'), 0)::bigint AS ""QueuedJobs"",
-                     COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '1'), 0)::bigint AS ""RunningJobs"",
+                     (SELECT COUNT(*) FROM ""JobOccurrences"" WHERE ""Status"" = 0)::bigint AS ""QueuedJobs"",
+                     (SELECT COUNT(*) FROM ""JobOccurrences"" WHERE ""Status"" = 1)::bigint AS ""RunningJobs"",
                      COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '3'), 0)::bigint AS ""FailedJobs"",
                      COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '4'), 0)::bigint AS ""CancelledJobs"",
                      COALESCE((SELECT t.total * m.freq FROM tbl t, mcv m WHERE m.status = '5'), 0)::bigint AS ""TimedOutJobs"",

@@ -55,6 +55,8 @@ public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<I
         catch (Exception ex)
         {
             _logger.Value.Error(ex, "Failed to send email alert for {AlertType}", alertType);
+
+            return ChannelResult.Failed(ChannelName, ex.Message);
         }
 
         return ChannelResult.Successful(ChannelName);
@@ -134,7 +136,7 @@ public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<I
 
         // Header
         sb.AppendLine("<div class='alert-header'>");
-        sb.AppendLine($"<h2 style='margin: 0;'>{GetSeverityEmoji(payload.Severity)} {payload.Title ?? alertType.ToString()}</h2>");
+        sb.AppendLine($"<h2 style='margin: 0;'>{GetSeverityEmoji(payload.Severity)} {System.Net.WebUtility.HtmlEncode(payload.Title ?? alertType.ToString())}</h2>");
         sb.AppendLine($"<p style='margin: 5px 0 0 0; opacity: 0.9;'>Severity: {payload.Severity}</p>");
         sb.AppendLine("</div>");
 

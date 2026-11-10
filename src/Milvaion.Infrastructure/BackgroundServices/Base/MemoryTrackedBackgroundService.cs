@@ -145,13 +145,9 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
         {
             _logger.Warning("[{ServiceName}] Memory growth detected: +{GrowthMB} MB in {Seconds}s", ServiceName, memoryGrowth / 1024.0 / 1024, timeSinceLastCheck.TotalSeconds);
 
-            // Suggest GC if growth is significant
+            // Reported only: a blocking, compacting GC from here would pause every API request in the process.
             if (memoryGrowth > _options.CriticalThresholdBytes)
-            {
-                _logger.Error("[{ServiceName}] CRITICAL memory growth: +{GrowthMB} MB. Forcing GC...", ServiceName, memoryGrowth / 1024.0 / 1024);
-
-                ForceGarbageCollection();
-            }
+                _logger.Error("[{ServiceName}] CRITICAL memory growth: +{GrowthMB} MB", ServiceName, memoryGrowth / 1024.0 / 1024);
         }
 
         // Detect memory leaks (continuous growth over time)
@@ -161,7 +157,9 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
             _potentialMemoryLeak = true;
             _logger.Error("[{ServiceName}] Potential MEMORY LEAK detected! Total growth: {TotalGrowthMB} MB over {Hours:F1} hours", ServiceName, totalGrowth / 1024.0 / 1024, uptimeHours);
 
-            alertNotifier?.SendFireAndForget(AlertType.MemoryLeakDetected, new AlertPayload
+            // The measurement is process-wide, so every service would raise the same alarm at once.
+            if (ShouldSendLeakAlert())
+                alertNotifier?.SendFireAndForget(AlertType.MemoryLeakDetected, new AlertPayload
             {
                 Title = "Memory Leak Detected",
                 Message = $"Service '{ServiceName}' has a potential memory leak. Total growth: {totalGrowth / 1024.0 / 1024:F1} MB over {uptimeHours:F1} hours.",
@@ -182,24 +180,17 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
         _lastMemoryCheckTime = DateTime.UtcNow;
     }
 
+    private static long _lastLeakAlertTicks;
+
     /// <summary>
-    /// Forces garbage collection and logs results.
+    /// True at most once per hour across all services in this process.
     /// </summary>
-    protected void ForceGarbageCollection()
+    private static bool ShouldSendLeakAlert()
     {
-        var beforeGC = GetCurrentMemoryUsage();
+        var nowTicks = DateTime.UtcNow.Ticks;
+        var last = Interlocked.Read(ref _lastLeakAlertTicks);
 
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-
-        var afterGC = GetCurrentMemoryUsage();
-        var freedMemory = beforeGC - afterGC;
-
-        _logger.Information("[{ServiceName}] GC completed. Before: {BeforeMB} MB, After: {AfterMB} MB, Freed: {FreedMB} MB", ServiceName, beforeGC / 1024 / 1024, afterGC / 1024 / 1024, freedMemory / 1024.0 / 1024);
-
-        // Update baseline after GC
-        _lastMemoryUsed = afterGC;
+        return nowTicks - last >= TimeSpan.TicksPerHour && Interlocked.CompareExchange(ref _lastLeakAlertTicks, nowTicks, last) == last;
     }
 
     /// <summary>
