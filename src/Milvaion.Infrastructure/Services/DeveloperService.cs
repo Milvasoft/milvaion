@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Milvaion.Application.Features.Roles.CreateRole;
@@ -55,9 +55,14 @@ public class DeveloperService(IServiceProvider serviceProvider) : IDeveloperServ
         if (MilvaionExtensions.IsCurrentEnvProduction())
             return Response.Error();
 
+        var seedPassword = Environment.GetEnvironmentVariable("MILVAION_DEV_SEED_PASSWORD");
+
+        if (string.IsNullOrWhiteSpace(seedPassword))
+            return Response.Error("Set MILVAION_DEV_SEED_PASSWORD to seed the development users.");
+
         try
         {
-            await _databaseMigrator.SeedDefaultDataAsync("string");
+            await _databaseMigrator.SeedDefaultDataAsync(seedPassword);
 
             await _databaseMigrator.CreateTriggersAsync(default);
 
@@ -105,7 +110,7 @@ public class DeveloperService(IServiceProvider serviceProvider) : IDeveloperServ
                 Surname = "Kösen",
                 UserName = "bugrakosen",
                 Email = "bugrakosen@gmail.com",
-                Password = "string",
+                Password = seedPassword,
                 RoleIdList = [1]
             });
 
@@ -116,7 +121,7 @@ public class DeveloperService(IServiceProvider serviceProvider) : IDeveloperServ
                 Surname = "User",
                 UserName = "viewer",
                 Email = "viewer@gmail.com",
-                Password = "string",
+                Password = seedPassword,
                 RoleIdList = [addedRole.Data],
             });
 
@@ -150,7 +155,13 @@ public class DeveloperService(IServiceProvider serviceProvider) : IDeveloperServ
     /// </summary>
     /// <returns></returns>
     [ExcludeFromMetadata]
-    public async Task<Response<string>> InitDatabaseAsync() => await _databaseMigrator.InitDatabaseAsync(_permissionManager, default);
+    public async Task<Response<string>> InitDatabaseAsync()
+    {
+        var result = await _databaseMigrator.InitDatabaseAsync(_permissionManager, Environment.GetEnvironmentVariable("MILVAION_ROOT_PASSWORD"));
+
+        // This endpoint is anonymous and the result carries the root password. A generated one goes to the console.
+        return result.IsSuccess ? Response<string>.Success(string.Empty) : result;
+    }
 
     /// <summary>
     /// Resets ui related data.

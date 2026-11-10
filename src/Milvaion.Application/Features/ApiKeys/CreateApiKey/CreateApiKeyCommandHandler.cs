@@ -17,25 +17,25 @@ namespace Milvaion.Application.Features.ApiKeys.CreateApiKey;
 /// </remarks>
 /// <param name="ApiKeyRepository"></param>
 /// <param name="ApiKeyGenerator"></param>
-/// <param name="GrantGuard"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.CreateApiKey)]
 public record CreateApiKeyCommandHandler(IMilvaionRepositoryBase<MilvaionApiKey> ApiKeyRepository,
                                          IApiKeyGenerator ApiKeyGenerator,
-                                         SuperAdminGrantGuard GrantGuard) : IInterceptable, ICommandHandler<CreateApiKeyCommand, CreatedApiKeyDto>
+                                         IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<CreateApiKeyCommand, CreatedApiKeyDto>
 {
     private readonly IMilvaionRepositoryBase<MilvaionApiKey> _apiKeyRepository = ApiKeyRepository;
     private readonly IApiKeyGenerator _apiKeyGenerator = ApiKeyGenerator;
-    private readonly SuperAdminGrantGuard _grantGuard = GrantGuard;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<CreatedApiKeyDto>> Handle(CreateApiKeyCommand request, CancellationToken cancellationToken)
     {
-        var permissionError = await _grantGuard.ValidateApiKeyPermissionsAsync(null, request.PermissionIdList, cancellationToken);
+        if (!await _privilegeGuard.AllPermissionsExistAsync(request.PermissionIdList, cancellationToken))
+            return Response<CreatedApiKeyDto>.Error(null, "One or more permissions do not exist.");
 
-        if (permissionError is not null)
-            return Response<CreatedApiKeyDto>.Error(null, permissionError);
+        await _privilegeGuard.EnsureCanGrantApiKeyPermissionsAsync(null, request.PermissionIdList, cancellationToken);
 
         var apiKey = request.Adapt<MilvaionApiKey>();
 

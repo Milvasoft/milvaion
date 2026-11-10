@@ -9,15 +9,19 @@ namespace Milvaion.Application.Features.Users.DeleteUser;
 /// Handles the deletion of the user.
 /// </summary>
 /// <param name="UserRepository"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [UserActivityTrack(UserActivity.DeleteUser)]
-public record DeleteUserCommandHandler(IMilvaionRepositoryBase<User> UserRepository) : IInterceptable, ICommandHandler<DeleteUserCommand, int>
+public record DeleteUserCommandHandler(IMilvaionRepositoryBase<User> UserRepository, IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<DeleteUserCommand, int>
 {
     private readonly IMilvaionRepositoryBase<User> _userRepository = UserRepository;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(DeleteUserCommand request, CancellationToken cancellationToken)
     {
+        await _privilegeGuard.EnsureCanManageUserAsync(request.UserId, cancellationToken);
+
         var user = await _userRepository.GetForDeleteAsync(request.UserId, cancellationToken: cancellationToken);
 
         if (user == null)

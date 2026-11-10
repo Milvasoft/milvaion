@@ -33,8 +33,6 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddValidatorsFromAssembly(ApplicationAssembly.Assembly);
 
-        services.AddScoped<SuperAdminGrantGuard>();
-
         services.AddMediatR(opt =>
         {
             opt.RegisterServicesFromAssemblies(assemblies);

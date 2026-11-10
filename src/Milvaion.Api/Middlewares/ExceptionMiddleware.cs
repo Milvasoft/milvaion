@@ -4,8 +4,8 @@ using Milvasoft.Core.Abstractions.Localization;
 using Milvasoft.Core.Exceptions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Interception.Interceptors.ActivityScope;
+using Microsoft.AspNetCore.Http.Extensions;
 using Npgsql;
-using System.Net;
 
 namespace Milvaion.Api.Middlewares;
 
@@ -19,6 +19,9 @@ namespace Milvaion.Api.Middlewares;
 /// <param name="loggerFactory"></param>
 public class ExceptionMiddleware(RequestDelegate next, ILoggerFactory loggerFactory)
 {
+    // An allow list on purpose: headers such as Authorization, X-ApiKey and Cookie carry credentials and these logs leave the process.
+    private static readonly string[] _loggedHeaders = ["Accept", "Accept-Language", "Content-Type", "Origin", "Referer", "User-Agent"];
+
     private readonly RequestDelegate _next = next;
     private readonly ILogger _logger = loggerFactory.CreateLogger<ExceptionMiddleware>();
 
@@ -72,7 +75,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILoggerFactory loggerFact
             {
                 LogExceptionWithRequest(context, ex);
 
-                await RewriteResponseAsync(context, MessageKey.UnhandledException, (int)HttpStatusCode.BadRequest);
+                await RewriteResponseAsync(context, MessageKey.UnhandledException, StatusCodes.Status500InternalServerError);
             }
         }
     }
@@ -128,18 +131,21 @@ public class ExceptionMiddleware(RequestDelegate next, ILoggerFactory loggerFact
         if (!_logger.IsEnabled(LogLevel.Error))
             return;
 
+        // The SignalR client sends its token in the query string.
+        var queryString = new QueryBuilder(context.Request.Query.Where(q => !q.Key.Equals("access_token", StringComparison.OrdinalIgnoreCase))).ToQueryString().ToUriComponent();
+
         var requestInfo = new RequestInfo
         {
             Method = context.Request.Method,
-            Headers = context.Request.Headers,
+            Headers = _loggedHeaders.Where(context.Request.Headers.ContainsKey).ToDictionary(header => header, header => context.Request.Headers[header].ToString()),
             ContentLength = context.Request.ContentLength ?? 0,
             AbsoluteUri = string.Concat(context.Request.Scheme,
                                     GlobalConstant.UrlStartSegment,
                                     context.Request.Host.ToUriComponent(),
                                     context.Request.PathBase.ToUriComponent(),
                                     context.Request.Path.ToUriComponent(),
-                                    context.Request.QueryString.ToUriComponent()),
-            QueryString = context.Request.QueryString.ToUriComponent()
+                                    queryString),
+            QueryString = queryString
         };
 
         _logger.LogError(LogTemplate.ExceptionWithRequest,

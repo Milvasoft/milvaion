@@ -1,5 +1,6 @@
 using Milvaion.Application.Interfaces;
 using System.DirectoryServices.Protocols;
+using System.Globalization;
 using System.Net;
 using System.Text;
 
@@ -25,7 +26,7 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
 
         var userBindDn = string.IsNullOrWhiteSpace(_options.UserDnFormat)
             ? username
-            : string.Format(_options.UserDnFormat, EscapeDnValue(username));
+            : FormatBindName(_options.UserDnFormat, username);
 
         try
         {
@@ -44,6 +45,13 @@ public class LdapAuthenticator(MilvaionConfig config) : ILdapAuthenticator
             return LdapAuthResult.Fail();
         }
     }
+
+    /// <summary>
+    /// Fills the bind name template. Only a real DN template needs escaping: a UPN style one such as
+    /// <c>{0}@corp.example.com</c> has no DN syntax for the value to break out of.
+    /// </summary>
+    private static string FormatBindName(string format, string username)
+        => string.Format(format, format.Contains('=') ? EscapeDnValue(username) : username);
 
     private LdapConnection CreateConnection()
     {

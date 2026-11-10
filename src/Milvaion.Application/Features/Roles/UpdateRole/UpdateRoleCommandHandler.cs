@@ -12,29 +12,31 @@ namespace Milvaion.Application.Features.Roles.UpdateRole;
 /// <param name="RoleRepository"></param>
 /// <param name="RolePermissionRelationRepository"></param>
 /// <param name="ExternalIdentityService"></param>
-/// <param name="GrantGuard"></param>
+/// <param name="PrivilegeGuard"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateRole)]
 public record UpdateRoleCommandHandler(IMilvaionRepositoryBase<Role> RoleRepository,
                                        IMilvaionRepositoryBase<RolePermissionRelation> RolePermissionRelationRepository,
                                        IExternalIdentityService ExternalIdentityService,
-                                       SuperAdminGrantGuard GrantGuard) : IInterceptable, ICommandHandler<UpdateRoleCommand, int>
+                                       IPrivilegeGuard PrivilegeGuard) : IInterceptable, ICommandHandler<UpdateRoleCommand, int>
 {
     private readonly IMilvaionRepositoryBase<Role> _roleRepository = RoleRepository;
     private readonly IMilvaionRepositoryBase<RolePermissionRelation> _rolePermissionRelationRepository = RolePermissionRelationRepository;
     private readonly IExternalIdentityService _externalIdentityService = ExternalIdentityService;
-    private readonly SuperAdminGrantGuard _grantGuard = GrantGuard;
+    private readonly IPrivilegeGuard _privilegeGuard = PrivilegeGuard;
 
     /// <inheritdoc/>
     public async Task<Response<int>> Handle(UpdateRoleCommand request, CancellationToken cancellationToken)
     {
+        await _privilegeGuard.EnsureCanManageRoleAsync(request.Id, cancellationToken);
+
         if (request.PermissionIdList.IsUpdated)
         {
-            var permissionError = await _grantGuard.ValidateRolePermissionsAsync(request.Id, request.PermissionIdList.Value, cancellationToken);
+            if (!await _privilegeGuard.AllPermissionsExistAsync(request.PermissionIdList.Value, cancellationToken))
+                return Response<int>.Error(default, "One or more permissions do not exist.");
 
-            if (permissionError is not null)
-                return Response<int>.Error(default, permissionError);
+            await _privilegeGuard.EnsureCanChangeRolePermissionsAsync(request.Id, request.PermissionIdList.Value, cancellationToken);
         }
 
         // Externally owned roles mirror a provider group: the name is owned there. The UI always sends the name with isUpdated=true, so instead of rejecting we simply ignore the name change and let only the permission set be updated here.

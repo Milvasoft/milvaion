@@ -111,7 +111,7 @@ dotnet run
 ### 6. Verify Setup
 
 Access the API documentation:
-- **Scalar UI**: http://localhost:5000/api/documentation/index.html
+- **Scalar UI**: http://localhost:5000/api/documentation/index.html (requires `MilvaionConfig:Developer:ApiDocsEnabled`, on by default in `appsettings.Development.json`; authorize with your own token)
 - **Dashboard**: http://localhost:5000
 
 ---

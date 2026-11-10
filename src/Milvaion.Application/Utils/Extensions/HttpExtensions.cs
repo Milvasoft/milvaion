@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.DependencyInjection;
 using Milvasoft.Core.Exceptions;
 using System.Net;
 using System.Net.Sockets;
@@ -28,7 +29,11 @@ public static partial class MilvaionExtensions
     /// <param name="httpContext"></param>
     /// <returns></returns>
     public static string GetTokenFromHeader(this HttpContext httpContext)
-         => httpContext.Request.Headers.Authorization.FirstOrDefault()?.Split(" ").LastOrDefault();
+    {
+        var header = httpContext.Request.Headers.Authorization.FirstOrDefault();
+
+        return header?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true ? header["Bearer ".Length..].Trim() : null;
+    }
 
     /// <summary>
     /// Checks whether the current user is the user whose name is given as a parameter via HttpContext.

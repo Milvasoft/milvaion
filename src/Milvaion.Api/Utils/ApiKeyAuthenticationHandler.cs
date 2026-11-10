@@ -64,7 +64,8 @@ public class ApiKeyAuthenticationHandler(IOptionsMonitor<ApiKeyAuthenticationOpt
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.Name, apiKey.Name),
+            // Prefixed so a key can never be mistaken for the user account of the same name.
+            new(ClaimTypes.Name, $"{ApiKeyAuthenticationDefaults.PrincipalNamePrefix}{apiKey.Name}"),
             new(ClaimTypes.NameIdentifier, apiKey.Id.ToString()),
             new(ApiKeyAuthenticationDefaults.ApiKeyIdClaimName, apiKey.Id.ToString())
         };

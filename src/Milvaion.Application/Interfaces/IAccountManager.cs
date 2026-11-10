@@ -15,11 +15,4 @@ public interface IAccountManager : IInterceptable
     /// </summary>
     /// <returns></returns>
     Task<MilvaToken> LoginAsync(User user, string deviceId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Generates token for ci user.
-    /// Generates access token.
-    /// </summary>
-    /// <returns></returns>
-    string GenerateToken(User user, DateTime? expiryDate = null);
 }

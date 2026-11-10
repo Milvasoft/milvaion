@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using Milvaion.Api.Controllers;
+using Milvaion.Api.Hubs;
 using Milvaion.Api.Services;
 using Milvaion.Api.Utils;
 using Milvaion.Application.Utils.Extensions;
@@ -70,7 +70,7 @@ public static partial class StartupExtensions
 
         // With OIDC on, the default bearer handling is a policy scheme that routes each token to the local
         // or the external scheme by its issuer, so a plain [Auth] endpoint accepts both. The api key scheme
-        // stays separate (it is selected explicitly by [ApiAuth] and keyed off the X-ApiKey header).
+        // stays separate (the default authorization policy names it and it is keyed off the X-ApiKey header).
         var defaultBearerScheme = oidc.Enabled ? MultiBearerAuthenticationScheme : JwtBearerDefaults.AuthenticationScheme;
 
         var authenticationBuilder = services.AddAuthentication(option =>
@@ -89,6 +89,8 @@ public static partial class StartupExtensions
 
             options.Events = new JwtBearerEvents
             {
+                OnMessageReceived = ReadHubAccessToken,
+
                 // This event is fired when the token is not provided or after OnForbidden and OnAuthenticationFailed events.
                 OnChallenge = context =>
                 {
@@ -109,8 +111,9 @@ public static partial class StartupExtensions
                 OnAuthenticationFailed = context =>
                 {
                     // Following if statement is redirects OnAuthenticationFailed again on 419.
+                    // An anonymous endpoint (login, token refresh...) has no use for the token, so a stale one must not fail it.
                     if (context.Response.StatusCode is StatusCodes.Status419AuthenticationTimeout or StatusCodes.Status401Unauthorized
-                        || AccountController.LoginEndpointPaths.Exists(e => context.Request.Path.Value.EndsWith(e)))
+                        || context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() is not null)
                         return Task.CompletedTask;
 
                     if (context.Exception is SecurityTokenExpiredException)
@@ -165,9 +168,13 @@ public static partial class StartupExtensions
     {
         var header = context.Request.Headers.Authorization.ToString();
 
-        if (header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        // Browsers cannot set headers on a WebSocket, so the hub receives its token in the query string.
+        var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? header["Bearer ".Length..].Trim()
+            : GetHubAccessToken(context);
+
+        if (!string.IsNullOrEmpty(token))
         {
-            var token = header["Bearer ".Length..].Trim();
             var issuer = TryReadIssuer(token);
 
             if (!string.IsNullOrEmpty(issuer) && IssuerBelongsToOidc(issuer, oidc))
@@ -175,6 +182,23 @@ public static partial class StartupExtensions
         }
 
         return JwtBearerDefaults.AuthenticationScheme;
+    }
+
+    /// <summary>
+    /// Returns the <c>access_token</c> query value on hub requests. Limited to the hub so that tokens are not
+    /// accepted from, and therefore not put in, the URL of any other endpoint.
+    /// </summary>
+    private static string GetHubAccessToken(HttpContext context)
+        => context.Request.Path.StartsWithSegments(JobsHub.Route) ? context.Request.Query["access_token"].ToString() : null;
+
+    private static Task ReadHubAccessToken(MessageReceivedContext context)
+    {
+        var token = GetHubAccessToken(context.HttpContext);
+
+        if (!string.IsNullOrEmpty(token))
+            context.Token = token;
+
+        return Task.CompletedTask;
     }
 
     private static string TryReadIssuer(string token)
@@ -241,6 +265,8 @@ public static partial class StartupExtensions
 
             options.Events = new JwtBearerEvents
             {
+                OnMessageReceived = ReadHubAccessToken,
+
                 // Logged under our own category so it is not caught by the JwtBearerHandler log filter that
                 // suppresses "ProcessingMessageFailed". Surfaces the real reason (issuer, metadata, signature).
                 OnAuthenticationFailed = context =>
@@ -286,6 +312,11 @@ public static partial class StartupExtensions
                     var externalIdentityService = context.HttpContext.RequestServices.GetRequiredService<IExternalIdentityService>();
 
                     var claims = await externalIdentityService.GetOrBuildClaimsAsync(descriptor, context.HttpContext.RequestAborted);
+
+                    // Permissions are owned by Milvaion. A role claim the provider put in the token itself would
+                    // otherwise be read as one, so only what was resolved above may remain.
+                    foreach (var providerRoleClaim in identity.FindAll(ClaimTypes.Role).ToList())
+                        identity.TryRemoveClaim(providerRoleClaim);
 
                     identity.AddClaims(claims);
                 }
@@ -533,9 +564,9 @@ public static partial class StartupExtensions
 
         loggerConfig.Filter.ByExcluding(logEvent =>
             logEvent.Properties.TryGetValue("SourceContext", out var sourceContext)
-            //&& sourceContext.ToString().Contains("JwtBearerHandler")
+            && sourceContext.ToString().Contains("JwtBearerHandler")
             && logEvent.Properties.TryGetValue("EventId", out var eventId)
-            /*&& eventId.ToString().Contains("ProcessingMessageFailed")*/);
+            && eventId.ToString().Contains("ProcessingMessageFailed"));
 
         return loggerConfig;
     }
