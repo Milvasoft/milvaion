@@ -41,6 +41,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     private readonly BackgroundServiceMetrics _metrics = metrics;
     private IChannel _channel;
     private const int _maxExceptionLength = 3000;
+    private static readonly TimeSpan _transientFailureDelay = TimeSpan.FromSeconds(5);
 
     // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
     private readonly SemaphoreSlim _channelLock = new(1, 1);
@@ -60,61 +61,73 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 
         _logger.Information("FailedOccurrenceHandler started. Listening to DLQ: {DLQ}", WorkerConstant.Queues.FailedOccurrences);
 
-        try
+        await RabbitMQChannelExtensions.RunConsumerLoopAsync(ConnectAndConsumeAsync, _logger, ServiceName, failures =>
         {
-            _channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-
-            // Configure QoS - process one message at a time
-            await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
-
-            var consumer = new AsyncEventingBasicConsumer(_channel);
-
-            consumer.ReceivedAsync += async (model, ea) =>
+            _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
             {
-                try
-                {
-                    await ProcessFailedOccurrenceAsync(ea, stoppingToken);
+                Title = "FailedOccurrenceHandler Service Degraded",
+                Message = $"FailedOccurrenceHandler failed to connect to RabbitMQ after {failures} attempts. The DLQ is not being processed; the service keeps retrying.",
+                Severity = AlertSeverity.Critical,
+                Source = nameof(FailedOccurrenceHandler),
+                ThreadKey = "service-degraded-failedoccurrencehandler"
+            });
+        }, stoppingToken);
+    }
 
-                    // Acknowledge successful processing
-                    await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken);
+    private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
+    {
+        var channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
 
-                    TrackMemoryAfterIteration();
-                }
-                catch (Exception ex) when (IsPermanentDataError(ex))
-                {
-                    // The database rejects this row's data; requeueing would fail the same way forever and flood the logs.
-                    _logger.Error(ex, "Dropping DLQ message the database rejects. DeliveryTag: {DeliveryTag}", ea.DeliveryTag);
+        _channel = channel;
 
-                    await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "Error processing failed job from DLQ. DeliveryTag: {DeliveryTag}", ea.DeliveryTag);
+        // Configure QoS - process one message at a time
+        await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
 
-                    // Reject and requeue (will retry DLQ processing)
-                    await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: true);
-                }
-            };
+        var consumer = new AsyncEventingBasicConsumer(channel);
 
-            await _channel.BasicConsumeAsync(queue: WorkerConstant.Queues.FailedOccurrences,
-                                             autoAck: false,
-                                             consumer: consumer,
-                                             cancellationToken: stoppingToken);
-
-            _logger.Information("FailedOccurrenceHandler consumer registered for DLQ: {DLQ}", WorkerConstant.Queues.FailedOccurrences);
-
-            // Keep service running
-            await Task.Delay(Timeout.Infinite, stoppingToken);
-        }
-        catch (OperationCanceledException)
+        consumer.ReceivedAsync += async (model, ea) =>
         {
-            _logger.Information("FailedOccurrenceHandler shutting down gracefully");
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Critical error in FailedOccurrenceHandler");
-            throw;
-        }
+            try
+            {
+                await ProcessFailedOccurrenceAsync(ea, stoppingToken);
+
+                // Acknowledge successful processing
+                await channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken);
+
+                TrackMemoryAfterIteration();
+            }
+            catch (Exception ex) when (ex is ArgumentException || RabbitMQChannelExtensions.IsPermanentDataError(ex))
+            {
+                // A malformed message or data the database rejects: requeueing would fail the same way forever.
+                _logger.Error(ex, "Dropping DLQ message that cannot be stored. DeliveryTag: {DeliveryTag}, MessageId: {MessageId}", ea.DeliveryTag, ea.BasicProperties?.MessageId);
+
+                await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: false);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Not acked, so the broker redelivers it after the restart.
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error processing failed job from DLQ. DeliveryTag: {DeliveryTag}", ea.DeliveryTag);
+
+                // With prefetch 1 this pause also throttles the redelivery loop during an outage.
+                await Task.Delay(_transientFailureDelay, CancellationToken.None);
+
+                await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: true);
+            }
+        };
+
+        await channel.BasicConsumeAsync(queue: WorkerConstant.Queues.FailedOccurrences,
+                                        autoAck: false,
+                                        consumer: consumer,
+                                        cancellationToken: stoppingToken);
+
+        _logger.Information("FailedOccurrenceHandler consumer registered for DLQ: {DLQ}", WorkerConstant.Queues.FailedOccurrences);
+
+        await channel.WaitForShutdownAsync(stoppingToken);
+
+        await channel.SafeCloseAsync(_logger, CancellationToken.None);
     }
 
     /// <summary>
@@ -178,6 +191,13 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 
         // Truncate exception for storage
         var truncatedException = TruncateException(message.Exception);
+
+        // A redelivery (the ack was lost) must not store the failure twice.
+        if (await dbContext.FailedOccurrences.AsNoTracking().AnyAsync(f => f.OccurrenceId == occurrence.Id && f.RetryCount == messageRetryCount, cancellationToken))
+        {
+            _logger.Debug("[DLQ] Failure already stored for occurrence {OccurrenceId} (RetryCount: {RetryCount}). Skipping.", occurrence.Id, messageRetryCount);
+            return;
+        }
 
         // Create FailedOccurrence record
         var failedJob = new FailedOccurrence
@@ -250,12 +270,6 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
             return JsonSerializer.Serialize(jobData);
         }
     }
-
-    /// <summary>
-    /// Postgres data exceptions (class 22, e.g. invalid JSON) and integrity violations (class 23) fail the same way on every retry.
-    /// </summary>
-    private static bool IsPermanentDataError(Exception ex)
-        => ex is DbUpdateException { InnerException: Npgsql.PostgresException pgEx } && (pgEx.SqlState.StartsWith("22") || pgEx.SqlState.StartsWith("23"));
 
     /// <summary>
     /// Extracts OccurrenceId from RabbitMQ message headers.
@@ -357,13 +371,13 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     {
         _logger.Information("FailedOccurrenceHandler stopping...");
 
-        // Dispose semaphore
-        _channelLock?.Dispose();
+        await base.StopAsync(cancellationToken);
 
         // Close channel using extension method
         await _channel.SafeCloseAsync(_logger, cancellationToken);
 
-        await base.StopAsync(cancellationToken);
+        _channelLock?.Dispose();
+
         _logger.Information("FailedOccurrenceHandler stopped");
     }
 }

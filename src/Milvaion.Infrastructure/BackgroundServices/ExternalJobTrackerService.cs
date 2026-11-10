@@ -51,8 +51,14 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
     private IChannel _occurrenceChannel;
 
     // Batch queues
-    private readonly ConcurrentQueue<ExternalJobRegistrationMessage> _registrationBatch = new();
-    private readonly ConcurrentQueue<ExternalJobOccurrenceMessage> _occurrenceBatch = new();
+    // The channel travels with the tag: a delivery tag is only valid on the channel that delivered it.
+    private readonly ConcurrentQueue<Received<ExternalJobRegistrationMessage>> _registrationBatch = new();
+    private readonly ConcurrentQueue<Received<ExternalJobOccurrenceMessage>> _occurrenceBatch = new();
+
+    // How long a completion may wait for its Starting event, which another instance may still be writing.
+    private static readonly TimeSpan _orphanCompletionMaxWait = TimeSpan.FromSeconds(30);
+
+    private readonly record struct Received<T>(T Message, ulong DeliveryTag, IChannel Channel, DateTime ReceivedAt);
     private readonly SemaphoreSlim _registrationBatchLock = new(1, 1);
     private readonly SemaphoreSlim _occurrenceBatchLock = new(1, 1);
 
@@ -80,7 +86,16 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(_options.BatchIntervalMs, stoppingToken);
-                await ProcessRegistrationBatchAsync(stoppingToken);
+
+                try
+                {
+                    await ProcessRegistrationBatchAsync(stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.Error(ex, "Error in registration batch loop");
+                }
+
                 TrackMemoryAfterIteration();
             }
         }, stoppingToken);
@@ -90,47 +105,29 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(_options.BatchIntervalMs, stoppingToken);
-                await ProcessOccurrenceBatchAsync(stoppingToken);
+
+                try
+                {
+                    await ProcessOccurrenceBatchAsync(stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.Error(ex, "Error in occurrence batch loop");
+                }
             }
         }, stoppingToken);
 
-        var retryCount = 0;
-        const int maxRetries = 10;
-        const int retryDelaySeconds = 5;
-
-        while (!stoppingToken.IsCancellationRequested && retryCount < maxRetries)
-        {
-            try
-            {
-                await ConnectAndConsumeAsync(stoppingToken);
-                retryCount = 0;
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.Information("External job consumer is shutting down");
-                break;
-            }
-            catch (Exception ex)
-            {
-                retryCount++;
-                _logger.Error(ex, "ExternalJobTrackerService connection failed (attempt {Retry}/{MaxRetries})", retryCount, maxRetries);
-
-                if (retryCount >= maxRetries)
-                {
-                    _logger.Fatal("ExternalJobTrackerService failed to connect after {MaxRetries} attempts.", maxRetries);
-                    break;
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds * retryCount), stoppingToken);
-            }
-        }
+        await RabbitMQChannelExtensions.RunConsumerLoopAsync(ConnectAndConsumeAsync, _logger, ServiceName, null, stoppingToken);
     }
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
         // Get channels from shared connection factory
-        _registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-        _occurrenceChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        var registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        var occurrenceChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+
+        _registrationChannel = registrationChannel;
+        _occurrenceChannel = occurrenceChannel;
 
         // Declare queues
         await _registrationChannel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
@@ -148,8 +145,9 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                                                    cancellationToken: stoppingToken);
 
         // Set prefetch
-        await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);
-        await _occurrenceChannel.BasicQosAsync(0, 20, false, stoppingToken);
+        // Messages stay unacked until written, so the window has to cover at least a full batch.
+        await _registrationChannel.BasicQosAsync(0, (ushort)Math.Clamp(_options.RegistrationBatchSize * 2, 10, ushort.MaxValue), false, stoppingToken);
+        await _occurrenceChannel.BasicQosAsync(0, (ushort)Math.Clamp(_options.OccurrenceBatchSize * 2, 20, ushort.MaxValue), false, stoppingToken);
 
         _logger.Information("ExternalJobTracker connected to RabbitMQ (shared connection). RegistrationChannel: {RegCh}, OccurrenceChannel: {OccCh}", _registrationChannel.ChannelNumber, _occurrenceChannel.ChannelNumber);
 
@@ -159,7 +157,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         {
             try
             {
-                await ProcessRegistrationMessageAsync(ea, stoppingToken);
+                await ProcessRegistrationMessageAsync(ea, registrationChannel, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -173,7 +171,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         {
             try
             {
-                await ProcessOccurrenceMessageAsync(ea, stoppingToken);
+                await ProcessOccurrenceMessageAsync(ea, occurrenceChannel, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -193,10 +191,16 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
         _logger.Information("ExternalJobTracker consuming from {Queue1} and {Queue2}", WorkerConstant.Queues.ExternalJobRegistration, WorkerConstant.Queues.ExternalJobOccurrence);
 
-        await Task.Delay(Timeout.Infinite, stoppingToken);
+        // Keep running until cancellation or until either channel dies
+        await Task.WhenAny(registrationChannel.WaitForShutdownAsync(stoppingToken), occurrenceChannel.WaitForShutdownAsync(stoppingToken));
+
+        stoppingToken.ThrowIfCancellationRequested();
+
+        await registrationChannel.SafeCloseAsync(_logger, CancellationToken.None);
+        await occurrenceChannel.SafeCloseAsync(_logger, CancellationToken.None);
     }
 
-    private async Task ProcessRegistrationMessageAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private async Task ProcessRegistrationMessageAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
     {
         try
         {
@@ -204,26 +208,25 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
             if (message == null)
             {
-                await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+                await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
                 return;
             }
 
-            _registrationBatch.Enqueue(message);
+            // Acknowledged once the batch is written.
+            _registrationBatch.Enqueue(new(message, ea.DeliveryTag, channel, DateTime.UtcNow));
 
             if (_registrationBatch.Count >= _options.RegistrationBatchSize)
                 await ProcessRegistrationBatchAsync(cancellationToken);
-
-            await _registrationChannel.SafeAckAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process registration message");
 
-            await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+            await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
     }
 
-    private async Task ProcessOccurrenceMessageAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private async Task ProcessOccurrenceMessageAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
     {
         try
         {
@@ -231,23 +234,28 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
             if (message == null)
             {
-                await _occurrenceChannel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
+                await channel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
                 return;
             }
 
-            _occurrenceBatch.Enqueue(message);
+            // Acknowledged once the batch is written.
+            _occurrenceBatch.Enqueue(new(message, ea.DeliveryTag, channel, DateTime.UtcNow));
 
             if (_occurrenceBatch.Count >= _options.OccurrenceBatchSize)
                 await ProcessOccurrenceBatchAsync(cancellationToken);
-
-            await _occurrenceChannel.SafeAckAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process occurrence message");
 
-            await _occurrenceChannel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
+            await channel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
         }
+    }
+
+    private async Task AckAsync<T>(IEnumerable<Received<T>> items, SemaphoreSlim channelLock, CancellationToken cancellationToken)
+    {
+        foreach (var item in items)
+            await item.Channel.SafeAckAsync(item.DeliveryTag, channelLock, _logger, cancellationToken);
     }
 
     /// <summary>
@@ -258,6 +266,8 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         if (_registrationBatch.IsEmpty)
             return;
 
+        List<Received<ExternalJobRegistrationMessage>> received = null;
+
         await _registrationBatchLock.WaitAsync(cancellationToken);
 
         try
@@ -265,13 +275,15 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             if (_registrationBatch.IsEmpty)
                 return;
 
-            var batch = new List<ExternalJobRegistrationMessage>();
+            received = [];
 
-            while (_registrationBatch.TryDequeue(out var message))
-                batch.Add(message);
+            while (_registrationBatch.TryDequeue(out var item))
+                received.Add(item);
 
-            if (batch.Count == 0)
+            if (received.Count == 0)
                 return;
+
+            var batch = received.Select(r => r.Message).ToList();
 
             await using var scope = _serviceProvider.CreateAsyncScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
@@ -390,10 +402,15 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
             if (updatedCount > 0)
                 _logger.Information("Updated {Count} external jobs via handlers", updatedCount);
+
+            await AckAsync(received, _registrationChannelLock, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process registration batch");
+
+            foreach (var item in received ?? [])
+                _registrationBatch.Enqueue(item);
         }
         finally
         {
@@ -409,6 +426,8 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         if (_occurrenceBatch.IsEmpty)
             return;
 
+        List<Received<ExternalJobOccurrenceMessage>> received = null;
+
         await _occurrenceBatchLock.WaitAsync(cancellationToken);
 
         try
@@ -416,177 +435,244 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             if (_occurrenceBatch.IsEmpty)
                 return;
 
-            var batch = new List<ExternalJobOccurrenceMessage>();
+            received = [];
 
-            while (_occurrenceBatch.TryDequeue(out var message))
-                batch.Add(message);
+            while (_occurrenceBatch.TryDequeue(out var item))
+                received.Add(item);
 
-            if (batch.Count == 0)
+            if (received.Count == 0)
                 return;
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var signalRPublisher = scope.ServiceProvider.GetRequiredService<IJobOccurrenceEventPublisher>();
-            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-
-            // Separate starting events (inserts) from completed events (updates)
-            var startingEvents = batch.Where(m => m.EventType == ExternalOccurrenceEventType.Starting).ToList();
-            var completedEvents = batch.Where(m => m.EventType != ExternalOccurrenceEventType.Starting).ToList();
-
-            // Process starting events - create new occurrences
-            if (startingEvents.Count > 0)
+            try
             {
-                // Get all ExternalJobId → JobId mappings
-                var externalJobIds = startingEvents.Select(m => m.ExternalJobId).Distinct().ToList();
-                var jobIdMap = await _redisSchedulerService.GetJobIdsByExternalIdsBulkAsync(externalJobIds, cancellationToken);
-
-                // Fallback to DB for any missing mappings
-                var missingExternalIds = externalJobIds.Except(jobIdMap.Keys).ToList();
-
-                if (missingExternalIds.Count > 0)
-                {
-                    var dbMappings = await dbContext.ScheduledJobs.AsNoTracking()
-                                                                  .Where(j => j.IsExternal && missingExternalIds.Contains(j.ExternalJobId))
-                                                                  .Select(j => new { j.Id, j.ExternalJobId })
-                                                                  .ToListAsync(cancellationToken);
-
-                    foreach (var mapping in dbMappings)
-                        jobIdMap[mapping.ExternalJobId] = mapping.Id;
-                }
-
-                var occurrencesToInsert = new List<JobOccurrence>();
-
-                foreach (var message in startingEvents)
-                {
-                    if (!jobIdMap.TryGetValue(message.ExternalJobId, out var jobId))
-                    {
-                        _logger.Warning("Could not find job for external ID {ExternalJobId}", message.ExternalJobId);
-                        continue;
-                    }
-
-                    var occurrence = new JobOccurrence
-                    {
-                        Id = message.CorrelationId,
-                        CreationDate = DateTime.UtcNow,
-                        JobVersion = 1,
-                        JobId = jobId,
-                        JobName = message.JobTypeName,
-                        CorrelationId = message.CorrelationId,
-                        WorkerId = message.WorkerId,
-                        Status = JobOccurrenceStatus.Running,
-                        StartTime = message.StartTime ?? message.ActualFireTime ?? DateTime.UtcNow,
-                        ExternalJobId = message.ExternalOccurrenceId,
-                        StatusChangeLogs =
-                        [
-                            new() {
-                                From = JobOccurrenceStatus.Queued,
-                                To = JobOccurrenceStatus.Running,
-                                Timestamp = DateTime.UtcNow,
-                            }
-                        ],
-                        CreatedAt = DateTime.UtcNow,
-                        CreatorUserName = GlobalConstant.SystemUsername
-                    };
-
-                    occurrencesToInsert.Add(occurrence);
-                }
-
-                if (occurrencesToInsert.Count > 0)
-                {
-                    await dbContext.BulkInsertAsync(occurrencesToInsert, cancellationToken: cancellationToken);
-
-                    _logger.Debug("Created {Count} external job occurrences", occurrencesToInsert.Count);
-
-                    // Update Redis counters
-                    await _redisStatsService.IncrementTotalOccurrencesAsync(occurrencesToInsert.Count, cancellationToken);
-                    await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Running, occurrencesToInsert.Count, cancellationToken);
-
-                    // Track executions for EPS/EPM calculation
-                    await _redisStatsService.TrackExecutionsAsync([.. occurrencesToInsert.Select(o => o.Id)], cancellationToken);
-
-                    // Publish SignalR notification for created occurrences
-                    await signalRPublisher.PublishOccurrenceCreatedAsync(occurrencesToInsert, _logger, cancellationToken);
-                }
+                await PersistOccurrenceBatchAsync(received, cancellationToken);
             }
-
-            // Process completed events - update existing occurrences
-            if (completedEvents.Count > 0)
+            catch (Exception ex) when (RabbitMQChannelExtensions.IsPermanentDataError(ex))
             {
-                var correlationIds = completedEvents.Select(m => m.CorrelationId).ToList();
+                _logger.Error(ex, "External occurrence batch contains data the database rejects. Isolating the offending message(s).");
 
-                var existingOccurrences = await dbContext.JobOccurrences.Where(o => correlationIds.Contains(o.CorrelationId)).ToListAsync(cancellationToken);
-
-                var occurrenceDict = existingOccurrences.ToDictionary(o => o.CorrelationId);
-                var updatedOccurrences = new List<JobOccurrence>();
-                var statusChanges = new List<(JobOccurrenceStatus OldStatus, JobOccurrenceStatus NewStatus)>();
-
-                foreach (var message in completedEvents)
+                foreach (var item in received)
                 {
-                    if (!occurrenceDict.TryGetValue(message.CorrelationId, out var occurrence))
+                    try
                     {
-                        _logger.Debug("Occurrence not found for CorrelationId: {CorrelationId}", message.CorrelationId);
-                        continue;
+                        await PersistOccurrenceBatchAsync([item], cancellationToken);
                     }
-
-                    var oldStatus = occurrence.Status;
-                    occurrence.Status = message.Status;
-                    occurrence.EndTime = message.EndTime ?? DateTime.UtcNow;
-                    occurrence.DurationMs = message.DurationMs;
-                    occurrence.Result = message.Result;
-                    occurrence.Exception = message.Exception;
-                    occurrence.StatusChangeLogs.Add(new OccurrenceStatusChangeLog
+                    catch (Exception itemEx) when (RabbitMQChannelExtensions.IsPermanentDataError(itemEx))
                     {
-                        From = oldStatus,
-                        To = message.Status,
-                        Timestamp = DateTime.UtcNow
-                    });
+                        _logger.Error(itemEx, "Dropping external occurrence message the database rejects. CorrelationId: {CorrelationId}", item.Message.CorrelationId);
 
-                    updatedOccurrences.Add(occurrence);
-                    statusChanges.Add((oldStatus, message.Status));
-                }
-
-                if (updatedOccurrences.Count > 0)
-                {
-                    await dbContext.BulkUpdateAsync(updatedOccurrences, new BulkConfig
-                    {
-                        PropertiesToInclude =
-                        [
-                            nameof(JobOccurrence.Status),
-                            nameof(JobOccurrence.EndTime),
-                            nameof(JobOccurrence.DurationMs),
-                            nameof(JobOccurrence.Result),
-                            nameof(JobOccurrence.Exception),
-                            nameof(JobOccurrence.StatusChangeLogs)
-                        ]
-                    }, cancellationToken: cancellationToken);
-
-                    _logger.Debug("Updated {Count} external job occurrences", updatedOccurrences.Count);
-
-                    // Update Redis counters for status changes
-                    foreach (var (oldStatus, newStatus) in statusChanges)
-                    {
-                        if (oldStatus != newStatus)
-                            await _redisStatsService.UpdateStatusCountersAsync(oldStatus, newStatus, cancellationToken);
+                        await item.Channel.SafeNackAsync(item.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken, requeue: false);
                     }
-
-                    // Track durations for average calculation (only for completed/failed jobs with duration)
-                    foreach (var occurrence in updatedOccurrences.Where(o => o.DurationMs.HasValue))
+                    catch (Exception itemEx)
                     {
-                        await _redisStatsService.TrackDurationAsync(occurrence.DurationMs.Value, cancellationToken);
-                    }
+                        _logger.Warning(itemEx, "External occurrence {CorrelationId} will be retried in the next batch", item.Message.CorrelationId);
 
-                    // Publish SignalR notification for updated occurrences
-                    await signalRPublisher.PublishOccurrenceUpdatedAsync(updatedOccurrences, _logger, cancellationToken);
+                        _occurrenceBatch.Enqueue(item);
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process occurrence batch");
+
+            foreach (var item in received ?? [])
+                _occurrenceBatch.Enqueue(item);
         }
         finally
         {
             _occurrenceBatchLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Creates and updates the occurrences of a batch. Safe to run again for messages that were redelivered.
+    /// </summary>
+    private async Task PersistOccurrenceBatchAsync(List<Received<ExternalJobOccurrenceMessage>> received, CancellationToken cancellationToken)
+    {
+        var settled = new List<Received<ExternalJobOccurrenceMessage>>(received.Count);
+
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var signalRPublisher = scope.ServiceProvider.GetRequiredService<IJobOccurrenceEventPublisher>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+        // Separate starting events (inserts) from completed events (updates)
+        var startingEvents = received.Where(r => r.Message.EventType == ExternalOccurrenceEventType.Starting).ToList();
+        var completedEvents = received.Where(r => r.Message.EventType != ExternalOccurrenceEventType.Starting).ToList();
+
+        // Process starting events - create new occurrences
+        if (startingEvents.Count > 0)
+        {
+            // Get all ExternalJobId → JobId mappings
+            var externalJobIds = startingEvents.Select(m => m.Message.ExternalJobId).Distinct().ToList();
+            var jobIdMap = await _redisSchedulerService.GetJobIdsByExternalIdsBulkAsync(externalJobIds, cancellationToken);
+
+            // Fallback to DB for any missing mappings
+            var missingExternalIds = externalJobIds.Except(jobIdMap.Keys).ToList();
+
+            if (missingExternalIds.Count > 0)
+            {
+                var dbMappings = await dbContext.ScheduledJobs.AsNoTracking()
+                                                              .Where(j => j.IsExternal && missingExternalIds.Contains(j.ExternalJobId))
+                                                              .Select(j => new { j.Id, j.ExternalJobId })
+                                                              .ToListAsync(cancellationToken);
+
+                foreach (var mapping in dbMappings)
+                    jobIdMap[mapping.ExternalJobId] = mapping.Id;
+            }
+
+            // A redelivered Starting must not hit the primary key and take the rest of the batch down with it.
+            var startingIds = startingEvents.Select(r => r.Message.CorrelationId).ToList();
+            var existingIds = (await dbContext.JobOccurrences.AsNoTracking().Where(o => startingIds.Contains(o.Id)).Select(o => o.Id).ToListAsync(cancellationToken)).ToHashSet();
+
+            var occurrencesToInsert = new List<JobOccurrence>();
+
+            foreach (var item in startingEvents)
+            {
+                var message = item.Message;
+
+                settled.Add(item);
+
+                if (!existingIds.Add(message.CorrelationId))
+                    continue;
+
+                if (!jobIdMap.TryGetValue(message.ExternalJobId, out var jobId))
+                {
+                    _logger.Warning("Could not find job for external ID {ExternalJobId}", message.ExternalJobId);
+                    continue;
+                }
+
+                occurrencesToInsert.Add(new JobOccurrence
+                {
+                    Id = message.CorrelationId,
+                    CreationDate = DateTime.UtcNow,
+                    JobVersion = 1,
+                    JobId = jobId,
+                    JobName = message.JobTypeName,
+                    CorrelationId = message.CorrelationId,
+                    WorkerId = message.WorkerId,
+                    Status = JobOccurrenceStatus.Running,
+                    StartTime = message.StartTime ?? message.ActualFireTime ?? DateTime.UtcNow,
+                    ExternalJobId = message.ExternalOccurrenceId,
+                    StatusChangeLogs =
+                    [
+                        new() {
+                            From = JobOccurrenceStatus.Queued,
+                            To = JobOccurrenceStatus.Running,
+                            Timestamp = DateTime.UtcNow,
+                        }
+                    ],
+                    CreatedAt = DateTime.UtcNow,
+                    CreatorUserName = GlobalConstant.SystemUsername
+                });
+            }
+
+            if (occurrencesToInsert.Count > 0)
+            {
+                await dbContext.BulkInsertAsync(occurrencesToInsert, cancellationToken: cancellationToken);
+
+                _logger.Debug("Created {Count} external job occurrences", occurrencesToInsert.Count);
+
+                // Update Redis counters
+                await _redisStatsService.IncrementTotalOccurrencesAsync(occurrencesToInsert.Count, cancellationToken);
+                await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Running, occurrencesToInsert.Count, cancellationToken);
+
+                // Track executions for EPS/EPM calculation
+                await _redisStatsService.TrackExecutionsAsync([.. occurrencesToInsert.Select(o => o.Id)], cancellationToken);
+
+                // Publish SignalR notification for created occurrences
+                await signalRPublisher.PublishOccurrenceCreatedAsync(occurrencesToInsert, _logger, cancellationToken);
+            }
+        }
+
+        // Process completed events - update existing occurrences
+        if (completedEvents.Count > 0)
+        {
+            var correlationIds = completedEvents.Select(m => m.Message.CorrelationId).ToList();
+
+            var existingOccurrences = await dbContext.JobOccurrences.Where(o => correlationIds.Contains(o.CorrelationId)).ToListAsync(cancellationToken);
+
+            var occurrenceDict = existingOccurrences.ToDictionary(o => o.CorrelationId);
+            var updatedOccurrences = new List<JobOccurrence>();
+            var statusChanges = new List<(JobOccurrenceStatus OldStatus, JobOccurrenceStatus NewStatus)>();
+
+            foreach (var item in completedEvents)
+            {
+                var message = item.Message;
+
+                if (!occurrenceDict.TryGetValue(message.CorrelationId, out var occurrence))
+                {
+                    // Competing consumers can process Completed before Starting. Hold it back for a while.
+                    if (DateTime.UtcNow - item.ReceivedAt < _orphanCompletionMaxWait)
+                    {
+                        _occurrenceBatch.Enqueue(item);
+                        continue;
+                    }
+
+                    _logger.Warning("Occurrence not found for CorrelationId: {CorrelationId}. Dropping its completion.", message.CorrelationId);
+                    settled.Add(item);
+                    continue;
+                }
+
+                settled.Add(item);
+
+                // A redelivered completion: already applied.
+                if (occurrence.Status == message.Status)
+                    continue;
+
+                var oldStatus = occurrence.Status;
+                occurrence.Status = message.Status;
+                occurrence.EndTime = message.EndTime ?? DateTime.UtcNow;
+                occurrence.DurationMs = message.DurationMs;
+                occurrence.Result = message.Result;
+                occurrence.Exception = message.Exception;
+                occurrence.StatusChangeLogs.Add(new OccurrenceStatusChangeLog
+                {
+                    From = oldStatus,
+                    To = message.Status,
+                    Timestamp = DateTime.UtcNow
+                });
+
+                updatedOccurrences.Add(occurrence);
+                statusChanges.Add((oldStatus, message.Status));
+            }
+
+            if (updatedOccurrences.Count > 0)
+            {
+                await dbContext.BulkUpdateAsync(updatedOccurrences, new BulkConfig
+                {
+                    PropertiesToInclude =
+                    [
+                        nameof(JobOccurrence.Status),
+                        nameof(JobOccurrence.EndTime),
+                        nameof(JobOccurrence.DurationMs),
+                        nameof(JobOccurrence.Result),
+                        nameof(JobOccurrence.Exception),
+                        nameof(JobOccurrence.StatusChangeLogs)
+                    ]
+                }, cancellationToken: cancellationToken);
+
+                _logger.Debug("Updated {Count} external job occurrences", updatedOccurrences.Count);
+
+                // Update Redis counters for status changes
+                foreach (var (oldStatus, newStatus) in statusChanges)
+                {
+                    if (oldStatus != newStatus)
+                        await _redisStatsService.UpdateStatusCountersAsync(oldStatus, newStatus, cancellationToken);
+                }
+
+                // Track durations for average calculation (only for completed/failed jobs with duration)
+                foreach (var occurrence in updatedOccurrences.Where(o => o.DurationMs.HasValue))
+                {
+                    await _redisStatsService.TrackDurationAsync(occurrence.DurationMs.Value, cancellationToken);
+                }
+
+                // Publish SignalR notification for updated occurrences
+                await signalRPublisher.PublishOccurrenceUpdatedAsync(updatedOccurrences, _logger, cancellationToken);
+            }
+        }
+
+        await AckAsync(settled, _occurrenceChannelLock, cancellationToken);
     }
 
     private static string BuildTags(ExternalJobRegistrationMessage message)
@@ -619,15 +705,15 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             _logger.Warning(ex, "Failed to process remaining batches during shutdown");
         }
 
-        // Dispose semaphores
+        // Close only channels (connection is managed by RabbitMQConnectionFactory)
+        await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
+        await _occurrenceChannel.SafeCloseAsync(_logger, cancellationToken);
+
+        // Dispose semaphores last: the work above still needs them
         _registrationBatchLock?.Dispose();
         _occurrenceBatchLock?.Dispose();
         _registrationChannelLock?.Dispose();
         _occurrenceChannelLock?.Dispose();
-
-        // Close only channels (connection is managed by RabbitMQConnectionFactory)
-        await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
-        await _occurrenceChannel.SafeCloseAsync(_logger, cancellationToken);
 
         _logger.Information("ExternalJobTracker stopped");
     }

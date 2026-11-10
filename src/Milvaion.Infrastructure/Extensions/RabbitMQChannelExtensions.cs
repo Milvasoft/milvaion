@@ -27,13 +27,11 @@ public static class RabbitMQChannelExtensions
                                           CancellationToken cancellationToken,
                                           bool multiple = false)
     {
-        if (cancellationToken.IsCancellationRequested || channel == null || channel.IsClosed)
+        if (cancellationToken.IsCancellationRequested || channel == null || channel.IsClosed || !await TryEnterAsync(channelLock, cancellationToken))
         {
             logger?.Debug("Skipping ACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
             return;
         }
-
-        await channelLock.WaitAsync(cancellationToken);
 
         try
         {
@@ -60,7 +58,7 @@ public static class RabbitMQChannelExtensions
         }
         finally
         {
-            channelLock.Release();
+            Exit(channelLock);
         }
     }
 
@@ -84,13 +82,11 @@ public static class RabbitMQChannelExtensions
                                            bool multiple = false,
                                            bool requeue = false)
     {
-        if (cancellationToken.IsCancellationRequested || channel == null || channel.IsClosed)
+        if (cancellationToken.IsCancellationRequested || channel == null || channel.IsClosed || !await TryEnterAsync(channelLock, cancellationToken))
         {
             logger?.Debug("Skipping NACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
             return;
         }
-
-        await channelLock.WaitAsync(cancellationToken);
 
         try
         {
@@ -117,7 +113,142 @@ public static class RabbitMQChannelExtensions
         }
         finally
         {
+            Exit(channelLock);
+        }
+    }
+
+    // A consumer callback can outlive the service's semaphores during shutdown.
+    private static async Task<bool> TryEnterAsync(SemaphoreSlim channelLock, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await channelLock.WaitAsync(cancellationToken);
+
+            return true;
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
+    private static void Exit(SemaphoreSlim channelLock)
+    {
+        try
+        {
             channelLock.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Shutdown already released everything.
+        }
+    }
+
+    /// <summary>
+    /// Postgres data exceptions (class 22) and integrity violations (class 23), and payloads that cannot be
+    /// converted at all, fail the same way on every retry. Requeueing such a message would block its queue forever.
+    /// </summary>
+    public static bool IsPermanentDataError(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current is Npgsql.PostgresException pgEx && (pgEx.SqlState.StartsWith("22") || pgEx.SqlState.StartsWith("23")))
+                return true;
+
+            if (current is System.Text.Json.JsonException or InvalidCastException or FormatException)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Completes when the channel closes, for whatever reason. Throws <see cref="OperationCanceledException"/> when
+    /// <paramref name="stoppingToken"/> is cancelled first. A consumer waits on this so that a dead channel leads to a reconnect.
+    /// </summary>
+    public static async Task WaitForShutdownAsync(this IChannel channel, CancellationToken stoppingToken)
+    {
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        channel.ChannelShutdownAsync += (_, _) =>
+        {
+            closed.TrySetResult();
+            return Task.CompletedTask;
+        };
+
+        // The channel may have closed before the handler above was attached.
+        if (channel.IsClosed)
+            closed.TrySetResult();
+
+        await closed.Task.WaitAsync(stoppingToken);
+    }
+
+    /// <summary>
+    /// Runs a consumer until the application stops, reconnecting whenever the channel dies or the connection attempt fails.
+    /// A consumer that gives up would stop processing silently while the process still looks healthy, so this never stops retrying.
+    /// </summary>
+    /// <param name="connectAndConsume">Connects and consumes. Returns when the channel has died.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <param name="serviceName">Name used in logs.</param>
+    /// <param name="onDegraded">Called once per outage, after <paramref name="alertAfterAttempts"/> consecutive failures.</param>
+    /// <param name="stoppingToken">Stops the loop.</param>
+    /// <param name="alertAfterAttempts">Consecutive failures before <paramref name="onDegraded"/> is called.</param>
+    public static async Task RunConsumerLoopAsync(Func<CancellationToken, Task> connectAndConsume,
+                                                  IMilvaLogger logger,
+                                                  string serviceName,
+                                                  Action<int> onDegraded,
+                                                  CancellationToken stoppingToken,
+                                                  int alertAfterAttempts = 10)
+    {
+        const int baseDelaySeconds = 5;
+        const int maxDelaySeconds = 60;
+
+        var failures = 0;
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            TimeSpan delay;
+
+            try
+            {
+                await connectAndConsume(stoppingToken);
+
+                // Connected, consumed, and then lost the channel: a new outage, reconnect quickly.
+                failures = 0;
+                delay = TimeSpan.FromSeconds(1);
+
+                logger.Warning("{Service} lost its RabbitMQ channel. Reconnecting...", serviceName);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                logger.Information("{Service} is shutting down", serviceName);
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                failures++;
+
+                logger.Error(ex, "{Service} RabbitMQ connection failed (consecutive failures: {Failures})", serviceName, failures);
+
+                if (failures == alertAfterAttempts)
+                {
+                    logger.Fatal("{Service} failed to connect after {Failures} attempts and is not processing messages. Retrying until it recovers.", serviceName, failures);
+
+                    onDegraded?.Invoke(failures);
+                }
+
+                delay = TimeSpan.FromSeconds(Math.Min(baseDelaySeconds * failures, maxDelaySeconds));
+            }
+
+            try
+            {
+                await Task.Delay(delay, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
     }
 
