@@ -1,0 +1,65 @@
+name: Wait for CI
+
+# Called by the publishing workflows, which keep their own path filters and so cannot simply be chained after CI.
+# On a push it blocks until the CI run of the same commit finishes and fails only if that run did not succeed.
+# Manual runs (workflow_dispatch) and pull requests pass straight through, so a manual run remains the way to
+# publish a commit whose CI is known to be red for an unrelated reason.
+
+on:
+  workflow_call:
+
+permissions:
+  actions: read
+
+jobs:
+  wait:
+    name: Wait for CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Wait for the CI run of this commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Only a CI run that finished without success stops the publish. Not finding a run, or the
+          # GitHub API misbehaving, is not evidence of a broken commit, so those cases warn and continue.
+          not_found_deadline=$((SECONDS + 600))
+          deadline=$((SECONDS + 5400))
+
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if ! run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --event push --limit 1 --json status,conclusion,url --jq '.[0] // empty'); then
+              sleep 30
+              continue
+            fi
+
+            if [ -z "$run" ]; then
+              if [ "$SECONDS" -ge "$not_found_deadline" ]; then
+                echo "::warning::No CI run found for $GITHUB_SHA. Continuing without a test result."
+                exit 0
+              fi
+
+              sleep 15
+              continue
+            fi
+
+            status=$(jq -r '.status' <<< "$run")
+            conclusion=$(jq -r '.conclusion' <<< "$run")
+            url=$(jq -r '.url' <<< "$run")
+
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "CI passed: $url"
+                exit 0
+              fi
+
+              echo "::error::CI finished with '$conclusion', not publishing. $url"
+              exit 1
+            fi
+
+            echo "CI is $status: $url"
+            sleep 30
+          done
+
+          echo "::warning::CI did not finish in time. Continuing without a test result."
