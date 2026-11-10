@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Milvaion.Api.Utils;
 using Milvaion.Application.Dtos.ApiKeyDtos;
 using Milvaion.Application.Features.ApiKeys.CreateApiKey;
 using Milvaion.Application.Features.ApiKeys.DeleteApiKey;
@@ -25,6 +26,7 @@ namespace Milvaion.Api.Controllers;
 [ApiVersion(GlobalConstant.CurrentApiVersion)]
 [ApiExplorerSettings(GroupName = "v1.0")]
 [Auth]
+[InteractiveOnly]
 public class ApiKeysController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;

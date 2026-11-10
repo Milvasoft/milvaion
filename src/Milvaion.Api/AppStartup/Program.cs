@@ -15,12 +15,17 @@ using System.Reflection;
 
 try
 {
-    MissingResxKeyFinder.FindAndPrintToConsole();
-
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     {
         WebRootPath = GlobalConstant.WWWRoot
     });
+
+    if (builder.Environment.IsDevelopment())
+        MissingResxKeyFinder.FindAndPrintToConsole();
+
+    // Must run before anything reads the identity options or MilvaionConfig. Never refuses to start: a missing
+    // secret is replaced with a process-local random value and reported once the logger exists.
+    var generatedSecrets = builder.Configuration.EnsureSigningSecrets();
 
     var assemblies = new Assembly[] { ApplicationAssembly.Assembly, InfrastructureAssembly.Assembly, DomainAssembly.Assembly, PresentationAssembly.Assembly };
 
@@ -35,7 +40,9 @@ try
 
     services.AddSingleton(config);
 
-    services.AddControllers().AddApplicationPart(PresentationAssembly.Assembly);
+    services.AddControllers()
+            .AddApplicationPart(PresentationAssembly.Assembly)
+            .ConfigureApplicationPartManager(manager => manager.FeatureProviders.Add(new DeveloperEndpointsFeatureProvider(builder.Configuration.IsDeveloperEndpointsEnabled())));
 
     services.AddEndpointsApiExplorer();
 
@@ -75,6 +82,10 @@ try
 
     services.AddCorsFromConfiguration(builder.Configuration);
 
+    services.AddForwardedHeadersFromConfiguration(builder.Configuration);
+
+    services.AddLoginRateLimiter(builder.Configuration);
+
     services.Configure<RouteOptions>(options =>
     {
         options.LowercaseUrls = true;
@@ -83,6 +94,12 @@ try
 
     // Configure the HTTP request pipeline.
     var app = builder.Build();
+
+    foreach (var generatedSecret in generatedSecrets)
+        app.Logger.LogWarning("{SecretPath} is not configured. A random value was generated for this process only: restarts invalidate everything signed with it and replicas will not agree. Set it through the environment.", generatedSecret);
+
+    // Before the path base and routing, so every later component sees the client address and scheme.
+    app.UseForwardedHeadersFromConfiguration(builder.Configuration);
 
     // PathBase support: when BasePath is configured (e.g. "/milvaion"), all middleware and endpoints (controllers, hubs, static files, SPA fallback) are automatically scoped to it.
     // UseRouting() MUST be called explicitly right after UsePathBase so that route matching happens on the already-stripped path, not the full original path.
@@ -136,6 +153,8 @@ try
 
     app.UseMiddleware<ExceptionMiddleware>();
 
+    app.UseRateLimiter();
+
     app.UseAuthentication();
 
     app.UseAuthorization();
@@ -143,12 +162,12 @@ try
     app.MapControllers();
 
     // Map SignalR hub
-    app.MapHub<JobsHub>("/hubs/jobs");
+    app.MapHub<JobsHub>(JobsHub.Route).RequireAuthorization();
 
     // Must come before MapFallbackToFile, otherwise the SPA fallback would swallow /mcp.
     app.MapMilvaionMcp();
 
-    app.UseScalarWithOpenApi();
+    app.UseScalarWithOpenApi(builder.Configuration);
 
     // SPA Fallback - Serve React app for all non-API routes
     // Must be LAST (after MapControllers, MapHub, etc.)
@@ -162,7 +181,7 @@ try
         // The public prefix, not the path base: this drives the router basename and the base URL for API and
         // SignalR calls, all of which the browser resolves on the far side of any reverse proxy.
         var basePath = (opts.Value.EffectivePublicBasePath ?? string.Empty).TrimEnd('/');
-        var js = $"window.__MILVAION_CONFIG__ = {{ basePath: '{basePath}' }};";
+        var js = $"window.__MILVAION_CONFIG__ = {{ basePath: {System.Text.Json.JsonSerializer.Serialize(basePath)} }};";
 
         ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
 
@@ -181,9 +200,12 @@ try
 
     await app.RunAsync();
 }
-catch (Exception ex)
+catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Logger.Error(ex, "Error ");
     Console.WriteLine(ex.Message);
+
+    // Otherwise a crash during startup looks like a clean exit to the orchestrator.
+    Environment.ExitCode = 1;
 }
 

@@ -14,6 +14,9 @@ public class SignalRJobOccurrenceEventPublisher(IHubContext<JobsHub> hubContext)
 {
     private readonly IHubContext<JobsHub> _hubContext = hubContext;
 
+    private const int _maxConcurrentPublishes = 32;
+    private static readonly TimeSpan _publishTimeout = TimeSpan.FromSeconds(3);
+
 #pragma warning disable AsyncFixer01 // Unnecessary async/await usage
     /// <inheritdoc/>
     public async Task PublishLogAddedAsync(Guid occurrenceId, object log, CancellationToken cancellationToken = default)
@@ -24,94 +27,68 @@ public class SignalRJobOccurrenceEventPublisher(IHubContext<JobsHub> hubContext)
         }, cancellationToken);
 
     /// <inheritdoc/>
-    public async Task PublishOccurrenceCreatedAsync(List<JobOccurrence> occurrences, IMilvaLogger logger, CancellationToken cancellationToken = default)
-    {
-        // Fire and forget pattern - collect all publish tasks first
-        var publishTasks = new List<Task>(occurrences.Count);
-
-        foreach (var occurrence in occurrences)
+    public Task PublishOccurrenceCreatedAsync(List<JobOccurrence> occurrences, IMilvaLogger logger, CancellationToken cancellationToken = default)
+        => PublishAllAsync(occurrences, "OccurrenceCreated", (occurrence, token) => PublishOccurrenceCreatedAsync(new OccurrenceCreatedSignal
         {
-            // Fire and forget each event (non-blocking)
-            publishTasks.Add(Task.Run(async () =>
-            {
-                try
-                {
-                    await PublishOccurrenceCreatedAsync(new OccurrenceCreatedSignal
-                    {
-                        Id = occurrence.Id,
-                        JobId = occurrence.JobId,
-                        JobName = occurrence.JobName,
-                        Status = (int)occurrence.Status,
-                        EndTime = occurrence.EndTime,
-                        StartTime = occurrence.StartTime,
-                        WorkerId = occurrence.WorkerId,
-                        CreatedAt = occurrence.CreatedAt,
-                    }, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    logger.Debug(ex, "Failed to publish OccurrenceCreated event for {OccurrenceId}", occurrence.Id);
-                }
-            }, cancellationToken));
-        }
-
-        // Wait for all events with timeout (don't block dispatcher)
-        if (publishTasks.Count > 0)
-        {
-            var signalRTimeout = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
-            var signalRCompleted = await Task.WhenAny(Task.WhenAll(publishTasks), signalRTimeout);
-
-            if (signalRCompleted == signalRTimeout)
-                logger.Warning("SignalR OccurrenceCreated event publishing timed out after 3 seconds for {Count} events", publishTasks.Count);
-        }
-    }
+            Id = occurrence.Id,
+            JobId = occurrence.JobId,
+            JobName = occurrence.JobName,
+            Status = (int)occurrence.Status,
+            EndTime = occurrence.EndTime,
+            StartTime = occurrence.StartTime,
+            WorkerId = occurrence.WorkerId,
+            CreatedAt = occurrence.CreatedAt,
+        }, token), logger, cancellationToken);
 
     /// <inheritdoc/>
-    public async Task PublishOccurrenceUpdatedAsync(List<JobOccurrence> occurrences, IMilvaLogger logger, CancellationToken cancellationToken = default)
-    {
-        // Fire and forget pattern - collect all publish tasks first
-        var publishTasks = new List<Task>(occurrences.Count);
-
-        foreach (var occurrence in occurrences)
+    public Task PublishOccurrenceUpdatedAsync(List<JobOccurrence> occurrences, IMilvaLogger logger, CancellationToken cancellationToken = default)
+        => PublishAllAsync(occurrences, "OccurrenceUpdated", (occurrence, token) => PublishOccurrenceUpdatedAsync(new OccurrenceUpdatedSignal
         {
-            // Fire and forget each event (non-blocking)
-            publishTasks.Add(Task.Run(async () =>
+            Id = occurrence.Id,
+            Status = (int)occurrence.Status,
+            StartTime = occurrence.StartTime,
+            WorkerId = occurrence.WorkerId,
+            EndTime = occurrence.EndTime,
+            DurationMs = occurrence.DurationMs,
+            Exception = occurrence.Exception,
+            StepStatus = occurrence.StepStatus.HasValue ? (int)occurrence.StepStatus.Value : null,
+        }, token), logger, cancellationToken);
+
+    /// <summary>
+    /// Publishes one event per occurrence with bounded concurrency and gives up after the timeout, cancelling what
+    /// is left so a slow client cannot hold up the dispatcher or leave work running behind it.
+    /// </summary>
+    private static async Task PublishAllAsync(List<JobOccurrence> occurrences, string eventName, Func<JobOccurrence, CancellationToken, Task> publish, IMilvaLogger logger, CancellationToken cancellationToken)
+    {
+        if (occurrences.Count == 0)
+            return;
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(_publishTimeout);
+
+        try
+        {
+            await Parallel.ForEachAsync(occurrences, new ParallelOptions { MaxDegreeOfParallelism = _maxConcurrentPublishes, CancellationToken = timeout.Token }, async (occurrence, token) =>
             {
                 try
                 {
-                    await PublishOccurrenceUpdatedAsync(new OccurrenceUpdatedSignal
-                    {
-                        Id = occurrence.Id,
-                        Status = (int)occurrence.Status,
-                        StartTime = occurrence.StartTime,
-                        WorkerId = occurrence.WorkerId,
-                        EndTime = occurrence.EndTime,
-                        DurationMs = occurrence.DurationMs,
-                        Exception = occurrence.Exception,
-                        StepStatus = occurrence.StepStatus.HasValue ? (int)occurrence.StepStatus.Value : null,
-                    }, cancellationToken);
+                    await publish(occurrence, token);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    logger.Debug(ex, "Failed to publish OccurrenceCreated event for {OccurrenceId}", occurrence.Id);
+                    logger.Debug(ex, "Failed to publish {EventName} event for {OccurrenceId}", eventName, occurrence.Id);
                 }
-            }, cancellationToken));
+            });
         }
-
-        // Wait for all events with timeout (don't block dispatcher)
-        if (publishTasks.Count > 0)
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            var signalRTimeout = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
-            var signalRCompleted = await Task.WhenAny(Task.WhenAll(publishTasks), signalRTimeout);
-
-            if (signalRCompleted == signalRTimeout)
-                logger.Warning("SignalR OccurrenceCreated event publishing timed out after 3 seconds for {Count} events", publishTasks.Count);
+            logger.Warning("SignalR {EventName} event publishing timed out after {Timeout} for {Count} events", eventName, _publishTimeout, occurrences.Count);
         }
     }
 
     /// <inheritdoc/>
     private async Task PublishOccurrenceCreatedAsync(OccurrenceCreatedSignal signal, CancellationToken cancellationToken = default)
-        => await _hubContext.Clients.All.SendAsync("OccurrenceCreated", signal, cancellationToken);
+        => await _hubContext.Clients.Group(JobsHub.OccurrenceReadersGroup).SendAsync("OccurrenceCreated", signal, cancellationToken);
 
     /// <inheritdoc/>
     private async Task PublishOccurrenceUpdatedAsync(OccurrenceUpdatedSignal signal, CancellationToken cancellationToken = default)
@@ -119,8 +96,8 @@ public class SignalRJobOccurrenceEventPublisher(IHubContext<JobsHub> hubContext)
         // Send to specific occurrence subscribers (detail page)
         await _hubContext.Clients.Group($"occurrence_{signal.Id}").SendAsync("OccurrenceUpdated", signal, cancellationToken);
 
-        // Also broadcast to all clients (for list views)
-        await _hubContext.Clients.All.SendAsync("OccurrenceUpdated", signal, cancellationToken);
+        // Also broadcast to everyone allowed to see occurrences (for list views)
+        await _hubContext.Clients.Group(JobsHub.OccurrenceReadersGroup).SendAsync("OccurrenceUpdated", signal, cancellationToken);
 
         // Cleanup group if occurrence is in final state
         if (((JobOccurrenceStatus)signal.Status).IsFinalStatus())

@@ -1,13 +1,36 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
+using System.Security.Claims;
 
 namespace Milvaion.Api.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time job updates to dashboard.
 /// </summary>
+[Authorize]
 public class JobsHub : Hub
 {
+    /// <summary>
+    /// Route the hub is mapped to.
+    /// </summary>
+    public const string Route = "/hubs/jobs";
+
+    /// <summary>
+    /// Connections allowed to see occurrence events. List views listen to this group.
+    /// </summary>
+    public const string OccurrenceReadersGroup = "occurrence_readers";
+
+    // The list and detail permissions of every page that listens to this hub.
+    private static readonly HashSet<string> _occurrenceReadPermissions =
+    [
+        PermissionCatalog.App.SuperAdmin,
+        PermissionCatalog.ScheduledJobManagement.List,
+        PermissionCatalog.ScheduledJobManagement.Detail,
+        PermissionCatalog.WorkflowManagement.List,
+        PermissionCatalog.WorkflowManagement.Detail
+    ];
+
     // Track active groups and their members
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _activeGroups = new();
 
@@ -16,6 +39,9 @@ public class JobsHub : Hub
     /// </summary>
     public override async Task OnConnectedAsync()
     {
+        if (CanReadOccurrences())
+            await Groups.AddToGroupAsync(Context.ConnectionId, OccurrenceReadersGroup);
+
         await Clients.Caller.SendAsync("Connected", Context.ConnectionId);
         await base.OnConnectedAsync();
     }
@@ -25,6 +51,9 @@ public class JobsHub : Hub
     /// </summary>
     public async Task SubscribeToOccurrence(string occurrenceId)
     {
+        if (!CanReadOccurrences())
+            throw new HubException("Forbidden");
+
         var groupName = $"occurrence_{occurrenceId}";
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 
@@ -90,4 +119,6 @@ public class JobsHub : Hub
     /// Get count of active tracked groups (for monitoring).
     /// </summary>
     public static int GetActiveGroupCount() => _activeGroups.Count;
+
+    private bool CanReadOccurrences() => Context.User?.FindAll(ClaimTypes.Role).Any(claim => _occurrenceReadPermissions.Contains(claim.Value)) ?? false;
 }
