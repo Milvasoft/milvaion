@@ -63,7 +63,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+
+    // The local scheme reports an expired token as 419, but a provider-issued token that expired answers
+    // 401, so an SSO session gets one refresh attempt on it before being signed out.
+    const mayBeExpiredOidcToken = status === 401 && authService.isOidcSession() && !originalRequest._retry
+
+    if (status === 401 && !mayBeExpiredOidcToken) {
       authService.clearAuth()
       if (window.location.pathname !== loginPath) {
         window.location.href = loginPath
@@ -71,7 +77,7 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    if (error.response?.status !== 419 || originalRequest._retry) {
+    if ((status !== 419 && !mayBeExpiredOidcToken) || originalRequest._retry) {
       return Promise.reject(error)
     }
 
@@ -82,6 +88,8 @@ api.interceptors.response.use(
       }
       return Promise.reject(error)
     }
+
+    originalRequest._retry = true
 
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
@@ -96,7 +104,6 @@ api.interceptors.response.use(
         })
     }
 
-    originalRequest._retry = true
     isRefreshing = true
 
     try {

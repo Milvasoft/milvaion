@@ -1,4 +1,5 @@
 import api from './api'
+import { clearOidcSession, isOidcSession, refreshOidcSession, revokeOidcRefreshToken } from './oidcClient'
 
 const TOKEN_KEY = 'accessToken'
 const REFRESH_TOKEN_KEY = 'refreshToken'
@@ -31,6 +32,7 @@ class AuthService {
         const { token, id } = response.data
 
           this.setTokens(token.accessToken, token.refreshToken)
+          clearOidcSession()
 
           const user = {
             id,
@@ -57,7 +59,32 @@ class AuthService {
     }
   }
 
+  isOidcSession() {
+    return isOidcSession()
+  }
+
+  async refreshOidcToken() {
+    try {
+      const user = await refreshOidcSession(this.getAccessToken())
+
+      if (!user?.access_token) {
+        return false
+      }
+
+      this.setTokens(user.access_token, user.refresh_token)
+
+      return true
+    } catch (error) {
+      console.error('OIDC token refresh error:', error)
+      return false
+    }
+  }
+
   async refreshToken() {
+    if (this.isOidcSession()) {
+      return this.refreshOidcToken()
+    }
+
     try {
       const refreshToken = this.getRefreshToken()
       const user = this.getCurrentUser()
@@ -92,6 +119,7 @@ class AuthService {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    clearOidcSession()
   }
 
   async logout() {
@@ -106,6 +134,10 @@ class AuthService {
     } catch (error) {
       console.error('Logout API error:', error)
     } finally {
+      if (this.isOidcSession()) {
+        await revokeOidcRefreshToken()
+      }
+
       this.clearAuth()
     }
   }
