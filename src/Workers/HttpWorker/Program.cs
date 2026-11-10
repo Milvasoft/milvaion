@@ -1,4 +1,6 @@
 ﻿using HttpWorker.Jobs;
+using HttpWorker.Options;
+using HttpWorker.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -35,14 +37,24 @@ builder.Services.AddSerilog((sp, loggerConfig) =>
     }
 });
 
+builder.Services.Configure<HttpWorkerOptions>(builder.Configuration.GetSection(HttpWorkerOptions.SectionKey));
+builder.Services.AddSingleton<HttpTargetPolicy>();
+
 // Register HttpClient with connection pooling for standard requests
-builder.Services.AddHttpClient(HttpRequestSenderJob.DefaultClientName).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+builder.Services.AddHttpClient(HttpRequestSenderJob.DefaultClientName).ConfigurePrimaryHttpMessageHandler(sp =>
 {
-    PooledConnectionLifetime = TimeSpan.FromMinutes(2),
-    PooledConnectionIdleTimeout = TimeSpan.FromSeconds(30),
-    MaxConnectionsPerServer = 100,
-    EnableMultipleHttp2Connections = true,
-    AutomaticDecompression = System.Net.DecompressionMethods.All
+    var handler = new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+        PooledConnectionIdleTimeout = TimeSpan.FromSeconds(30),
+        MaxConnectionsPerServer = 100,
+        EnableMultipleHttp2Connections = true,
+        AutomaticDecompression = System.Net.DecompressionMethods.All
+    };
+
+    sp.GetRequiredService<HttpTargetPolicy>().Apply(handler);
+
+    return handler;
 });
 
 // Register Worker SDK with auto job discovery and consumer registration
@@ -53,5 +65,9 @@ builder.Services.AddFileHealthCheck(builder.Configuration);
 
 // Build and run
 var host = builder.Build();
+
+// Resolved here so an invalid CIDR stops the worker at startup rather than failing its first job
+if (!host.Services.GetRequiredService<HttpTargetPolicy>().RestrictsTargets)
+    Console.WriteLine("WARNING: HttpWorker:Security sets no target restrictions. Jobs can reach anything this worker can, including internal services and cloud metadata endpoints.");
 
 return await host.RunMilvaionWorkerAsync();
