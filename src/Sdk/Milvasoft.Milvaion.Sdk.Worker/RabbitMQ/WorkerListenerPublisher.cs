@@ -31,7 +31,8 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     private readonly Dictionary<string, JobConsumerConfig> _jobConfigs = jobConfigs;
     private IConnection _connection;
     private IChannel _channel;
-    private readonly string _version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
+    private readonly SemaphoreSlim _publishLock = new(1, 1);
+    private readonly string _version = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version?.ToString() ?? "1.0.0";
     private readonly string _hostName = Environment.MachineName;
     private readonly string _ipAddress = GetLocalIPAddress();
 
@@ -99,9 +100,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                     }
                 };
 
-                // Declare queues
-                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: stoppingToken);
-                await _channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: stoppingToken);
+                await DeclareQueuesAsync(_channel, stoppingToken);
 
                 // Register all workers on startup
                 await RegisterAllWorkersAsync(stoppingToken);
@@ -138,6 +137,9 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                 retryCount++;
 
                 _logger.Error(ex, "Error in WorkerRegistrationPublisher (attempt {Retry}/{MaxRetries})", retryCount, maxRetries);
+
+                // The next attempt opens its own connection
+                await CloseConnectionAsync();
 
                 if (retryCount >= maxRetries)
                 {
@@ -197,10 +199,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
         var json = JsonSerializer.Serialize(registration);
         var body = Encoding.UTF8.GetBytes(json);
 
-        await _channel.BasicPublishAsync(exchange: string.Empty,
-                                         routingKey: WorkerConstant.Queues.WorkerRegistration,
-                                         body: body,
-                                         cancellationToken: cancellationToken);
+        await PublishAsync(WorkerConstant.Queues.WorkerRegistration, body, cancellationToken);
 
         _logger.Debug("Worker {WorkerId} (Instance: {InstanceId}) registered with {Count} job types: {JobTypes}", _options.WorkerId, _options.InstanceId, allJobTypes.Count, string.Join(", ", allJobTypes));
 
@@ -238,12 +237,57 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
         var json = JsonSerializer.Serialize(heartbeat);
         var body = Encoding.UTF8.GetBytes(json);
 
-        await _channel.BasicPublishAsync(exchange: string.Empty,
-                                         routingKey: WorkerConstant.Queues.WorkerHeartbeat,
-                                         body: body,
-                                         cancellationToken: cancellationToken);
+        await PublishAsync(WorkerConstant.Queues.WorkerHeartbeat, body, cancellationToken);
 
         _logger.Debug("Heartbeat sent for worker {WorkerId} instance {InstanceId}: {CurrentJobs} jobs (Tracked in memory: {TrackedJobs})", _options.WorkerId, _options.InstanceId, totalCurrentJobs, allCounts.Count);
+    }
+
+    /// <summary>
+    /// Publishes on the shared channel. Immediate heartbeats from parallel jobs and the periodic loop all end up here;
+    /// heartbeats are infrequent enough that waiting for each confirm in turn costs nothing.
+    /// </summary>
+    private async Task PublishAsync(string queue, byte[] body, CancellationToken cancellationToken)
+    {
+        await _publishLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            var channel = await GetOpenChannelAsync(cancellationToken);
+
+            await channel.BasicPublishAsync(exchange: string.Empty, routingKey: queue, body: body, cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            _publishLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Returns the open channel, replacing one the broker has closed. Automatic recovery only restores channels
+    /// after a connection failure, so without this the worker would stop sending heartbeats while its connection stays up.
+    /// </summary>
+    private async Task<IChannel> GetOpenChannelAsync(CancellationToken cancellationToken)
+    {
+        if (_channel is { IsOpen: true })
+            return _channel;
+
+        if (_connection is not { IsOpen: true })
+            throw new InvalidOperationException("RabbitMQ connection is not open.");
+
+        _logger.Warning("RabbitMQ heartbeat channel was closed. Opening a new one.");
+
+        _channel?.Dispose();
+        _channel = await _connection.CreateChannelAsync(_options.RabbitMQ.BuildChannelOptions(), cancellationToken);
+
+        await DeclareQueuesAsync(_channel, cancellationToken);
+
+        return _channel;
+    }
+
+    private async Task DeclareQueuesAsync(IChannel channel, CancellationToken cancellationToken)
+    {
+        await channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: cancellationToken);
+        await channel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, _options.RabbitMQ.BuildQueueArguments(), cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -442,19 +486,42 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     {
         _logger.Information("WorkerRegistrationPublisher stopping...");
 
-        if (_channel != null)
-        {
-            await _channel.CloseAsync(cancellationToken);
-            _channel.Dispose();
-        }
-
-        if (_connection != null)
-        {
-            await _connection.CloseAsync(cancellationToken);
-            _connection.Dispose();
-        }
-
+        // Stop the heartbeat loop before closing what it publishes on
         await base.StopAsync(cancellationToken);
+
+        await CloseConnectionAsync();
+    }
+
+    private async Task CloseConnectionAsync()
+    {
+        var channel = _channel;
+        var connection = _connection;
+
+        _channel = null;
+        _connection = null;
+
+        try
+        {
+            if (channel != null)
+            {
+                if (channel.IsOpen)
+                    await channel.CloseAsync();
+
+                channel.Dispose();
+            }
+
+            if (connection != null)
+            {
+                if (connection.IsOpen)
+                    await connection.CloseAsync();
+
+                connection.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error closing RabbitMQ connection");
+        }
     }
 
     /// <summary>
