@@ -39,6 +39,11 @@ public interface ISqlConnectionFactory
     /// Gets the default timeout for a connection.
     /// </summary>
     int GetDefaultTimeout(string connectionName);
+
+    /// <summary>
+    /// Gets the configuration of a connection.
+    /// </summary>
+    SqlConnectionConfig GetConnectionConfig(string connectionName);
 }
 
 /// <summary>
@@ -87,5 +92,13 @@ public class SqlConnectionFactory(IOptions<SqlWorkerOptions> options) : ISqlConn
             throw new ArgumentException($"Connection '{connectionName}' not found", nameof(connectionName));
 
         return config.DefaultTimeoutSeconds;
+    }
+
+    public SqlConnectionConfig GetConnectionConfig(string connectionName)
+    {
+        if (!_options.Connections.TryGetValue(connectionName, out var config))
+            throw new ArgumentException($"Connection '{connectionName}' not found", nameof(connectionName));
+
+        return config;
     }
 }
