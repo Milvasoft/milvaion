@@ -46,7 +46,7 @@ fi
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DOCKERFILE="$ROOT_DIR/src/Workers/SampleWorker/Dockerfile"
 
 echo -e "${CYAN}===============================================================${NC}"
