@@ -2,7 +2,7 @@ import Icon from './Icon'
 import { useLocalStorageState } from '../hooks/useLocalStorageState'
 import './CollapsibleSection.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * Başlığından katlanabilen bölüm.

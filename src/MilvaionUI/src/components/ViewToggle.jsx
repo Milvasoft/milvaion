@@ -1,7 +1,7 @@
 import Icon from './Icon'
 import './ViewToggle.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * Switches a list between presentations - cards and a table, typically.

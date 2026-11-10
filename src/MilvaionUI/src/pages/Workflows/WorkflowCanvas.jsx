@@ -110,7 +110,7 @@ function autoLayout(steps, edges) {
  * Salt okunur DAG görünümü. Builder ile aynı React Flow kurulumunu ve aynı node bileşenlerini
  * kullanır, böylece workflow üç ekranda da aynı görünür.
  */
-/* eslint-disable react/prop-types */
+ 
 function WorkflowCanvasInner({
   steps = [],
   edges = [],

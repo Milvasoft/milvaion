@@ -251,7 +251,7 @@ function ServiceMemoryStats() {
               recent check interval. Useful for spotting sudden activity spikes.
             </li>
             <li>
-              <strong>Share of allocations</strong> — This service's portion of the total
+              <strong>Share of allocations</strong> — This service&apos;s portion of the total
               allocations across all services, indicating which service produces the most GC pressure.
             </li>
             <li>

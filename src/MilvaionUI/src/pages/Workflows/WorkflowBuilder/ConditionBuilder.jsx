@@ -10,7 +10,7 @@ import {
 } from './conditionExpression'
 import './ConditionBuilder.css'
 
-/* eslint-disable react/prop-types */
+ 
 
 /**
  * Condition node'ların ifadesini iç içe kural gruplarıyla kuran editör.
