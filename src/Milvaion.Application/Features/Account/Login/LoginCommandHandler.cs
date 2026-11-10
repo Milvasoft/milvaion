@@ -4,7 +4,6 @@ using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Abstractions.Localization;
 using Milvasoft.Identity.Abstract;
-using Milvasoft.Identity.Concrete.Options;
 using Milvasoft.Interception.Ef.Transaction;
 
 namespace Milvaion.Application.Features.Account.Login;
@@ -18,7 +17,6 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
                                   IAccountManager AccountManager,
                                   IUIService UIService,
                                   IMilvaLocalizer MilvaLocalizer,
-                                  MilvaIdentityOptions IdentityOptions,
                                   MilvaionConfig MilvaionConfig,
                                   ILdapAuthenticator LdapAuthenticator,
                                   IExternalIdentityService ExternalIdentityService) : IInterceptable, ICommandHandler<LoginCommand, LoginResponseDto>
@@ -28,7 +26,6 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
     private readonly IAccountManager _accountManager = AccountManager;
     private readonly IUIService _uiService = UIService;
     private readonly IMilvaLocalizer _milvaLocalizer = MilvaLocalizer;
-    private readonly MilvaIdentityOptions _identityOptions = IdentityOptions;
     private readonly MilvaionConfig _milvaionConfig = MilvaionConfig;
     private readonly ILdapAuthenticator _ldapAuthenticator = LdapAuthenticator;
     private readonly IExternalIdentityService _externalIdentityService = ExternalIdentityService;
@@ -50,7 +47,7 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
         if (user.Provider != ExternalProvider.Local)
             return Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
 
-        var lockoutResponse = ValidateLockout(user);
+        var lockoutResponse = ValidateLockout(user, request.Password);
 
         if (lockoutResponse != null)
             return lockoutResponse;
@@ -77,7 +74,7 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
         return Response<LoginResponseDto>.Success(loginResponse);
     }
 
-    private Response<LoginResponseDto> ValidateLockout(User user)
+    private Response<LoginResponseDto> ValidateLockout(User user, string password)
     {
         var userLocked = _milvaUserManager.IsLockedOut(user);
 
@@ -90,8 +87,9 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
             userLocked = false;
         }
 
+        // Only somebody who knows the password learns the account is locked; to everyone else it looks like a wrong password.
         if (userLocked)
-            return PrepareLockoutResponse(user);
+            return _milvaUserManager.CheckPassword(user, password) ? PrepareLockoutResponse(user) : Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
 
         return null;
     }
@@ -121,22 +119,10 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
         if (!isPasswordTrue)
         {
             if (user.LockoutEnabled)
-            {
                 _milvaUserManager.ConfigureLockout(user, true);
 
-                if (_milvaUserManager.IsLockedOut(user))
-                {
-                    response = PrepareLockoutResponse(user);
-                }
-                else
-                {
-                    var lockWarningMessage = _milvaLocalizer[MessageKey.LockWarning, _identityOptions.Lockout.MaxFailedAccessAttempts - user.AccessFailedCount];
-
-                    response = Response<LoginResponseDto>.Error(null, lockWarningMessage);
-                }
-            }
-            else
-                response = Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
+            // The same answer as for an unknown user, otherwise the response reveals which user names exist.
+            response = Response<LoginResponseDto>.Error(null, MessageKey.Unauthorized);
         }
         else
         {
