@@ -10,12 +10,15 @@ using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
+using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Scheduling;
+using Milvaion.Infrastructure.Services.Redis.Utils;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
+using StackExchange.Redis;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
@@ -58,12 +61,13 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         nameof(JobOccurrence.DispatchRetryCount),
         nameof(JobOccurrence.NextDispatchRetryAt)
     ];
-    private readonly static List<string> _startupRecoveryUpdatePropNames =
-    [
-        nameof(JobOccurrence.Status),
-        nameof(JobOccurrence.EndTime),
-        nameof(JobOccurrence.Exception)
-    ];
+
+    // Max dispatch attempts after the first publish failed (~6 minutes of retries in total).
+    private const int _maxDispatchRetryAttempts = 5;
+    private const string _dispatchRetryLockName = "dispatch_retry";
+
+    // Unique per service instance: two pods can share a host name, and a lock must only ever be released by its real owner.
+    private readonly string _instanceId = $"{Environment.MachineName}:{Environment.ProcessId}:{Guid.NewGuid():N}";
 
     /// <inheritdoc/>
     protected override string ServiceName => "JobDispatcher";
@@ -123,6 +127,9 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         {
             try
             {
+                // The emergency stop is shared by every API instance, so pick up changes made through another one.
+                await _controlService.RefreshAsync(stoppingToken);
+
                 // Check if dispatcher is enabled (runtime control)
                 if (!_controlService.IsEnabled)
                 {
@@ -138,6 +145,9 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                     _isRunning = true;
 
                 await DispatchDueJobsAsync(stoppingToken);
+
+                // Independent of the dispatch above: a cycle with no due jobs must still retry earlier publish failures.
+                await RetryFailedDispatchesAsync(stoppingToken);
 
                 TrackMemoryAfterIteration();
 
@@ -231,53 +241,63 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         _logger.Debug("Pre-validation: {Passed}/{Total} jobs passed", jobsPassedValidation.Count, dueJobIds.Count);
 
         // 5. Acquire locks and create occurrences
-        var (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch) = await AcquireLocksAndCreateOccurrencesAsync(jobsPassedValidation, cancellationToken);
+        var (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch, lockedJobIds) = await AcquireLocksAndCreateOccurrencesAsync(jobsPassedValidation, cancellationToken);
 
-        // 6. Remove invalid jobs from Redis
-        if (!toRemovedIdListScheduledSet.IsNullOrEmpty())
+        try
         {
-            _logger.Debug("Removed {Count} invalid jobs from Redis scheduled set", toRemovedIdListScheduledSet.Count);
-            await _redisScheduler.RemoveFromScheduledSetBulkAsync(toRemovedIdListScheduledSet, cancellationToken);
-        }
+            // 6. Remove invalid jobs from Redis
+            if (!toRemovedIdListScheduledSet.IsNullOrEmpty())
+            {
+                _logger.Debug("Removed {Count} invalid jobs from Redis scheduled set", toRemovedIdListScheduledSet.Count);
+                await _redisScheduler.RemoveFromScheduledSetBulkAsync(toRemovedIdListScheduledSet, cancellationToken);
+            }
 
-        if (occurrences.IsNullOrEmpty())
+            if (occurrences.IsNullOrEmpty())
+            {
+                _logger.Debug("No jobs to dispatch after pre-checks");
+                return;
+            }
+
+            _logger.Debug("Created {Count} job occurrences, dispatching to RabbitMQ", occurrences.Count);
+
+            // 7. Persist occurrences to database
+            await using var scope2 = _serviceProvider.CreateAsyncScope();
+            var jobOccurrenceRepository = scope2.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrence>>();
+
+            await PersistOccurrencesAsync(scope2, dbContext, jobOccurrenceRepository, allJobs, occurrences, occurrencesAsEvents, cancellationToken);
+
+            // 8. Record metrics and update Redis counters
+            RecordDispatchMetrics(sw, occurrences.Count);
+
+            await UpdateRedisCountersAfterDispatchAsync(occurrences.Count, cancellationToken);
+
+            // 9. Advance the schedule and dispatch to RabbitMQ
+            var (retryOccurrences, abandonedOccurrences) = await DispatchJobsToRabbitMQAsync(jobsToDispatch, occurrences, logsToInsert, cancellationToken);
+
+            // 10. Handle failed dispatches
+            await HandleFailedDispatchesAsync(scope2, retryOccurrences, abandonedOccurrences, logsToInsert, cancellationToken);
+
+            // 11. Mark one-time jobs as finished
+            await MarkCompletedOneTimeJobsAsync(dbContext, jobsToDispatch, [.. retryOccurrences, .. abandonedOccurrences], cancellationToken);
+
+            // 12. Insert logs
+            var jobOccurrenceLogRepository = scope2.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
+
+            if (!logsToInsert.IsEmpty)
+            {
+                await jobOccurrenceLogRepository.BulkAddAsync([.. logsToInsert], cancellationToken: cancellationToken);
+                _logger.Debug("Bulk inserted {Count} logs from dispatch failures/retries", logsToInsert.Count);
+            }
+        }
+        finally
         {
-            _logger.Debug("No jobs to dispatch after pre-checks");
-            return;
+            // The only release path: also runs when persisting fails, so a job is not blocked for the whole lock TTL.
+            if (lockedJobIds.Count > 0)
+            {
+                var releasedCount = await _redisLock.ReleaseLocksBulkAsync(lockedJobIds, _instanceId, CancellationToken.None);
+                _logger.Debug("Bulk lock release: {Released}/{Total} locks released", releasedCount, lockedJobIds.Count);
+            }
         }
-
-        _logger.Debug("Created {Count} job occurrences, dispatching to RabbitMQ", occurrences.Count);
-
-        // 7. Persist occurrences to database
-        await using var scope2 = _serviceProvider.CreateAsyncScope();
-        var jobOccurrenceRepository = scope2.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrence>>();
-
-        await PersistOccurrencesAsync(scope2, dbContext, jobOccurrenceRepository, allJobs, occurrences, occurrencesAsEvents, cancellationToken);
-
-        // 8. Record metrics and update Redis counters
-        RecordDispatchMetrics(sw, occurrences.Count);
-
-        await UpdateRedisCountersAfterDispatchAsync(occurrences.Count, cancellationToken);
-
-        // 9. Dispatch to RabbitMQ
-        var failedToDispatchOccurrences = await DispatchJobsToRabbitMQAsync(jobsToDispatch, occurrences, logsToInsert, cancellationToken);
-
-        // 10. Handle failed dispatches
-        await HandleFailedDispatchesAsync(scope2, jobsToDispatch, failedToDispatchOccurrences, logsToInsert, cancellationToken);
-
-        // 11. Mark one-time jobs as finished
-        await MarkCompletedOneTimeJobsAsync(dbContext, jobsToDispatch, failedToDispatchOccurrences, cancellationToken);
-
-        // 12. Insert logs and retry failed dispatches
-        var jobOccurrenceLogRepository = scope2.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
-
-        if (!logsToInsert.IsEmpty)
-        {
-            await jobOccurrenceLogRepository.BulkAddAsync([.. logsToInsert], cancellationToken: cancellationToken);
-            _logger.Debug("Bulk inserted {Count} logs from dispatch failures/retries", logsToInsert.Count);
-        }
-
-        await RetryFailedDispatchesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -295,7 +315,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     /// </remarks>
     private async Task MarkCompletedOneTimeJobsAsync(MilvaionDbContext dbContext,
                                                      List<ScheduledJob> jobsToDispatch,
-                                                     ConcurrentBag<JobOccurrence> failedToDispatchOccurrences,
+                                                     List<JobOccurrence> failedToDispatchOccurrences,
                                                      CancellationToken cancellationToken)
     {
         if (jobsToDispatch.Count == 0)
@@ -345,7 +365,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             _metrics.SetPendingJobsCount(dueJobIds.Count);
             return dueJobIds;
         }
-        catch (Exception ex) when (ex.Message.Contains("Circuit breaker") || ex.Message.Contains("Redis"))
+        catch (Exception ex) when (ex is RedisCircuitBreakerOpenException or RedisException or TimeoutException)
         {
             _logger.Error(ex, "Redis unavailable - circuit breaker may be open. Skipping this dispatch iteration.");
             _metrics.RecordDispatchFailure("redis_unavailable");
@@ -361,18 +381,19 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         var workerIds = jobs.Select(j => j.WorkerId).Where(w => !string.IsNullOrWhiteSpace(w)).Distinct().ToList();
         var workerCapacities = new Dictionary<string, (int currentJobs, int? maxParallelJobs)>();
 
+        if (workerIds.Count == 0)
+            return workerCapacities;
+
+        // One pipelined read for all workers instead of two sequential reads per worker.
+        var activeWorkers = (await _redisWorkerService.GetAllWorkersAsync(cancellationToken)).Where(w => w.Status == WorkerStatus.Active)
+                                                                                             .ToDictionary(w => w.WorkerId);
+
         foreach (var workerId in workerIds)
         {
-            var isActive = await _redisWorkerService.IsWorkerActiveAsync(workerId, cancellationToken);
-
-            if (!isActive)
-            {
-                workerCapacities[workerId] = (-1, null); // Mark as inactive
-                continue;
-            }
-
-            var capacity = await _redisWorkerService.GetWorkerCapacityAsync(workerId, cancellationToken);
-            workerCapacities[workerId] = capacity;
+            // -1 marks the worker as inactive
+            workerCapacities[workerId] = activeWorkers.TryGetValue(workerId, out var worker)
+                ? (worker.Instances?.Sum(i => i.CurrentJobs) ?? 0, worker.MaxParallelJobs)
+                : (-1, null);
         }
 
         return workerCapacities;
@@ -437,7 +458,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     /// <summary>
     /// Acquires distributed locks and creates job occurrences.
     /// </summary>
-    private async Task<(List<JobOccurrence> Occurrences, List<JobOccurrence> OccurrencesAsEvents, ConcurrentBag<JobOccurrenceLog> LogsToInsert, List<ScheduledJob> JobsToDispatch)>
+    private async Task<(List<JobOccurrence> Occurrences, List<JobOccurrence> OccurrencesAsEvents, ConcurrentBag<JobOccurrenceLog> LogsToInsert, List<ScheduledJob> JobsToDispatch, List<Guid> LockedJobIds)>
         AcquireLocksAndCreateOccurrencesAsync(List<ScheduledJob> jobsPassedValidation, CancellationToken cancellationToken)
     {
         var occurrences = new List<JobOccurrence>();
@@ -447,13 +468,24 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
         // Bulk lock -> Single Redis call using Lua script
         var jobIdsToLock = jobsPassedValidation.Select(j => j.Id).ToList();
-        var lockResults = await _redisLock.TryAcquireLocksBulkAsync(jobIdsToLock, Environment.MachineName, TimeSpan.FromSeconds(_options.LockTtlSeconds), cancellationToken);
+        var lockResults = await _redisLock.TryAcquireLocksBulkAsync(jobIdsToLock, _instanceId, TimeSpan.FromSeconds(_options.LockTtlSeconds), cancellationToken);
+        var lockedJobIds = lockResults.Where(l => l.Value).Select(l => l.Key).ToList();
+
+        // Reading the score again under the lock is what makes the claim safe: the due list was read
+        // without a lock, so another instance may have dispatched the job and released its lock since.
+        var scoresUnderLock = lockedJobIds.Count > 0 ? await _redisScheduler.GetScheduledTimesBulkAsync(lockedJobIds, cancellationToken) : [];
 
         // Create occurrences only for jobs with acquired locks
         foreach (var job in jobsPassedValidation)
         {
             if (!lockResults.TryGetValue(job.Id, out var hasLock) || !hasLock)
                 continue;
+
+            if (!IsStillDueUnderLock(scoresUnderLock, job))
+            {
+                _logger.Debug("Job {JobId} was already handled by another instance. Skipping.", job.Id);
+                continue;
+            }
 
             var correlationId = Guid.CreateVersion7();
 
@@ -504,8 +536,15 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             });
         }
 
-        return (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch);
+        return (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch, lockedJobIds);
     }
+
+    /// <summary>
+    /// A job is still claimable only while its score is the one this cycle read as due.
+    /// A missing score (removed, or Redis unavailable) means the job must not be dispatched in this cycle.
+    /// </summary>
+    private static bool IsStillDueUnderLock(Dictionary<Guid, DateTime?> scoresUnderLock, ScheduledJob job)
+        => scoresUnderLock.TryGetValue(job.Id, out var score) && score.HasValue && score.Value == job.ExecuteAt;
 
     /// <summary>
     /// Persists occurrences to database and publishes events.
@@ -536,16 +575,20 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
             await eventPublisher.PublishOccurrenceCreatedAsync(occurrencesAsEvents, _logger, cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (Exception ex) when (ex is DbUpdateException or Npgsql.PostgresException { SqlState: "23503" }) // BulkExtensions throws the Postgres exception as is
         {
-            await HandleDbUpdateExceptionAsync(dbContext, jobOccurrenceRepository, allJobs, occurrences, cancellationToken);
+            // Nothing was written. Continuing would publish occurrences that do not exist, so an unexplained failure stays a failure.
+            if (!await RemoveJobsMissingFromDatabaseAsync(dbContext, jobOccurrenceRepository, allJobs, occurrences, cancellationToken))
+                throw;
         }
     }
 
     /// <summary>
-    /// Handles DbUpdateException by removing stale jobs from Redis.
+    /// Handles a failed insert by removing jobs that exist in Redis but no longer in the database, then inserting the rest.
+    /// Without this a single stale entry fails the whole batch on every poll.
     /// </summary>
-    private async Task HandleDbUpdateExceptionAsync(
+    /// <returns>False when no stale job explains the failure.</returns>
+    private async Task<bool> RemoveJobsMissingFromDatabaseAsync(
         MilvaionDbContext dbContext,
         IMilvaionRepositoryBase<JobOccurrence> jobOccurrenceRepository,
         Dictionary<Guid, ScheduledJob> allJobs,
@@ -576,7 +619,11 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
             occurrences.RemoveAll(j => invalidJobIds.Contains(j.JobId));
             await jobOccurrenceRepository.BulkAddAsync(occurrences, cancellationToken: cancellationToken);
+
+            return true;
         }
+
+        return false;
     }
 
     /// <summary>
@@ -610,16 +657,24 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     /// <summary>
     /// Dispatches jobs to RabbitMQ in parallel.
     /// </summary>
-    private async Task<ConcurrentBag<JobOccurrence>> DispatchJobsToRabbitMQAsync(
+    /// <returns>
+    /// Occurrences whose publish failed and that will be retried, and occurrences that were abandoned
+    /// without being published because the schedule could not be advanced.
+    /// </returns>
+    private async Task<(List<JobOccurrence> Retry, List<JobOccurrence> Abandoned)> DispatchJobsToRabbitMQAsync(
         List<ScheduledJob> jobsToDispatch,
         List<JobOccurrence> occurrences,
         ConcurrentBag<JobOccurrenceLog> logsToInsert,
         CancellationToken cancellationToken)
     {
-        var failedToDispatchOccurrences = new ConcurrentBag<JobOccurrence>();
+        var retry = new ConcurrentBag<JobOccurrence>();
+        var abandoned = new ConcurrentBag<JobOccurrence>();
         var occurrenceByJobId = occurrences.ToDictionary(o => o.JobId);
 
-        await Parallel.ForEachAsync(jobsToDispatch, new ParallelOptions
+        // A job may have been dropped while persisting (FK verification path).
+        var dispatchable = jobsToDispatch.Where(j => occurrenceByJobId.ContainsKey(j.Id)).ToList();
+
+        await Parallel.ForEachAsync(dispatchable, new ParallelOptions
         {
             MaxDegreeOfParallelism = 4,
             CancellationToken = cancellationToken
@@ -627,12 +682,34 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         {
             var occurrence = occurrenceByJobId[job.Id];
 
+            // The schedule moves first. The other order - publish, then reschedule - sends the job
+            // twice whenever the Redis write after a successful publish fails.
+            if (!await TryAdvanceScheduleAsync(job, ct))
+            {
+                occurrence.Status = JobOccurrenceStatus.Failed;
+                occurrence.Exception = "The schedule could not be advanced in Redis, so this occurrence was not dispatched. The job stays due and will fire again.";
+
+                logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", occurrence.Exception));
+
+                abandoned.Add(occurrence);
+
+                return;
+            }
+
             try
             {
-                var success = await DispatchJobToRabbitMQAsync(job, occurrence, logsToInsert, ct);
+                if (await _rabbitMQPublisher.PublishJobAsync(job, occurrence.Id, ct))
+                {
+                    _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with OccurrenceId {OccurrenceId}", job.Id, job.JobNameInWorker, occurrence.Id);
+                    return;
+                }
 
-                if (!success)
-                    failedToDispatchOccurrences.Add(occurrence);
+                _logger.Error("Failed to publish job {JobId} to RabbitMQ", job.Id);
+
+                occurrence.Exception = "Failed to publish to RabbitMQ";
+                logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", "Failed to publish to RabbitMQ"));
+
+                retry.Add(occurrence);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -640,107 +717,97 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             }
             catch (Exception ex)
             {
-                occurrence.Status = JobOccurrenceStatus.Failed;
                 occurrence.Exception = $"Dispatch exception: {ex.Message}";
+                logsToInsert.Add(NewDispatchLog(occurrence.Id, "Error", $"Exception during dispatch: {ex.Message}"));
 
-                logsToInsert.Add(new JobOccurrenceLog
-                {
-                    Id = Guid.CreateVersion7(),
-                    OccurrenceId = occurrence.Id,
-                    Timestamp = DateTime.UtcNow,
-                    Level = "Error",
-                    Message = $"Exception during dispatch: {ex.Message}",
-                    Category = "Dispatcher"
-                });
-
-                failedToDispatchOccurrences.Add(occurrence);
+                retry.Add(occurrence);
             }
         });
 
-        // Bulk lock release
-        var jobIdsToUnlock = jobsToDispatch.Select(j => j.Id).ToList();
-        var releasedCount = await _redisLock.ReleaseLocksBulkAsync(jobIdsToUnlock, Environment.MachineName, cancellationToken);
-        _logger.Debug("Bulk lock release: {Released}/{Total} locks released", releasedCount, jobIdsToUnlock.Count);
-
-        return failedToDispatchOccurrences;
+        return ([.. retry], [.. abandoned]);
     }
 
+    private static JobOccurrenceLog NewDispatchLog(Guid occurrenceId, string level, string message, Dictionary<string, object> data = null) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        OccurrenceId = occurrenceId,
+        Timestamp = DateTime.UtcNow,
+        Level = level,
+        Message = message,
+        Category = "Dispatcher",
+        Data = data
+    };
+
     /// <summary>
-    /// Handles failed dispatch occurrences with exponential backoff retry scheduling.
+    /// Records the outcome of failed dispatches. Publish failures stay Queued with a retry time so that
+    /// <see cref="RetryFailedDispatchesAsync"/> picks them up; the schedule has already moved on, so the
+    /// retry is the only thing that re-sends this occurrence.
     /// </summary>
     private async Task HandleFailedDispatchesAsync(
         AsyncServiceScope scope,
-        List<ScheduledJob> jobsToDispatch,
-        ConcurrentBag<JobOccurrence> failedToDispatchOccurrences,
+        List<JobOccurrence> retryOccurrences,
+        List<JobOccurrence> abandonedOccurrences,
         ConcurrentBag<JobOccurrenceLog> logsToInsert,
         CancellationToken cancellationToken)
     {
-        if (failedToDispatchOccurrences.IsEmpty)
+        if (retryOccurrences.Count == 0 && abandonedOccurrences.Count == 0)
             return;
 
-        try
+        foreach (var failedOccurrence in retryOccurrences)
         {
-            await _redisStatsService.DecrementStatusCounterAsync(JobOccurrenceStatus.Queued, failedToDispatchOccurrences.Count, cancellationToken);
-            _logger.Debug("Decremented Queued counter by {Count} for failed to dispatch jobs", failedToDispatchOccurrences.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.Debug(ex, "Failed to decrement Queued counter (non-critical)");
-        }
-
-        foreach (var failedOccurrence in failedToDispatchOccurrences)
-        {
-            // Calculate next retry time with exponential backoff
-            var retryDelaySeconds = Math.Min(30 * Math.Pow(2, failedOccurrence.DispatchRetryCount), 120);
-            var nextRetryTime = DateTime.UtcNow.AddSeconds(retryDelaySeconds);
-
-            failedOccurrence.NextDispatchRetryAt = nextRetryTime;
-            failedOccurrence.DispatchRetryCount++;
+            var (nextRetryTime, retryDelaySeconds) = ScheduleNextDispatchRetry(failedOccurrence);
 
             _logger.Debug("Occurrence {OccurrenceId} failed to dispatch (attempt {Attempt}). Next retry at {RetryTime} (in {Delay}s)",
                 failedOccurrence.Id, failedOccurrence.DispatchRetryCount, nextRetryTime, retryDelaySeconds);
 
-            logsToInsert.Add(new JobOccurrenceLog
-            {
-                Id = Guid.CreateVersion7(),
-                OccurrenceId = failedOccurrence.Id,
-                Timestamp = DateTime.UtcNow,
-                Level = "Warning",
-                Message = $"Dispatch failed (attempt {failedOccurrence.DispatchRetryCount}). Scheduled for retry at {nextRetryTime:HH:mm:ss}",
-                Category = "Dispatcher",
-                Data = new Dictionary<string, object>
-                {
-                    ["RetryCount"] = failedOccurrence.DispatchRetryCount,
-                    ["NextRetryAt"] = nextRetryTime.ToString("O"),
-                    ["RetryDelaySeconds"] = retryDelaySeconds
-                }
-            });
-
-            var failedJob = jobsToDispatch.FirstOrDefault(j => j.Id == failedOccurrence.JobId);
-
-            if (failedJob != null && string.IsNullOrWhiteSpace(failedJob.CronExpression))
-            {
-                // One-time job failed - remove from Redis to prevent zombie
-                try
-                {
-                    await _redisScheduler.RemoveFromScheduledSetAsync(failedJob.Id, cancellationToken);
-                    _logger.Debug("Removed failed one-time job {JobId} from Redis scheduled set", failedJob.Id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warning(ex, "Failed to remove job {JobId} from Redis after dispatch failure", failedJob.Id);
-                }
-            }
+            logsToInsert.Add(NewDispatchLog(failedOccurrence.Id,
+                                            "Warning",
+                                            $"Dispatch failed (attempt {failedOccurrence.DispatchRetryCount}). Scheduled for retry at {nextRetryTime:HH:mm:ss}",
+                                            new Dictionary<string, object>
+                                            {
+                                                ["RetryCount"] = failedOccurrence.DispatchRetryCount,
+                                                ["NextRetryAt"] = nextRetryTime.ToString("O"),
+                                                ["RetryDelaySeconds"] = retryDelaySeconds
+                                            }));
         }
+
+        await UpdateFailedStatusCountersAsync(abandonedOccurrences.Count, cancellationToken);
 
         var jobOccurrenceRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrence>>();
 
-        await jobOccurrenceRepository.BulkUpdateAsync([.. failedToDispatchOccurrences], (bc) =>
+        await jobOccurrenceRepository.BulkUpdateAsync([.. retryOccurrences, .. abandonedOccurrences], (bc) =>
         {
             bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames;
         }, cancellationToken: cancellationToken);
 
-        _logger.Debug("Updated {Count} failed occurrences with retry schedule", failedToDispatchOccurrences.Count);
+        _logger.Debug("Updated {Retry} occurrences with a retry schedule and {Abandoned} abandoned occurrences", retryOccurrences.Count, abandonedOccurrences.Count);
+    }
+
+    private static (DateTime NextRetryAt, double DelaySeconds) ScheduleNextDispatchRetry(JobOccurrence occurrence)
+    {
+        var retryDelaySeconds = Math.Min(30 * Math.Pow(2, occurrence.DispatchRetryCount), 120);
+        var nextRetryTime = DateTime.UtcNow.AddSeconds(retryDelaySeconds);
+
+        occurrence.NextDispatchRetryAt = nextRetryTime;
+        occurrence.DispatchRetryCount++;
+
+        return (nextRetryTime, retryDelaySeconds);
+    }
+
+    /// <summary>
+    /// Moves occurrences counted as Queued to Failed on the dashboard counters.
+    /// </summary>
+    private async Task UpdateFailedStatusCountersAsync(int count, CancellationToken cancellationToken)
+    {
+        try
+        {
+            for (var i = 0; i < count; i++)
+                await _redisStatsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Queued, JobOccurrenceStatus.Failed, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Failed to update status counters (non-critical)");
+        }
     }
 
     private bool CanDispatchBasedOnConcurrencyPolicy(HashSet<Guid> runningJobIdsSet, ScheduledJob job)
@@ -750,7 +817,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
         if (isRunning && job.ConcurrentExecutionPolicy == ConcurrentExecutionPolicy.Skip)
         {
-            _logger.Information("Job {JobId} ({JobType}) skipped: Already running (Policy: Skip, Running in Redis: {IsRunning})", job.Id, job.JobNameInWorker, isRunning);
+            _logger.Debug("Job {JobId} ({JobType}) skipped: Already running (Policy: Skip, Running in Redis: {IsRunning})", job.Id, job.JobNameInWorker, isRunning);
 
             // When job finishes, it will naturally become "due" again based on cron schedule
             return false;
@@ -881,112 +948,66 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Dispatches a job to RabbitMQ (worker checks and lock already acquired).
+    /// Advances a job's schedule for this dispatch: a recurring job moves to its next slot, a one-time job
+    /// leaves the scheduled set.
     /// </summary>
-    /// <returns>True if successfully published, false otherwise</returns>
-    private async Task<bool> DispatchJobToRabbitMQAsync(ScheduledJob job, JobOccurrence occurrence, ConcurrentBag<JobOccurrenceLog> logsToInsert, CancellationToken cancellationToken)
+    /// <returns>False when Redis did not take the change, in which case the job must not be published.</returns>
+    private async Task<bool> TryAdvanceScheduleAsync(ScheduledJob job, CancellationToken cancellationToken)
     {
         try
         {
-            // Publish to RabbitMQ with OccurrenceId (unique identifier for this execution)
-            var published = await _rabbitMQPublisher.PublishJobAsync(job, occurrence.Id, cancellationToken);
-
-            if (!published)
+            if (string.IsNullOrWhiteSpace(job.CronExpression))
             {
-                _logger.Error("Failed to publish job {JobId} to RabbitMQ", job.Id);
+                var removed = await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
 
-                occurrence.Status = JobOccurrenceStatus.Failed;
-                occurrence.Exception = "Failed to publish to RabbitMQ";
-                logsToInsert.Add(new JobOccurrenceLog
-                {
-                    Id = Guid.CreateVersion7(),
-                    OccurrenceId = occurrence.Id,
-                    Timestamp = DateTime.UtcNow,
-                    Level = "Warning",
-                    Message = "Failed to acquire dispatch lock - another instance is handling this job",
-                    Category = "Dispatcher",
-                    Data = new Dictionary<string, object>
-                    {
-                        ["LockOwner"] = await _redisLock.GetLockOwnerAsync(job.Id, cancellationToken) ?? "unknown"
-                    }
-                });
+                _logger.Debug("One-time job {JobId} removed from Redis scheduled set: {Removed}", job.Id, removed);
+
+                return removed;
+            }
+
+            CronExpression cronExpression;
+
+            try
+            {
+                cronExpression = CronExpression.Parse(job.CronExpression, CronFormat.IncludeSeconds);
+            }
+            catch (CronFormatException ex)
+            {
+                _logger.Error(ex, "Failed to parse cron expression '{CronExpression}' for job {JobId}", job.CronExpression, job.Id);
+
+                await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
+                await _redisScheduler.RemoveCachedJobAsync(job.Id, cancellationToken);
 
                 return false;
             }
 
-            // Reschedule recurring job after successful publish
-            await HandleRecurringJobAsync(job, cancellationToken);
-
-            _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with OccurrenceId {OccurrenceId}", job.Id, job.JobNameInWorker, occurrence.Id);
-
-            return true;
-        }
-        finally
-        {
-            // Always release lock in finally block
-            var released = await _redisLock.ReleaseLockAsync(job.Id, Environment.MachineName, cancellationToken);
-
-            if (!released)
-            {
-                _logger.Warning("Failed to release lock for job {JobId}. Lock may have expired or was released by another instance.", job.Id);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Handles recurring job logic (reschedules if needed).
-    /// For one-time jobs, removes from Redis scheduled set (if not already removed).
-    /// NOTE: This method may be called when:
-    /// 1. Job is skipped due to ConcurrentExecutionPolicy (already removed from scheduled set)
-    /// 2. Job is successfully dispatched (not yet removed from scheduled set for one-time jobs)
-    /// </summary>
-    private async Task HandleRecurringJobAsync(ScheduledJob job, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(job.CronExpression))
-        {
-            // One-time job - ensure it's removed from Redis scheduled set
-            // Safe to call multiple times (idempotent operation)
-            await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
-
-            _logger.Debug("One-time job {JobId} removed from Redis scheduled set", job.Id);
-
-            return;
-        }
-
-        try
-        {
-            // Parse cron expression
-            var cronExpression = CronExpression.Parse(job.CronExpression, CronFormat.IncludeSeconds);
-
-            // Calculate next occurrence
             var nextRun = cronExpression.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc);
 
-            if (nextRun.HasValue)
-            {
-                // Update job's ExecuteAt in memory
-                job.ExecuteAt = nextRun.Value;
-
-                // Update Redis ZSET with new score (future timestamp)
-                // This reschedules the job for next execution
-                await _redisScheduler.UpdateScheduleAsync(job.Id, nextRun.Value, cancellationToken);
-
-                _logger.Debug("Recurring job {JobId} rescheduled for {NextRun} (Cron: {CronExpression})", job.Id, nextRun.Value, job.CronExpression);
-            }
-            else
+            if (!nextRun.HasValue)
             {
                 _logger.Warning("Cron expression {CronExpression} has no future occurrences, removing job {JobId}", job.CronExpression, job.Id);
 
-                await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
+                var removed = await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
                 await _redisScheduler.RemoveCachedJobAsync(job.Id, cancellationToken);
+
+                return removed;
             }
+
+            var updated = await _redisScheduler.UpdateScheduleAsync(job.Id, nextRun.Value, cancellationToken);
+
+            _logger.Debug("Recurring job {JobId} rescheduled for {NextRun} (Cron: {CronExpression}): {Updated}", job.Id, nextRun.Value, job.CronExpression, updated);
+
+            return updated;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to parse cron expression '{CronExpression}' for job {JobId}", job.CronExpression, job.Id);
+            _logger.Error(ex, "Failed to advance the schedule of job {JobId}", job.Id);
 
-            // Remove invalid cron job from Redis
-            await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
-            await _redisScheduler.RemoveCachedJobAsync(job.Id, cancellationToken);
+            return false;
         }
     }
 
@@ -996,15 +1017,15 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     ///
     /// Sequential (blocks dispatcher start):
     ///   STEP 1 — Stale Redis cleanup (required before dispatcher polls Redis)
-    ///   STEP 3 — Redis repopulation   (required before dispatcher polls Redis)
+    ///   STEP 2 — Redis repopulation   (required before dispatcher polls Redis)
     ///
-    /// Background (non-blocking):
-    ///   STEP 2 — Zombie occurrence cleanup (DB-only, dispatcher does not depend on it)
+    /// Occurrences are deliberately left alone. Workers are separate processes, so an API restart says
+    /// nothing about the jobs they are running; ZombieOccurrenceDetectorService judges those by heartbeat.
     /// </summary>
     private async Task PerformStartupRecoveryAsync(CancellationToken cancellationToken)
     {
         const string recoveryLockName = "startup_recovery";
-        var instanceId = Environment.MachineName;
+        var instanceId = _instanceId;
 
         // Try to acquire distributed lock - only one instance should perform recovery
         var lockAcquired = await _redisLock.TryAcquireNamedLockAsync(
@@ -1072,11 +1093,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 _logger.Error(ex, "Failed to clean up stale Redis data, continuing with recovery...");
             }
 
-            // STEP 2: Clean up zombie occurrences — runs in the background so the dispatcher
-            // can start immediately. This step is DB-only and the dispatcher does not depend on it.
-            _ = Task.Run(() => CleanupZombieOccurrencesAsync(cancellationToken), cancellationToken);
-
-            // STEP 3: Repopulate Redis with active jobs from database
+            // STEP 2: Repopulate Redis with active jobs from database
             _logger.Information("Repopulating Redis with active jobs from database...");
 
             var activeJobs = await _getAllActiveJobsCompiled(dbContext).ToListAsync(cancellationToken);
@@ -1125,7 +1142,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 }
             }
 
-            _logger.Information("Startup recovery (Redis) completed. ZSET: {Added} added, {Kept} already scheduled. Cache: {Cached} warmed. Total active jobs: {Total}. Zombie cleanup running in background.", addedCount, keptCount, cachedCount, activeJobs.Count);
+            _logger.Information("Startup recovery (Redis) completed. ZSET: {Added} added, {Kept} already scheduled. Cache: {Cached} warmed. Total active jobs: {Total}.", addedCount, keptCount, cachedCount, activeJobs.Count);
         }
         finally
         {
@@ -1136,102 +1153,20 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
             _ = Task.Run(async () =>
             {
-                await using var syncScope = _serviceProvider.CreateAsyncScope();
-
-                var dbContext = syncScope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-
-                await redisStatsService.SyncCountersFromDatabaseAsync(dbContext, cancellationToken);
-            }, cancellationToken);
-
-        }
-    }
-
-    /// <summary>
-    /// Cleans up zombie occurrences (Queued/Running) left over from a previous run.
-    /// Runs in the background after startup so it does not delay dispatcher start.
-    /// </summary>
-    private async Task CleanupZombieOccurrencesAsync(CancellationToken cancellationToken)
-    {
-        _logger.Information("Background zombie cleanup started...");
-
-        try
-        {
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-
-            var zombieStatuses = new[]
-            {
-                JobOccurrenceStatus.Queued,
-                JobOccurrenceStatus.Running
-            };
-
-            // Grace period: Only mark as zombie if older than 2 minutes
-            // This gives running jobs time to complete after restart
-            var zombieThreshold = DateTime.UtcNow.AddMinutes(-2);
-
-            const int zombieBatchSize = 500;
-            var totalZombiesProcessed = 0;
-            List<JobOccurrence> zombieOccurrences;
-
-            do
-            {
-                zombieOccurrences = await dbContext.JobOccurrences
-                                                   .AsNoTracking()
-                                                   .Where(o => zombieStatuses.Contains(o.Status) && o.CreatedAt < zombieThreshold)
-                                                   .OrderBy(o => o.CreatedAt)
-                                                   .Take(zombieBatchSize)
-                                                   .ToListAsync(cancellationToken);
-
-                if (zombieOccurrences.Count > 0)
+                try
                 {
-                    _logger.Warning("Background zombie cleanup: processing {Count} occurrences (total so far: {Total})...", zombieOccurrences.Count, totalZombiesProcessed);
+                    await using var syncScope = _serviceProvider.CreateAsyncScope();
 
-                    var zombieLogs = new List<JobOccurrenceLog>(zombieOccurrences.Count);
+                    var dbContext = syncScope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-                    foreach (var occurrence in zombieOccurrences)
-                    {
-                        occurrence.Status = JobOccurrenceStatus.Failed;
-                        occurrence.EndTime = DateTime.UtcNow;
-                        occurrence.Exception = "System restart detected. Job was not completed before shutdown.";
-
-                        zombieLogs.Add(new JobOccurrenceLog
-                        {
-                            Id = Guid.CreateVersion7(),
-                            OccurrenceId = occurrence.Id,
-                            Timestamp = DateTime.UtcNow,
-                            Level = "Warning",
-                            Message = "Job marked as failed due to system restart.",
-                            Category = "StartupRecovery"
-                        });
-                    }
-
-                    await dbContext.BulkUpdateAsync(zombieOccurrences, (bc) =>
-                    {
-                        bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _startupRecoveryUpdatePropNames;
-                    }, cancellationToken: cancellationToken);
-
-                    if (zombieLogs.Count > 0)
-                    {
-                        var jobOccurrenceLogRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
-                        await jobOccurrenceLogRepository.BulkAddAsync(zombieLogs, cancellationToken: cancellationToken);
-                    }
-
-                    totalZombiesProcessed += zombieOccurrences.Count;
+                    await redisStatsService.SyncCountersFromDatabaseAsync(dbContext, CancellationToken.None);
                 }
-            } while (zombieOccurrences.Count == zombieBatchSize);
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Startup statistics sync failed (non-critical)");
+                }
+            }, CancellationToken.None);
 
-            if (totalZombiesProcessed > 0)
-                _logger.Information("Background zombie cleanup completed. Cleaned up {Count} occurrences.", totalZombiesProcessed);
-            else
-                _logger.Information("Background zombie cleanup completed. No zombie occurrences found.");
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.Warning("Background zombie cleanup cancelled (application shutting down).");
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Background zombie cleanup failed.");
         }
     }
 
@@ -1258,13 +1193,15 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
                 if (tableExists)
                 {
-                    // Verify JobOccurrences table specifically
-                    var occurrenceExists = await dbContext.JobOccurrences.AsNoTracking().AnyAsync(cancellationToken);
+                    // Throws until the migration that creates the table has run.
+                    _ = await dbContext.JobOccurrences.AsNoTracking().AnyAsync(cancellationToken);
 
                     _logger.Information("Database migrations completed. JobOccurrences table is ready.");
 
                     return;
                 }
+
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
             }
             catch (Exception ex) when (ex.Message.Contains("does not exist") || ex.Message.Contains("relation") || ex.Message.Contains("table"))
             {
@@ -1285,20 +1222,29 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
     /// <summary>
     /// Retries occurrences that failed to dispatch (with exponential backoff).
+    /// Runs on one instance at a time; otherwise two instances would publish the same occurrence.
     /// </summary>
     private async Task RetryFailedDispatchesAsync(CancellationToken cancellationToken)
+    {
+        if (!await _redisLock.TryAcquireNamedLockAsync(_dispatchRetryLockName, _instanceId, TimeSpan.FromMinutes(2), cancellationToken))
+            return;
+
+        try
+        {
+            await RetryFailedDispatchesCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            await _redisLock.ReleaseNamedLockAsync(_dispatchRetryLockName, _instanceId, CancellationToken.None);
+        }
+    }
+
+    private async Task RetryFailedDispatchesCoreAsync(CancellationToken cancellationToken)
     {
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-        // Get occurrences that are ready for retry (status = Queued, NextDispatchRetryAt <= now, DispatchRetryCount < 5)
-        var now = DateTime.UtcNow;
-
-        // Max 5 retry attempts (total ~4 minutes of retries)
-        const int maxRetryAttempts = 5;
-
-        // Use compiled query
-        var retryOccurrences = await _getRetryOccurrencesCompiled(dbContext, now, maxRetryAttempts).ToListAsync(cancellationToken);
+        var retryOccurrences = await _getRetryOccurrencesCompiled(dbContext, DateTime.UtcNow, _maxDispatchRetryAttempts).ToListAsync(cancellationToken);
 
         if (retryOccurrences.Count == 0)
             return;
@@ -1326,166 +1272,108 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             {
                 _logger.Debug("Job {JobId} not found for occurrence {OccurrenceId}, marking as failed", occurrence.JobId, occurrence.Id);
 
-                occurrence.Status = JobOccurrenceStatus.Failed;
-                occurrence.Exception = "Job not found during retry";
-                occurrence.NextDispatchRetryAt = null;
+                MarkDispatchFailed(occurrence, "Job not found during retry");
                 failedRetries.Add(occurrence);
 
                 continue;
             }
 
+            string failureReason;
+
             try
             {
-                // Retry dispatch
-                var published = await _rabbitMQPublisher.PublishJobAsync(job, occurrence.CorrelationId, cancellationToken);
-
-                if (published)
+                if (await _rabbitMQPublisher.PublishJobAsync(job, occurrence.CorrelationId, cancellationToken))
                 {
-                    occurrence.NextDispatchRetryAt = null; // Clear retry schedule
-
-                    retryLogs.Add(new JobOccurrenceLog
-                    {
-                        Id = Guid.CreateVersion7(),
-                        OccurrenceId = occurrence.Id,
-                        Timestamp = DateTime.UtcNow,
-                        Level = "Information",
-                        Message = $"Dispatch retry successful (attempt {occurrence.DispatchRetryCount})",
-                        Category = "Dispatcher"
-                    });
-
+                    retryLogs.Add(NewDispatchLog(occurrence.Id, "Information", $"Dispatch retry successful (attempt {occurrence.DispatchRetryCount})"));
                     successfulRetries.Add(occurrence);
 
                     _logger.Debug("Occurrence {OccurrenceId} successfully dispatched on retry attempt {Attempt}", occurrence.Id, occurrence.DispatchRetryCount);
+
+                    continue;
                 }
-                else
-                {
-                    // Retry failed again - schedule next retry
-                    if (occurrence.DispatchRetryCount >= maxRetryAttempts - 1)
-                    {
-                        // Max retries reached, mark as failed
-                        occurrence.Status = JobOccurrenceStatus.Failed;
-                        occurrence.Exception = $"Failed to dispatch after {maxRetryAttempts} attempts";
-                        occurrence.NextDispatchRetryAt = null;
 
-                        retryLogs.Add(new JobOccurrenceLog
-                        {
-                            Id = Guid.CreateVersion7(),
-                            OccurrenceId = occurrence.Id,
-                            Timestamp = DateTime.UtcNow,
-                            Level = "Error",
-                            Message = $"Max dispatch retry attempts reached ({maxRetryAttempts}). Marking as failed.",
-                            Category = "Dispatcher"
-                        });
-
-                        // Remove job from Redis scheduled set (no more retries)
-                        if (job != null && string.IsNullOrWhiteSpace(job.CronExpression))
-                        {
-                            try
-                            {
-                                await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
-
-                                _logger.Debug("Removed one-time job {JobId} from Redis after max dispatch retries", job.Id);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.Warning(ex, "Failed to cleanup Redis for job {JobId}", job.Id);
-                            }
-                        }
-
-                        _logger.Debug("Occurrence {OccurrenceId} failed after {MaxAttempts} retry attempts", occurrence.Id, maxRetryAttempts);
-                    }
-                    else
-                    {
-                        // Schedule next retry
-                        var retryDelaySeconds = Math.Min(30 * Math.Pow(2, occurrence.DispatchRetryCount), 120);
-
-                        occurrence.NextDispatchRetryAt = DateTime.UtcNow.AddSeconds(retryDelaySeconds);
-                        occurrence.DispatchRetryCount++;
-
-                        retryLogs.Add(new JobOccurrenceLog
-                        {
-                            Id = Guid.CreateVersion7(),
-                            OccurrenceId = occurrence.Id,
-                            Timestamp = DateTime.UtcNow,
-                            Level = "Warning",
-                            Message = $"Dispatch retry failed (attempt {occurrence.DispatchRetryCount}). Next retry at {occurrence.NextDispatchRetryAt:HH:mm:ss}",
-                            Category = "Dispatcher"
-                        });
-                    }
-
-                    failedRetries.Add(occurrence);
-                }
+                failureReason = $"Failed to dispatch after {_maxDispatchRetryAttempts} attempts";
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Exception during dispatch retry for occurrence {OccurrenceId}", occurrence.Id);
 
-                if (occurrence.DispatchRetryCount >= maxRetryAttempts - 1)
-                {
-                    occurrence.Status = JobOccurrenceStatus.Failed;
-                    occurrence.Exception = $"Exception during retry: {ex.Message}";
-                    occurrence.NextDispatchRetryAt = null;
-
-                    // Remove job from Redis scheduled set (no more retries)
-                    if (job != null && string.IsNullOrWhiteSpace(job.CronExpression))
-                    {
-                        try
-                        {
-                            await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
-
-                            _logger.Debug("Removed one-time job {JobId} from Redis after exception in dispatch retry", job.Id);
-                        }
-                        catch (Exception cleanupEx)
-                        {
-                            _logger.Debug(cleanupEx, "Failed to cleanup Redis for job {JobId}", job.Id);
-                        }
-                    }
-                }
-                else
-                {
-                    var retryDelaySeconds = Math.Min(30 * Math.Pow(2, occurrence.DispatchRetryCount), 120);
-
-                    occurrence.NextDispatchRetryAt = DateTime.UtcNow.AddSeconds(retryDelaySeconds);
-                    occurrence.DispatchRetryCount++;
-                }
-
-                failedRetries.Add(occurrence);
+                failureReason = $"Exception during retry: {ex.Message}";
             }
+
+            if (occurrence.DispatchRetryCount >= _maxDispatchRetryAttempts - 1)
+            {
+                MarkDispatchFailed(occurrence, failureReason);
+
+                retryLogs.Add(NewDispatchLog(occurrence.Id, "Error", $"Max dispatch retry attempts reached ({_maxDispatchRetryAttempts}). Marking as failed."));
+            }
+            else
+            {
+                var (nextRetryAt, _) = ScheduleNextDispatchRetry(occurrence);
+
+                retryLogs.Add(NewDispatchLog(occurrence.Id, "Warning", $"Dispatch retry failed (attempt {occurrence.DispatchRetryCount}). Next retry at {nextRetryAt:HH:mm:ss}"));
+            }
+
+            failedRetries.Add(occurrence);
         }
 
-        // Bulk update all retry results
-        if (successfulRetries.Count > 0 || failedRetries.Count > 0)
+        if (successfulRetries.Count > 0)
+            await CompleteSuccessfulRetriesAsync(dbContext, successfulRetries, jobs, cancellationToken);
+
+        if (failedRetries.Count > 0)
         {
-            var allRetries = successfulRetries.Concat(failedRetries).ToList();
+            // A row that is no longer Queued is being handled by someone else (cancelled, or zombie-detected).
+            await dbContext.BulkUpdateGuardedAsync(failedRetries,
+                                                   (_, row) => row.Status == JobOccurrenceStatus.Queued,
+                                                   bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames,
+                                                   cancellationToken);
 
-            await dbContext.BulkUpdateAsync(allRetries, (bc) =>
-            {
-                bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames;
-            }, cancellationToken: cancellationToken);
-
-            // Bulk insert retry logs
-            if (retryLogs.Count > 0)
-            {
-                var jobOccurrenceLogRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
-                await jobOccurrenceLogRepository.BulkAddAsync(retryLogs, cancellationToken: cancellationToken);
-                _logger.Debug("Bulk inserted {Count} retry logs", retryLogs.Count);
-            }
-
-            // Increment Redis Queued counter for successful retries (batch operation)
-            if (successfulRetries.Count > 0)
-            {
-                try
-                {
-                    await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, successfulRetries.Count, cancellationToken);
-                    _logger.Debug("Incremented Queued counter by {Count} for successful retries", successfulRetries.Count);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug(ex, "Failed to increment Queued counter for retries (non-critical)");
-                }
-            }
-
-            _logger.Information("Dispatch retry completed: {Success} successful, {Failed} failed", successfulRetries.Count, failedRetries.Count);
+            await UpdateFailedStatusCountersAsync(failedRetries.Count(o => o.Status == JobOccurrenceStatus.Failed), cancellationToken);
         }
+
+        if (retryLogs.Count > 0)
+        {
+            var jobOccurrenceLogRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
+            await jobOccurrenceLogRepository.BulkAddAsync(retryLogs, cancellationToken: cancellationToken);
+            _logger.Debug("Bulk inserted {Count} retry logs", retryLogs.Count);
+        }
+
+        _logger.Information("Dispatch retry completed: {Success} successful, {Failed} failed", successfulRetries.Count, failedRetries.Count);
+    }
+
+    private static void MarkDispatchFailed(JobOccurrence occurrence, string reason)
+    {
+        occurrence.Status = JobOccurrenceStatus.Failed;
+        occurrence.Exception = reason;
+        occurrence.NextDispatchRetryAt = null;
+    }
+
+    /// <summary>
+    /// Clears the retry state of re-published occurrences and stamps one-time jobs as finished.
+    /// Status is not written: the worker may already have reported Running by now.
+    /// </summary>
+    private static async Task CompleteSuccessfulRetriesAsync(MilvaionDbContext dbContext, List<JobOccurrence> successfulRetries, Dictionary<Guid, ScheduledJob> jobs, CancellationToken cancellationToken)
+    {
+        var occurrenceIds = successfulRetries.Select(o => o.Id).ToList();
+
+        await dbContext.JobOccurrences
+                       .Where(o => occurrenceIds.Contains(o.Id))
+                       .ExecuteUpdateAsync(setters => setters.SetProperty(o => o.NextDispatchRetryAt, (DateTime?)null)
+                                                             .SetProperty(o => o.Exception, o => o.Status == JobOccurrenceStatus.Queued ? null : o.Exception), cancellationToken);
+
+        var oneTimeJobIds = successfulRetries.Select(o => jobs[o.JobId]).Where(j => string.IsNullOrWhiteSpace(j.CronExpression)).Select(j => j.Id).Distinct().ToList();
+
+        if (oneTimeJobIds.Count == 0)
+            return;
+
+        var stampedAt = DateTime.UtcNow;
+
+        await dbContext.ScheduledJobs
+                       .Where(j => oneTimeJobIds.Contains(j.Id) && j.CompletedAt == null)
+                       .ExecuteUpdateAsync(setters => setters.SetProperty(j => j.CompletedAt, stampedAt), cancellationToken);
     }
 }
