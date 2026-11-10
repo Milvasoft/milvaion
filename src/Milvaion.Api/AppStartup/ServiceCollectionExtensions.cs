@@ -263,10 +263,7 @@ public static partial class StartupExtensions
                     if (string.IsNullOrWhiteSpace(subject))
                         return;
 
-                    var roleNames = principal.FindAll(oidc.RolesClaim)
-                                             .Select(c => c.Value)
-                                             .Where(r => string.IsNullOrEmpty(oidc.RolePrefix) || r.StartsWith(oidc.RolePrefix, StringComparison.OrdinalIgnoreCase))
-                                             .ToList();
+                    var (roleNames, localRoleNames) = oidc.ResolveRoles(principal.FindAll(oidc.RolesClaim).Select(c => c.Value));
 
                     var descriptor = new ExternalIdentityDescriptor
                     {
@@ -275,9 +272,10 @@ public static partial class StartupExtensions
                         Subject = subject,
                         UserName = First(oidc.NameClaim) ?? First("preferred_username") ?? subject,
                         Email = First("email"),
-                        Name = First("given_name"),
+                        Name = First("given_name") ?? First("name"),
                         Surname = First("family_name"),
-                        RoleNames = roleNames
+                        RoleNames = roleNames,
+                        LocalRoleNames = localRoleNames
                     };
 
                     // Cache-first resolve, provisioning under a per-identity distributed lock on a miss, lives in
