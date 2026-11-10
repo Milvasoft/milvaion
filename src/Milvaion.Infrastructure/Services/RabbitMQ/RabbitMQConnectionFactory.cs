@@ -42,6 +42,11 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
     public IConnection Connection => _connection ?? throw new InvalidOperationException("RabbitMQ connection not initialized. Call InitializeAsync() first.");
 
     /// <summary>
+    /// Whether channels created for publishing wait for broker confirms.
+    /// </summary>
+    public bool PublisherConfirmsEnabled => _options.PublisherConfirms;
+
+    /// <summary>
     /// Initializes connection, queues and exchanges.
     /// Must be called once at application startup before using CreateChannelAsync().
     /// Thread-safe and idempotent - safe to call multiple times from multiple threads.
@@ -75,6 +80,26 @@ public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILogge
     /// </summary>
     private async Task InitializeCoreAsync(CancellationToken cancellationToken)
     {
+        // A connection with automatic recovery is still ours after a shutdown; replacing it would leak it
+        // and leave two connections consuming once it recovers.
+        if (_connection != null)
+        {
+            if (!_options.AutomaticRecoveryEnabled)
+            {
+                await _connection.SafeCloseAsync(_logger, cancellationToken);
+                _connection = null;
+            }
+            else if (_connection.IsOpen)
+            {
+                await DeclareTopologyAsync(cancellationToken);
+                return;
+            }
+            else
+            {
+                throw new InvalidOperationException("RabbitMQ connection is recovering.");
+            }
+        }
+
         // Create connection
         var factory = new ConnectionFactory
         {

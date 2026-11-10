@@ -108,9 +108,13 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                                             body: body,
                                             cancellationToken: cancellationToken);
 
-            // Give the broker up to 500ms to return the message if no queue matches.
-            var completedTask = await Task.WhenAny(returnTcs.Task, Task.Delay(500, cancellationToken));
-            var returnedReason = completedTask == returnTcs.Task ? await returnTcs.Task : null;
+            // With confirms, the broker sends basic.return before basic.ack, so once the publish above has
+            // returned the answer is already known. Without confirms nothing marks the end of the exchange,
+            // so the broker gets a moment to return the message.
+            if (!_connectionFactory.PublisherConfirmsEnabled)
+                await Task.WhenAny(returnTcs.Task, Task.Delay(500, cancellationToken));
+
+            var returnedReason = returnTcs.Task.IsCompleted ? await returnTcs.Task : null;
 
             if (returnedReason != null)
             {
