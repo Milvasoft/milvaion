@@ -209,6 +209,11 @@ public static class WorkerServiceCollectionExtensions
             // Register interface for LocalStateStore
             services.AddSingleton<ILocalStateStore>(sp => sp.GetRequiredService<LocalStateStore>());
         }
+        else
+        {
+            // Disabling resilience only removes the local fallback; statuses and logs are still published.
+            services.AddSingleton<ILocalStateStore, NullLocalStateStore>();
+        }
 
         // Register ConnectionMonitor as singleton (shared by all consumers)
         services.AddSingleton<ConnectionMonitor>(sp =>
@@ -241,26 +246,27 @@ public static class WorkerServiceCollectionExtensions
             var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
-            return new LogPublisher(options, loggerFactory);
+            // Only a real store is passed: without one, failed batches stay in memory instead of being discarded.
+            return new LogPublisher(options, loggerFactory, sp.GetService<LocalStateStore>());
         });
 
         // Register interface for LogPublisher
         services.AddSingleton<ILogPublisher>(sp => sp.GetRequiredService<LogPublisher>());
 
-        // Register OutboxService if offline resilience is enabled
+        // OutboxService is what publishes statuses and logs, so it is registered whether or not offline resilience is enabled
+        services.AddSingleton<OutboxService>(sp =>
+        {
+            var localStore = sp.GetRequiredService<ILocalStateStore>();
+            var statusPublisher = sp.GetRequiredService<IStatusUpdatePublisher>();
+            var logPublisher = sp.GetRequiredService<ILogPublisher>();
+            var connectionMonitor = sp.GetRequiredService<IConnectionMonitor>();
+            var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
+
+            return new OutboxService(localStore, statusPublisher, logPublisher, connectionMonitor, logger);
+        });
+
         if (workerOptions?.OfflineResilience?.Enabled == true)
         {
-            services.AddSingleton<OutboxService>(sp =>
-            {
-                var localStore = sp.GetRequiredService<ILocalStateStore>();
-                var statusPublisher = sp.GetRequiredService<IStatusUpdatePublisher>();
-                var logPublisher = sp.GetRequiredService<ILogPublisher>();
-                var connectionMonitor = sp.GetRequiredService<IConnectionMonitor>();
-                var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
-
-                return new OutboxService(localStore, statusPublisher, logPublisher, connectionMonitor, logger);
-            });
-
             // Register SyncOrchestratorService as hosted service
             services.AddHostedService(sp =>
             {
@@ -461,7 +467,7 @@ public static class WorkerServiceCollectionExtensions
                 var jobConsumerOptions = sp.GetRequiredService<IOptions<JobConsumerOptions>>();
                 var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
 
-                // Get OutboxService if offline resilience is enabled (singleton, shared)
+                // Singleton, shared by all consumers
                 var outboxService = sp.GetService<OutboxService>();
 
                 var workerOptions = baseOptions.Value;
@@ -492,7 +498,6 @@ public static class WorkerServiceCollectionExtensions
 
                 logger.Information("Registered JobConsumer '{ConsumerId}' for job type '{JobName}' with InstanceId: {InstanceId}, patterns: {Patterns}", capturedConfig.ConsumerId, capturedJobName, dedicatedOptions.InstanceId, capturedConfig.RoutingPattern);
 
-                // Pass OutboxService (null if offline resilience disabled)
                 return new JobConsumer(sp, Microsoft.Extensions.Options.Options.Create(dedicatedOptions), jobConsumerOptions, logger, outboxService);
             });
         }

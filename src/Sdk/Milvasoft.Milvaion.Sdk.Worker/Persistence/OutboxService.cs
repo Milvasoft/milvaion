@@ -21,6 +21,9 @@ public class OutboxService(ILocalStateStore localStore,
     private readonly ILogPublisher _logPublisher = logPublisher;
     private readonly IConnectionMonitor _connectionMonitor = connectionMonitor;
 
+    // With offline resilience disabled there is nowhere to fall back to, so a publish is always attempted.
+    private readonly bool _publishOnly = localStore is NullLocalStateStore;
+
     /// <summary>
     /// Gets the local state store (for direct access to job tracking).
     /// </summary>
@@ -46,7 +49,7 @@ public class OutboxService(ILocalStateStore localStore,
                                                CancellationToken cancellationToken = default)
     {
         // STEP 1: Try to publish immediately if connection is healthy
-        if (_connectionMonitor.IsRabbitMQHealthy)
+        if (_publishOnly || _connectionMonitor.IsRabbitMQHealthy)
         {
             try
             {
@@ -72,6 +75,12 @@ public class OutboxService(ILocalStateStore localStore,
                 // Log warning and continue to local storage
                 _logger?.Warning(ex, "Failed to publish status update for OccurrenceId {OccurrenceId}. Will store locally for retry.", occurrenceId);
             }
+        }
+
+        if (_publishOnly)
+        {
+            _logger?.Warning("Status update {Status} for OccurrenceId {OccurrenceId} was lost: publishing failed and offline resilience is disabled.", status, occurrenceId);
+            return;
         }
 
         // STEP 2: Store locally only if direct publish failed or connection unhealthy
@@ -105,7 +114,7 @@ public class OutboxService(ILocalStateStore localStore,
                                       CancellationToken cancellationToken = default)
     {
         // STEP 1: Try to publish immediately if connection is healthy
-        if (_connectionMonitor.IsRabbitMQHealthy)
+        if (_publishOnly || _connectionMonitor.IsRabbitMQHealthy)
         {
             try
             {
@@ -120,6 +129,9 @@ public class OutboxService(ILocalStateStore localStore,
                 _logger?.Warning(ex, "Failed to publish log for OccurrenceId {OccurrenceId}. Will store locally for retry. Message: {Message}", occurrenceId, log.Message);
             }
         }
+
+        if (_publishOnly)
+            return;
 
         // STEP 2: Store locally only if direct publish failed or connection unhealthy
         await _localStore.StoreLogAsync(occurrenceId, workerId, log, cancellationToken);
