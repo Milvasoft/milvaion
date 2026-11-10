@@ -57,6 +57,8 @@ export default defineConfig(({ mode }) => {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        // API and hub routes (Scalar docs included) belong to the server, not to the cached SPA shell.
+        navigateFallbackDenylist: [/\/api(\/|$)/, /\/hubs(\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -85,19 +87,9 @@ export default defineConfig(({ mode }) => {
                 statuses: [0, 200]
               }
             }
-          },
-          {
-            urlPattern: /\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5 // 5 minutes
-              },
-              networkTimeoutSeconds: 10
-            }
           }
+          // Deliberately nothing for /api/: authenticated responses must not outlive the session in
+          // Cache Storage, and a dashboard must not silently show stale data when the network is slow.
         ]
       },
       // Never register the service worker in dev: it would precache the shell on localhost:3000 and then
