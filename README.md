@@ -596,6 +596,8 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 
 ---
 
+<a href="https://www.opensourcealternatives.to"><img src="https://www.opensourcealternatives.to/badge-osa.svg" alt="As seen on Open Source Alternatives"></a>
+
 <p align="center">
   Built and maintained by <a href="https://github.com/Milvasoft">Milvasoft</a>.
 </p>
