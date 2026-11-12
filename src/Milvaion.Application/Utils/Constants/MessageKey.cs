@@ -86,6 +86,7 @@ public static class MessageKey
     public const string ExternalJobCannotBeCancelled = nameof(ExternalJobCannotBeCancelled);
     public const string ApiKeyNotFound = nameof(ApiKeyNotFound);
     public const string ApiKeyAlreadyRevoked = nameof(ApiKeyAlreadyRevoked);
+    public const string ApiKeySuperAdminNotAllowed = nameof(ApiKeySuperAdminNotAllowed);
     public const string ApiKey = nameof(ApiKey);
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 }

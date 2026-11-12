@@ -101,7 +101,7 @@ public class PrivilegeGuard(IHttpContextAccessor httpContextAccessor,
         var requested = (permissionIds ?? []).Distinct().ToList();
 
         if (await ContainsSuperAdminAsync(requested, cancellationToken))
-            Forbid();
+            Forbid(MessageKey.ApiKeySuperAdminNotAllowed);
 
         if (IsExempt)
             return;
@@ -164,5 +164,5 @@ public class PrivilegeGuard(IHttpContextAccessor httpContextAccessor,
         return [.. relations.Select(relation => relation.RoleId)];
     }
 
-    private void Forbid() => Request.Response.ThrowWithForbidden();
+    private void Forbid(string messageKey = null) => Request.Response.ThrowWithForbidden(messageKey);
 }
