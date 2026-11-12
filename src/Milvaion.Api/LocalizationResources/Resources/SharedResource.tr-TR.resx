@@ -1058,6 +1058,9 @@ Maksimum dosya boyutu:
   <data name="ApiKeyAlreadyRevoked" xml:space="preserve">
     <value>Api anahtarı zaten geçersiz kılındı!</value>
   </data>
+  <data name="ApiKeySuperAdminNotAllowed" xml:space="preserve">
+    <value>Api anahtarlarına App.SuperAdmin yetkisi verilemez. Anahtarın ihtiyaç duyduğu yetkileri tek tek seçin.</value>
+  </data>
   <data name="ApiKey" xml:space="preserve">
     <value>Api Key</value>
   </data>

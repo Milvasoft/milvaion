@@ -10,6 +10,8 @@ import AuditInfoCard from '../../components/AuditInfoCard'
 import Pagination from '../../components/Pagination'
 import TableActions, { ActionButton } from '../../components/TableActions'
 import { TableToolbar, TableSearch, TableFooter, TimeCell, StatusCell } from '../../components/TableParts'
+
+const isSuperAdminPermission = (p) => p?.permissionGroup === 'App' && p?.name === 'SuperAdmin'
 // RoleList.css carries the shared list-page styling (header, table, pagination, form modal), all scoped under
 // .role-list. This page reuses that class alongside its own so the two screens cannot drift apart visually.
 // ApiKeyList.css only adds what is specific to api keys.
@@ -111,14 +113,18 @@ function ApiKeyList() {
   }, [loadApiKeys])
 
   const loadPermissions = async () => {
-    if (allPermissions.length > 0) return
+    if (allPermissions.length > 0) return allPermissions
     setPermissionsLoading(true)
     try {
       const response = await permissionService.getAll()
       const data = response?.data?.data || response?.data || []
-      setAllPermissions(data)
+      // The API never lets a key hold App.SuperAdmin, so offering it would only end in a 403.
+      const grantable = data.filter(p => !isSuperAdminPermission(p))
+      setAllPermissions(grantable)
+      return grantable
     } catch (err) {
       console.error('Failed to load permissions', err)
+      return null
     } finally {
       setPermissionsLoading(false)
     }
@@ -134,7 +140,8 @@ function ApiKeyList() {
   }
 
   const handleEdit = async (apiKey) => {
-    await loadPermissions()
+    const grantable = await loadPermissions()
+    const grantableIds = grantable ? new Set(grantable.map(p => p.id)) : null
     setFormError('')
     setPermissionSearch('')
 
@@ -147,7 +154,8 @@ function ApiKeyList() {
         name: detail.name || '',
         description: detail.description || '',
         expiryDays: null,
-        permissionIdList: detail.permissions?.map(p => p.id) || []
+        // A key created before SuperAdmin was blocked may still carry it; drop it so the key can be saved.
+        permissionIdList: detail.permissions?.map(p => p.id).filter(id => !grantableIds || grantableIds.has(id)) || []
       })
       setShowFormModal(true)
     } catch (err) {

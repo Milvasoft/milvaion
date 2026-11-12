@@ -1058,6 +1058,9 @@ Maximum file size:
   <data name="ApiKeyAlreadyRevoked" xml:space="preserve">
     <value>Api Key already revoked!</value>
   </data>
+  <data name="ApiKeySuperAdminNotAllowed" xml:space="preserve">
+    <value>Api keys cannot hold the App.SuperAdmin permission. Grant the specific permissions the key needs instead.</value>
+  </data>
   <data name="ApiKey" xml:space="preserve">
     <value>Api Key</value>
   </data>
