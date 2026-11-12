@@ -39,11 +39,21 @@ jobs:
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           fi
 
+      # The NuGet packages are versioned on their own (10.x) and do not follow the API version in the tag,
+      # so their links and install commands read the version from the project files.
+      - name: Get package versions
+        id: packages
+        run: |
+          read_version() { sed -n 's:.*<PackageVersion>\(.*\)</PackageVersion>.*:\1:p' "$1" | head -1; }
+          echo "sdk=$(read_version src/Sdk/Milvasoft.Milvaion.Sdk/Milvasoft.Milvaion.Sdk.csproj)" >> $GITHUB_OUTPUT
+          echo "worker=$(read_version src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj)" >> $GITHUB_OUTPUT
+          echo "template=$(read_version src/Workers/Milvasoft.Templates.Milvaion/Milvasoft.Templates.Milvaion.csproj)" >> $GITHUB_OUTPUT
+
       - name: Generate Release Notes
         id: release_notes
         run: |
-          # Get the previous tag
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          # Get the previous release tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match 'v*.*.*' HEAD^ 2>/dev/null || echo "")
 
           if [ -z "$PREVIOUS_TAG" ]; then
             echo "notes=Initial release" >> $GITHUB_OUTPUT
@@ -67,9 +77,9 @@ jobs:
             ${{ steps.release_notes.outputs.notes }}
 
             ### 📦 Packages
-            - `Milvasoft.Milvaion.Sdk` - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk/${{ steps.get_version.outputs.version }})
-            - `Milvasoft.Milvaion.Sdk.Worker` - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/${{ steps.get_version.outputs.version }})
-            - `Milvasoft.Templates.Milvaion` - [NuGet](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/${{ steps.get_version.outputs.version }})
+            - `Milvasoft.Milvaion.Sdk` ${{ steps.packages.outputs.sdk }} - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk/${{ steps.packages.outputs.sdk }})
+            - `Milvasoft.Milvaion.Sdk.Worker` ${{ steps.packages.outputs.worker }} - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/${{ steps.packages.outputs.worker }})
+            - `Milvasoft.Templates.Milvaion` ${{ steps.packages.outputs.template }} - [NuGet](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/${{ steps.packages.outputs.template }})
 
             ### 🐳 Docker Images
             - `milvasoft/milvaion-api:${{ steps.get_version.outputs.version }}`
@@ -82,17 +92,17 @@ jobs:
 
             **SDK (for shared types):**
             ```bash
-            dotnet add package Milvasoft.Milvaion.Sdk --version ${{ steps.get_version.outputs.version }}
+            dotnet add package Milvasoft.Milvaion.Sdk --version ${{ steps.packages.outputs.sdk }}
             ```
 
             **Worker SDK:**
             ```bash
-            dotnet add package Milvasoft.Milvaion.Sdk.Worker --version ${{ steps.get_version.outputs.version }}
+            dotnet add package Milvasoft.Milvaion.Sdk.Worker --version ${{ steps.packages.outputs.worker }}
             ```
 
             **Worker Template:**
             ```bash
-            dotnet new install Milvasoft.Templates.Milvaion::${{ steps.get_version.outputs.version }}
+            dotnet new install Milvasoft.Templates.Milvaion::${{ steps.packages.outputs.template }}
             dotnet new milvaion-worker -n MyWorker
             ```
           draft: false
