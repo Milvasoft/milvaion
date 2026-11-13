@@ -737,7 +737,7 @@ function JobForm() {
                   onChange={handleChange}
                   rows={10}
                   placeholder='{"key": "value"}'
-                  hint="JSON configuration data that will be passed to the job"
+                  hint='JSON configuration data that will be passed to the job. Write {{secret:name}} inside a string to reference a secret: it is resolved only when the job is sent to a worker and never stored.'
                   disabled={isExternalJob}
                 />
               </div>

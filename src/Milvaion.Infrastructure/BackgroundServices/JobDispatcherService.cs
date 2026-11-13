@@ -8,6 +8,7 @@ using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
+using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence;
@@ -711,6 +712,17 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
                 retry.Add(occurrence);
             }
+            catch (SecretResolutionException ex)
+            {
+                // Retrying does not make a missing secret appear, and nothing was published.
+                _logger.Warning("Occurrence {OccurrenceId} of job {JobId} failed before dispatch: {Reason}", occurrence.Id, job.Id, ex.Message);
+
+                occurrence.Status = JobOccurrenceStatus.Failed;
+                occurrence.Exception = ex.Message;
+                logsToInsert.Add(NewDispatchLog(occurrence.Id, "Error", ex.Message));
+
+                abandoned.Add(occurrence);
+            }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
@@ -1293,6 +1305,14 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 }
 
                 failureReason = $"Failed to dispatch after {_maxDispatchRetryAttempts} attempts";
+            }
+            catch (SecretResolutionException ex)
+            {
+                MarkDispatchFailed(occurrence, ex.Message);
+                retryLogs.Add(NewDispatchLog(occurrence.Id, "Error", ex.Message));
+                failedRetries.Add(occurrence);
+
+                continue;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

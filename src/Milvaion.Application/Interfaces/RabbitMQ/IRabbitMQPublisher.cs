@@ -1,4 +1,4 @@
-namespace Milvaion.Application.Interfaces.RabbitMQ;
+﻿namespace Milvaion.Application.Interfaces.RabbitMQ;
 
 /// <summary>
 /// RabbitMQ publisher for dispatching jobs to workers.
@@ -12,6 +12,14 @@ public interface IRabbitMQPublisher
     /// <param name="occurrenceId">Unique identifier for the job occurrence (Occurrence.Id)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if published successfully</returns>
+    /// <remarks>
+    /// <c>{{secret:name}}</c> references in the job data are resolved into the message only; the job object is
+    /// not changed.
+    /// </remarks>
+    /// <exception cref="Secrets.SecretResolutionException">
+    /// A referenced secret could not be resolved. Nothing was published; fail the occurrence with the
+    /// exception message (it names the secrets, never their values) rather than retrying.
+    /// </exception>
     Task<bool> PublishJobAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken = default);
 
     /// <summary>

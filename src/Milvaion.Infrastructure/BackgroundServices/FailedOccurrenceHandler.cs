@@ -4,11 +4,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
+using Milvaion.Infrastructure.Services.Secrets;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
@@ -34,6 +36,8 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
                                      IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly ISecretMasker _secretMasker = serviceProvider.GetService<ISecretMasker>();
+    private readonly ISecretTemplateStore _secretTemplateStore = serviceProvider.GetService<ISecretTemplateStore>();
     private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<FailedOccurrenceHandler>();
@@ -189,8 +193,12 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 
         var failureType = DetermineFailureType(message.Status, message.Exception, messageRetryCount, maxRetries);
 
+        // The worker dead-letters the job as it received it - with secrets resolved. Store the template the API
+        // dispatched instead, and mask whatever the worker wrote into the exception.
+        var jobData = await GetUnresolvedJobDataAsync(correlationId, message.JobData, cancellationToken);
+
         // Truncate exception for storage
-        var truncatedException = TruncateException(message.Exception);
+        var truncatedException = TruncateException(_secretMasker?.Mask(message.Exception) ?? message.Exception);
 
         // A redelivery (the ack was lost) must not store the failure twice.
         if (await dbContext.FailedOccurrences.AsNoTracking().AnyAsync(f => f.OccurrenceId == occurrence.Id && f.RetryCount == messageRetryCount, cancellationToken))
@@ -209,7 +217,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
             JobDisplayName = message.DisplayName,
             JobNameInWorker = message.JobNameInWorker,
             WorkerId = occurrence.WorkerId,
-            JobData = NormalizeJobData(message.JobData),
+            JobData = NormalizeJobData(jobData),
             Exception = truncatedException,
             FailedAt = DateTime.UtcNow,
             RetryCount = messageRetryCount,
@@ -248,6 +256,23 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
                 failedJob.WorkerId
             }
         });
+    }
+
+    /// <summary>
+    /// The job data to store for a dead-lettered occurrence: the template saved at dispatch when there is one,
+    /// otherwise the worker's copy with every known secret value masked.
+    /// </summary>
+    private async Task<string> GetUnresolvedJobDataAsync(Guid correlationId, string workerJobData, CancellationToken cancellationToken)
+    {
+        if (_secretTemplateStore != null)
+        {
+            var template = await _secretTemplateStore.GetAsync(correlationId, cancellationToken);
+
+            if (template != null)
+                return template;
+        }
+
+        return _secretMasker?.Mask(workerJobData) ?? workerJobData;
     }
 
     /// <summary>

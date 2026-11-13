@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
@@ -12,6 +13,7 @@ using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
+using Milvaion.Infrastructure.Services.Secrets;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -39,6 +41,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                                   IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly ISecretMasker _secretMasker = serviceProvider.GetService<ISecretMasker>();
     private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
@@ -251,6 +254,13 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
 
                 return;
+            }
+
+            // The result and the exception are free text from the worker and may echo a secret value.
+            if (_secretMasker != null)
+            {
+                message.Result = _secretMasker.Mask(message.Result);
+                message.Exception = _secretMasker.Mask(message.Exception);
             }
 
             //  ONLY mark as Running immediately (for dispatcher checks)

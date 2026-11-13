@@ -23,6 +23,7 @@ using Milvaion.Infrastructure.Services.Alerting.Channels;
 using Milvaion.Infrastructure.Services.Monitoring;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Redis;
+using Milvaion.Infrastructure.Services.Secrets;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Caching.Builder;
 using Milvasoft.Caching.Redis;
@@ -165,7 +166,8 @@ public static class InfraServiceCollectionExtensions
         // Register background service telemetry metrics
         services.AddSingleton<BackgroundServiceMetrics>();
 
-        services.AddRedisStorage(configuration)
+        services.AddSecretReferences(configuration)
+                .AddRedisStorage(configuration)
                 .AddRabbitMQ(configuration)
                 .AddAlerting(configuration)
                 .AddJobDispatcher(configuration)

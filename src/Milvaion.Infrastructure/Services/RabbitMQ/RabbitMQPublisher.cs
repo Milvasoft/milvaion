@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Milvaion.Application.Interfaces.RabbitMQ;
+using Milvaion.Application.Interfaces.Secrets;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
@@ -17,13 +18,20 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     private readonly RabbitMQConnectionFactory _connectionFactory;
     private readonly IMilvaLogger _logger;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly ISecretResolver _secretResolver;
+    private readonly ISecretTemplateStore _templateStore;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQPublisher"/> class.
     /// </summary>
-    public RabbitMQPublisher(RabbitMQConnectionFactory connectionFactory, ILoggerFactory loggerFactory)
+    public RabbitMQPublisher(RabbitMQConnectionFactory connectionFactory,
+                             ILoggerFactory loggerFactory,
+                             ISecretResolver secretResolver = null,
+                             ISecretTemplateStore templateStore = null)
     {
         _connectionFactory = connectionFactory;
+        _secretResolver = secretResolver;
+        _templateStore = templateStore;
         _logger = loggerFactory.CreateMilvaLogger<RabbitMQPublisher>();
         _jsonOptions = new JsonSerializerOptions
         {
@@ -37,14 +45,14 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     /// <inheritdoc/>
     public async Task<bool> PublishJobAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken = default)
     {
+        // Outside the try below on purpose: a missing secret is not a broker problem, so it must not turn into
+        // "return false" (which callers retry) but reach the caller, which fails the occurrence.
+        var body = await BuildMessageBodyAsync(job, occurrenceId, cancellationToken);
+
         try
         {
             // Publisher confirms enabled: BasicPublishAsync below only completes once RabbitMQ has acked the message.
             await using var channel = await _connectionFactory.CreateChannelAsync(enablePublisherConfirms: true, cancellationToken);
-
-            // Serialize job to JSON
-            var json = JsonSerializer.Serialize(job, _jsonOptions);
-            var body = Encoding.UTF8.GetBytes(json);
 
             // Determine routing key:
             // 1. If job has specific routing patterns (from worker), use first one
@@ -136,6 +144,31 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     }
 
     /// <summary>
+    /// Serializes the job for the worker, with secret references in its job data resolved.
+    /// </summary>
+    /// <remarks>
+    /// The job object itself is never changed: it may be the cached or tracked instance, and anything written
+    /// to it could end up in Redis or the database. The resolved data exists only in the returned bytes.
+    /// </remarks>
+    /// <exception cref="SecretResolutionException">A referenced secret could not be resolved.</exception>
+    private async Task<byte[]> BuildMessageBodyAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken)
+    {
+        if (_secretResolver == null || !SecretReferences.ContainsReference(job.JobData))
+            return Encoding.UTF8.GetBytes(JsonSerializer.Serialize(job, _jsonOptions));
+
+        var resolved = await _secretResolver.ResolveAsync(job.JobData, cancellationToken);
+
+        if (_templateStore != null)
+            await _templateStore.SaveAsync(occurrenceId, job.JobData, cancellationToken);
+
+        var node = JsonSerializer.SerializeToNode(job, _jsonOptions)!.AsObject();
+
+        node["jobData"] = resolved;
+
+        return Encoding.UTF8.GetBytes(node.ToJsonString(_jsonOptions));
+    }
+
+    /// <summary>
     /// Converts JobType to routing key WITHOUT splitting words.
     /// Includes WorkerId prefix for worker-specific routing.
     /// Examples (with workerId "email-worker-01"):
@@ -177,9 +210,15 @@ public class RabbitMQPublisher : IRabbitMQPublisher
 
             foreach (var (job, occurrenceId) in jobsWithCorrelation)
             {
-                var success = await PublishJobAsync(job, occurrenceId, cancellationToken);
-                if (success)
-                    publishedCount++;
+                try
+                {
+                    if (await PublishJobAsync(job, occurrenceId, cancellationToken))
+                        publishedCount++;
+                }
+                catch (SecretResolutionException ex)
+                {
+                    _logger.Warning("Job {JobId} was not published: {Reason}", job.Id, ex.Message);
+                }
             }
 
             _logger.Debug("Published {PublishedCount}/{TotalCount} jobs to RabbitMQ", publishedCount, jobsWithCorrelation.Count);
