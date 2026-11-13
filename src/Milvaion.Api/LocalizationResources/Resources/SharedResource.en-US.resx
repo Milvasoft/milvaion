@@ -1073,6 +1073,12 @@ Maximum file size:
   <data name="Global.MilvaionApiKey" xml:space="preserve">
     <value>Api Key</value>
   </data>
+  <data name="PG.ExclusionCalendarManagement" xml:space="preserve">
+    <value>Exclusion Calendar management permissions</value>
+  </data>
+  <data name="Global.ExclusionCalendar" xml:space="preserve">
+    <value>Exclusion Calendar</value>
+  </data>
   <data name="Global.MilvaionApiKeyPermissionRelation" xml:space="preserve">
     <value>Api Key/Permission Relation</value>
   </data>

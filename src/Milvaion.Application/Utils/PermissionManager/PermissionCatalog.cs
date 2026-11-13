@@ -180,6 +180,25 @@ public static partial class PermissionCatalog
         public const string Trigger = "ScheduledJobManagement.Trigger";
     }
 
+    [Description("Exclusion Calendar Management")]
+    public static class ExclusionCalendarManagement
+    {
+        [Description("Exclusion calendar list permission.")]
+        public const string List = "ExclusionCalendarManagement.List";
+
+        [Description("Exclusion calendar detail view permission")]
+        public const string Detail = "ExclusionCalendarManagement.Detail";
+
+        [Description("Exclusion calendar create permission")]
+        public const string Create = "ExclusionCalendarManagement.Create";
+
+        [Description("Exclusion calendar update permission")]
+        public const string Update = "ExclusionCalendarManagement.Update";
+
+        [Description("Exclusion calendar delete permission")]
+        public const string Delete = "ExclusionCalendarManagement.Delete";
+    }
+
     [Description("Worker Management")]
     public static class WorkerManagement
     {

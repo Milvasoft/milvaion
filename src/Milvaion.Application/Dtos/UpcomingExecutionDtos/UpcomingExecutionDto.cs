@@ -66,6 +66,22 @@ public class UpcomingExecutionDto
     /// is not a fault.
     /// </remarks>
     public bool IsExternal { get; set; }
+
+    /// <summary>
+    /// IANA time zone the job's cron expression is evaluated in. "UTC" for workflows, which are always evaluated in UTC.
+    /// </summary>
+    public string TimeZoneId { get; set; }
+
+    /// <summary>
+    /// <see cref="ScheduledAt"/> as wall clock time in <see cref="TimeZoneId"/>, without an offset.
+    /// </summary>
+    public DateTime? LocalScheduledAt { get; set; }
+
+    /// <summary>
+    /// True when the run the dispatcher holds falls on an excluded day and <see cref="ScheduledAt"/> was moved to the
+    /// first run on a day that is not excluded. The excluded run itself will be recorded as skipped.
+    /// </summary>
+    public bool ShiftedByCalendar { get; set; }
 }
 
 /// <summary>

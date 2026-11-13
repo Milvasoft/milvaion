@@ -5,6 +5,7 @@ using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using StackExchange.Redis;
+using Milvaion.Application.Utils.Scheduling;
 using System.Globalization;
 
 namespace Milvaion.Infrastructure.Services.Redis;
@@ -406,6 +407,45 @@ public class RedisSchedulerService : IRedisSchedulerService
         );
 
     /// <summary>
+    /// Reads the previous poll time, writes the current one and, on a gap, records the outage - atomically, so two
+    /// instances polling at once cannot both see the old value and record overlapping outages.
+    /// </summary>
+    private const string _recordPollScript = """
+        local prev = redis.call('GET', KEYS[1])
+        redis.call('SET', KEYS[1], ARGV[1])
+        if prev and (tonumber(ARGV[1]) - tonumber(prev)) > tonumber(ARGV[2]) then
+            redis.call('SET', KEYS[2], prev .. '|' .. ARGV[1])
+        end
+        return redis.call('GET', KEYS[2])
+        """;
+
+    /// <inheritdoc/>
+    public Task<DispatcherOutage> RecordDispatcherPollAsync(DateTime nowUtc, TimeSpan gapThreshold, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                var nowMs = new DateTimeOffset(DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+
+                var result = await _database.ScriptEvaluateAsync(_recordPollScript,
+                                                                 [$"{_options.KeyPrefix}dispatcher:last_poll", $"{_options.KeyPrefix}dispatcher:last_outage"],
+                                                                 [nowMs, (long)gapThreshold.TotalMilliseconds]);
+
+                if (result.IsNull)
+                    return null;
+
+                var parts = result.ToString().Split('|');
+
+                if (parts.Length != 2 || !long.TryParse(parts[0], out var startMs) || !long.TryParse(parts[1], out var endMs))
+                    return null;
+
+                return new DispatcherOutage(DateTimeOffset.FromUnixTimeMilliseconds(startMs).UtcDateTime,
+                                            DateTimeOffset.FromUnixTimeMilliseconds(endMs).UtcDateTime);
+            },
+            fallback: async () => null,
+            operationName: "RecordDispatcherPoll",
+            cancellationToken: cancellationToken
+        );
+
+    /// <summary>
     /// Converts DateTime to Unix timestamp (seconds since epoch).
     /// </summary>
     private static double GetUnixTimestamp(DateTime dateTime) => new DateTimeOffset(dateTime.ToUniversalTime()).ToUnixTimeSeconds();
@@ -431,6 +471,11 @@ public class RedisSchedulerService : IRedisSchedulerService
                         new("JobType", job.JobNameInWorker ?? string.Empty),
                         new("JobData", job.JobData ?? string.Empty),
                         new("CronExpression", job.CronExpression ?? string.Empty),
+                        new("TimeZoneId", job.TimeZoneId ?? string.Empty),
+                        new("MissedRunPolicy", ((int)job.MissedRunPolicy).ToString()),
+                        new("MaxCatchUpRuns", job.MaxCatchUpRuns.ToString()),
+                        new("Priority", job.Priority.ToString()),
+                        new("ExclusionCalendarIds", FormatGuidList(job.ExclusionCalendarIds)),
                         new("IsActive", job.IsActive.ToString()),
                         new("ConcurrentExecutionPolicy", ((int)job.ConcurrentExecutionPolicy).ToString()),
                         new("WorkerId", job.WorkerId ?? string.Empty),
@@ -794,6 +839,24 @@ public class RedisSchedulerService : IRedisSchedulerService
     private string GetExternalJobMappingKey(string externalJobId) => $"{_options.KeyPrefix}external:{externalJobId}";
 
     /// <summary>
+    /// Formats a list of ids for a hash field: comma separated, empty for none.
+    /// </summary>
+    public static string FormatGuidList(IEnumerable<Guid> ids) => ids is null ? string.Empty : string.Join(',', ids);
+
+    /// <summary>
+    /// Parses a hash field written by <see cref="FormatGuidList"/>, ignoring anything that is not an id.
+    /// </summary>
+    public static List<Guid> ParseGuidList(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        return [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(v => Guid.TryParse(v, out var id) ? id : Guid.Empty)
+                        .Where(id => id != Guid.Empty)];
+    }
+
+    /// <summary>
     /// Deserializes a job from Redis Hash entries.
     /// </summary>
     private ScheduledJob DeserializeJob(HashEntry[] hashEntries)
@@ -825,6 +888,12 @@ public class RedisSchedulerService : IRedisSchedulerService
                 ExecuteAt = dict.TryGetValue("ExecuteAt", out var executeAtStr) && DateTime.TryParse(executeAtStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var executeAt) ? executeAt : DateTime.MinValue,
                 IsExternal = dict.TryGetValue("IsExternal", out var isExternalStr) && bool.TryParse(isExternalStr, out var isExternal) && isExternal,
                 ExternalJobId = dict.GetValueOrDefault("ExternalJobId"),
+                // Entries cached before these fields existed fall back to the column defaults, which are exactly the old behaviour.
+                TimeZoneId = string.IsNullOrEmpty(dict.GetValueOrDefault("TimeZoneId")) ? ScheduledJob.DefaultTimeZoneId : dict["TimeZoneId"],
+                MissedRunPolicy = dict.TryGetValue("MissedRunPolicy", out var missedStr) && int.TryParse(missedStr, out var missed) ? (MissedRunPolicy)missed : MissedRunPolicy.RunOnce,
+                MaxCatchUpRuns = dict.TryGetValue("MaxCatchUpRuns", out var maxCatchUpStr) && int.TryParse(maxCatchUpStr, out var maxCatchUp) ? maxCatchUp : ScheduledJob.DefaultMaxCatchUpRuns,
+                Priority = dict.TryGetValue("Priority", out var priorityStr) && int.TryParse(priorityStr, out var priority) ? priority : 0,
+                ExclusionCalendarIds = ParseGuidList(dict.GetValueOrDefault("ExclusionCalendarIds")),
             };
         }
         catch (Exception ex)

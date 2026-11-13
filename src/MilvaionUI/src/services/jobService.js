@@ -53,6 +53,11 @@ export const jobService = {
       zombieTimeoutMinutes: wrapForUpdate(jobData.zombieTimeoutMinutes, fieldsToUpdate.includes('zombieTimeoutMinutes')),
       executionTimeoutSeconds: wrapForUpdate(jobData.executionTimeoutSeconds, fieldsToUpdate.includes('executionTimeoutSeconds')),
       autoDisableSettings: wrapForUpdate(jobData.autoDisableSettings, fieldsToUpdate.includes('autoDisableSettings') || 'autoDisableSettings' in jobData),
+      timeZoneId: wrapForUpdate(jobData.timeZoneId, fieldsToUpdate.includes('timeZoneId')),
+      missedRunPolicy: wrapForUpdate(jobData.missedRunPolicy, fieldsToUpdate.includes('missedRunPolicy')),
+      maxCatchUpRuns: wrapForUpdate(jobData.maxCatchUpRuns, fieldsToUpdate.includes('maxCatchUpRuns')),
+      priority: wrapForUpdate(jobData.priority, fieldsToUpdate.includes('priority')),
+      exclusionCalendarIds: wrapForUpdate(jobData.exclusionCalendarIds, fieldsToUpdate.includes('exclusionCalendarIds')),
     }
 
     return api.put('/jobs/job', requestBody)

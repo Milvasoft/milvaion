@@ -50,6 +50,7 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
     public DbSet<MilvaionApiKey> ApiKeys { get; set; }
     public DbSet<MilvaionApiKeyPermissionRelation> ApiKeyPermissionRelations { get; set; }
     public DbSet<AppSetting> AppSettings { get; set; }
+    public DbSet<ExclusionCalendar> ExclusionCalendars { get; set; }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
@@ -101,6 +102,7 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
         modelBuilder.Entity<Workflow>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<WorkflowRun>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<MetricReport>().Property(x => x.Id).ValueGeneratedNever();
+        modelBuilder.Entity<ExclusionCalendar>().Property(x => x.Id).ValueGeneratedNever();
 
         base.OnModelCreating(modelBuilder);
     }

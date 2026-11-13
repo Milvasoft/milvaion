@@ -136,8 +136,14 @@ The body of a delivery is the scheduled job:
 }
 ```
 
-- Additional properties may be present. Ignore the ones you do not use.
+- Additional properties may be present. Ignore the ones you do not use. Current examples are the scheduling settings `timeZoneId`, `missedRunPolicy`, `maxCatchUpRuns`, `priority` and `exclusionCalendarIds`. They are applied by the API before the message is sent, so a worker has nothing to do with them.
 - `jobData` is a JSON string, not an object.
+
+### Priority
+
+Each job message carries the job's priority, 0 (lowest, the default) to 9 (highest), in the AMQP `priority` property. When several jobs are due in the same dispatcher cycle, the API publishes the higher priority ones first.
+
+Job queues are not priority queues yet: they are declared without `x-max-priority`, so the broker delivers in publish order and ignores the property. Do not add `x-max-priority` to your queue declaration on your own. RabbitMQ refuses to redeclare an existing queue with different arguments (`PRECONDITION_FAILED`), and every SDK must declare a queue the same way. If queue priorities are introduced, this document will describe the change and the queue migration it needs.
 
 Read the occurrence id from the first of these that holds a GUID. A header value may arrive as bytes or as a string.
 

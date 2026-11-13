@@ -86,7 +86,9 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                 MessageId = job.Id.ToString(),
                 CorrelationId = occurrenceId.ToString(), // Unique occurrence ID sent to worker
                 Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
-                Priority = 0,
+                // AMQP priority 0-9. Worker queues are not declared with x-max-priority yet, so today the broker
+                // ignores it; ordering comes from the dispatcher sending higher priority jobs first.
+                Priority = (byte)Math.Clamp(job.Priority, ScheduledJob.MinPriority, ScheduledJob.MaxPriority),
                 Headers = new Dictionary<string, object>
                 {
                     ["JobType"] = job.JobNameInWorker,

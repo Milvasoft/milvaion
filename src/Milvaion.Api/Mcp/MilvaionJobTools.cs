@@ -421,6 +421,11 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="description">Description of the job.</param>
     /// <param name="tags">Comma separated tags.</param>
     /// <param name="isActive">Whether the job starts out scheduled.</param>
+    /// <param name="timeZoneId">IANA time zone for the cron expression.</param>
+    /// <param name="missedRunPolicy">Missed-run policy.</param>
+    /// <param name="maxCatchUpRuns">Maximum catch-up runs for RunAll.</param>
+    /// <param name="priority">Dispatch priority, 0 to 9.</param>
+    /// <param name="exclusionCalendarIds">Exclusion calendar ids.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the created job.</returns>
     /// <exception cref="McpException">Thrown when the job could not be created.</exception>
@@ -436,6 +441,11 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
         [Description("Description of what the job does.")] string description = null,
         [Description("Comma separated tags.")] string tags = null,
         [Description("Whether the job is scheduled straight away. Pass false to create it paused.")] bool isActive = true,
+        [Description("IANA time zone the cron expression is evaluated in, e.g. 'Europe/Istanbul'. Defaults to 'UTC'. Across daylight saving changes a skipped local time does not run and a repeated one runs once.")] string timeZoneId = null,
+        [Description("What happens to runs missed while the scheduler was down: RunOnce (default, one catch-up run), Skip (none) or RunAll (each missed run, up to maxCatchUpRuns).")] MissedRunPolicy? missedRunPolicy = null,
+        [Description("Maximum catch-up runs for RunAll, 1 to 100. Defaults to 10.")] int? maxCatchUpRuns = null,
+        [Description("Dispatch priority from 0 (lowest, default) to 9 (highest). Higher priority jobs are sent first when several are due at once.")] int? priority = null,
+        [Description("Ids of exclusion calendars, from list_exclusion_calendars. Runs on days they exclude are skipped.")] List<Guid> exclusionCalendarIds = null,
         CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.ScheduledJobManagement.Create);
@@ -450,7 +460,12 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
             CronExpression = cronExpression,
             IsActive = isActive,
             WorkerId = workerId,
-            SelectedJobName = selectedJobName
+            SelectedJobName = selectedJobName,
+            TimeZoneId = string.IsNullOrWhiteSpace(timeZoneId) ? ScheduledJob.DefaultTimeZoneId : timeZoneId,
+            MissedRunPolicy = missedRunPolicy ?? MissedRunPolicy.RunOnce,
+            MaxCatchUpRuns = maxCatchUpRuns ?? ScheduledJob.DefaultMaxCatchUpRuns,
+            Priority = priority ?? 0,
+            ExclusionCalendarIds = exclusionCalendarIds ?? []
         }, cancellationToken);
 
         if (!response.IsSuccess)
@@ -485,6 +500,11 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="zombieTimeoutMinutes">New zombie timeout, or null to leave unchanged.</param>
     /// <param name="concurrentExecutionPolicy">New concurrency policy, or null to leave unchanged.</param>
     /// <param name="jobType">New job type on the worker, or null to leave unchanged.</param>
+    /// <param name="timeZoneId">IANA time zone for the cron expression.</param>
+    /// <param name="missedRunPolicy">Missed-run policy.</param>
+    /// <param name="maxCatchUpRuns">Maximum catch-up runs for RunAll.</param>
+    /// <param name="priority">Dispatch priority, 0 to 9.</param>
+    /// <param name="exclusionCalendarIds">Exclusion calendar ids.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Id of the updated job.</returns>
     /// <exception cref="McpException">Thrown when the job could not be updated.</exception>
@@ -501,11 +521,31 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
         [Description("New zombie timeout in minutes, after which a job stuck in Queued is marked failed. Omit to leave unchanged.")] int? zombieTimeoutMinutes = null,
         [Description("What to do when the job is triggered while a previous run is still going. Omit to leave unchanged.")] ConcurrentExecutionPolicy? concurrentExecutionPolicy = null,
         [Description("New job type on the worker. Omit to leave unchanged - changing this repoints the job at different code.")] string jobType = null,
+        [Description("New IANA time zone for the cron expression, e.g. 'America/New_York'. Omit to leave unchanged. Changing it moves the next run to the same wall time in the new zone.")] string timeZoneId = null,
+        [Description("New missed-run policy: Skip, RunOnce or RunAll. Omit to leave unchanged.")] MissedRunPolicy? missedRunPolicy = null,
+        [Description("New maximum catch-up runs for RunAll, 1 to 100. Omit to leave unchanged.")] int? maxCatchUpRuns = null,
+        [Description("New dispatch priority, 0 to 9. Omit to leave unchanged.")] int? priority = null,
+        [Description("New list of exclusion calendar ids. Replaces the whole list; pass an empty list to remove all calendars. Omit to leave unchanged.")] List<Guid> exclusionCalendarIds = null,
         CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.ScheduledJobManagement.Update);
 
         var command = new UpdateScheduledJobCommand { Id = jobId };
+
+        if (timeZoneId is not null)
+            command.TimeZoneId = new UpdateProperty<string> { Value = timeZoneId, IsUpdated = true };
+
+        if (missedRunPolicy is not null)
+            command.MissedRunPolicy = new UpdateProperty<MissedRunPolicy> { Value = missedRunPolicy.Value, IsUpdated = true };
+
+        if (maxCatchUpRuns is not null)
+            command.MaxCatchUpRuns = new UpdateProperty<int> { Value = maxCatchUpRuns.Value, IsUpdated = true };
+
+        if (priority is not null)
+            command.Priority = new UpdateProperty<int> { Value = priority.Value, IsUpdated = true };
+
+        if (exclusionCalendarIds is not null)
+            command.ExclusionCalendarIds = new UpdateProperty<List<Guid>> { Value = exclusionCalendarIds, IsUpdated = true };
 
         if (displayName is not null)
             command.DisplayName = new UpdateProperty<string> { Value = displayName, IsUpdated = true };

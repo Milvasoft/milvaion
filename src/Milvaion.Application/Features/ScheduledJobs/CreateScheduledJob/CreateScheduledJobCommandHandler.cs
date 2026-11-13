@@ -1,6 +1,6 @@
-﻿using Cronos;
-using Mapster;
+﻿using Mapster;
 using Milvaion.Application.Interfaces.Redis;
+using Milvaion.Application.Utils.Scheduling;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.Enums;
 using Milvasoft.Components.Rest.MilvaResponse;
@@ -13,29 +13,41 @@ namespace Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob;
 /// Handles the creation of the scheduledjob.
 /// </summary>
 /// <param name="ScheduledJobRepository"></param>
+/// <param name="ExclusionCalendarRepository"></param>
 /// <param name="RedisSchedulerService"></param>
 /// <param name="RedisWorkerService"></param>
 [Log]
 [UserActivityTrack(UserActivity.CreateScheduledJob)]
 public record CreateScheduledJobCommandHandler(IMilvaionRepositoryBase<ScheduledJob> ScheduledJobRepository,
+                                               IMilvaionRepositoryBase<ExclusionCalendar> ExclusionCalendarRepository,
                                                IRedisSchedulerService RedisSchedulerService,
                                                IRedisWorkerService RedisWorkerService) : IInterceptable, ICommandHandler<CreateScheduledJobCommand, Guid>
 {
     private readonly IMilvaionRepositoryBase<ScheduledJob> _scheduledjobRepository = ScheduledJobRepository;
+    private readonly IMilvaionRepositoryBase<ExclusionCalendar> _exclusionCalendarRepository = ExclusionCalendarRepository;
     private readonly IRedisSchedulerService _redisSchedulerService = RedisSchedulerService;
     private readonly IRedisWorkerService _redisWorkerService = RedisWorkerService;
 
     /// <inheritdoc/>
     public async Task<Response<Guid>> Handle(CreateScheduledJobCommand request, CancellationToken cancellationToken)
     {
+        request.TimeZoneId = string.IsNullOrWhiteSpace(request.TimeZoneId) ? ScheduledJob.DefaultTimeZoneId : request.TimeZoneId;
+        request.ExclusionCalendarIds = ExclusionCalendarReferences.Normalize(request.ExclusionCalendarIds);
+
+        var missingCalendars = await ExclusionCalendarReferences.FindMissingAsync(_exclusionCalendarRepository, request.ExclusionCalendarIds, cancellationToken);
+
+        if (missingCalendars is not null)
+            return Response<Guid>.Error(default, missingCalendars);
+
         // Calculate ExecuteAt from CronExpression if provided
         DateTime executeAt;
 
         if (!string.IsNullOrWhiteSpace(request.CronExpression))
         {
-            var cronExpression = CronExpression.Parse(request.CronExpression, CronFormat.IncludeSeconds);
+            var cronExpression = ZonedCron.Parse(request.CronExpression);
 
-            var nextOccurrence = cronExpression.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc);
+            // Evaluated in the job's own zone, the same way the dispatcher will evaluate it.
+            var nextOccurrence = ZonedCron.GetNextOccurrence(cronExpression, DateTime.UtcNow, ZonedCron.ResolveTimeZone(request.TimeZoneId));
 
             if (!nextOccurrence.HasValue)
                 return Response<Guid>.Error(default, MessageKey.InvalidCronExpression);

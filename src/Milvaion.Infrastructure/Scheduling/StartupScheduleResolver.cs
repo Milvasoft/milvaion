@@ -1,4 +1,5 @@
 using Cronos;
+using Milvaion.Application.Utils.Scheduling;
 
 namespace Milvaion.Infrastructure.Scheduling;
 
@@ -31,7 +32,8 @@ internal static class StartupScheduleResolver
     /// <param name="completedAt">When a one-time job was dispatched, or null.</param>
     /// <param name="existingScheduleTime">Current sorted set score, or null when absent.</param>
     /// <param name="now">Current time, UTC.</param>
-    public static DateTime? Resolve(string cronExpression, DateTime executeAt, DateTime? completedAt, DateTime? existingScheduleTime, DateTime now)
+    /// <param name="timeZoneId">IANA zone the cron expression is evaluated in; null or empty means UTC.</param>
+    public static DateTime? Resolve(string cronExpression, DateTime executeAt, DateTime? completedAt, DateTime? existingScheduleTime, DateTime now, string timeZoneId = null)
     {
         // Redis already has a time. It came either from the dispatcher advancing the
         // schedule or from an update writing it directly, and both are newer than
@@ -52,11 +54,11 @@ internal static class StartupScheduleResolver
 
         try
         {
-            var expression = CronExpression.Parse(cronExpression, CronFormat.IncludeSeconds);
+            var expression = ZonedCron.Parse(cronExpression);
 
             // Same call the dispatcher makes when it reschedules, so a job recovered
             // here lands on exactly the boundary it would have landed on anyway.
-            return expression.GetNextOccurrence(now, TimeZoneInfo.Utc);
+            return ZonedCron.GetNextOccurrence(expression, now, ZonedCron.ResolveTimeZone(timeZoneId));
         }
         catch (CronFormatException)
         {

@@ -235,6 +235,8 @@ Every tool is gated by the permission in the right hand column. A key that lacks
 | `list_jobs` | Scheduled jobs, with free text search | `ScheduledJobManagement.List` |
 | `get_job` | One job in full: schedule, worker, job data, retry and timeout settings | `ScheduledJobManagement.Detail` |
 | `list_tags` | Distinct tags in use across jobs | `ScheduledJobManagement.List` |
+| `list_exclusion_calendars` | Exclusion calendars, to find an id for a job | `ExclusionCalendarManagement.List` |
+| `get_exclusion_calendar` | One calendar in full and the jobs that use it | `ExclusionCalendarManagement.Detail` |
 | `list_occurrences` | Executions with status, duration and result | `ScheduledJobManagement.List` |
 | `get_occurrence` | One execution with its logs and exception detail | `ScheduledJobManagement.Detail` |
 | `list_failures` | Jobs that exhausted their retries and reached the dead letter queue | `FailedOccurrenceManagement.List` |
@@ -276,7 +278,9 @@ Every tool is gated by the permission in the right hand column. A key that lacks
 | Tool | What it does | Permission |
 |------|--------------|------------|
 | `create_job` | Creates a scheduled job | `ScheduledJobManagement.Create` |
-| `update_job` | Changes name, description, tags, cron, job data or timeout | `ScheduledJobManagement.Update` |
+| `update_job` | Changes name, description, tags, cron, time zone, missed-run policy, priority, calendars, job data or timeout | `ScheduledJobManagement.Update` |
+| `create_exclusion_calendar` | Creates an exclusion calendar | `ExclusionCalendarManagement.Create` |
+| `update_exclusion_calendar` | Replaces an exclusion calendar | `ExclusionCalendarManagement.Update` |
 | `resolve_failures` | Marks dead letter records resolved with a note | `FailedOccurrenceManagement.Update` |
 
 ### Deleting
@@ -288,6 +292,7 @@ Every tool is gated by the permission in the right hand column. A key that lacks
 | `delete_failures` | Deletes dead letter records | `FailedOccurrenceManagement.Delete` |
 | `delete_worker` | Removes a worker registration | `WorkerManagement.Delete` |
 | `delete_workflow` | Deletes a workflow and its run history | `WorkflowManagement.Delete` |
+| `delete_exclusion_calendar` | Deletes a calendar no job uses | `ExclusionCalendarManagement.Delete` |
 
 ### Filtering
 

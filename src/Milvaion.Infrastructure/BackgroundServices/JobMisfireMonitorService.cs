@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
+using Milvaion.Application.Utils.Scheduling;
 using Milvaion.Infrastructure.Persistence.Context;
 using StackExchange.Redis;
 
@@ -31,9 +32,6 @@ public class JobMisfireMonitorService(IServiceScopeFactory scopeFactory,
                                       IOptions<RedisOptions> redisOptions,
                                       ILogger<JobMisfireMonitorService> logger) : BackgroundService
 {
-    /// <summary>How late a still-scheduled job must be before it counts as a misfire.</summary>
-    private const int _misfireGraceSeconds = 60;
-
     private static readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan _dedupTtl = TimeSpan.FromMinutes(15);
 
@@ -87,7 +85,8 @@ public class JobMisfireMonitorService(IServiceScopeFactory scopeFactory,
     private async Task CheckAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
-        var cutoff = now.AddSeconds(-_misfireGraceSeconds);
+        // Same definition the dispatcher uses for the missed-run policy, so an alerted misfire and a missed run agree.
+        var cutoff = MisfireRules.MisfireCutoff(now);
 
         // Jobs whose intended fire time is older than the grace window but are still queued.
         var overdue = await _redisScheduler.GetScheduledJobsInRangeAsync(DateTime.UnixEpoch, cutoff, 200, cancellationToken);

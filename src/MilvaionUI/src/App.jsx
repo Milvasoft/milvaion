@@ -38,6 +38,7 @@ const ReportDashboard = lazy(() => import('./pages/Reports/ReportDashboard'))
 const RoleList = lazy(() => import('./pages/UserManagement/RoleList'))
 const Settings = lazy(() => import('./pages/Settings/Settings'))
 const Tags = lazy(() => import('./pages/Tags'))
+const CalendarList = lazy(() => import('./pages/Calendars/CalendarList'))
 const TopSlowJobsReport = lazy(() => import('./pages/Reports/TopSlowJobsReport'))
 const UpcomingExecutions = lazy(() => import('./pages/UpcomingExecutions/UpcomingExecutions'))
 const UserList = lazy(() => import('./pages/UserManagement/UserList'))
@@ -96,6 +97,7 @@ function App() {
                       <Route path="/upcoming" element={<UpcomingExecutions />} />
                       <Route path="/workers" element={<WorkerList />} />
                       <Route path="/tags" element={<Tags />} />
+                      <Route path="/calendars" element={<CalendarList />} />
                       <Route path="/failed-executions" element={<FailedOccurrenceList />} />
                       <Route path="/failed-executions/:id" element={<FailedOccurrenceDetail />} />
                       <Route path="/admin" element={<AdminDashboard />} />

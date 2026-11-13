@@ -19,7 +19,7 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261113062257_FixTurkishNormalization";
+    public override string LastMigrationId => "20261113221012_AddSchedulingFeatures";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -255,6 +255,49 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .IsUnique();
 
                 b.ToTable("ResourceGroups");
+            });
+
+        modelBuilder.Entity("Milvaion.Domain.ExclusionCalendar", b =>
+            {
+                b.Property<Guid>("Id")
+                    .HasColumnType("uuid");
+
+                b.Property<DateTime?>("CreationDate")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("CreatorUserName")
+                    .HasColumnType("text");
+
+                b.Property<List<ExclusionDateRange>>("DateRanges")
+                    .HasColumnType("jsonb");
+
+                b.PrimitiveCollection<List<DateOnly>>("Dates")
+                    .HasColumnType("date[]");
+
+                b.Property<string>("Description")
+                    .HasMaxLength(500)
+                    .HasColumnType("character varying(500)");
+
+                b.Property<DateTime?>("LastModificationDate")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("LastModifierUserName")
+                    .HasColumnType("text");
+
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("character varying(100)");
+
+                b.PrimitiveCollection<List<int>>("Weekdays")
+                    .HasColumnType("integer[]");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Name")
+                    .IsUnique();
+
+                b.ToTable("ExclusionCalendars");
             });
 
         modelBuilder.Entity("Milvaion.Domain.InternalNotification", b =>
@@ -1209,6 +1252,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<string>("DisplayName")
                     .HasColumnType("text");
 
+                b.PrimitiveCollection<List<Guid>>("ExclusionCalendarIds")
+                    .HasColumnType("uuid[]");
+
                 b.Property<DateTime>("ExecuteAt")
                     .HasColumnType("timestamp with time zone");
 
@@ -1242,11 +1288,25 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<string>("LastModifierUserName")
                     .HasColumnType("text");
 
+                b.Property<int>("MaxCatchUpRuns")
+                    .HasColumnType("integer");
+
+                b.Property<int>("MissedRunPolicy")
+                    .HasColumnType("integer");
+
+                b.Property<int>("Priority")
+                    .HasColumnType("integer");
+
                 b.Property<string>("RoutingPattern")
                     .HasColumnType("text");
 
                 b.Property<string>("Tags")
                     .HasColumnType("text");
+
+                b.Property<string>("TimeZoneId")
+                    .IsRequired()
+                    .HasMaxLength(64)
+                    .HasColumnType("character varying(64)");
 
                 b.Property<int>("Version")
                     .HasColumnType("integer");
