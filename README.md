@@ -175,6 +175,15 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 
 Five workers run out of the box with no code to write: **HTTP** (call REST endpoints on a schedule), **SQL** (run queries), **Email** (send over SMTP), **Command** (run allow-listed scripts and programs in any language) and **Maintenance** (Milvaion's own data cleanup and archival).
 
+### Secret References
+Keep credentials out of job data. Write `{{secret:smtp-password}}` in a job's JSON data, a workflow step or a manual trigger, and Milvaion resolves it just before publishing the job to RabbitMQ. The database, API responses, the dashboard and the MCP tools only ever see the reference; the dashboard shows it with a lock icon. Values come from environment variables, configuration, **HashiCorp Vault** (KV v2) or **Azure Key Vault**, or your own `ISecretProvider`. A missing secret fails the occurrence with a clear message and nothing is published.
+
+```json
+{ "smtpPassword": "{{secret:smtp-password}}", "auth": "Bearer {{secret:vault:apps/billing#token}}" }
+```
+
+📖 **[Secret references guide →](./docs/portaldocs/28-secret-references.md)**
+
 ### External Scheduler Integration
 Milvaion also monitors jobs running in **Quartz.NET** and **Hangfire** without replacing them — see [Already Running Hangfire or Quartz.NET?](#already-running-hangfire-or-quartznet) above.
 

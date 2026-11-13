@@ -176,6 +176,34 @@ function Highlight({ text, term }) {
   )
 }
 
+/* ── Secret references ───────────────────────────────────────────────────── */
+
+/*
+ * `{{secret:name}}` in job data is a reference that the server resolves only into the message
+ * it sends to a worker. What reaches this component is always the reference, never the value,
+ * and it is drawn as one: a lock and the name, so nobody mistakes it for a literal password
+ * or wonders why the value is "missing". Same grammar as the server (SecretReferences.cs).
+ */
+const SECRET_REFERENCE = /\{\{\s*secret:[^{}\s"\\]+\s*\}\}/g
+
+const SECRET_REFERENCE_TITLE =
+  'Secret reference. Milvaion resolves it only when the job is sent to a worker; the value is never stored or shown.'
+
+/** Number of secret references in a piece of text. */
+function countSecretReferences(text) {
+  if (typeof text !== 'string' || !text.includes('secret:')) return 0
+  return (text.match(SECRET_REFERENCE) || []).length
+}
+
+function SecretReference({ text }) {
+  return (
+    <span className="mvj-secret" title={SECRET_REFERENCE_TITLE}>
+      <Icon name="lock" size={12} />
+      {text}
+    </span>
+  )
+}
+
 /* ── Scalar ──────────────────────────────────────────────────────────────── */
 
 function Scalar({ value, term }) {
@@ -183,9 +211,26 @@ function Scalar({ value, term }) {
   if (typeof value === 'boolean') return <span className="mvj-bool">{String(value)}</span>
   if (typeof value === 'number') return <span className="mvj-number">{String(value)}</span>
 
+  const text = String(value)
+
+  if (countSecretReferences(text) > 0) {
+    const parts = []
+    let last = 0
+
+    for (const match of text.matchAll(SECRET_REFERENCE)) {
+      if (match.index > last) parts.push(<Highlight key={`t${last}`} text={text.slice(last, match.index)} term={term} />)
+      parts.push(<SecretReference key={`s${match.index}`} text={match[0]} />)
+      last = match.index + match[0].length
+    }
+
+    if (last < text.length) parts.push(<Highlight key={`t${last}`} text={text.slice(last)} term={term} />)
+
+    return <span className="mvj-string">&quot;{parts}&quot;</span>
+  }
+
   return (
     <span className="mvj-string">
-      &quot;<Highlight text={String(value)} term={term} />&quot;
+      &quot;<Highlight text={text} term={term} />&quot;
     </span>
   )
 }
@@ -428,6 +473,7 @@ function JsonView({
 
   const text = typeof data === 'string' ? data : parsed.raw
   const hasText = !!text && text.trim() !== ''
+  const secretCount = countSecretReferences(text)
 
   /*
    * Collapsed, this is a single line rather than a panel.
@@ -504,6 +550,13 @@ function JsonView({
           >
             <Icon name={parsed.ok ? 'check_circle' : editable ? 'error' : 'subject'} size={14} />
             {parsed.ok ? 'Valid JSON' : editable ? 'Invalid JSON' : 'Not JSON — showing as text'}
+          </span>
+        )}
+
+        {secretCount > 0 && (
+          <span className="mvj-validity is-secret" title={SECRET_REFERENCE_TITLE}>
+            <Icon name="lock" size={14} />
+            {secretCount === 1 ? '1 secret reference' : `${secretCount} secret references`}
           </span>
         )}
 

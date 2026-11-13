@@ -1,4 +1,4 @@
-using Cronos;
+﻿using Cronos;
 using Milvasoft.BulkExtensions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +9,7 @@ using Milvaion.Application.Features.Workflows.TriggerWorkflow;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
+using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
@@ -926,12 +927,23 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 CreatorUserName = "WorkflowEngine",
             };
 
-            var published = await _rabbitMQPublisher.PublishJobAsync(jobForDispatch, occ.Id, cancellationToken);
+            bool published;
+            string failureMessage = "Failed to publish to RabbitMQ";
+
+            try
+            {
+                published = await _rabbitMQPublisher.PublishJobAsync(jobForDispatch, occ.Id, cancellationToken);
+            }
+            catch (SecretResolutionException ex)
+            {
+                published = false;
+                failureMessage = ex.Message;
+            }
 
             if (!published)
             {
                 occ.StepStatus = WorkflowStepStatus.Failed;
-                occ.Exception = "Failed to publish to RabbitMQ";
+                occ.Exception = failureMessage;
                 occ.Status = JobOccurrenceStatus.Failed;
                 failedOccurrences.Add(occ);
             }

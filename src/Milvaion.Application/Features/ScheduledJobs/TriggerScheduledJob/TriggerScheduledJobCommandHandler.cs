@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
+using Milvaion.Application.Interfaces.Secrets;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
@@ -126,7 +127,19 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
         await _eventPublisher.PublishOccurrenceCreatedAsync([occurrence], _logger, cancellationToken);
 
         // 4. Publish to RabbitMQ immediately (bypass ExecuteAt check)
-        var published = await _rabbitMQPublisher.PublishJobAsync(job, occurrenceId, cancellationToken);
+        bool published;
+        var failureMessage = PublishFailedMessage;
+
+        try
+        {
+            published = await _rabbitMQPublisher.PublishJobAsync(job, occurrenceId, cancellationToken);
+        }
+        catch (SecretResolutionException ex)
+        {
+            // Nothing was published. The message names the missing secrets, never values.
+            published = false;
+            failureMessage = ex.Message;
+        }
 
         if (!published)
         {
@@ -145,7 +158,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
              * the caller got a 500 and the occurrence stayed Queued.
              */
             var setPropertyBuilder = new SetPropertyBuilder<JobOccurrence>().SetPropertyValue(o => o.Status, JobOccurrenceStatus.Failed)
-                                                                            .SetPropertyValue(o => o.Exception, PublishFailedMessage)
+                                                                            .SetPropertyValue(o => o.Exception, failureMessage)
                                                                             .SetPropertyValue(o => o.EndTime, now)
                                                                             .SetPropertyValue(o => o.StatusChangeLogs, occurrence.StatusChangeLogs);
 
@@ -157,7 +170,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
                 OccurrenceId = occurrenceId,
                 Timestamp = now,
                 Level = "Error",
-                Message = PublishFailedMessage,
+                Message = failureMessage,
                 Category = "ManualTrigger"
             }, cancellationToken: CancellationToken.None);
 
@@ -173,7 +186,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
                 }
             }
 
-            return Response<Guid>.Error(default, PublishFailedMessage);
+            return Response<Guid>.Error(default, failureMessage);
         }
 
         return Response<Guid>.Success(occurrenceId, "Job triggered successfully");

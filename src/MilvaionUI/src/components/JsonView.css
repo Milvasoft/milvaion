@@ -221,6 +221,22 @@
   font-weight: 400;
 }
 
+/* Secret references: the value is resolved only into the worker's message, so the dashboard
+   only ever has the reference. Drawn as a chip so it does not read as a literal string. */
+.mvj-validity.is-secret { color: var(--warning-color); }
+
+.mvj-secret {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0 0.3rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warning-color) 14%, transparent);
+  color: var(--warning-color);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 /* ── Textarea ────────────────────────────────────────────────────────────── */
 
 .mvj-textarea {

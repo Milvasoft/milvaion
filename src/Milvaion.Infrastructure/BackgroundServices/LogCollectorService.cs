@@ -5,11 +5,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
+using Milvaion.Infrastructure.Services.Secrets;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -35,6 +37,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                                  IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, logCollectorOptions.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly ISecretMasker _secretMasker = serviceProvider.GetService<ISecretMasker>();
     private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogCollectorService>();
@@ -204,6 +207,13 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 _logger.Warning("Log batch queue is full ({Count} messages). Dropping message to prevent OOM.", _logBatch.Count);
                 await channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
                 return;
+            }
+
+            // A worker can log a secret value it received in its job data; put the reference back before anything stores it.
+            if (_secretMasker != null)
+            {
+                foreach (var log in logs)
+                    _secretMasker.MaskLog(log?.Log);
             }
 
             // Add to batch queue (NO DB operation here!). The message is acknowledged after its logs are written.
