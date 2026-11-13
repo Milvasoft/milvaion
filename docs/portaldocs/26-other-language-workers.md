@@ -1,15 +1,15 @@
 ---
 id: other-language-workers
 title: "Workers in Other Languages"
-sidebar_label: "Node.js, Go, Python, Java & PHP Workers"
+sidebar_label: "Node.js, Go, Python, Java, PHP & Rust Workers"
 sidebar_position: 123
-description: "Run Milvaion jobs in Node.js, Go, Python, Java or PHP with the worker SDKs, or write a worker in any language against the worker protocol."
-keywords: [milvaion node.js worker, milvaion go worker, milvaion python worker, milvaion java worker, milvaion php worker, polyglot job scheduler, worker protocol]
+description: "Run Milvaion jobs in Node.js, Go, Python, Java, PHP or Rust with the worker SDKs, or write a worker in any language against the worker protocol."
+keywords: [milvaion node.js worker, milvaion go worker, milvaion python worker, milvaion java worker, milvaion php worker, milvaion rust worker, polyglot job scheduler, worker protocol]
 ---
 
 # Workers in Other Languages
 
-The Milvaion scheduler runs on .NET, but workers don't have to. Besides the .NET worker SDK, Milvaion has worker SDKs for **Node.js**, **Go**, **Python**, **Java** and **PHP**.
+The Milvaion scheduler runs on .NET, but workers don't have to. Besides the .NET worker SDK, Milvaion has worker SDKs for **Node.js**, **Go**, **Python**, **Java**, **PHP** and **Rust**.
 
 A worker built with one of them works like a .NET worker:
 
@@ -33,6 +33,7 @@ All of them speak the same [worker protocol](https://github.com/Milvasoft/milvai
 | Python | Python 3.10+ | PyPI `milvaion-worker` | [sdks/python/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/python/milvaion-worker) |
 | Java / Kotlin | Java 17+ | Maven Central `com.milvasoft:milvaion-worker` | [sdks/java/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/java/milvaion-worker) |
 | PHP | PHP 8.2+ | Packagist `milvasoft/milvaion-worker` | [sdks/php/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/php/milvaion-worker) |
+| Rust | Rust 1.89+, Tokio | crates.io `milvaion-worker` | [sdks/rust/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/rust/milvaion-worker) |
 
 :::tip No SDK for your language?
 The [Command Worker](./27-command-worker.md) runs scripts and programs in any language as Milvaion jobs, with live output, retries, cancellation and timeouts, without an SDK.
@@ -209,6 +210,35 @@ $worker->run(); // SIGTERM or Ctrl+C shut down gracefully
 ```
 
 A PHP process runs one job at a time; run more processes for parallelism. With `ext-pcntl` (standard on Linux), each job runs in a forked child that the worker kills on cancel or timeout, so heartbeats keep going during long jobs.
+
+## Rust
+
+```bash
+cargo add milvaion-worker
+```
+
+```rust
+let mut worker = Worker::new(WorkerOptions::from_env()?)?;
+
+worker.handle("SendEmailJob", |ctx: JobContext| async move {
+    #[derive(serde::Deserialize)]
+    struct Email { to: Option<String> }
+
+    let email: Email = ctx.data()?; // data that does not match is a permanent error
+    let to = email.to.ok_or_else(|| JobError::permanent("job data needs \"to\""))?;
+
+    ctx.info(format!("Sending to {to}"));
+    tokio::select! {
+        sent = send_mail(&to) => sent?, // any error converts with ?, and is retried
+        _ = ctx.cancelled() => return Err(JobError::new("stopped")), // cancel, timeout or shutdown
+    }
+    Ok(serde_json::json!({ "sent": true }))
+})?;
+
+worker.run_until_signal().await?; // Ctrl+C or SIGTERM shut down gracefully
+```
+
+Handlers are async closures, or types that implement the `Job` trait when they hold state such as a database pool. The SDK runs on Tokio and logs through `tracing`.
 
 ## Configuration
 

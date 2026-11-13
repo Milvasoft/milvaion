@@ -1,6 +1,6 @@
 # Worker Protocol
 
-This document describes how a worker talks to Milvaion, independent of any programming language. The .NET worker SDK (`Milvasoft.Milvaion.Sdk.Worker`) and the Node.js, Go, Python, Java and PHP worker SDKs under `sdks/` all implement it. A worker written in any other language that follows this document works with an unmodified Milvaion API.
+This document describes how a worker talks to Milvaion, independent of any programming language. The .NET worker SDK (`Milvasoft.Milvaion.Sdk.Worker`) and the Node.js, Go, Python, Java, PHP and Rust worker SDKs under `sdks/` all implement it. A worker written in any other language that follows this document works with an unmodified Milvaion API.
 
 A worker needs two connections:
 
@@ -95,7 +95,7 @@ Publish to `worker_registration_queue` at startup and again after every reconnec
 - `jobDataDefinitions` and `jobResultDefinitions` map a job name to a JSON Schema serialized as a string. The dashboard uses the data schema to build the job data form. Both maps are optional.
 - `maxParallelJobs` is the capacity of the whole instance.
 - `metadata` is a JSON string, not an object, and its property names are PascalCase.
-- `Sdk` in `metadata` names the language the worker is built with (`dotnet`, `node`, `go`, `python`, `java` or `php`, or your own), and `SdkVersion` its SDK version. The dashboard shows them on the worker.
+- `Sdk` in `metadata` names the language the worker is built with (`dotnet`, `node`, `go`, `python`, `java`, `php` or `rust`, or your own), and `SdkVersion` its SDK version. The dashboard shows them on the worker.
 
 ## Heartbeats
 
