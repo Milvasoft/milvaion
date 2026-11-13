@@ -471,3 +471,24 @@
   border-radius: 6px;
   margin-right: 12px;
 }
+
+/* Language of the SDK a worker is built with */
+.language-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #fff;
+  border-radius: 4px;
+  white-space: nowrap;
+  background: var(--accent-color);
+}
+
+.language-badge.lang-dotnet { background: #512bd4; }
+.language-badge.lang-node { background: #3c873a; }
+.language-badge.lang-go { background: #007d9c; }
+.language-badge.lang-python { background: #306998; }
+.language-badge.lang-java { background: #b85c00; }
+.language-badge.lang-php { background: #5e639c; }

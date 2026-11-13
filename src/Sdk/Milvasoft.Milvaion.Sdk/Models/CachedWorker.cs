@@ -168,9 +168,20 @@ public class WorkerMetadata
     public string OSVersion { get; set; }
 
     /// <summary>
-    /// Runtime version (e.g., .NET 10.0) of the worker machine.
+    /// Runtime version of the worker process, e.g. "10.0.1" for .NET or "Node.js v22.16.0".
     /// </summary>
     public string RuntimeVersion { get; set; }
+
+    /// <summary>
+    /// SDK the worker is built with: "dotnet", "node", "go", "python", "java" or "php". Workers built with
+    /// an SDK version that predates this field leave it empty.
+    /// </summary>
+    public string Sdk { get; set; }
+
+    /// <summary>
+    /// Version of that SDK.
+    /// </summary>
+    public string SdkVersion { get; set; }
 
     /// <summary>
     /// Heartbeat interval in seconds configured for this worker.

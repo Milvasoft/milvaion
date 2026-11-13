@@ -62,7 +62,9 @@ Milvaion solves these problems by **completely separating scheduling from execut
 
 ### Workers in any language
 
-The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK, there are worker SDKs for **Node.js**, **Go**, **Python**, **Java** and **PHP**. Workers written with them show up in the same dashboard, with live logs, retries, dead-lettering, cancellation, timeouts and graceful shutdown.
+The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK, there are worker SDKs for **Node.js**, **Go**, **Python**, **Java** and **PHP**. Workers written with them show up in the same dashboard, with live logs, retries, dead-lettering, cancellation, timeouts and graceful shutdown. Each worker carries a badge for its language.
+
+![Workers in PHP, Go, Node.js, Python and .NET on the Workers page](./docs/src/workers-languages.png)
 
 | Language | SDK |
 |---|---|

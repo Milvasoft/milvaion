@@ -4,6 +4,7 @@ import Icon from '../../components/Icon'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { formatDateTime, formatTimeSince } from '../../utils/dateUtils'
 import { getApiErrorMessage } from '../../utils/errorUtils'
+import { getWorkerLanguage } from '../../utils/workerLanguage'
 import './WorkerList.css'
 import { SkeletonGrid } from '../../components/Skeleton'
 
@@ -196,12 +197,21 @@ function WorkerList() {
             const metadata = parseMetadata(worker.metadata)
             const isExpanded = expandedWorker === worker.workerId
             const isExternal = metadata?.isExternal || metadata?.IsExternal
+            const language = getWorkerLanguage(metadata)
 
             return (
               <div key={worker.workerId} className={`worker-card ${isExpanded ? 'expanded' : ''} ${isExternal ? 'external' : ''}`}>
                 <div className="worker-header" onClick={() => toggleExpand(worker.workerId)}>
                   <div className="worker-title">
                     <h3>{worker.workerId}</h3>
+                    {language && (
+                      <span
+                        className={`language-badge lang-${language.key}`}
+                        title={`Built with the ${language.label} SDK${language.sdkVersion ? ` ${language.sdkVersion}` : ''}`}
+                      >
+                        {language.label}
+                      </span>
+                    )}
                     {getStatusBadge(worker.status)}
                     {isExternal && (
                       <span className="external-badge" title={`External scheduler: ${metadata?.externalScheduler || metadata?.externalScheduler || 'Unknown'}`}>
@@ -292,7 +302,11 @@ function WorkerList() {
                           </div>
                           <div className="metadata-item">
                             <span className="label">Runtime:</span>
-                            <span className="value">.NET {metadata.runtimeVersion || metadata.RuntimeVersion || '-'}</span>
+                            <span className="value">{language?.runtime || metadata.runtimeVersion || metadata.RuntimeVersion || '-'}</span>
+                          </div>
+                          <div className="metadata-item">
+                            <span className="label">SDK:</span>
+                            <span className="value">{language ? `${language.label}${language.sdkVersion ? ` ${language.sdkVersion}` : ''}` : '-'}</span>
                           </div>
                           <div className="metadata-item">
                             <span className="label">CPU Cores:</span>

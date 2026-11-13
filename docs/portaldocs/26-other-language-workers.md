@@ -20,6 +20,10 @@ A worker built with one of them works like a .NET worker:
 - Jobs can be cancelled from the dashboard and are stopped by timeouts.
 - On shutdown it lets running jobs finish and returns the rest to the queue.
 
+The Workers page shows each worker's language next to its name, so a mixed fleet stays readable at a glance. Expand a worker to see its runtime and SDK version.
+
+![Workers written in PHP, Go, Node.js, Python and .NET on the Workers page, each with a language badge](https://raw.githubusercontent.com/Milvasoft/milvaion/master/docs/src/workers-languages.png)
+
 All of them speak the same [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md). That document describes the RabbitMQ queues and message formats, so a worker in any other language can be written against it too.
 
 | Language | Requires | Source and full reference |
@@ -31,7 +35,7 @@ All of them speak the same [worker protocol](https://github.com/Milvasoft/milvai
 | PHP | PHP 8.2+ | [sdks/php/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/php/milvaion-worker) |
 
 :::info
-The SDKs are not published to the package registries yet. Install them from the GitHub repository.
+The Go module is available through `go get`. The other SDKs are not on their package registries yet, so install them from the GitHub repository.
 :::
 
 :::tip No SDK for your language?

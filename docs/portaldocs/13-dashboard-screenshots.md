@@ -173,10 +173,15 @@ Monitor all registered workers and their health status.
 
 **Information displayed:**
 - Worker ID and Instance ID
+- Language the worker is written in (.NET, Node.js, Go, Python, Java or PHP)
 - Status (Active, Inactive, Unhealthy)
 - Last heartbeat time
 - Current job count / Max capacity
 - Supported job types
+
+Workers written with the [Node.js, Go, Python, Java and PHP SDKs](./26-other-language-workers.md) appear on the same page, each with a language badge:
+
+![Workers in different languages, each with a language badge](https://raw.githubusercontent.com/Milvasoft/milvaion/master/docs/src/workers-languages.png)
 
 ### Worker Details
 
@@ -185,7 +190,7 @@ View detailed information about a specific worker instance.
 ![Worker Details](./images/worker-details.png)
 
 **Details included:**
-- Worker metadata (OS, runtime version, processor count)
+- Worker metadata (OS, runtime and version, SDK version, processor count)
 - Job configurations (parallelism, timeouts per job type)
 - Active jobs on this worker
 - Heartbeat history

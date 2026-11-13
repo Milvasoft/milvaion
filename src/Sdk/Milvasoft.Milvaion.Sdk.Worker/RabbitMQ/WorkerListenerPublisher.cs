@@ -34,6 +34,8 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     private readonly SemaphoreSlim _publishLock = new(1, 1);
     private readonly string _version = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version?.ToString() ?? "1.0.0";
     private readonly string _hostName = Environment.MachineName;
+    private static readonly string _sdkVersion = typeof(WorkerListenerPublisher).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0]
+                                                 ?? typeof(WorkerListenerPublisher).Assembly.GetName().Version?.ToString();
     private readonly string _ipAddress = GetLocalIPAddress();
 
     // CPU sampling state: remembers the previous CPU time / wall-clock sample so each heartbeat
@@ -185,6 +187,8 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                 ProcessorCount = Environment.ProcessorCount,
                 OSVersion = Environment.OSVersion.ToString(),
                 RuntimeVersion = Environment.Version.ToString(),
+                Sdk = "dotnet",
+                SdkVersion = _sdkVersion,
                 HeartbeatInterval = _options.Heartbeat?.IntervalSeconds ?? 30,
                 JobConfigs = _jobConfigs?.Select(kv => new JobConfigMetadata
                 {

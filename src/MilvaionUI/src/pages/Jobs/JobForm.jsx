@@ -7,7 +7,15 @@ import CronExpressionInput from '../../components/CronExpressionInput'
 import JsonStringConverter from '../../components/JsonStringConverter'
 import JsonEditor from '../../components/JsonEditor'
 import { getApiErrorMessage } from '../../utils/errorUtils'
+import { getWorkerLanguage } from '../../utils/workerLanguage'
 import './JobForm.css'
+
+// " [Python]" after a worker's name in the worker picker, when its language is known.
+const languageTag = (worker) => {
+  const language = getWorkerLanguage(worker.metadata)
+
+  return language ? ` [${language.label}]` : ''
+}
 import { SkeletonForm } from '../../components/Skeleton'
 
 // Helper function to generate example JSON from JSON Schema
@@ -605,7 +613,7 @@ function JobForm() {
                     <option value="">Select a worker...</option>
                     {workers.map(worker => (
                       <option key={worker.workerId} value={worker.workerId}>
-                        {worker.displayName} {'Capacity:'} ({worker.currentJobs}/{worker.maxParallelJobsPerWorker || '∞'})
+                        {worker.displayName}{languageTag(worker)} {'Capacity:'} ({worker.currentJobs}/{worker.maxParallelJobsPerWorker || '∞'})
                       </option>
                     ))}
                   </select>
