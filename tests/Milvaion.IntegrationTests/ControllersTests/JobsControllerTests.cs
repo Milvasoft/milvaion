@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Milvaion.Application.Dtos.FailedOccurrenceDtos;
 using Milvaion.Application.Dtos.ScheduledJobDtos;
 using Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceList;
@@ -12,6 +14,7 @@ using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList;
 using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList;
 using Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
+using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.Persistence.Context;
@@ -772,6 +775,46 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.Should().NotBeNull();
         _output.WriteLine(result.Messages.First().Message);
+    }
+
+    [Fact]
+    public async Task TriggerJobAsync_WhenBrokerUnavailable_ShouldFailOccurrenceAndReturnError()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("BrokerDownJob", "Job triggered while RabbitMQ is down");
+        var waf = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IRabbitMQPublisher>();
+            services.AddSingleton<IRabbitMQPublisher, UnavailablePublisher>();
+        }));
+        var client = await waf.CreateClient().LoginAsync();
+        var request = new TriggerScheduledJobCommand { JobId = job.Id, Reason = "Broker down" };
+
+        // Act
+        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/job/trigger", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.IsSuccess.Should().BeFalse();
+        result.Messages.Should().Contain(m => m.Message.Contains("message broker"));
+
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var occurrence = await dbContext.JobOccurrences.AsNoTracking().Include(o => o.Logs).SingleAsync(o => o.JobId == job.Id);
+        occurrence.Status.Should().Be(JobOccurrenceStatus.Failed);
+        occurrence.EndTime.Should().NotBeNull();
+        occurrence.Logs.Should().Contain(l => l.Level == "Error" && l.Category == "ManualTrigger");
+        occurrence.Logs.Should().Contain(l => l.Category == "ManualTrigger" && l.Level != "Error", "the trigger log written before publishing is kept");
+    }
+
+    private sealed class UnavailablePublisher : IRabbitMQPublisher
+    {
+        public Task<bool> PublishJobAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+        public Task<int> PublishBatchAsync(Dictionary<ScheduledJob, Guid> jobsWithCorrelation, CancellationToken cancellationToken = default) => Task.FromResult(0);
+
+        public Task<uint> GetQueueMessageCountAsync(string routingPattern, CancellationToken cancellationToken = default) => Task.FromResult(0u);
     }
 
     #endregion

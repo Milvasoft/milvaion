@@ -4,6 +4,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.DataAccess.EfCore.Utils;
 using Milvasoft.Interception.Interceptors.Logging;
 
 namespace Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
@@ -15,6 +16,7 @@ namespace Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 [UserActivityTrack(UserActivity.TriggerScheduledJob)]
 public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<ScheduledJob> JobRepository,
                                                 IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
+                                                IMilvaionRepositoryBase<JobOccurrenceLog> OccurrenceLogRepository,
                                                 IRabbitMQPublisher RabbitMQPublisher,
                                                 IRedisSchedulerService RedisScheduler,
                                                 IRedisStatsService StatsService,
@@ -24,12 +26,15 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
 {
     private readonly IMilvaionRepositoryBase<ScheduledJob> _jobRepository = JobRepository;
     private readonly IMilvaionRepositoryBase<JobOccurrence> _occurrenceRepository = OccurrenceRepository;
+    private readonly IMilvaionRepositoryBase<JobOccurrenceLog> _occurrenceLogRepository = OccurrenceLogRepository;
     private readonly IRabbitMQPublisher _rabbitMQPublisher = RabbitMQPublisher;
     private readonly IRedisSchedulerService _redisScheduler = RedisScheduler;
     private readonly IRedisStatsService _statsService = StatsService;
     private readonly IJobOccurrenceEventPublisher _eventPublisher = EventPublisher;
     private readonly IMilvaLogger _logger = Logger;
     private readonly IHttpContextAccessor _httpContextAccessor = HttpContextAccessor;
+
+    private const string PublishFailedMessage = "The job could not be queued because the message broker is unavailable. Please try again shortly.";
 
     /// <inheritdoc/>
     public async Task<Response<Guid>> Handle(TriggerScheduledJobCommand request, CancellationToken cancellationToken)
@@ -125,29 +130,50 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
 
         if (!published)
         {
-            occurrence.Status = JobOccurrenceStatus.Failed;
-            occurrence.Exception = "Failed to publish to RabbitMQ";
-            occurrence.Logs.Add(new JobOccurrenceLog
+            var now = DateTime.UtcNow;
+
+            occurrence.StatusChangeLogs.Add(new OccurrenceStatusChangeLog
             {
-                Id = Guid.CreateVersion7(),
-                Timestamp = DateTime.UtcNow,
-                Level = "Error",
-                Message = "Failed to publish job to RabbitMQ queue",
-                Category = "ManualTrigger"
+                Timestamp = now,
+                From = JobOccurrenceStatus.Queued,
+                To = JobOccurrenceStatus.Failed
             });
 
-            await _occurrenceRepository.UpdateAsync(occurrence, cancellationToken: cancellationToken);
+            /*
+             * A conditional update rather than UpdateAsync on the tracked occurrence: adding a log with a preset id to
+             * its Logs collection made EF treat the log as an existing row, so the save threw a concurrency exception,
+             * the caller got a 500 and the occurrence stayed Queued.
+             */
+            var setPropertyBuilder = new SetPropertyBuilder<JobOccurrence>().SetPropertyValue(o => o.Status, JobOccurrenceStatus.Failed)
+                                                                            .SetPropertyValue(o => o.Exception, PublishFailedMessage)
+                                                                            .SetPropertyValue(o => o.EndTime, now)
+                                                                            .SetPropertyValue(o => o.StatusChangeLogs, occurrence.StatusChangeLogs);
 
-            try
+            var affected = await _occurrenceRepository.ExecuteUpdateAsync(o => o.Id == occurrenceId && o.Status == JobOccurrenceStatus.Queued, setPropertyBuilder, cancellationToken: CancellationToken.None);
+
+            await _occurrenceLogRepository.AddAsync(new JobOccurrenceLog
             {
-                await _statsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Queued, JobOccurrenceStatus.Failed, CancellationToken.None);
-            }
-            catch (Exception ex)
+                Id = Guid.CreateVersion7(),
+                OccurrenceId = occurrenceId,
+                Timestamp = now,
+                Level = "Error",
+                Message = PublishFailedMessage,
+                Category = "ManualTrigger"
+            }, cancellationToken: CancellationToken.None);
+
+            if (affected > 0)
             {
-                _logger.Warning(ex, "Failed to update status counters for occurrence {OccurrenceId}", occurrence.Id);
+                try
+                {
+                    await _statsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Queued, JobOccurrenceStatus.Failed, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Failed to update status counters for occurrence {OccurrenceId}", occurrenceId);
+                }
             }
 
-            return Response<Guid>.Error(default, "Failed to publish job to RabbitMQ");
+            return Response<Guid>.Error(default, PublishFailedMessage);
         }
 
         return Response<Guid>.Success(occurrenceId, "Job triggered successfully");
