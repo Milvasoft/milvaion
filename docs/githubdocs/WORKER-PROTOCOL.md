@@ -7,6 +7,23 @@ A worker needs two connections:
 - **RabbitMQ** for everything that flows between the worker and the API: jobs, status updates, logs, heartbeats and registration.
 - **Redis** (optional) only to receive cancellation requests. Without it, jobs cannot be cancelled from the dashboard.
 
+### Transports
+
+RabbitMQ is the default transport and the one this document describes. A deployment can use Apache Kafka instead. The message bodies, outcomes, retry limits and cancellation stay the same; topics, keys, headers, commits and the retry delay topic are described in [KAFKA-TRANSPORT.md](KAFKA-TRANSPORT.md).
+
+| SDK | RabbitMQ | Kafka |
+|---|---|---|
+| .NET | yes | yes |
+| Node.js | yes | yes |
+| Go | yes | yes |
+| Java | yes | yes |
+| Python | yes | not yet |
+| PHP | yes | not yet |
+| Rust | yes | not yet |
+| Ruby | yes | not yet |
+
+Python, PHP, Rust and Ruby workers are RabbitMQ only for now, as are the .NET SDK's Hangfire and Quartz adapters.
+
 ## Conventions
 
 - Every message body is UTF-8 JSON.
