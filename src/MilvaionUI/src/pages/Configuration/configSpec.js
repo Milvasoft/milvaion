@@ -345,6 +345,36 @@ export function buildSections(config) {
     })
   }
 
+  if (config.kafka) {
+    const kafka = config.kafka
+
+    sections.push({
+      id: 'kafka',
+      icon: 'message',
+      title: 'Kafka',
+      groups: [
+        group('Connection',
+          code('Bootstrap servers', kafka.bootstrapServers),
+          text('Security protocol', kafka.securityProtocol),
+          text('SASL mechanism', kafka.saslMechanism),
+        ),
+        group('Topics',
+          code('Topic prefix', kafka.topicPrefix || '(none)'),
+          bool('Auto-create topics', kafka.autoCreateTopics, 'Missing topics are created at startup.', 'Yes', 'No'),
+          text('Partitions', kafka.numPartitions, undefined, 'Partitions of auto-created topics. Caps how many instances can share a topic.'),
+          text('Replication factor', kafka.replicationFactor === -1 ? 'Broker default' : kafka.replicationFactor),
+          code('API consumer group', kafka.consumerGroup),
+          code('Worker job topics', kafka.jobTopicPattern),
+          ...(kafka.topics || []).map(topic => code('Topic', topic)),
+        ),
+        group('Lag thresholds',
+          text('Warning at', kafka.lagWarningThreshold, ' messages'),
+          text('Critical at', kafka.lagCriticalThreshold, ' messages'),
+        ),
+      ].filter(g => g.rows.length > 0),
+    })
+  }
+
   /* Runtime --------------------------------------------------------------- */
 
   sections.push({

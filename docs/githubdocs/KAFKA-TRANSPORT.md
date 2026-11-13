@@ -90,7 +90,7 @@ Dead letter records carry `OccurrenceId`, `CorrelationId`, `x-retry-count` and `
 | `milvaion.api` | every API replica | status, logs, heartbeats, registrations, dlq, external |
 | `milvaion.worker.{worker}` | every instance of one worker | `milvaion.jobs.{worker}` and `milvaion.jobs.{worker}.retry` |
 
-The group name gets the topic prefix too. Partitions are the unit of parallelism across instances: a worker topic with 12 partitions can be shared by at most 12 instances. Within an instance, jobs run in parallel up to `MaxParallelJobs`, also from the same partition.
+The group name gets the topic prefix too. Partitions are the unit of parallelism across instances: a worker topic with 12 partitions can be shared by at most 12 instances. Within an instance, jobs run in parallel up to `MaxParallelJobs`, also from the same partition. The .NET worker also applies each job type's own `MaxParallelJobs`; a record whose job type is at its limit waits while records of other types go ahead. The Node, Go and Java SDKs apply only the instance limit on Kafka.
 
 Consumers use `enable.auto.commit=false`, `auto.offset.reset=earliest` and the `cooperative-sticky` assignor. Delivery stays **at least once**:
 
@@ -116,11 +116,11 @@ Kafka has no nack or requeue, so a failed attempt that has retries left becomes 
 1. The worker publishes the `Retry` warning log as on RabbitMQ.
 2. It produces the job, unchanged, to `milvaion.jobs.{worker}.retry` with `x-retry-count` incremented, `MaxRetries`, and `x-not-before` set to now + `BaseRetryDelaySeconds * 2^retryCount`.
 3. Once the broker has acknowledged that record, it commits the original record. The instance slot is free during the backoff, unlike on RabbitMQ.
-4. Any instance of the worker reads the retry topic. When the head record of a partition is not due yet, the consumer pauses that partition and holds the record until `x-not-before`, then runs it like any other job.
+4. Any instance of the worker reads the retry topic. A record that is not due yet is held in memory until its `x-not-before` and then runs like any other job. Held records count as unfinished, so a retry partition that holds `MaxInFlightPerPartition` of them is paused until one becomes due.
 
 The occurrence stays `Running` during the backoff, so the job heartbeat continues: the instance that produced the retry sends job heartbeats until the record is due, and the instance holding a record that is not due yet sends them while it waits.
 
-A retry topic partition is read in order, so a record with a short backoff that sits behind one with a longer backoff waits for it. A retry never runs early, and it runs late by at most the longest backoff in the same partition. Keying by job id spreads unrelated jobs across partitions.
+A retry never runs early. Records that were read are released each at its own due time, but a paused retry partition is not read further, so a record behind a full set of held records can run late by at most the longest backoff in that partition. Keying by job id spreads unrelated jobs across partitions.
 
 When no retries are left, or the failure is permanent, the worker publishes the `Failed` status and produces the dead letter record to `milvaion.dlq`, then commits. The API's failed occurrence handler consumes `milvaion.dlq` and creates the failed occurrence record exactly as it does from `failed_jobs_queue`.
 

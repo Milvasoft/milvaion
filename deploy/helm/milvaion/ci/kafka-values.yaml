@@ -1,0 +1,28 @@
+# Kafka transport against an external cluster with SASL/SCRAM over TLS. RabbitMQ is not needed.
+transport: kafka
+kafka:
+  bootstrapServers: kafka-0.kafka.example.internal:9093,kafka-1.kafka.example.internal:9093
+  securityProtocol: SaslSsl
+  saslMechanism: ScramSha512
+  username: milvaion
+  existingSecret: milvaion-external
+  existingSecretPasswordKey: kafka-password
+  topicPrefix: prod.
+  numPartitions: 24
+  replicationFactor: 3
+
+externalDatabase:
+  host: postgres.example.internal
+  existingSecret: milvaion-external
+  existingSecretPasswordKey: db-password
+externalRedis:
+  host: redis.example.internal
+  existingSecret: milvaion-external
+  existingSecretPasswordKey: redis-password
+
+auth:
+  existingSecret: milvaion-auth
+
+workers:
+  http:
+    enabled: true

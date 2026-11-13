@@ -35,7 +35,7 @@ A distributed job scheduling system built on .NET 11
 
 ## What is Milvaion?
 
-Milvaion is a **distributed job scheduling system** that separates the *scheduler* (API that decides when jobs run) from the *workers* (processes that execute jobs), connected via Redis and RabbitMQ.
+Milvaion is a **distributed job scheduling system** that separates the *scheduler* (API that decides when jobs run) from the *workers* (processes that execute jobs), connected via Redis and a message broker: RabbitMQ by default, or Apache Kafka if you already run it.
 
 ```
 ┌─────────────────┐        ┌─────────────────┐       ┌─────────────────┐
@@ -133,7 +133,8 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 ![Job executions in the Milvaion dashboard](./docs/src/executions.png)
 
 ### Reliability
-- **At-least-once delivery** via RabbitMQ publisher confirms and manual ACK
+- **At-least-once delivery** via RabbitMQ publisher confirms and manual ACK, or Kafka offsets committed only after a job's outcome is reported
+- **RabbitMQ or Kafka** as the message broker, chosen per deployment ([Using Kafka](./docs/portaldocs/34-using-kafka.md))
 - **Automatic retries** with exponential backoff
 - **Dead Letter Queue** for failed jobs after max retries
 - **Zombie detection** recovers stuck jobs
@@ -296,6 +297,12 @@ cp .env.example .env
 
 # Start all services
 docker compose up -d
+```
+
+To run the stack on Kafka instead of RabbitMQ, add the Kafka Compose file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.kafka.yml up -d
 ```
 
 ### 2. Access the Dashboard
@@ -552,6 +559,7 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Scaling](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/scaling) | Horizontal scaling strategies |
 | [Monitoring](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/monitoring) | Health checks, metrics, logging |
 | [Workflows](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/workflows) | DAG-based job pipelines with conditional branching and data passing |
+| [Using Kafka](./docs/portaldocs/34-using-kafka.md) | Run Milvaion on Apache Kafka instead of RabbitMQ |
 
 ### Developer Documentation (GitHub Docs)
 
@@ -562,6 +570,7 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Development](./docs/githubdocs/DEVELOPMENT.md) | Development environment setup |
 | [Worker SDK](./docs/githubdocs/WORKER-SDK.md) | Worker SDK reference |
 | [Worker Protocol](./docs/githubdocs/WORKER-PROTOCOL.md) | Language-neutral protocol for writing workers in any language |
+| [Kafka Transport](./docs/githubdocs/KAFKA-TRANSPORT.md) | Design and wire format of the optional Kafka transport |
 | [Node.js Worker SDK](./sdks/node/milvaion-worker/README.md) | Running Milvaion jobs in Node.js |
 | [Go Worker SDK](./sdks/go/milvaion/README.md) | Running Milvaion jobs in Go |
 | [Python Worker SDK](./sdks/python/milvaion-worker/README.md) | Running Milvaion jobs in Python |
@@ -583,7 +592,7 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | **Backend** | .NET 11, ASP.NET Core |
 | **Database** | PostgreSQL 16, Entity Framework Core |
 | **Cache/Scheduling** | Redis 7 |
-| **Message Queue** | RabbitMQ 3.x |
+| **Message Queue** | RabbitMQ 3.x, or Apache Kafka 3.x |
 | **Frontend** | React, TypeScript, Vite |
 | **Real-time** | SignalR |
 | **Logging** | Serilog, Seq |

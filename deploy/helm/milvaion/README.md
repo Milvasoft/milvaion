@@ -243,6 +243,13 @@ The command worker image (`milvasoft/milvaion-command-worker`) is not published 
 | `externalDatabase.port` / `database` / `username` | `5432` / `MilvaionDb` / `milvaion` | Connection settings. |
 | `externalDatabase.password` / `existingSecret` / `existingSecretPasswordKey` | `""` / `""` / `db-password` | Password source. |
 | `externalDatabase.connectionParameters` | pooling and timeout settings | Appended to the API's connection string. |
+| `transport` | `rabbitmq` | Message broker: `rabbitmq` or `kafka`. With `kafka`, RabbitMQ is not needed and the `externalRabbitmq` and `rabbitmq` settings are ignored. |
+| `kafka.bootstrapServers` | `""` | Kafka brokers, comma separated. Required with `transport: kafka`. The chart does not install Kafka. |
+| `kafka.securityProtocol` / `saslMechanism` / `username` | `Plaintext` / `Plain` / `""` | Security. SASL is used with `SaslPlaintext` and `SaslSsl`. |
+| `kafka.password` / `existingSecret` / `existingSecretPasswordKey` | `""` / `""` / `kafka-password` | SASL password source. |
+| `kafka.sslCaLocation` | `""` | CA file path inside the pods, for a private CA (mount it with `extraVolumes`). |
+| `kafka.topicPrefix` / `autoCreateTopics` / `numPartitions` / `replicationFactor` | `""` / `true` / `12` / `-1` | Topic settings, passed to the API and every worker. `-1` uses the broker's default replication. |
+| `kafka.maxInFlightPerPartition` | `0` | Workers: jobs of one partition that may run at once (0 = the worker's MaxParallelJobs). |
 | `externalRabbitmq.host` / `port` / `username` / `virtualHost` | `""` / `5672` / `milvaion` / `/` | RabbitMQ settings. |
 | `externalRabbitmq.password` / `existingSecret` / `existingSecretPasswordKey` | `""` / `""` / `rabbitmq-password` | Password source. |
 | `externalRedis.host` / `port` / `database` | `""` / `6379` / `0` | Redis settings. |

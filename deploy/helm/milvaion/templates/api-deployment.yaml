@@ -50,7 +50,7 @@ spec:
       {{- if or $api.waitForDependencies.enabled $api.initContainers }}
       initContainers:
         {{- if $api.waitForDependencies.enabled }}
-        # Waits until PostgreSQL, RabbitMQ and Redis accept TCP connections, so the API does not crash-loop while
+        # Waits until PostgreSQL, the message broker and Redis accept TCP connections, so the API does not crash-loop while
         # they start. Uses the API image's bash, so no extra image is pulled.
         - name: wait-for-dependencies
           image: {{ include "milvaion.image" (dict "image" $api.image "root" $ "defaultTag" .Chart.AppVersion) }}
@@ -62,7 +62,7 @@ spec:
             - -c
             - |
               deadline=$((SECONDS + {{ int $api.waitForDependencies.timeoutSeconds }}))
-              for target in {{ include "milvaion.database.host" . }}:{{ include "milvaion.database.port" . }} {{ include "milvaion.rabbitmq.host" . }}:{{ include "milvaion.rabbitmq.port" . }} {{ include "milvaion.redis.host" . }}:{{ include "milvaion.redis.port" . }}; do
+              for target in {{ include "milvaion.database.host" . }}:{{ include "milvaion.database.port" . }} {{ include "milvaion.broker.waitTarget" . }} {{ include "milvaion.redis.host" . }}:{{ include "milvaion.redis.port" . }}; do
                 until (exec 3<>"/dev/tcp/${target%:*}/${target##*:}") 2>/dev/null; do
                   if [ $SECONDS -ge $deadline ]; then echo "Timed out waiting for $target"; exit 1; fi
                   echo "Waiting for $target"; sleep 2
@@ -93,7 +93,7 @@ spec:
           env:
             # Passwords first: the variables below expand them with $(NAME).
             {{- include "milvaion.env.dbPassword" . | nindent 12 }}
-            {{- include "milvaion.env.passwords" . | nindent 12 }}
+            {{- include "milvaion.env.passwords" . | trim | nindent 12 }}
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ $api.environment | quote }}
             - name: ASPNETCORE_URLS
@@ -102,16 +102,7 @@ spec:
               value: {{ $api.milvaEnv | quote }}
             - name: ConnectionStrings__DefaultConnectionString
               value: {{ include "milvaion.database.connectionString" (dict "root" . "parameters" .Values.externalDatabase.connectionParameters) | quote }}
-            - name: MilvaionConfig__RabbitMQ__Host
-              value: {{ include "milvaion.rabbitmq.host" . | quote }}
-            - name: MilvaionConfig__RabbitMQ__Port
-              value: {{ include "milvaion.rabbitmq.port" . | quote }}
-            - name: MilvaionConfig__RabbitMQ__Username
-              value: {{ include "milvaion.rabbitmq.username" . | quote }}
-            - name: MilvaionConfig__RabbitMQ__Password
-              value: "$(MILVAION_RABBITMQ_PASSWORD)"
-            - name: MilvaionConfig__RabbitMQ__VirtualHost
-              value: {{ include "milvaion.rabbitmq.virtualHost" . | quote }}
+            {{- include "milvaion.env.transport" (dict "root" . "prefix" "MilvaionConfig") | trim | nindent 12 }}
             - name: MilvaionConfig__Redis__ConnectionString
               value: {{ printf "%s:%s" (include "milvaion.redis.host" .) (include "milvaion.redis.port" .) | quote }}
             - name: MilvaionConfig__Redis__Database

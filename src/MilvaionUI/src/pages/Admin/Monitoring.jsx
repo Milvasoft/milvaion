@@ -298,6 +298,9 @@ function Monitoring() {
   const overall = healthOf(health?.overallHealth)
   const dispatcherOn = !!health?.dispatcherEnabled
   const queues = health?.queueStats || []
+  // On Kafka every entry is a topic and its depth is the consumer lag of the group that reads it.
+  const isKafka = queues.some(q => q.transport === 'Kafka')
+  const unitLabel = isKafka ? 'topic' : 'queue'
   const queueDepth = queues.reduce((sum, q) => sum + (q.messageCount || 0), 0)
   const starvedQueues = queues.filter(q => q.messageCount > 0 && q.consumerCount === 0)
   const criticalQueues = queues.filter(q => q.healthStatus === 'Critical')
@@ -373,11 +376,11 @@ function Monitoring() {
           The four values that move. Everything else on the page explains one of them. */}
       <div className="mvm-signals">
         <Signal
-          label="Queue depth"
+          label={isKafka ? 'Consumer lag' : 'Queue depth'}
           value={queueDepth.toLocaleString()}
           tone={criticalQueues.length ? 'danger' : queueDepth > 1000 ? 'warning' : 'accent'}
           history={series.queue}
-          hint="Total messages waiting across all queues."
+          hint={isKafka ? 'Records not yet committed by their consumer group, across all topics.' : 'Total messages waiting across all queues.'}
         />
         <Signal
           label="Active jobs"
@@ -410,7 +413,7 @@ function Monitoring() {
         <div className="mv-table-toolbar">
           <span className="mvm-toolbar-title">
             <Icon name="storage" size={18} />
-            Queues
+            {isKafka ? 'Topics' : 'Queues'}
           </span>
           <span className="mv-spacer" />
           <span className="mvm-toolbar-note">{queues.length} total</span>
@@ -420,9 +423,9 @@ function Monitoring() {
           <table className="mv-table">
             <thead>
               <tr>
-                <th>Queue</th>
+                <th>{isKafka ? 'Topic' : 'Queue'}</th>
                 <th className="mv-col-tight">Status</th>
-                <th>Depth</th>
+                <th>{isKafka ? 'Lag' : 'Depth'}</th>
                 <th className="mv-col-tight">Consumers</th>
               </tr>
             </thead>
@@ -431,7 +434,7 @@ function Monitoring() {
                 <tr>
                   <td colSpan={4} className="mv-table-empty">
                     <Icon name="storage" size={32} />
-                    <p>No queues reported.</p>
+                    <p>No {unitLabel}s reported.</p>
                   </td>
                 </tr>
               )}
@@ -448,6 +451,7 @@ function Monitoring() {
                       {/* A queue with work and nobody to do it is not "unhealthy" by
                           depth, so the status column will not say it. Said here. */}
                       {starved && <span className="mv-table-muted">no consumer attached</span>}
+                      {queue.note && <span className="mv-table-muted">{queue.note}</span>}
                     </td>
 
                     <td className="mv-col-tight">

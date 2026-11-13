@@ -152,6 +152,12 @@ Workers must be configured with the matching `Worker:Redis:KeyPrefix`: the cance
 channel is derived from it, so a worker on a different prefix subscribes to a channel the API
 never publishes to and silently stops honouring cancellations.
 
+### Message Transport
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `Transport:Type` | `RabbitMQ` | Message broker: `RabbitMQ` or `Kafka`. Every worker must use the same one (`Worker:Transport:Type`). With `Kafka`, the RabbitMQ settings below are ignored and the `MilvaionConfig:Kafka` section applies; see [Using Kafka](34-using-kafka.md) for its settings. |
+
 ### RabbitMQ Configuration
 
 | Setting | Default | Description |

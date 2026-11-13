@@ -57,23 +57,14 @@ spec:
             {{- if $w.milvaionDatabaseEnv }}
             {{- include "milvaion.env.dbPassword" $ | nindent 12 }}
             {{- end }}
-            {{- include "milvaion.env.passwords" $ | nindent 12 }}
+            {{- include "milvaion.env.passwords" $ | trim | nindent 12 }}
             {{- range $k, $v := $configEnv }}
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
             - name: Worker__WorkerId
               value: {{ default (printf "%s-worker" $key) $w.workerId | quote }}
-            - name: Worker__RabbitMQ__Host
-              value: {{ include "milvaion.rabbitmq.host" $ | quote }}
-            - name: Worker__RabbitMQ__Port
-              value: {{ include "milvaion.rabbitmq.port" $ | quote }}
-            - name: Worker__RabbitMQ__Username
-              value: {{ include "milvaion.rabbitmq.username" $ | quote }}
-            - name: Worker__RabbitMQ__Password
-              value: "$(MILVAION_RABBITMQ_PASSWORD)"
-            - name: Worker__RabbitMQ__VirtualHost
-              value: {{ include "milvaion.rabbitmq.virtualHost" $ | quote }}
+            {{- include "milvaion.env.transport" (dict "root" $ "prefix" "Worker") | trim | nindent 12 }}
             - name: Worker__Redis__ConnectionString
               value: {{ printf "%s:%s" (include "milvaion.redis.host" $) (include "milvaion.redis.port" $) | quote }}
             - name: Worker__Redis__Database
@@ -105,7 +96,7 @@ spec:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- /* The SDK rewrites /tmp/live every Worker:HealthCheck:IntervalSeconds (30s) while it is healthy, and
-                 keeps /tmp/ready only while RabbitMQ and Redis are reachable. */}}
+                 keeps /tmp/ready only while the message broker and Redis are reachable. */}}
           {{- if $w.startupProbe.enabled }}
           startupProbe:
             exec:
