@@ -1,0 +1,52 @@
+name: Python SDK - Build & Test
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/python/**'
+      - '.github/workflows/python-sdk.yml'
+  pull_request:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/python/**'
+      - '.github/workflows/python-sdk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [ '3.10', '3.11', '3.12', '3.13' ]
+
+    defaults:
+      run:
+        working-directory: sdks/python/milvaion-worker
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: pip install -e ".[test]" ruff build
+
+      - name: Lint
+        run: ruff check src tests examples --select E,F,W,B --line-length 200
+
+      - name: Test
+        run: pytest -q
+
+      - name: Build package
+        run: python -m build

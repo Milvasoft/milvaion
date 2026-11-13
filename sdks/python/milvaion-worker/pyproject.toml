@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "milvaion-worker"
+version = "0.1.0"
+description = "Python worker SDK for the Milvaion job scheduler"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+keywords = ["milvaion", "job-scheduler", "worker", "rabbitmq", "cron"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
+dependencies = [
+    "aio-pika>=9.4",
+    "redis>=5.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.urls]
+Homepage = "https://github.com/Milvasoft/milvaion"
+Source = "https://github.com/Milvasoft/milvaion/tree/master/sdks/python/milvaion-worker"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/milvaion"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["src"]

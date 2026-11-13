@@ -60,6 +60,19 @@ Most job schedulers run jobs **inside the same process** as the scheduling logic
 
 Milvaion solves these problems by **completely separating scheduling from execution**.
 
+### Workers in any language
+
+The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK, there are worker SDKs for **Node.js**, **Go** and **Python**. Workers written with them show up in the same dashboard, with live logs, retries, dead-lettering, cancellation, timeouts and graceful shutdown.
+
+| Language | SDK |
+|---|---|
+| .NET | [`Milvasoft.Milvaion.Sdk.Worker`](./docs/githubdocs/WORKER-SDK.md) |
+| Node.js | [`sdks/node/milvaion-worker`](./sdks/node/milvaion-worker/README.md) |
+| Go | [`sdks/go/milvaion`](./sdks/go/milvaion/README.md) |
+| Python | [`sdks/python/milvaion-worker`](./sdks/python/milvaion-worker/README.md) |
+
+Any other language can join through the [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md), which documents the queues and message formats.
+
 ---
 
 ## Already Running Hangfire or Quartz.NET?
@@ -279,7 +292,9 @@ milvaion/
 │   │   └── MilvaionMaintenanceWorker/ # Maintenance jobs
 │   └── MilvaionUI/                   # React dashboard
 ├── sdks/
-│   └── node/milvaion-worker/         # Node.js worker SDK
+│   ├── node/milvaion-worker/         # Node.js worker SDK
+│   ├── go/milvaion/                  # Go worker SDK
+│   └── python/milvaion-worker/       # Python worker SDK
 ├── tests/
 │   ├── Milvaion.UnitTests/
 │   └── Milvaion.IntegrationTests/
@@ -483,6 +498,8 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Worker SDK](./docs/githubdocs/WORKER-SDK.md) | Worker SDK reference |
 | [Worker Protocol](./docs/githubdocs/WORKER-PROTOCOL.md) | Language-neutral protocol for writing workers in any language |
 | [Node.js Worker SDK](./sdks/node/milvaion-worker/README.md) | Running Milvaion jobs in Node.js |
+| [Go Worker SDK](./sdks/go/milvaion/README.md) | Running Milvaion jobs in Go |
+| [Python Worker SDK](./sdks/python/milvaion-worker/README.md) | Running Milvaion jobs in Python |
 | [MCP Server](./docs/githubdocs/MCP-SERVER.md) | MCP server and api key auth internals |
 | [Security](./SECURITY.md) | Security policies |
 
@@ -555,9 +572,19 @@ dotnet add package Milvasoft.Milvaion.Sdk.Worker
 dotnet new install Milvasoft.Templates.Milvaion
 ```
 
-### Node.js
+### Other Languages
 
-[`sdks/node/milvaion-worker`](./sdks/node/milvaion-worker/README.md) runs Milvaion jobs in Node.js. It speaks the same [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md) as the .NET SDK, so Node workers show up in the dashboard like .NET ones. It is not on npm yet.
+These SDKs speak the same [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md) as the .NET SDK. They are not published to the package registries yet; install them from this repository.
+
+```bash
+# Node.js: not on npm yet, see sdks/node/milvaion-worker/README.md
+
+# Go
+go get github.com/Milvasoft/milvaion/sdks/go/milvaion
+
+# Python
+pip install "git+https://github.com/Milvasoft/milvaion.git#subdirectory=sdks/python/milvaion-worker"
+```
 
 ---
 

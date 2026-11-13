@@ -117,6 +117,7 @@ Milvaion solves these problems by **completely separating scheduling from execut
 - **Full DI support** - inject services into jobs
 - **Auto-discovery** - jobs registered automatically
 - **Cancellation support** - graceful shutdown
+- **[Workers in Node.js, Go and Python](./26-other-language-workers.md)** - worker SDKs beyond .NET, all on the same dashboard
 
 ### AI Integration
 - **[MCP server](./25-mcp-server.md)** - connect Claude Code, Cursor or GitHub Copilot and ask about your jobs in plain language
