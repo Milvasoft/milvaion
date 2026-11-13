@@ -3,6 +3,9 @@ package milvaion
 // Wire-level names and message shapes shared with the Milvaion API.
 // See docs/githubdocs/WORKER-PROTOCOL.md in the repository for the full protocol.
 
+// SDKVersion is the version of this SDK, reported to the dashboard.
+const SDKVersion = "1.0.0"
+
 const (
 	exchangeJobs         = "jobs.topic"
 	exchangeDeadLetter   = "dlx_scheduled_jobs"
@@ -126,6 +129,8 @@ type workerMetadata struct {
 	OSVersion         string              `json:"OSVersion"`
 	RuntimeVersion    string              `json:"RuntimeVersion"`
 	HeartbeatInterval int                 `json:"HeartbeatInterval"`
+	Sdk               string              `json:"Sdk"`
+	SdkVersion        string              `json:"SdkVersion"`
 	JobConfigs        []jobConfigMetadata `json:"JobConfigs"`
 }
 

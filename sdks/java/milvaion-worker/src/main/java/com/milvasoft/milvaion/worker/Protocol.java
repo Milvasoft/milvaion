@@ -5,6 +5,9 @@ package com.milvasoft.milvaion.worker;
  * See docs/githubdocs/WORKER-PROTOCOL.md in the repository for the full protocol.
  */
 final class Protocol {
+    /** Version of this SDK, reported to the dashboard. Kept equal to the pom by a test. */
+    static final String SDK_VERSION = "1.0.0";
+
     static final String EXCHANGE_JOBS = "jobs.topic";
     static final String EXCHANGE_DEAD_LETTER = "dlx_scheduled_jobs";
     static final String DEAD_LETTER_ROUTING_KEY = "failed_jobs";

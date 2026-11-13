@@ -5,9 +5,18 @@ import { formatError } from '../src/errors.ts';
 import { LogBuffer } from '../src/log-buffer.ts';
 import { resolveJobOptions, resolveWorkerOptions, workerOptionsFromEnv } from '../src/options.ts';
 import { parseOccurrenceId, parseRetryCount } from '../src/processor.ts';
-import type { OccurrenceLog, WorkerLogBatchMessage } from '../src/protocol.ts';
+import { SdkVersion, type OccurrenceLog, type WorkerLogBatchMessage } from '../src/protocol.ts';
 import { generateInstanceId, generateRoutingPattern, queueNameForPattern } from '../src/routing.ts';
 import { silentLogger } from './helpers.ts';
+
+describe('version', () => {
+  it('matches package.json', async () => {
+    const { readFileSync } = await import('node:fs');
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
+    assert.equal(SdkVersion, pkg.version);
+  });
+});
 
 describe('routing', () => {
   it('generates the same patterns and queue names as the .NET SDK', () => {

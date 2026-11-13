@@ -482,6 +482,8 @@ func (w *Worker) buildRegistration() registrationMessage {
 		OSVersion:         runtime.GOOS + "/" + runtime.GOARCH,
 		RuntimeVersion:    "Go " + strings.TrimPrefix(runtime.Version(), "go"),
 		HeartbeatInterval: int(w.opts.heartbeatInterval.Seconds()),
+		Sdk:               "go",
+		SdkVersion:        SDKVersion,
 		JobConfigs:        configs,
 	})
 

@@ -253,6 +253,8 @@ public final class MilvaionWorker implements AutoCloseable {
         metadata.put("OSVersion", System.getProperty("os.name") + " " + System.getProperty("os.version"));
         metadata.put("RuntimeVersion", "Java " + System.getProperty("java.version"));
         metadata.put("HeartbeatInterval", options.heartbeatInterval().toSeconds());
+        metadata.put("Sdk", "java");
+        metadata.put("SdkVersion", Protocol.SDK_VERSION);
         ArrayNode configs = metadata.putArray("JobConfigs");
 
         ObjectNode registration = Json.object();

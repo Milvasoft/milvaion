@@ -1,11 +1,11 @@
 name: Language SDKs - Publish
 
 # Publishes one language SDK to its package registry when its tag is pushed:
-#   sdk-node-v0.1.0    -> npm        (@milvasoft/milvaion-worker)
-#   sdk-python-v0.1.0  -> PyPI       (milvaion-worker)
-#   sdk-java-v0.1.0    -> Maven Central (com.milvasoft:milvaion-worker)
-#   sdk-php-v0.1.0     -> Packagist, through the split repository (milvasoft/milvaion-worker)
-# Go needs no registry: tag sdks/go/milvaion/v0.1.0 and the Go module proxy serves it.
+#   sdk-node-v1.0.0    -> npm        (@milvasoft/milvaion-worker)
+#   sdk-python-v1.0.0  -> PyPI       (milvaion-worker)
+#   sdk-java-v1.0.0    -> Maven Central (com.milvasoft:milvaion-worker)
+#   sdk-php-v1.0.0     -> Packagist, through the split repository (milvasoft/milvaion-worker)
+# Go needs no registry: tag sdks/go/milvaion/v1.0.0 and the Go module proxy serves it.
 # The tag's version must match the version in the package's manifest.
 
 on:

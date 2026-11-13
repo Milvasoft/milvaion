@@ -243,6 +243,10 @@ func TestRegistrationMetadataIsPascalCase(t *testing.T) {
 
 	r := w.buildRegistration()
 
+	if !strings.Contains(r.Metadata, `"Sdk":"go","SdkVersion":"`+SDKVersion+`"`) {
+		t.Errorf("metadata does not name the SDK: %s", r.Metadata)
+	}
+
 	if !strings.Contains(r.Metadata, `"JobConfigs":[{"JobType":"GreetJob","ConsumerId":"greet-consumer"`) {
 		t.Errorf("metadata = %s", r.Metadata)
 	}

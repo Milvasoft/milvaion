@@ -88,13 +88,14 @@ Publish to `worker_registration_queue` at startup and again after every reconnec
   "jobTypes": ["SendEmailJob"],
   "maxParallelJobs": 16,
   "version": "1.0.0",
-  "metadata": "{\"IsExternal\":false,\"ExternalScheduler\":null,\"ProcessorCount\":8,\"OSVersion\":\"Linux 6.8\",\"RuntimeVersion\":\"Node.js v22.16.0\",\"HeartbeatInterval\":30,\"JobConfigs\":[{\"JobType\":\"SendEmailJob\",\"ConsumerId\":\"sendemail-consumer\",\"MaxParallelJobs\":8,\"ExecutionTimeoutSeconds\":600}]}"
+  "metadata": "{\"IsExternal\":false,\"ExternalScheduler\":null,\"ProcessorCount\":8,\"OSVersion\":\"Linux 6.8\",\"RuntimeVersion\":\"Node.js v22.16.0\",\"HeartbeatInterval\":30,\"Sdk\":\"node\",\"SdkVersion\":\"1.0.0\",\"JobConfigs\":[{\"JobType\":\"SendEmailJob\",\"ConsumerId\":\"sendemail-consumer\",\"MaxParallelJobs\":8,\"ExecutionTimeoutSeconds\":600}]}"
 }
 ```
 
 - `jobDataDefinitions` and `jobResultDefinitions` map a job name to a JSON Schema serialized as a string. The dashboard uses the data schema to build the job data form. Both maps are optional.
 - `maxParallelJobs` is the capacity of the whole instance.
 - `metadata` is a JSON string, not an object, and its property names are PascalCase.
+- `Sdk` in `metadata` names the language the worker is built with (`dotnet`, `node`, `go`, `python`, `java` or `php`, or your own), and `SdkVersion` its SDK version. The dashboard shows them on the worker.
 
 ## Heartbeats
 

@@ -146,6 +146,7 @@ final class UnitsTest extends TestCase
         $registration = $worker->buildRegistration();
         $metadata = json_decode($registration['metadata'], true);
 
+        $this->assertSame(['php', Worker::SDK_VERSION], [$metadata['Sdk'], $metadata['SdkVersion']]);
         $this->assertSame(['GreetJob', 'greet-consumer'], [$metadata['JobConfigs'][0]['JobType'], $metadata['JobConfigs'][0]['ConsumerId']]);
         $this->assertSame('{"type":"object"}', $registration['jobDataDefinitions']->GreetJob);
         $this->assertSame('w.greet.*', $registration['routingPatterns']->GreetJob);

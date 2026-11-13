@@ -9,6 +9,7 @@ import {
   DeadLetterRoutingKey,
   Exchanges,
   Queues,
+  SdkVersion,
   type WorkerDiscoveryRequest,
   type WorkerHeartbeatMessage,
   type WorkerMetadata,
@@ -267,6 +268,8 @@ export class MilvaionWorker {
       OSVersion: `${os.type()} ${os.release()}`,
       RuntimeVersion: `Node.js ${process.version}`,
       HeartbeatInterval: this.options.heartbeatIntervalSeconds,
+      Sdk: 'node',
+      SdkVersion,
       JobConfigs: jobs.map(job => ({
         JobType: job.name,
         ConsumerId: job.options.consumerId,

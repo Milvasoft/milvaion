@@ -24,6 +24,9 @@ use Psr\Log\LoggerInterface;
  */
 final class Worker
 {
+    /** Version of this SDK, reported to the dashboard. */
+    public const SDK_VERSION = '1.0.0';
+
     private readonly LoggerInterface $logger;
     /** @var array<string, ResolvedJob> */
     private array $jobs = [];
@@ -372,6 +375,8 @@ final class Worker
                 'OSVersion' => php_uname('s') . ' ' . php_uname('r'),
                 'RuntimeVersion' => 'PHP ' . PHP_VERSION,
                 'HeartbeatInterval' => (int) $this->options->heartbeatInterval,
+                'Sdk' => 'php',
+                'SdkVersion' => self::SDK_VERSION,
                 'JobConfigs' => $configs,
             ]),
         ];

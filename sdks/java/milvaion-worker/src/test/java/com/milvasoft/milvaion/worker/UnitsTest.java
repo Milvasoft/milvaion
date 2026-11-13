@@ -19,6 +19,15 @@ class UnitsTest {
     static final String GUID = "0193a6c2-5d1e-7c41-9a3b-2f6e8d4c1b00";
 
     @Test
+    void sdkVersionMatchesThePom() throws Exception {
+        String pom = java.nio.file.Files.readString(java.nio.file.Path.of("pom.xml"));
+        var version = java.util.regex.Pattern.compile("<artifactId>milvaion-worker</artifactId>\\s*<version>([^<]+)</version>").matcher(pom);
+
+        assertTrue(version.find());
+        assertEquals(Protocol.SDK_VERSION, version.group(1));
+    }
+
+    @Test
     void routingMatchesDotNetSdk() {
         assertEquals("email-worker-01.sendemail.*", JobOptions.generateRoutingPattern("SendEmailJob", "Email-Worker-01"));
         assertEquals("w.nonparallel.*", JobOptions.generateRoutingPattern("NonParallel", "w"));
@@ -145,6 +154,8 @@ class UnitsTest {
         ObjectNode registration = worker.buildRegistration();
         JsonNode metadata = Json.parse(registration.get("metadata").asText().getBytes(StandardCharsets.UTF_8));
 
+        assertEquals("java", metadata.get("Sdk").asText());
+        assertEquals(Protocol.SDK_VERSION, metadata.get("SdkVersion").asText());
         assertEquals("GreetJob", metadata.get("JobConfigs").get(0).get("JobType").asText());
         assertEquals("greet-consumer", metadata.get("JobConfigs").get(0).get("ConsumerId").asText());
         assertEquals("{\"type\":\"object\"}", registration.get("jobDataDefinitions").get("GreetJob").asText());

@@ -10,6 +10,9 @@ export const Exchanges = {
 
 export const DeadLetterRoutingKey = 'failed_jobs';
 
+/** Version of this SDK, reported to the dashboard. Kept equal to package.json by a test. */
+export const SdkVersion = '1.0.0';
+
 export const Queues = {
   jobs: 'scheduled_jobs_queue',
   workerLogs: 'worker_logs_queue',
@@ -124,6 +127,8 @@ export interface WorkerMetadata {
   OSVersion: string;
   RuntimeVersion: string;
   HeartbeatInterval: number;
+  Sdk: string;
+  SdkVersion: string;
   JobConfigs: Array<{
     JobType: string;
     ConsumerId: string;

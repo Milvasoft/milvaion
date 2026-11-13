@@ -11,6 +11,14 @@ from milvaion.errors import format_error
 from milvaion.log_buffer import LogBuffer
 from milvaion.options import resolve_job
 from milvaion.processor import parse_occurrence_id, parse_retry_count
+from milvaion.protocol import SDK_VERSION
+
+
+def test_sdk_version_matches_pyproject() -> None:
+    import pathlib
+
+    pyproject = (pathlib.Path(__file__).parents[1] / "pyproject.toml").read_text()
+    assert re.search(r'^version = "([^"]+)"$', pyproject, re.MULTILINE).group(1) == SDK_VERSION
 
 GUID = "0193a6c2-5d1e-7c41-9a3b-2f6e8d4c1b00"
 
@@ -146,6 +154,7 @@ def test_registration_metadata_is_pascal_case() -> None:
     registration = worker._build_registration()
     metadata = json.loads(registration["metadata"])
 
+    assert (metadata["Sdk"], metadata["SdkVersion"]) == ("python", SDK_VERSION)
     assert metadata["JobConfigs"][0]["JobType"] == "GreetJob" and metadata["JobConfigs"][0]["ConsumerId"] == "greet-consumer"
     assert registration["jobDataDefinitions"] == {"GreetJob": '{"type": "object"}'}
     assert registration["routingPatterns"] == {"GreetJob": "w.greet.*"}

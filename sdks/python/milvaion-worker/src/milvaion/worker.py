@@ -22,6 +22,7 @@ from .metrics import ResourceSampler, local_ip_address
 from .options import JobOptions, ResolvedJob, WorkerOptions, resolve_job
 from .processor import CancellationRegistry, Delivery, Processor
 from .protocol import (
+    SDK_VERSION,
     DEAD_LETTER_ROUTING_KEY,
     EXCHANGE_DEAD_LETTER,
     EXCHANGE_JOBS,
@@ -285,6 +286,8 @@ class Worker:
             "OSVersion": f"{platform.system()} {platform.release()}",
             "RuntimeVersion": f"Python {platform.python_version()}",
             "HeartbeatInterval": int(self.options.heartbeat_interval),
+            "Sdk": "python",
+            "SdkVersion": SDK_VERSION,
             "JobConfigs": [
                 {"JobType": j.name, "ConsumerId": j.consumer_id, "MaxParallelJobs": j.max_parallel_jobs, "ExecutionTimeoutSeconds": int(j.execution_timeout)}
                 for j in jobs

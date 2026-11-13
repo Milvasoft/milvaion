@@ -8,7 +8,7 @@ It requires Java 17 or later, and connects to the same RabbitMQ and Redis instan
 <dependency>
   <groupId>com.milvasoft</groupId>
   <artifactId>milvaion-worker</artifactId>
-  <version>0.1.0</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 
@@ -141,5 +141,5 @@ The SDK implements the language-neutral [worker protocol](../../../docs/githubdo
 ```bash
 mvn test
 mvn -q package dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=target/lib
-java -cp "target/milvaion-worker-0.1.0.jar:target/lib/*" examples/BasicWorker.java   # configure with MILVAION_* variables
+java -cp "target/milvaion-worker-1.0.0.jar:target/lib/*" examples/BasicWorker.java   # configure with MILVAION_* variables
 ```

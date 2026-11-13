@@ -13,7 +13,7 @@ import java.util.Map;
  * mvn -q package dependency:build-classpath -Dmdep.outputFile=cp.txt
  * MILVAION_WORKER_ID=java-sample-worker MILVAION_RABBITMQ_URL=amqp://guest:guest@localhost:5672 \
  *   MILVAION_REDIS_URL=redis://localhost:6379 \
- *   java -cp "target/milvaion-worker-0.1.0.jar:$(cat cp.txt)" examples/BasicWorker.java
+ *   java -cp "target/milvaion-worker-1.0.0.jar:$(cat cp.txt)" examples/BasicWorker.java
  * </pre>
  */
 public class BasicWorker {

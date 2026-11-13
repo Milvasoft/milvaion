@@ -594,7 +594,7 @@ go get github.com/Milvasoft/milvaion/sdks/go/milvaion
 pip install "git+https://github.com/Milvasoft/milvaion.git#subdirectory=sdks/python/milvaion-worker"
 
 # Java (Maven): not on Maven Central yet, run "mvn install" in sdks/java/milvaion-worker
-#   com.milvasoft:milvaion-worker:0.1.0
+#   com.milvasoft:milvaion-worker:1.0.0
 
 # PHP: not on Packagist yet, see sdks/php/milvaion-worker/README.md
 ```

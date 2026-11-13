@@ -3,7 +3,7 @@
 from .context import JobContext
 from .errors import AbortReason, JobAborted, PermanentJobError
 from .options import JobOptions, WorkerOptions, generate_routing_pattern, queue_name_for_pattern
-from .protocol import Status
+from .protocol import SDK_VERSION, Status
 from .worker import Worker
 
 __all__ = [
@@ -19,4 +19,4 @@ __all__ = [
     "queue_name_for_pattern",
 ]
 
-__version__ = "0.1.0"
+__version__ = SDK_VERSION
