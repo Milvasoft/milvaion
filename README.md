@@ -145,7 +145,7 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 - **Job priority** - Higher priority jobs are dispatched first when several are due at once
 - **Exclusion calendars** - Skip holidays, maintenance days or weekends; skipped runs are recorded as skipped, not failed
 
-See [Scheduling Options](docs/portaldocs/28-scheduling.md), [Time Zones](docs/portaldocs/29-time-zones.md) and [Exclusion Calendars](docs/portaldocs/30-exclusion-calendars.md).
+See [Scheduling Options](docs/portaldocs/31-scheduling.md), [Time Zones](docs/portaldocs/32-time-zones.md) and [Exclusion Calendars](docs/portaldocs/33-exclusion-calendars.md).
 
 ### Scalability
 - **Horizontal worker scaling** - add more workers for more throughput

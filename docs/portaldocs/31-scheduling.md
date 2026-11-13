@@ -13,10 +13,10 @@ Every job has a schedule: either a cron expression for a recurring job or a sing
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
-| Time zone | `UTC` | The zone the cron expression is read in. See [Time Zones](29-time-zones.md). |
+| Time zone | `UTC` | The zone the cron expression is read in. See [Time Zones](32-time-zones.md). |
 | Missed runs | `RunOnce` | What happens to runs missed while the scheduler was down. |
 | Priority | `0` | Which jobs are sent first when several are due at once. |
-| Exclusion calendars | none | Days on which the job does not run. See [Exclusion Calendars](30-exclusion-calendars.md). |
+| Exclusion calendars | none | Days on which the job does not run. See [Exclusion Calendars](33-exclusion-calendars.md). |
 
 The defaults reproduce how jobs behaved before these settings existed, so existing jobs run exactly as they did. You set them on the job form in the dashboard, through the API (`POST /api/v1/jobs/job`, `PUT /api/v1/jobs/job`) or with the MCP tools `create_job` and `update_job`.
 
@@ -69,7 +69,7 @@ The priority is also sent in the AMQP `priority` property of each job message. W
 
 ## Exclusion calendars
 
-An exclusion calendar is a named set of dates, date ranges and weekdays. A job can reference any number of them. A run that falls on an excluded day - in the job's own time zone - is not dispatched; it is recorded with the status **Skipped**, and the job continues at its first run on a day that is not excluded. See [Exclusion Calendars](30-exclusion-calendars.md).
+An exclusion calendar is a named set of dates, date ranges and weekdays. A job can reference any number of them. A run that falls on an excluded day - in the job's own time zone - is not dispatched; it is recorded with the status **Skipped**, and the job continues at its first run on a day that is not excluded. See [Exclusion Calendars](33-exclusion-calendars.md).
 
 ## Where to see the result
 

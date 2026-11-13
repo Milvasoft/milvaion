@@ -48,7 +48,7 @@ If a job must never be skipped, avoid times between 02:00 and 03:00 in zones wit
 - **Job detail** shows the zone with its current UTC offset, and the next run in both your browser's time and the job's zone.
 - **Upcoming Executions** shows the job's zone and the next run as local time in that zone.
 
-Exclusion calendars are matched against the local date of the run in the job's zone. See [Exclusion Calendars](30-exclusion-calendars.md).
+Exclusion calendars are matched against the local date of the run in the job's zone. See [Exclusion Calendars](33-exclusion-calendars.md).
 
 ## Workflows
 
