@@ -1,0 +1,39 @@
+# Builds the milvaion CLI for Linux, macOS and Windows.
+# Run by .github/workflows/cli-release.yml on a cli-v* tag. The workflow sets
+# GORELEASER_CURRENT_TAG to the plain semver (cli-v1.2.3 -> v1.2.3) and uploads
+# dist/ to the GitHub release itself, because the repository holds other
+# release tags that GoReleaser would otherwise pick up.
+version: 2
+
+project_name: milvaion
+
+builds:
+  - main: .
+    binary: milvaion
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }} -X main.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "milvaion_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: "milvaion_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+changelog:
+  disable: true
+
+release:
+  disable: true
