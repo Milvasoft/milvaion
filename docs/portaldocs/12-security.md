@@ -226,9 +226,6 @@ Configure password requirements in `appsettings.json`:
   "Milvasoft": {
     "Identity": {
       "Password": {
-        "Hasher": {
-          "IterationCount": 10000
-        },
         "RequiredLength": 8,
         "RequiredUniqueChars": 2,
         "RequireNonAlphanumeric": true,
@@ -246,8 +243,9 @@ Configure password requirements in `appsettings.json`:
 | Setting | Minimum | High Security |
 |---------|---------|---------------|
 | `RequiredLength` | 8 | 12+ |
-| `IterationCount` | 10000 | 100000+ |
 | `RequiredUniqueChars` | 2 | 4 |
+
+Passwords are hashed with PBKDF2-SHA512 and 210,000 iterations (the Milvasoft library default). Leave `Hasher:IterationCount` unset so this default applies; hashes created with older, weaker settings still verify and are upgraded on the user's next successful login.
 
 ### Account Lockout Protection
 

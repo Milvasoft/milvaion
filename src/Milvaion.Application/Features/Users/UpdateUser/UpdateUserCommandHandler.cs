@@ -3,6 +3,7 @@ using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Identity.Abstract;
 using Milvasoft.Identity.Concrete.Options;
+using Milvasoft.Identity.TokenProvider;
 using Milvasoft.Interception.Ef.Transaction;
 using Milvasoft.Interception.Interceptors.Logging;
 
@@ -83,7 +84,9 @@ public record UpdateUserCommandHandler(IMilvaionRepositoryBase<User> UserReposit
 
             var hashedPassword = _milvaPasswordHasher.Value.HashPassword(request.NewPassword.Value);
 
-            setPropertyBuilder.SetPropertyValue(u => u.PasswordHash, hashedPassword);
+            // A new password invalidates the user tokens and codes issued before it (same as IMilvaUserManager.SetPasswordHash).
+            setPropertyBuilder.SetPropertyValue(u => u.PasswordHash, hashedPassword)
+                              .SetPropertyValue(u => u.SecurityStamp, UserSecurityStamp.NewStamp());
         }
 
         await _userRepository.ExecuteUpdateAsync(request.Id, setPropertyBuilder, cancellationToken: cancellationToken);

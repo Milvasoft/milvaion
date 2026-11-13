@@ -112,9 +112,12 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
 
     private async Task<Response<LoginResponseDto>> CheckPasswordAsync(User user, string password, CancellationToken cancellationToken = default)
     {
-        var isPasswordTrue = _milvaUserManager.CheckPassword(user, password);
+        var isPasswordTrue = _milvaUserManager.CheckPassword(user, password, out var rehashNeeded);
 
         Response<LoginResponseDto> response = null;
+
+        // A hash created with weaker hasher settings (e.g. the old 10k iteration count) is upgraded on a successful sign-in.
+        var passwordRehashed = false;
 
         if (!isPasswordTrue)
         {
@@ -128,10 +131,20 @@ public record LoginCommandHandler(IMilvaionRepositoryBase<User> UserRepository,
         {
             user.AccessFailedCount = 0;
             user.LockoutEnd = null;
+
+            if (rehashNeeded)
+                passwordRehashed = _milvaUserManager.RehashPassword(user, password);
         }
 
         if (user.UserName != GlobalConstant.RootUsername)
-            await _userRepository.UpdateAsync(user, cancellationToken, i => i.AccessFailedCount, i => i.LockoutEnd);
+        {
+            if (passwordRehashed)
+                await _userRepository.UpdateAsync(user, cancellationToken, i => i.AccessFailedCount, i => i.LockoutEnd, i => i.PasswordHash);
+            else
+                await _userRepository.UpdateAsync(user, cancellationToken, i => i.AccessFailedCount, i => i.LockoutEnd);
+        }
+        else if (passwordRehashed)
+            await _userRepository.UpdateAsync(user, cancellationToken, i => i.PasswordHash);
 
         return response;
     }
