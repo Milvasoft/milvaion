@@ -1,6 +1,6 @@
 # Projects (Multi-Tenancy) Design
 
-**Status:** Proposal. Nothing in this document is implemented yet. Implementation starts after the open decisions at the end are settled.
+**Status:** Accepted (November 2026). The maintainer accepted the design, and the questions it left open are settled in [Decisions](#decisions). Nothing is implemented yet. Implementation starts with phases 0 and 1.
 
 This document describes how several teams can share one Milvaion installation while their jobs, workflows, workers, occurrences, alerts, reports and API keys stay apart. It is written against the code as of November 2026. File references point at the places that will change.
 
@@ -20,7 +20,7 @@ This document describes how several teams can share one Milvaion installation wh
 - [Security Risks and Tests](#security-risks-and-tests)
 - [Rollout Plan](#rollout-plan)
 - [Alternatives Considered](#alternatives-considered)
-- [Open Decisions](#open-decisions)
+- [Decisions](#decisions)
 
 ---
 
@@ -114,7 +114,7 @@ Three project roles are seeded:
 
 ### Global admin
 
-`App.SuperAdmin` stays what it is: it passes every check in every project, and it sees the instance-wide views (all projects at once). The root user keeps it. No other path grants cross-project visibility, with one exception: an optional instance role `Instance Auditor`, with a new `ProjectManagement.ReadAll` permission, gives read-only access to every project without being a member. This is useful for on-call and operations teams.
+`App.SuperAdmin` stays what it is: it passes every check in every project, and it sees the instance-wide views (all projects at once). The root user keeps it. No other role or permission grants cross-project visibility. A read-only "auditor" role for operations teams was considered and left out of the first version (see [Decisions](#decisions)).
 
 ## Data Model
 
@@ -210,7 +210,7 @@ The rules:
 2. **Writes.** A `SaveChanges` interceptor:
    - stamps `ProjectId` on added `IProjectScoped` entities from the context;
    - rejects an add in the `Unresolved` state;
-   - rejects any modification that changes `ProjectId` (moving resources between projects is a separate, explicit admin operation; see [Open Decisions](#open-decisions));
+   - rejects any modification that changes `ProjectId` (moving resources between projects is a separate, explicit admin operation; see [Decisions](#decisions));
    - rejects an add or update whose `ProjectId` differs from the resolved project, except in the `System` state.
 3. **`ExecuteUpdate` and `ExecuteDelete`** respect query filters, so bulk operations such as `delete_occurrences` are covered.
 4. **Raw SQL and Dapper** are not covered. Each such path gets an explicit `"ProjectId" = @projectId` clause. A unit test lists every raw SQL call site (via a `[RawSqlProjectScoped]` attribute on the method, checked by a reflection test against a known list) so a new raw query cannot appear without someone deciding its scope.
@@ -263,8 +263,8 @@ In order, first match wins:
 2. Resolve the project as described above. Check the project exists and is not archived (archived projects allow `GET` only).
 3. **Users:** load the membership map from Redis, `{prefix}p:membership:{userId}` → `{projectId: [permissions]}`, falling back to the database. Strip any project-scoped permission claims from the token, then add the permissions of the membership in the current project.
 
-   Super admins get every permission. Instance auditors get `List` and `Detail` permissions. A user who is not a member of the project gets `403 Not a member of project 'x'`. It is a `403`, not a `404`, because the slug space is not secret inside an organisation.
-4. **API keys:** a project key keeps its own permissions, which are already all project permissions. An instance key can act on a project only if it holds `App.SuperAdmin`, which today cannot be granted to keys, or the new `ProjectManagement.ReadAll`.
+   Super admins get every permission. A user who is not a member of the project gets `403 Not a member of project 'x'`. It is a `403`, not a `404`, because the slug space is not secret inside an organisation.
+4. **API keys:** a project key keeps its own permissions, which are already all project permissions. An instance key cannot act inside a project. It holds instance permissions only, and `App.SuperAdmin` cannot be granted to keys. Its job is to manage projects and memberships.
 5. Set `IProjectContext` to `Resolved(projectId)` for the rest of the request.
 
 The membership cache entry is deleted whenever a membership or role changes. The existing security stamp (`AddUserSecurityStamp` migration) covers sign-out on role changes. Membership changes take effect on the next request, because the map is read per request rather than baked into the token.
@@ -305,7 +305,7 @@ The MCP tools need no per-tool change for scoping. Every tool calls a MediatR ha
 - **Configuration:** an MCP client connects with a project API key, which is the recommended setup and pins the connection to that project, or with a user token plus `X-Milvaion-Project`. The portal page gets an example of each.
 - **Two new tools.** `list_projects` returns the projects the caller can see. `get_current_project` returns the project the connection is bound to. Without these, an assistant cannot tell which project its answers describe.
 - **Tool output** for overview and stats tools includes the project slug, so answers are never ambiguous.
-- **Instance-level tools** stay instance-level: `get_system_health`, `get_resource_usage`, `get_queue_stats`, `get_database_statistics` and `get_configuration`. They keep their current `SystemAdministration` permission checks. A project key does not hold those permissions, so they return `403` to project-scoped callers. A separate, project-filtered queue view is listed under [Open Decisions](#open-decisions).
+- **Instance-level tools** stay instance-level: `get_system_health`, `get_resource_usage`, `get_queue_stats`, `get_database_statistics` and `get_configuration`. They keep their current `SystemAdministration` permission checks. A project key does not hold those permissions, so they return `403` to project-scoped callers. A separate, project-filtered queue view is listed under [Decisions](#decisions).
 - `McpPermissionGuard` already reads role claims, so it sees the project permissions added by the claims transformation without change.
 
 ## Workers
@@ -314,7 +314,7 @@ The MCP tools need no per-tool change for scoping. Every tool calls a MediatR ha
 
 Each worker registration belongs to exactly one project. The worker key becomes `(ProjectId, WorkerId)`, so two teams can both run a worker called `email-worker`.
 
-Shared workers (one deployment serving many projects) are attractive for the built-in HTTP, SQL, Email and Command workers. They are also the easiest path to a cross-project privilege escalation. A SQL worker holds connection strings and a Command worker holds an allow-list of programs, so letting project B schedule jobs on project A's SQL worker hands B whatever A's connection string can reach. Shared workers are therefore **not part of the first version**. A team that wants the HTTP worker runs its own instance of the same image with its own project setting. The images are small, and this is how the built-in workers are deployed today anyway. If shared workers are added later, sharing is granted **by an instance admin on the server side**, never declared by the worker (see [Open Decisions](#open-decisions)).
+Shared workers (one deployment serving many projects) are attractive for the built-in HTTP, SQL, Email and Command workers. They are also the easiest path to a cross-project privilege escalation. A SQL worker holds connection strings and a Command worker holds an allow-list of programs, so letting project B schedule jobs on project A's SQL worker hands B whatever A's connection string can reach. Shared workers are therefore **not part of the first version**. A team that wants the HTTP worker runs its own instance of the same image with its own project setting. The images are small, and this is how the built-in workers are deployed today anyway. If shared workers are added later, sharing is granted **by an instance admin on the server side**, never declared by the worker (see [Decisions](#decisions)).
 
 ### How a worker declares its project
 
@@ -438,7 +438,7 @@ The Maintenance worker's `RedisCleanupJob` scans `running_jobs_by_worker:*`. Its
 
 ## Dashboard UX
 
-- **Project switcher** at the top of the sidebar, above the menu. It shows the current project's name and a dropdown of the user's projects with a search box. Super admins and instance auditors also get **"All projects"**, a read-only aggregate view, at the top of the list.
+- **Project switcher** at the top of the sidebar, above the menu. It shows the current project's name and a dropdown of the user's projects with a search box. Super admins also get **"All projects"**, a read-only aggregate view, at the top of the list.
 - The current project lives in the URL as a prefix, `/p/{slug}/jobs`, so links can be shared and opened in another tab without confusion. It is also kept in `localStorage` as the last-used project. The API client (`services/api.js`) sends `X-Milvaion-Project` from the URL on every request.
 - Users with exactly one project never see a switcher. The Default-only installation looks exactly as it does today.
 - **Project settings** page (Project Owner):
@@ -494,7 +494,7 @@ The dashboard shows usage against each quota on the project settings page. Phase
 **Unit tests** (`tests/Milvaion.UnitTests`):
 
 - `ProjectContext` state machine. Unresolved means the filter value is `-1`, and `System` requires an explicit scope.
-- Claims transformation: member, non-member, super admin, auditor, project API key with matching and mismatching header, instance key, archived project.
+- Claims transformation: member, non-member, super admin, project API key with matching and mismatching header, instance key, archived project.
 - The save interceptor: stamps on add, rejects a project change, rejects a mismatch.
 - OIDC and LDAP project mapping: explicit map, pattern, `*`, an unknown project ignored, external memberships replaced and local ones kept.
 - Routing-pattern prefix enforcement and the pattern computation in the .NET SDK.
@@ -561,6 +561,7 @@ Sizes are rough, for one developer who knows the codebase. S is up to 2 days, M 
 - Shared workers granted by admins.
 - Moving resources between projects.
 - Per-project vhost support for operators who want it.
+- Reconsider row-level security as a second layer on occurrences and logs.
 
 Total: roughly 6 to 8 weeks of work, with phase 1 as the single biggest risk.
 
@@ -602,7 +603,7 @@ Each team gets its own API, database (or schema), Redis prefix and broker vhost.
   - Every connection must `SET app.project_id` per request, which fights connection pooling and the bulk extensions.
   - Background services need a bypass role.
   - Failures surface as empty results that are hard to debug.
-- **Verdict:** not in the first version. It is a good **second layer** to add later, on the occurrence and log tables only, once the EF approach is stable. It is listed as an open decision.
+- **Verdict:** not in the first version. It is a good **second layer** to add later, on the occurrence and log tables only, once the EF approach is stable. It is reconsidered in phase 4.
 
 ### Project as a route segment
 
@@ -616,18 +617,18 @@ Rejected. It forces token re-issue on every project switch and makes membership 
 
 Jobs already have tags, and a "team:payments" tag with permission checks on tags would be cheaper. Tags do not cover workers, keys, alerts or queues, and tag-based permission checks would be a second, weaker access model. Rejected.
 
-## Open Decisions
+## Decisions
 
-These need an answer from the maintainer before implementation starts. Each has a recommendation.
+The maintainer settled these questions before implementation started.
 
-1. **Do global roles with project permissions apply to all projects?** The recommendation is **no**. The migration splits them into instance roles and Default-project memberships. The alternative is simpler for small teams but makes "who can see project X" impossible to answer from the membership list.
-2. **Shared workers.** Do we need workers that serve several projects (the built-in HTTP, Email and SQL workers) in the first version? The recommendation is **no**: one worker per project, with admin-granted sharing in phase 4.
-3. **Worker token for the Default project.** Should registration into Default stay token-free by default for backward compatibility? The recommendation is **yes**, with `RequireWorkerTokenForDefault` for operators who want to close it.
-4. **Can project owners define their own roles?** The recommendation is **no** in the first version. Instance admins define project roles, and project owners assign them.
-5. **No project header.** Should the API fall back to Default when no project is sent? The recommendation is **yes**, with `RequireExplicitProject` to turn it off later.
-6. **Moving jobs or workflows between projects.** Is this needed? The recommendation is to leave it out of the first version. Moving means rewriting occurrences, logs and failures, so export and import is the safer path.
-7. **Row-level security as a second layer** on occurrences and logs (phase 4)? Yes or no.
-8. **Per-project queue visibility.** Should project users see the depth of their own job queues? This needs a per-queue RabbitMQ management API call filtered by the project prefix. The recommendation is yes, in phase 3.
-9. **The Reporter worker reads across projects.** Is that acceptable, given that it is a system worker run by the instance admin, or should reports move into the API? The recommendation is to accept it.
-10. **Project ids.** `int`, as recommended for column size on the large tables, or `Guid` to match jobs and occurrences?
-11. **Instance Auditor role.** Do we seed a read-all role for operations and on-call, or keep cross-project reading to super admins only?
+1. **Global roles with project permissions do not apply to all projects.** The migration splits each such role into an instance role and a Default-project membership, so "who can see project X" is always answered by the membership list.
+2. **No shared workers in the first version.** Each worker belongs to one project. Admin-granted sharing for the built-in HTTP, Email and SQL workers is reconsidered in phase 4.
+3. **Registering a worker into the Default project needs no token by default.** This keeps existing workers working. `RequireWorkerTokenForDefault` lets operators close that path.
+4. **Project owners cannot define their own roles.** Instance admins define project roles. Project owners assign them.
+5. **A request without a project header falls back to Default.** `RequireExplicitProject` turns the fallback off.
+6. **Jobs and workflows cannot be moved between projects in the first version.** Moving them would mean rewriting occurrences, logs and failures, so export and import is the path for now. Moving is reconsidered in phase 4.
+7. **Row-level security is not in the first version.** It is reconsidered in phase 4, as a second layer on occurrences and logs only.
+8. **Project users can see the depth of their own job queues.** This comes in phase 3, through RabbitMQ management API calls filtered by the project prefix.
+9. **The Reporter worker may read across projects.** It is a system worker run by the instance admin, and it writes one report per project.
+10. **Project ids are `int`.** The Default project is `1`.
+11. **There is no Instance Auditor role in the first version.** Only super admins can read across projects.
