@@ -285,6 +285,35 @@ public class UsersControllerTests(CustomWebApplicationFactory factory, ITestOutp
     }
 
     [Fact]
+    public async Task UpdateUserAsync_WithSoftDeletedUser_ShouldReturnNotFoundAndLeaveRowUnchanged()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var newUser = await SeedSingleUserAsync("softdeletedupdateuser");
+        var client = await _factory.CreateClient().LoginAsync();
+        (await client.DeleteAsync($"{_baseUrl}/user?UserId={newUser.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var request = new UpdateUserCommand
+        {
+            Id = newUser.Id,
+            Name = new UpdateProperty<string>("ShouldNotBeWritten")
+        };
+
+        // Act - a deleted user cannot be edited; the repository update also skips soft deleted rows (Milvasoft 11).
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/user", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<int>>();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var deletedUser = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == newUser.Id);
+        deletedUser.Should().NotBeNull();
+        deletedUser.IsDeleted.Should().BeTrue();
+        deletedUser.Name.Should().Be("Test");
+    }
+
+    [Fact]
     public async Task UpdateUserAsync_WithInvalidId_ShouldReturnError()
     {
         // Arrange

@@ -344,6 +344,31 @@ public class RolesControllerTests(CustomWebApplicationFactory factory, ITestOutp
     }
 
     [Fact]
+    public async Task UpdateRoleAsync_WithSoftDeletedRole_ShouldNotModifyDeletedRow()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var newRole = await SeedSingleRoleAsync("SoftDeletedRole");
+        var client = await _factory.CreateClient().LoginAsync();
+        (await client.DeleteAsync($"{_baseUrl}/role?RoleId={newRole.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var request = new UpdateRoleCommand
+        {
+            Id = newRole.Id,
+            Name = new UpdateProperty<string>("ShouldNotBeWritten")
+        };
+
+        // Act - Milvasoft 11 repository updates skip soft deleted rows, so a deleted role stays as it was deleted.
+        await client.PutAsJsonAsync($"{_baseUrl}/role", request);
+
+        // Assert
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var deletedRole = await dbContext.Roles.AsNoTracking().FirstOrDefaultAsync(r => r.Id == newRole.Id);
+        deletedRole.Should().NotBeNull();
+        deletedRole.IsDeleted.Should().BeTrue();
+        deletedRole.Name.Should().Be("SoftDeletedRole");
+    }
+
+    [Fact]
     public async Task UpdateRoleAsync_WithInvalidId_ShouldReturnError()
     {
         // Arrange
