@@ -1,15 +1,15 @@
 ---
 id: other-language-workers
 title: "Workers in Other Languages"
-sidebar_label: "Node.js, Go, Python, Java, PHP & Rust Workers"
+sidebar_label: "Node.js, Go, Python, Java, PHP, Rust & Ruby Workers"
 sidebar_position: 123
-description: "Run Milvaion jobs in Node.js, Go, Python, Java, PHP or Rust with the worker SDKs, or write a worker in any language against the worker protocol."
-keywords: [milvaion node.js worker, milvaion go worker, milvaion python worker, milvaion java worker, milvaion php worker, milvaion rust worker, polyglot job scheduler, worker protocol]
+description: "Run Milvaion jobs in Node.js, Go, Python, Java, PHP, Rust or Ruby with the worker SDKs, or write a worker in any language against the worker protocol."
+keywords: [milvaion node.js worker, milvaion go worker, milvaion python worker, milvaion java worker, milvaion php worker, milvaion rust worker, milvaion ruby worker, polyglot job scheduler, worker protocol]
 ---
 
 # Workers in Other Languages
 
-The Milvaion scheduler runs on .NET, but workers don't have to. Besides the .NET worker SDK, Milvaion has worker SDKs for **Node.js**, **Go**, **Python**, **Java**, **PHP** and **Rust**.
+The Milvaion scheduler runs on .NET, but workers don't have to. Besides the .NET worker SDK, Milvaion has worker SDKs for **Node.js**, **Go**, **Python**, **Java**, **PHP**, **Rust** and **Ruby**.
 
 A worker built with one of them works like a .NET worker:
 
@@ -34,6 +34,7 @@ All of them speak the same [worker protocol](https://github.com/Milvasoft/milvai
 | Java / Kotlin | Java 17+ | Maven Central `com.milvasoft:milvaion-worker` | [sdks/java/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/java/milvaion-worker) |
 | PHP | PHP 8.2+ | Packagist `milvasoft/milvaion-worker` | [sdks/php/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/php/milvaion-worker) |
 | Rust | Rust 1.89+, Tokio | crates.io `milvaion-worker` | [sdks/rust/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/rust/milvaion-worker) |
+| Ruby | Ruby 3.1+ | RubyGems `milvaion-worker` | [sdks/ruby/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/ruby/milvaion-worker) |
 
 :::tip No SDK for your language?
 The [Command Worker](./27-command-worker.md) runs scripts and programs in any language as Milvaion jobs, with live output, retries, cancellation and timeouts, without an SDK.
@@ -239,6 +240,38 @@ worker.run_until_signal().await?; // Ctrl+C or SIGTERM shut down gracefully
 ```
 
 Handlers are async closures, or types that implement the `Job` trait when they hold state such as a database pool. The SDK runs on Tokio and logs through `tracing`.
+
+## Ruby
+
+```bash
+gem install milvaion-worker
+```
+
+```ruby
+require "milvaion-worker"
+
+worker = Milvaion::Worker.new(
+  worker_id: "mail-worker",
+  rabbitmq_url: "amqp://guest:guest@localhost:5672/",
+  redis_url: "redis://localhost:6379"
+)
+
+worker.job("SendEmailJob") do |ctx|
+  data = ctx.data || {}
+  raise Milvaion::PermanentJobError, 'Job data needs "to".' if data["to"].to_s.empty?
+
+  ctx.log("Sending to #{data['to']}")
+  Mailer.deliver(data)
+
+  { sent: true }
+end
+
+worker.run # SIGTERM or Ctrl+C shut down gracefully
+```
+
+You can also subclass `Milvaion::Job`, implement `perform(ctx)` and register the class with `worker.job(SendEmailJob)`.
+
+Jobs run on a thread pool sized by `max_parallel_jobs`. Ruby cannot stop a thread safely from outside, so a cancelled or timed-out job is reported right away, but its thread keeps running until the handler returns. Check `ctx.aborted?` or call `ctx.raise_if_aborted` in long loops, and use `ctx.sleep` instead of `sleep`. For code that cannot check, the job option `interrupt_on_abort: true` raises an exception inside the handler's thread, with the same risks as Ruby's `Timeout` module.
 
 ## Configuration
 

@@ -1,0 +1,6 @@
+/.bundle/
+/vendor/
+/pkg/
+*.gem
+Gemfile.lock
+/spec/examples.txt
