@@ -137,6 +137,14 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 - **Zombie detection** recovers stuck jobs
 - **Auto disable** always failing jobs (configurable threshold)
 
+### Scheduling
+- **Per-job time zones** - Cron expressions run at local wall clock time in any IANA zone, with predictable daylight saving behaviour
+- **Missed-run policy** - Skip, run once or catch up on every run missed while the scheduler was down
+- **Job priority** - Higher priority jobs are dispatched first when several are due at once
+- **Exclusion calendars** - Skip holidays, maintenance days or weekends; skipped runs are recorded as skipped, not failed
+
+See [Scheduling Options](docs/portaldocs/28-scheduling.md), [Time Zones](docs/portaldocs/29-time-zones.md) and [Exclusion Calendars](docs/portaldocs/30-exclusion-calendars.md).
+
 ### Scalability
 - **Horizontal worker scaling** - add more workers for more throughput
 - **Job-type routing** - route specific jobs to specialized workers

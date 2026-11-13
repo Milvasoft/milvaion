@@ -43,6 +43,9 @@ Welcome to the official Milvaion documentation. This documentation will help you
 | [Maintenance](11-maintenance.md) | Database cleanup and retention policies |
 | [Built-in Workers](./built-in-workers/14-http-worker.md) | Pre-built workers (HTTP Worker, SQL Worker, Email Worker, Command Worker, Maintenance Worker) |
 | [Workflows](20-workflows.md) | Build multi-step job pipelines with DAG-based orchestration |
+| [Scheduling Options](28-scheduling.md) | Time zones, missed runs after downtime, priority and exclusion calendars |
+| [Time Zones](29-time-zones.md) | Run jobs at local wall clock time, with daylight saving time handled |
+| [Exclusion Calendars](30-exclusion-calendars.md) | Skip holidays, maintenance days or weekends |
 | [Api Keys](24-api-keys.md) | Credentials for CI pipelines, scripts and MCP clients |
 | [MCP Server](25-mcp-server.md) | Connect Claude Code, Cursor or Copilot and ask about your jobs |
 
