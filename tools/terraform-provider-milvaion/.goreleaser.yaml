@@ -1,0 +1,56 @@
+# Builds and signs the Terraform provider in the layout the Terraform Registry
+# expects: one zip per platform, a SHA256SUMS file, its detached GPG signature
+# and the registry manifest.
+# Run by .github/workflows/terraform-provider-release.yml on a
+# terraform-provider-v* tag. See tools/terraform-provider-milvaion/README.md for
+# the one-time GPG and registry setup.
+version: 2
+
+project_name: terraform-provider-milvaion
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [freebsd, windows, linux, darwin]
+    goarch: [amd64, "386", arm, arm64]
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: windows
+        goarch: arm
+    binary: "{{ .ProjectName }}_v{{ .Version }}"
+
+archives:
+  - formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    # The registry wants only the binary in each zip.
+    files:
+      - none*
+
+checksum:
+  extra_files:
+    - glob: terraform-registry-manifest.json
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
+  name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
+  algorithm: sha256
+
+signs:
+  - artifacts: checksum
+    args:
+      - --batch
+      - --local-user
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - --output
+      - ${signature}
+      - --detach-sign
+      - ${artifact}
+
+changelog:
+  disable: true
+
+release:
+  disable: true

@@ -74,6 +74,23 @@ Both wait for CI in the same way. On a pull request they only build and pack; no
   `oci://ghcr.io/<owner>/charts/milvaion` and attaches the package to a GitHub release. Uses the built-in
   `GITHUB_TOKEN`; no extra secrets.
 
+### CLI and Terraform Provider
+
+1. **Build & Test** (`tools-ci.yml`)
+   - Triggers on changes to: `tools/milvaion-cli/`, `tools/terraform-provider-milvaion/`
+   - Runs gofmt, vet and the unit tests of both. Provider acceptance tests need a live Milvaion and are not run here.
+
+2. **CLI Release** (`cli-release.yml`)
+   - Triggers on a `cli-vX.Y.Z` tag
+   - Builds `milvaion` for Linux, macOS and Windows (amd64, arm64) with GoReleaser and attaches the archives and checksums to the tag's GitHub release
+
+3. **Terraform Provider Release** (`terraform-provider-release.yml`)
+   - Triggers on a `terraform-provider-vX.Y.Z` tag
+   - Builds every platform the Terraform Registry serves, signs `SHA256SUMS` with GPG and attaches the registry assets to the tag's GitHub release
+   - Needs the `TERRAFORM_PROVIDER_GPG_PRIVATE_KEY` and `TERRAFORM_PROVIDER_GPG_PASSPHRASE` secrets; registry publishing is a manual step described in `tools/terraform-provider-milvaion/README.md`
+
+Both release workflows mark their GitHub release as not "latest", so the server release keeps that label.
+
 ## Version Management
 
 ### Docker Images
@@ -127,6 +144,8 @@ Configure the following secrets in your GitHub repository settings:
 - `DOCKERHUB_USERNAME` - Your Docker Hub username
 - `DOCKERHUB_TOKEN` - Your Docker Hub access token
 - `NUGET_API_KEY` - Your NuGet.org API key
+- `TERRAFORM_PROVIDER_GPG_PRIVATE_KEY` - ASCII-armored RSA key that signs Terraform provider releases
+- `TERRAFORM_PROVIDER_GPG_PASSPHRASE` - Passphrase of that key
 
 ## Required GitHub Variables
 

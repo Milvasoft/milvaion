@@ -1,0 +1,87 @@
+name: Terraform Provider - Release
+
+# Push a tag like terraform-provider-v1.2.3 to build the provider for every
+# platform the Terraform Registry serves, sign the checksums with GPG and attach
+# everything to a GitHub release of that tag.
+#
+# One-time setup (see tools/terraform-provider-milvaion/README.md):
+#   secrets TERRAFORM_PROVIDER_GPG_PRIVATE_KEY and TERRAFORM_PROVIDER_GPG_PASSPHRASE,
+#   and the public key added to the Terraform Registry namespace.
+on:
+  push:
+    tags: [ 'terraform-provider-v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/terraform-provider-milvaion
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/terraform-provider-milvaion/go.mod
+          cache-dependency-path: tools/terraform-provider-milvaion/go.sum
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Version from tag
+        id: version
+        run: |
+          v="${GITHUB_REF_NAME#terraform-provider-v}"
+          if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag must look like terraform-provider-v1.2.3, got $GITHUB_REF_NAME"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: go test -count=1 ./...
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.TERRAFORM_PROVIDER_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.TERRAFORM_PROVIDER_GPG_PASSPHRASE }}
+
+      - name: Build and sign with GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          workdir: tools/terraform-provider-milvaion
+          args: release --clean --skip=validate
+        env:
+          GORELEASER_CURRENT_TAG: v${{ steps.version.outputs.version }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+
+      - name: Add the registry manifest
+        run: cp terraform-registry-manifest.json "dist/terraform-provider-milvaion_${{ steps.version.outputs.version }}_manifest.json"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Terraform provider ${{ steps.version.outputs.version }}
+          body: |
+            Terraform provider for Milvaion, signed with GPG key ${{ steps.import_gpg.outputs.fingerprint }}.
+            See https://github.com/${{ github.repository }}/blob/master/tools/terraform-provider-milvaion/README.md
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          make_latest: false
+          files: |
+            tools/terraform-provider-milvaion/dist/*.zip
+            tools/terraform-provider-milvaion/dist/*_SHA256SUMS
+            tools/terraform-provider-milvaion/dist/*_SHA256SUMS.sig
+            tools/terraform-provider-milvaion/dist/*_manifest.json

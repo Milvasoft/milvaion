@@ -1,0 +1,65 @@
+name: CLI & Terraform Provider - Build & Test
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'tools/milvaion-cli/**'
+      - 'tools/terraform-provider-milvaion/**'
+      - '.github/workflows/tools-ci.yml'
+  pull_request:
+    branches: [ master, develop ]
+    paths:
+      - 'tools/milvaion-cli/**'
+      - 'tools/terraform-provider-milvaion/**'
+      - '.github/workflows/tools-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: milvaion CLI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/milvaion-cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/milvaion-cli/go.mod
+          cache-dependency-path: tools/milvaion-cli/go.sum
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -race -count=1 ./...
+      - name: Build
+        run: go build -o milvaion .
+
+  provider:
+    name: Terraform provider
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/terraform-provider-milvaion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/terraform-provider-milvaion/go.mod
+          cache-dependency-path: tools/terraform-provider-milvaion/go.sum
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: Vet
+        run: go vet ./...
+      # Unit tests run Terraform against an in-memory fake API. The acceptance
+      # tests need a running Milvaion and are skipped here (no TF_ACC).
+      - name: Test
+        run: go test -count=1 ./...

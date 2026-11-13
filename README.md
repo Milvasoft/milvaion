@@ -220,6 +220,42 @@ More than forty tools — reading, triggering, pausing, editing and deleting —
 
 📖 **[MCP Server Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/mcp-server)**
 
+### Jobs as Code
+Keep job definitions in Git and apply them from CI, with the `milvaion` CLI or the Terraform provider:
+
+```yaml
+# jobs.yaml
+apiVersion: milvaion/v1
+kind: Job
+metadata:
+  name: nightly-invoice-report
+spec:
+  worker: reporter-worker
+  jobName: InvoiceReportJob
+  cron: "0 0 2 * * *"
+  jobData: { format: pdf }
+```
+
+```bash
+milvaion diff -f jobs.yaml            # what would change
+milvaion apply -f jobs.yaml --prune   # create, update, and delete jobs removed from the file
+milvaion trigger nightly-invoice-report --follow
+```
+
+```hcl
+resource "milvaion_job" "invoice_report" {
+  name            = "nightly-invoice-report"
+  worker_id       = "reporter-worker"
+  job_name        = "InvoiceReportJob"
+  cron_expression = "0 0 2 * * *"
+  job_data        = jsonencode({ format = "pdf" })
+}
+```
+
+Both use an [api key](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/api-keys) and the regular REST API. CLI binaries for Linux, macOS and Windows are attached to the `cli-v*` releases.
+
+📖 **[Jobs as Code Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/jobs-as-code)**
+
 ---
 
 ## Quick Start
@@ -485,6 +521,7 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Hangfire & Quartz.NET Integration](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/external-schedulers) | Keep your existing scheduler, add Milvaion monitoring |
 | [Api Keys](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/api-keys) | Credentials for CI pipelines, scripts and MCP clients |
 | [MCP Server](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/mcp-server) | Connect Claude Code, Cursor or Copilot to Milvaion |
+| [Jobs as Code](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/jobs-as-code) | Manage jobs from Git with the `milvaion` CLI or Terraform |
 | [Quick Start](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/quick-start) | Get running in under 10 minutes |
 | [Core Concepts](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/core-concepts) | Architecture and key terms |
 | [Your First Worker](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/your-first-worker) | Create a custom worker |
@@ -512,6 +549,8 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Java Worker SDK](./sdks/java/milvaion-worker/README.md) | Running Milvaion jobs on the JVM |
 | [PHP Worker SDK](./sdks/php/milvaion-worker/README.md) | Running Milvaion jobs in PHP |
 | [MCP Server](./docs/githubdocs/MCP-SERVER.md) | MCP server and api key auth internals |
+| [milvaion CLI](./tools/milvaion-cli/README.md) | CLI internals, the YAML schema table, releasing |
+| [Terraform Provider](./tools/terraform-provider-milvaion/README.md) | Provider development, acceptance tests, GPG and registry setup |
 | [Security](./SECURITY.md) | Security policies |
 
 ---
