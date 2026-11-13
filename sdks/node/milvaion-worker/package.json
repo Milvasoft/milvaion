@@ -1,0 +1,48 @@
+{
+  "name": "@milvasoft/milvaion-worker",
+  "version": "0.1.0",
+  "description": "Node.js worker SDK for the Milvaion job scheduler",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --experimental-strip-types --no-warnings=ExperimentalWarning test/*.test.ts",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Milvasoft/milvaion.git",
+    "directory": "sdks/node/milvaion-worker"
+  },
+  "keywords": [
+    "milvaion",
+    "job-scheduler",
+    "worker",
+    "rabbitmq",
+    "cron"
+  ],
+  "dependencies": {
+    "amqplib": "^2.3.1",
+    "ioredis": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3"
+  }
+}

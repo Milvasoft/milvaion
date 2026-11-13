@@ -278,6 +278,8 @@ milvaion/
 │   │   ├── EmailWorker/              # Built-in Email worker
 │   │   └── MilvaionMaintenanceWorker/ # Maintenance jobs
 │   └── MilvaionUI/                   # React dashboard
+├── sdks/
+│   └── node/milvaion-worker/         # Node.js worker SDK
 ├── tests/
 │   ├── Milvaion.UnitTests/
 │   └── Milvaion.IntegrationTests/
@@ -479,6 +481,8 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Architecture](./docs/githubdocs/ARCHITECTURE.md) | Technical architecture deep-dive |
 | [Development](./docs/githubdocs/DEVELOPMENT.md) | Development environment setup |
 | [Worker SDK](./docs/githubdocs/WORKER-SDK.md) | Worker SDK reference |
+| [Worker Protocol](./docs/githubdocs/WORKER-PROTOCOL.md) | Language-neutral protocol for writing workers in any language |
+| [Node.js Worker SDK](./sdks/node/milvaion-worker/README.md) | Running Milvaion jobs in Node.js |
 | [MCP Server](./docs/githubdocs/MCP-SERVER.md) | MCP server and api key auth internals |
 | [Security](./SECURITY.md) | Security policies |
 
@@ -550,6 +554,10 @@ dotnet add package Milvasoft.Milvaion.Sdk.Worker
 # Worker Templates
 dotnet new install Milvasoft.Templates.Milvaion
 ```
+
+### Node.js
+
+[`sdks/node/milvaion-worker`](./sdks/node/milvaion-worker/README.md) runs Milvaion jobs in Node.js. It speaks the same [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md) as the .NET SDK, so Node workers show up in the dashboard like .NET ones. It is not on npm yet.
 
 ---
 
