@@ -1,0 +1,190 @@
+{{- range $key, $worker := .Values.workers }}
+{{- if $worker.enabled }}
+{{- $w := fromYaml (include "milvaion.worker.values" (dict "root" $ "worker" $worker)) -}}
+{{- $name := printf "%s-%s-worker" (include "milvaion.fullname" $) $key | trunc 63 | trimSuffix "-" -}}
+{{- $configEnv := dict -}}
+{{- include "milvaion.flatten" (dict "prefix" "" "value" (default dict $w.config) "out" $configEnv) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "milvaion.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ printf "%s-worker" $key }}
+spec:
+  replicas: {{ $w.replicaCount }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "milvaion.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ printf "%s-worker" $key }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ toJson $w | sha256sum }}
+        {{- with $w.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "milvaion.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ printf "%s-worker" $key }}
+        {{- with $w.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "milvaion.serviceAccountName" $ }}
+      automountServiceAccountToken: {{ $.Values.serviceAccount.automountServiceAccountToken }}
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $w.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $w.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ $w.terminationGracePeriodSeconds }}
+      containers:
+        - name: worker
+          image: {{ include "milvaion.image" (dict "image" $w.image "root" $ "defaultTag" "latest") }}
+          imagePullPolicy: {{ $w.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $w.securityContext | nindent 12 }}
+          env:
+            # Passwords first: the variables below expand them with $(NAME).
+            {{- if $w.milvaionDatabaseEnv }}
+            {{- include "milvaion.env.dbPassword" $ | nindent 12 }}
+            {{- end }}
+            {{- include "milvaion.env.passwords" $ | nindent 12 }}
+            {{- range $k, $v := $configEnv }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            - name: Worker__WorkerId
+              value: {{ default (printf "%s-worker" $key) $w.workerId | quote }}
+            - name: Worker__RabbitMQ__Host
+              value: {{ include "milvaion.rabbitmq.host" $ | quote }}
+            - name: Worker__RabbitMQ__Port
+              value: {{ include "milvaion.rabbitmq.port" $ | quote }}
+            - name: Worker__RabbitMQ__Username
+              value: {{ include "milvaion.rabbitmq.username" $ | quote }}
+            - name: Worker__RabbitMQ__Password
+              value: "$(MILVAION_RABBITMQ_PASSWORD)"
+            - name: Worker__RabbitMQ__VirtualHost
+              value: {{ include "milvaion.rabbitmq.virtualHost" $ | quote }}
+            - name: Worker__Redis__ConnectionString
+              value: {{ printf "%s:%s" (include "milvaion.redis.host" $) (include "milvaion.redis.port" $) | quote }}
+            - name: Worker__Redis__Database
+              value: {{ include "milvaion.redis.database" $ | quote }}
+            {{- if include "milvaion.redis.authEnabled" $ }}
+            - name: Worker__Redis__Password
+              value: "$(MILVAION_REDIS_PASSWORD)"
+            {{- end }}
+            - name: Worker__OfflineResilience__LocalStoragePath
+              value: /app/worker_data
+            {{- if not (hasKey $configEnv "Logging__Seq__Enabled") }}
+            # The images default to a Seq server at http://seq:5341. Set config.Logging.Seq to use one.
+            - name: Logging__Seq__Enabled
+              value: "false"
+            {{- end }}
+            {{- range $w.milvaionDatabaseEnv }}
+            - name: {{ . }}
+              value: {{ include "milvaion.database.connectionString" (dict "root" $ "parameters" $w.databaseConnectionParameters) | quote }}
+            {{- end }}
+            {{- range $w.redisConnectionStringEnv }}
+            - name: {{ . }}
+              value: {{ include "milvaion.redis.connectionString" $ | quote }}
+            {{- end }}
+            {{- with $w.extraEnv }}
+            {{- tpl (toYaml .) $ | nindent 12 }}
+            {{- end }}
+          {{- with $w.extraEnvFrom }}
+          envFrom:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- /* The SDK rewrites /tmp/live every Worker:HealthCheck:IntervalSeconds (30s) while it is healthy, and
+                 keeps /tmp/ready only while RabbitMQ and Redis are reachable. */}}
+          {{- if $w.startupProbe.enabled }}
+          startupProbe:
+            exec:
+              command: ["sh", "-c", "test -f /tmp/live"]
+            periodSeconds: {{ $w.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ $w.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ $w.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if $w.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "[ -n \"$(find /tmp/live -mmin -2 2>/dev/null)\" ]"]
+            periodSeconds: {{ $w.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ $w.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ $w.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if $w.readinessProbe.enabled }}
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "test -f /tmp/ready"]
+            periodSeconds: {{ $w.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ $w.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ $w.readinessProbe.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml $w.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /app/worker_data
+            {{- with $w.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: data
+          {{- if $w.dataVolume.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ $w.dataVolume.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- with $w.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $w.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $w.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $w.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $w.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+{{- if and $w.pdb.enabled (gt (int $w.replicaCount) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "milvaion.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ printf "%s-worker" $key }}
+spec:
+  maxUnavailable: {{ $w.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "milvaion.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ printf "%s-worker" $key }}
+{{- end }}
+{{- end }}
+{{- end }}

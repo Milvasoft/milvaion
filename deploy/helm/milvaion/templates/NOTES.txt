@@ -1,0 +1,46 @@
+Milvaion {{ .Chart.AppVersion }} is installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+{{- if .Values.ingress.enabled }}
+
+Dashboard and API:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ (first .paths).path }}
+{{- end }}
+{{- else }}
+
+Reach the dashboard and API with a port-forward:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "milvaion.api.fullname" . }} 5000:{{ .Values.api.service.port }}
+  then open http://localhost:5000
+{{- end }}
+
+Sign in as "rootuser". The password is in the Secret:
+{{- if .Values.auth.existingSecret }}
+  kubectl --namespace {{ .Release.Namespace }} get secret {{ .Values.auth.existingSecret }} -o jsonpath="{.data.{{ .Values.auth.secretKeys.rootPassword }}}" | base64 -d
+{{- else }}
+  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "milvaion.secretName" . }} -o jsonpath="{.data.{{ .Values.auth.secretKeys.rootPassword }}}" | base64 -d
+{{- end }}
+It is applied only when the database is first initialised; change it in the dashboard afterwards.
+
+The API applies database migrations when it starts. Watch the first start with:
+  kubectl --namespace {{ .Release.Namespace }} logs deploy/{{ include "milvaion.api.fullname" . }} -f
+
+{{- $bundled := list }}
+{{- if .Values.postgresql.enabled }}{{ $bundled = append $bundled "PostgreSQL" }}{{ end }}
+{{- if .Values.rabbitmq.enabled }}{{ $bundled = append $bundled "RabbitMQ" }}{{ end }}
+{{- if .Values.redis.enabled }}{{ $bundled = append $bundled "Redis" }}{{ end }}
+{{- if $bundled }}
+
+WARNING: the bundled {{ join ", " $bundled }} run as single pods without replication or backups. They are meant for
+evaluation. For production, use managed services or operators and the externalDatabase, externalRabbitmq and
+externalRedis settings.
+{{- end }}
+
+{{- $workers := list }}
+{{- range $k, $w := .Values.workers }}{{ if $w.enabled }}{{ $workers = append $workers $k }}{{ end }}{{ end }}
+{{- if $workers }}
+
+Built-in workers: {{ join ", " $workers }}
+{{- end }}
+
+Check the installation with:
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}

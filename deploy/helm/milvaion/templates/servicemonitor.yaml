@@ -1,0 +1,26 @@
+{{- $sm := .Values.metrics.serviceMonitor -}}
+{{- if $sm.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "milvaion.api.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "milvaion.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+    {{- with $sm.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "milvaion.api.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http
+      path: {{ dig "MilvaionConfig" "OpenTelemetry" "ExportPath" "/api/metrics" (default dict .Values.config) }}
+      interval: {{ $sm.interval }}
+      scrapeTimeout: {{ $sm.scrapeTimeout }}
+{{- end }}

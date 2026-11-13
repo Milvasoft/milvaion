@@ -491,6 +491,7 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Implementing Jobs](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/implementing-jobs) | Advanced job patterns |
 | [Configuration](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/configuration) | All configuration options |
 | [Deployment](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/deployment) | Docker and Kubernetes deployment |
+| [Kubernetes (Helm)](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/kubernetes-helm) | Install with the Helm chart |
 | [Reliability](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/reliability) | Retry, DLQ, zombie detection |
 | [Scaling](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/scaling) | Horizontal scaling strategies |
 | [Monitoring](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/monitoring) | Health checks, metrics, logging |
@@ -630,6 +631,23 @@ docker compose up -d
 - **Prometheus**: http://localhost:9090
 - **RabbitMQ Management**: http://localhost:15672 (guest/guest)
 - **Seq Logs**: http://localhost:5341
+
+---
+
+## Kubernetes
+
+The Helm chart in [`deploy/helm/milvaion`](deploy/helm/milvaion) installs the API and dashboard, the built-in
+workers, an optional Ingress with TLS, and, for evaluation, single-pod PostgreSQL, RabbitMQ and Redis:
+
+```bash
+helm install milvaion oci://ghcr.io/milvasoft/charts/milvaion \
+  --namespace milvaion --create-namespace \
+  --set postgresql.enabled=true --set rabbitmq.enabled=true --set redis.enabled=true
+```
+
+For production, point it at your own PostgreSQL, RabbitMQ and Redis. See the
+[chart README](deploy/helm/milvaion/README.md) and the
+[Kubernetes guide](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/kubernetes-helm).
 
 ---
 

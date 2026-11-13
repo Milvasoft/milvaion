@@ -1,0 +1,6 @@
+apiVersion: v2
+name: redis
+description: Single-pod Redis for evaluating Milvaion. Not for production.
+type: application
+version: 0.1.0
+appVersion: "7"

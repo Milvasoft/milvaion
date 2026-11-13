@@ -1,0 +1,23 @@
+enabled: false
+image:
+  repository: rabbitmq
+  tag: "3-management-alpine"
+  pullPolicy: IfNotPresent
+auth:
+  username: milvaion
+  # -- Generated when empty and kept across upgrades.
+  password: ""
+persistence:
+  enabled: true
+  size: 4Gi
+  storageClass: ""
+  accessModes: ["ReadWriteOnce"]
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,21 @@
+{{- $api := .Values.api -}}
+{{- $minPods := ternary (int $api.autoscaling.minReplicas) (int $api.replicaCount) $api.autoscaling.enabled -}}
+{{- if and $api.pdb.enabled (or $api.autoscaling.enabled (gt $minPods 1)) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "milvaion.api.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "milvaion.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if $api.pdb.maxUnavailable }}
+  maxUnavailable: {{ $api.pdb.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ $api.pdb.minAvailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "milvaion.api.selectorLabels" . | nindent 6 }}
+{{- end }}

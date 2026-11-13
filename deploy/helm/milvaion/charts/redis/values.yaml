@@ -1,0 +1,23 @@
+enabled: false
+image:
+  repository: redis
+  tag: "7-alpine"
+  pullPolicy: IfNotPresent
+auth:
+  enabled: true
+  # -- Generated when empty and kept across upgrades.
+  password: ""
+persistence:
+  enabled: true
+  size: 2Gi
+  storageClass: ""
+  accessModes: ["ReadWriteOnce"]
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+nodeSelector: {}
+tolerations: []
+affinity: {}

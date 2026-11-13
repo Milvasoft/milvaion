@@ -1,0 +1,37 @@
+# Evaluation install: bundled PostgreSQL, RabbitMQ and Redis, and every built-in worker.
+postgresql:
+  enabled: true
+  persistence:
+    size: 1Gi
+rabbitmq:
+  enabled: true
+  persistence:
+    size: 1Gi
+redis:
+  enabled: true
+  persistence:
+    size: 1Gi
+
+api:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+workerDefaults:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+workers:
+  http:
+    enabled: true
+  sql:
+    enabled: true
+  email:
+    enabled: true
+  command:
+    enabled: true
+  maintenance:
+    enabled: true
