@@ -1,8 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Milvaion.Application.Dtos.FailedOccurrenceDtos;
 using Milvaion.Application.Dtos.ScheduledJobDtos;
 using Milvaion.Application.Features.FailedOccurrences.GetFailedOccurrenceList;
@@ -783,20 +781,18 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         // Arrange
         await SeedRootUserAndSuperAdminRoleAsync();
         var job = await SeedSingleScheduledJobAsync("BrokerDownJob", "Job triggered while RabbitMQ is down");
-        var waf = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
-        {
-            services.RemoveAll<IRabbitMQPublisher>();
-            services.AddSingleton<IRabbitMQPublisher, UnavailablePublisher>();
-        }));
-        var client = await waf.CreateClient().LoginAsync();
         var request = new TriggerScheduledJobCommand { JobId = job.Id, Reason = "Broker down" };
 
+        // The handler is built from the running host's services with only the publisher swapped. A second host
+        // (WithWebHostBuilder) would re-read the factory's process-wide environment variables, which another test
+        // collection may have pointed at its own, possibly stopped, containers.
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var handler = ActivatorUtilities.CreateInstance<TriggerScheduledJobCommandHandler>(scope.ServiceProvider, new UnavailablePublisher());
+
         // Act
-        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/job/trigger", request);
-        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+        var result = await handler.Handle(request, CancellationToken.None);
 
         // Assert
-        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.IsSuccess.Should().BeFalse();
         result.Messages.Should().Contain(m => m.Message.Contains("message broker"));
 
