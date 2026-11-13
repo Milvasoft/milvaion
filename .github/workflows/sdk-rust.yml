@@ -1,0 +1,70 @@
+name: Rust SDK - Build & Test
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/rust/**'
+      - '.github/workflows/sdk-rust.yml'
+  pull_request:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/rust/**'
+      - '.github/workflows/sdk-rust.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Rust ${{ matrix.rust }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.89 is the minimum supported version (rust-version in Cargo.toml).
+        rust: [ '1.89', 'stable' ]
+
+    defaults:
+      run:
+        working-directory: sdks/rust/milvaion-worker
+
+    env:
+      CARGO_TERM_COLOR: always
+      # The integration test starts RabbitMQ and Redis with Docker; fail instead of skipping it.
+      MILVAION_TEST_REQUIRE_BROKERS: '1'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sdks/rust/milvaion-worker
+
+      - name: Check formatting
+        if: matrix.rust == 'stable'
+        run: cargo fmt --check
+
+      - name: Clippy
+        if: matrix.rust == 'stable'
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build example
+        run: cargo build --locked --examples
+
+      - name: Package
+        if: matrix.rust == 'stable'
+        run: cargo package --locked

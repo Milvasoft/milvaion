@@ -1,0 +1,61 @@
+name: Rust SDK - Publish
+
+# Publishes the Rust worker SDK (crate milvaion-worker) to crates.io when its tag is pushed:
+#   sdk-rust-v1.0.0 -> crates.io milvaion-worker 1.0.0
+# The tag's version must match the version in sdks/rust/milvaion-worker/Cargo.toml.
+#
+# Authentication: if the CARGO_REGISTRY_TOKEN secret is set, it is used. Otherwise the job uses
+# crates.io trusted publishing (configure this repository and workflow on the crate's settings
+# page). The first release of a new crate has to use the token, because trusted publishing can
+# only be configured once the crate exists.
+
+on:
+  push:
+    tags:
+      - 'sdk-rust-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write # crates.io trusted publishing
+
+    defaults:
+      run:
+        working-directory: sdks/rust/milvaion-worker
+
+    env:
+      CARGO_TERM_COLOR: always
+      HAS_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check version
+        run: |
+          version="${GITHUB_REF_NAME#sdk-rust-v}"
+          manifest="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "milvaion-worker") | .version')"
+          echo "tag: $version, Cargo.toml: $manifest"
+          test "$version" = "$manifest"
+
+      - name: Test
+        run: cargo test --locked
+        env:
+          MILVAION_TEST_REQUIRE_BROKERS: '1'
+
+      - name: Authenticate with crates.io
+        id: auth
+        if: env.HAS_TOKEN != 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
