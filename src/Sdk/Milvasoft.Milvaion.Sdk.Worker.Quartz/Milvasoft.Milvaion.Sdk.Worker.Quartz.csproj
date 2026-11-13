@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFramework>net11.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>disable</Nullable>
 		<PlatformTarget>AnyCPU</PlatformTarget>
@@ -11,8 +11,6 @@
 	<ItemGroup>
 		<PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.*" />
 		<PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
-		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
 		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
 	</ItemGroup>
 
@@ -27,7 +25,7 @@
 	</ItemGroup>
 
 	<PropertyGroup>
-		<PackageVersion>10.2.1</PackageVersion>
+		<PackageVersion>11.0.0</PackageVersion>
 		<Authors>Milvasoft Corporation</Authors>
 		<Copyright>Milvasoft Yazılım Bilişim Araştırma Geliştirme Danışmanlık Sanayi ve Ticaret Ltd.Şti.</Copyright>
 		<RepositoryUrl>https://github.com/Milvasoft/milvaion-api</RepositoryUrl>

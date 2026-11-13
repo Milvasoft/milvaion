@@ -1,6 +1,6 @@
 # SampleWorker Dockerfile - Optimized Multi-stage Build
 # Base runtime image (use regular image instead of chiseled)
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS base
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute AS base
 
 # Install required libraries for PostgreSQL and RabbitMQ
 RUN apt-get update && apt-get install -y \
@@ -14,7 +14,7 @@ RUN groupadd -r milvaion && useradd -r -g milvaion milvaion
 WORKDIR /app
 
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0-resolute AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 

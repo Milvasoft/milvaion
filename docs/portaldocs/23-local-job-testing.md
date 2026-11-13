@@ -94,7 +94,7 @@ Your `.csproj` should look like:
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	<TargetFramework>net10.0</TargetFramework>
+	<TargetFramework>net11.0</TargetFramework>
 	<IsTestProject>true</IsTestProject>
 	<Nullable>disable</Nullable>
   </PropertyGroup>

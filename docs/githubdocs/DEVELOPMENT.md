@@ -433,7 +433,7 @@ Tests use `appsettings.Testing.json`:
 
 ```dockerfile
 # In Dockerfile, use Debug configuration
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS debug
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS debug
 WORKDIR /app
 COPY . .
 RUN dotnet build -c Debug

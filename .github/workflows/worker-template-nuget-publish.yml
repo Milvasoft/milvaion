@@ -33,7 +33,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '11.0.x' }}
 
       - name: Restore Milvasoft.Templates.Milvaion dependencies
         run: dotnet restore src/Workers/Milvasoft.Templates.Milvaion/Milvasoft.Templates.Milvaion.csproj

@@ -122,7 +122,7 @@ Configure the following secrets in your GitHub repository settings:
 
 Configure the following variables in your GitHub repository settings:
 
-- `DOTNET_VERSION` - .NET SDK version (e.g., `10.0.x`)
+- `DOTNET_VERSION` - .NET SDK version (e.g., `11.0.x`)
 
 ## Manual Trigger
 

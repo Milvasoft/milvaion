@@ -28,7 +28,7 @@ RUN npm run build
 # ============================================
 # Stage 2: .NET Runtime Base
 # ============================================
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS base
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute AS base
 
 # Install required libraries for PostgreSQL and RabbitMQ
 RUN apt-get update && apt-get install -y \
@@ -47,7 +47,7 @@ ENV ASPNETCORE_URLS=http://+:5000
 # ============================================
 # Stage 3: Build .NET Backend
 # ============================================
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0-resolute AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 

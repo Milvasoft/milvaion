@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFramework>net11.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 		<DocumentationFile>..\Milvaion.Domain\Milvaion.Domain.xml</DocumentationFile>
@@ -23,10 +23,10 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="10.0.11" />
-		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.DataAccess.EfCore.Bulk" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.Identity" Version="10.2.0" />
+		<PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.DataAccess.EfCore.Bulk" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Identity" Version="11.0.0" />
 	</ItemGroup>
 
 

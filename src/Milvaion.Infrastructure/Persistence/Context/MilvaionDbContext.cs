@@ -54,17 +54,25 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
     /// <inheritdoc/>
-    public override int SaveChanges()
+    /// <remarks>
+    /// MilvaDbContext runs its save logic in the bool overloads only (every other SaveChanges overload ends here),
+    /// so the GUIDv7 assignment lives here too.
+    /// </remarks>
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         SetGuidV7();
-        return base.SaveChanges();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     /// <inheritdoc/>
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    /// <remarks>
+    /// MilvaDbContext runs its save logic in the bool overloads only (every other SaveChangesAsync overload ends here),
+    /// so the GUIDv7 assignment lives here too.
+    /// </remarks>
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         SetGuidV7();
-        return base.SaveChangesAsync(cancellationToken);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     /// <inheritdoc/>

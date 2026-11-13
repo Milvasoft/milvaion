@@ -795,7 +795,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '10.0.x'
+        dotnet-version: '11.0.x'
     
     - name: Restore dependencies
       run: dotnet restore

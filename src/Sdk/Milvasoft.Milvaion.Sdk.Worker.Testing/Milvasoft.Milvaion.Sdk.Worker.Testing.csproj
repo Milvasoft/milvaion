@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFramework>net11.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>disable</Nullable>
 		<IsPackable>true</IsPackable>
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<PackageVersion>10.2.1</PackageVersion>
+		<PackageVersion>11.0.0</PackageVersion>
 		<Authors>Milvasoft Corporation</Authors>
 		<Copyright>Milvasoft Yazılım Bilişim Araştırma Geliştirme Danışmanlık Sanayi ve Ticaret Ltd.Şti.</Copyright>
 		<RepositoryUrl>https://github.com/Milvasoft/milvaion-api</RepositoryUrl>
@@ -22,7 +22,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.11" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="11.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>

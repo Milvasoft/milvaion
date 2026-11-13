@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <PackageType>Template</PackageType>
-    <PackageVersion>10.2.1</PackageVersion>
+    <PackageVersion>11.0.0</PackageVersion>
     <PackageId>Milvasoft.Templates.Milvaion</PackageId>
     <Title>Milvaion Worker Templates</Title>
     <Authors>Milvasoft Corporation</Authors>

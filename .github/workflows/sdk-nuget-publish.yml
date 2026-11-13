@@ -33,7 +33,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '11.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk/Milvasoft.Milvaion.Sdk.csproj
@@ -59,7 +59,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '11.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk.Worker dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj
@@ -85,7 +85,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '11.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk.Worker.Quartz dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Quartz/Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj
@@ -111,7 +111,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ vars.DOTNET_VERSION || '10.0.x' }}
+          dotnet-version: ${{ vars.DOTNET_VERSION || '11.0.x' }}
 
       - name: Restore Milvasoft.Milvaion.Sdk.Worker.Hangfire dependencies
         run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj

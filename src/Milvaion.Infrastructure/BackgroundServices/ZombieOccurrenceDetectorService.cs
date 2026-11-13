@@ -1,4 +1,4 @@
-﻿using EFCore.BulkExtensions;
+﻿using Milvasoft.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -195,7 +195,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         });
     }
 
-    private static void ConfigureBulkUpdate(EFCore.BulkExtensions.BulkConfig config) => config.PropertiesToInclude = config.PropertiesToIncludeOnUpdate = _updatePropNames;
+    private static void ConfigureBulkUpdate(BulkConfig config) => config.PropertiesToInclude = config.PropertiesToIncludeOnUpdate = _updatePropNames;
 
     private int TimeoutFor(JobOccurrence occurrence) => occurrence.ZombieTimeoutMinutes ?? _options.ZombieTimeoutMinutes;
 

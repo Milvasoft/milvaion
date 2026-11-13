@@ -43,7 +43,7 @@ Then copy `dist/` → `src/Milvaion.Api/wwwroot/`
 cd src/Milvaion.Api
 dotnet publish -c Release
 # Automatically builds React app
-# Output: bin/Release/net10.0/publish/wwwroot/
+# Output: bin/Release/net11.0/publish/wwwroot/
 ```
 
 ---

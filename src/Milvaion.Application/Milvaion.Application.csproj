@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFramework>net11.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 		<DocumentationFile>..\Milvaion.Application\Milvaion.Application.xml</DocumentationFile>
@@ -34,14 +34,14 @@
 		<PackageReference Include="Mapster" Version="10.0.11" />
 		<PackageReference Include="MediatR" Version="[12.5.0]" />
 		<PackageReference Include="Cronos" Version="0.13.0" />
-		<PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="10.0.11" />
-		<PackageReference Include="Milvasoft.Caching.InMemory" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.Caching.Redis" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.Components.CQRS" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.Interception.Ef" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.Localization.Resx" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.Components.Rest" Version="10.2.0" />
-		<PackageReference Include="Milvasoft.Interception" Version="10.2.0" />
+		<PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Caching.InMemory" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Caching.Redis" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Components.CQRS" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Interception.Ef" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Localization.Resx" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Components.Rest" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Interception" Version="11.0.0" />
 	</ItemGroup>
 
 

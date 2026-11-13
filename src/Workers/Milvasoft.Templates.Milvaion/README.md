@@ -106,11 +106,8 @@ Both templates support the following options:
 
 ## Framework Selection
 ```bash
-# Use .NET 9.0
-dotnet new milvaion-worker -n MyWorker --Framework net9.0
-
-# Use .NET 10.0 (default)
-dotnet new milvaion-worker -n MyWorker --Framework net10.0
+# Use .NET 11.0 (default and only supported framework)
+dotnet new milvaion-worker -n MyWorker --Framework net11.0
 ```
 
 ## Nullable Context

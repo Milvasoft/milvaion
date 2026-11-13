@@ -1,4 +1,4 @@
-using EFCore.BulkExtensions;
+using Milvasoft.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Milvaion.Domain;
 using Milvaion.Infrastructure.Persistence.Context;
@@ -10,7 +10,7 @@ namespace Milvaion.Infrastructure.Persistence;
 /// Concurrency control for the many writers of <see cref="JobOccurrence"/> rows.
 /// </summary>
 /// <remarks>
-/// EFCore.BulkExtensions does not apply concurrency tokens, so a row version would not protect the bulk
+/// Milvasoft.BulkExtensions does not apply concurrency tokens, so a row version would not protect the bulk
 /// updates these services use. Instead the rows are locked and re-checked in the transaction that writes
 /// them, which turns read-then-write into a single atomic step.
 /// </remarks>
