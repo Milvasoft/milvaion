@@ -1,0 +1,9 @@
+# External services with passwords given as values (stored in the chart's Secret) and Redis without a password.
+externalDatabase:
+  host: postgres
+  password: ci-db-password
+externalRabbitmq:
+  host: rabbitmq
+  password: ci-rabbitmq-password
+externalRedis:
+  host: redis

@@ -64,6 +64,16 @@ The following workflows publish packages to NuGet.org:
 
 Both wait for CI in the same way. On a pull request they only build and pack; nothing is pushed to NuGet.org.
 
+### Helm Chart
+
+**Helm Chart** (`helm.yml`)
+- Triggers on changes to: `deploy/helm/`
+- Runs `helm lint` and `helm template` for every values file in `deploy/helm/milvaion/ci/` and validates the output
+  with kubeconform
+- On a `helm-v<version>` tag (which must match `version` in `Chart.yaml`), pushes the chart to
+  `oci://ghcr.io/<owner>/charts/milvaion` and attaches the package to a GitHub release. Uses the built-in
+  `GITHUB_TOKEN`; no extra secrets.
+
 ## Version Management
 
 ### Docker Images

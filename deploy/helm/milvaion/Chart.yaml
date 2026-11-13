@@ -1,0 +1,38 @@
+apiVersion: v2
+name: milvaion
+description: Milvaion distributed job scheduler - the API with its embedded dashboard, and optional built-in workers.
+type: application
+# Chart version. Bump it on every chart change and tag the release as helm-v<version>.
+version: 0.1.0
+# Default tag of the milvasoft/milvaion-api image. Matches src/Milvaion.Api/VERSION.
+appVersion: "1.4.8"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/Milvasoft/milvaion
+sources:
+  - https://github.com/Milvasoft/milvaion
+icon: https://raw.githubusercontent.com/Milvasoft/milvaion/master/src/MilvaionUI/public/logo.png
+keywords:
+  - job-scheduler
+  - scheduler
+  - cron
+  - workers
+  - rabbitmq
+  - redis
+  - postgresql
+maintainers:
+  - name: Milvasoft
+    url: https://milvasoft.com
+annotations:
+  artifacthub.io/license: Apache-2.0
+# The three dependencies are small single-replica charts kept in charts/. They are off by default: production
+# installs should point at managed or operator-run PostgreSQL, RabbitMQ and Redis instead.
+dependencies:
+  - name: postgresql
+    version: 0.1.0
+    condition: postgresql.enabled
+  - name: rabbitmq
+    version: 0.1.0
+    condition: rabbitmq.enabled
+  - name: redis
+    version: 0.1.0
+    condition: redis.enabled

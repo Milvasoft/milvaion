@@ -1,0 +1,234 @@
+{{- include "milvaion.validate" . -}}
+{{- $api := .Values.api -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "milvaion.api.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "milvaion.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not $api.autoscaling.enabled }}
+  replicas: {{ $api.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  {{- with $api.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "milvaion.api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with $api.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "milvaion.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+        {{- with $api.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "milvaion.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $api.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $api.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ $api.terminationGracePeriodSeconds }}
+      {{- if or $api.waitForDependencies.enabled $api.initContainers }}
+      initContainers:
+        {{- if $api.waitForDependencies.enabled }}
+        # Waits until PostgreSQL, RabbitMQ and Redis accept TCP connections, so the API does not crash-loop while
+        # they start. Uses the API image's bash, so no extra image is pulled.
+        - name: wait-for-dependencies
+          image: {{ include "milvaion.image" (dict "image" $api.image "root" $ "defaultTag" .Chart.AppVersion) }}
+          imagePullPolicy: {{ $api.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $api.securityContext | nindent 12 }}
+          command:
+            - bash
+            - -c
+            - |
+              deadline=$((SECONDS + {{ int $api.waitForDependencies.timeoutSeconds }}))
+              for target in {{ include "milvaion.database.host" . }}:{{ include "milvaion.database.port" . }} {{ include "milvaion.rabbitmq.host" . }}:{{ include "milvaion.rabbitmq.port" . }} {{ include "milvaion.redis.host" . }}:{{ include "milvaion.redis.port" . }}; do
+                until (exec 3<>"/dev/tcp/${target%:*}/${target##*:}") 2>/dev/null; do
+                  if [ $SECONDS -ge $deadline ]; then echo "Timed out waiting for $target"; exit 1; fi
+                  echo "Waiting for $target"; sleep 2
+                done
+                echo "$target is reachable"
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+        {{- end }}
+        {{- with $api.initContainers }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "milvaion.image" (dict "image" $api.image "root" $ "defaultTag" .Chart.AppVersion) }}
+          imagePullPolicy: {{ $api.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $api.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $api.containerPort }}
+              protocol: TCP
+          env:
+            # Passwords first: the variables below expand them with $(NAME).
+            {{- include "milvaion.env.dbPassword" . | nindent 12 }}
+            {{- include "milvaion.env.passwords" . | nindent 12 }}
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ $api.environment | quote }}
+            - name: ASPNETCORE_URLS
+              value: {{ printf "http://+:%v" $api.containerPort | quote }}
+            - name: MILVA_ENV
+              value: {{ $api.milvaEnv | quote }}
+            - name: ConnectionStrings__DefaultConnectionString
+              value: {{ include "milvaion.database.connectionString" (dict "root" . "parameters" .Values.externalDatabase.connectionParameters) | quote }}
+            - name: MilvaionConfig__RabbitMQ__Host
+              value: {{ include "milvaion.rabbitmq.host" . | quote }}
+            - name: MilvaionConfig__RabbitMQ__Port
+              value: {{ include "milvaion.rabbitmq.port" . | quote }}
+            - name: MilvaionConfig__RabbitMQ__Username
+              value: {{ include "milvaion.rabbitmq.username" . | quote }}
+            - name: MilvaionConfig__RabbitMQ__Password
+              value: "$(MILVAION_RABBITMQ_PASSWORD)"
+            - name: MilvaionConfig__RabbitMQ__VirtualHost
+              value: {{ include "milvaion.rabbitmq.virtualHost" . | quote }}
+            - name: MilvaionConfig__Redis__ConnectionString
+              value: {{ printf "%s:%s" (include "milvaion.redis.host" .) (include "milvaion.redis.port" .) | quote }}
+            - name: MilvaionConfig__Redis__Database
+              value: {{ include "milvaion.redis.database" . | quote }}
+            {{- if include "milvaion.redis.authEnabled" . }}
+            - name: MilvaionConfig__Redis__Password
+              value: "$(MILVAION_REDIS_PASSWORD)"
+            {{- end }}
+            - name: Milvasoft__Identity__Token__SymmetricPublicKey
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "milvaion.auth.secretName" . }}
+                  key: {{ .Values.auth.secretKeys.jwtSigningKey }}
+            - name: MilvaionConfig__ApiKey__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "milvaion.auth.secretName" . }}
+                  key: {{ .Values.auth.secretKeys.apiKeySecret }}
+            - name: MILVAION_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "milvaion.auth.secretName" . }}
+                  key: {{ .Values.auth.secretKeys.rootPassword }}
+            {{- with $api.extraEnv }}
+            {{- tpl (toYaml .) $ | nindent 12 }}
+            {{- end }}
+          {{- if or (eq .Values.configFormat "env") $api.extraEnvFrom }}
+          envFrom:
+            {{- if eq .Values.configFormat "env" }}
+            - configMapRef:
+                name: {{ include "milvaion.api.fullname" . }}
+            {{- end }}
+            {{- with $api.extraEnvFrom }}
+            {{- tpl (toYaml .) $ | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if $api.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ $api.startupProbe.path }}
+              port: http
+            initialDelaySeconds: {{ $api.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ $api.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ $api.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ $api.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if $api.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ $api.livenessProbe.path }}
+              port: http
+            periodSeconds: {{ $api.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ $api.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ $api.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if $api.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ $api.readinessProbe.path }}
+              port: http
+            periodSeconds: {{ $api.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ $api.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ $api.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- with $api.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $api.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if eq .Values.configFormat "file" }}
+            - name: config
+              mountPath: /app/appsettings.Production.json
+              subPath: appsettings.Production.json
+              readOnly: true
+            {{- end }}
+            {{- with $api.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with $api.sidecars }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if eq .Values.configFormat "file" }}
+        - name: config
+          configMap:
+            name: {{ include "milvaion.api.fullname" . }}
+        {{- end }}
+        {{- with $api.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $api.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if $api.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml $api.topologySpreadConstraints) $ | nindent 8 }}
+      {{- else if or $api.autoscaling.enabled (gt (int $api.replicaCount) 1) }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "milvaion.api.selectorLabels" . | nindent 14 }}
+      {{- end }}

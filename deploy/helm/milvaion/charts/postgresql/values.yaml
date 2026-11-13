@@ -1,0 +1,28 @@
+enabled: false
+image:
+  repository: postgres
+  tag: "16-alpine"
+  pullPolicy: IfNotPresent
+auth:
+  database: MilvaionDb
+  username: milvaion
+  # -- Generated when empty and kept across upgrades.
+  password: ""
+persistence:
+  enabled: true
+  size: 8Gi
+  storageClass: ""
+  accessModes: ["ReadWriteOnce"]
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 2Gi
+# -- Extra `postgres -c` settings.
+extraArgs:
+  - -c
+  - max_connections=200
+nodeSelector: {}
+tolerations: []
+affinity: {}

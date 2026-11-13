@@ -153,7 +153,10 @@ docker compose -f docker-compose.prod.yml up -d --scale email-worker=5
 
 ## Kubernetes Deployment
 
-For larger, scalable deployments:
+The quickest way onto Kubernetes is the official Helm chart, which covers the API, the built-in workers, Ingress,
+secrets and probes. See [Installing on Kubernetes with Helm](28-kubernetes-helm.md).
+
+The manifests below show the same pieces written by hand, for clusters where Helm is not an option:
 
 ### Namespace and Secrets
 

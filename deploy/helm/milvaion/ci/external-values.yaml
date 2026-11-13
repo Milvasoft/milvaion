@@ -1,0 +1,76 @@
+# Production shape: external services with existing Secrets, several API pods, HPA, Ingress with TLS, file config.
+externalDatabase:
+  host: postgres.example.internal
+  existingSecret: milvaion-external
+  existingSecretPasswordKey: db-password
+externalRabbitmq:
+  host: rabbitmq.example.internal
+  existingSecret: milvaion-external
+  existingSecretPasswordKey: rabbitmq-password
+  virtualHost: milvaion
+externalRedis:
+  host: redis.example.internal
+  existingSecret: milvaion-external
+  existingSecretPasswordKey: redis-password
+  database: 2
+
+auth:
+  existingSecret: milvaion-auth
+
+configFormat: file
+config:
+  MilvaionConfig:
+    BasePath: /milvaion
+    Alerting:
+      MilvaionAppUrl: https://jobs.example.com/milvaion
+    LogCollector:
+      BatchSize: 10000
+
+api:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 6
+    targetMemoryUtilizationPercentage: 80
+  service:
+    sessionAffinity: ClientIP
+  lifecycle:
+    preStop:
+      exec:
+        command: ["sleep", "5"]
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/affinity: cookie
+  hosts:
+    - host: jobs.example.com
+      paths:
+        - path: /milvaion
+          pathType: Prefix
+  tls:
+    - secretName: jobs-example-com-tls
+      hosts:
+        - jobs.example.com
+
+metrics:
+  serviceMonitor:
+    enabled: true
+
+workers:
+  http:
+    enabled: true
+    replicaCount: 2
+    pdb:
+      enabled: true
+    livenessProbe:
+      enabled: false
+    config:
+      Worker:
+        MaxParallelJobs: 64
+      HttpWorker:
+        MaxResponseBodyBytes: 104857600
+  maintenance:
+    enabled: true

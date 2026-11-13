@@ -1,0 +1,432 @@
+# Default values for the Milvaion chart.
+#
+# The defaults are for production: PostgreSQL, RabbitMQ and Redis are NOT installed by this chart unless you turn
+# on the bundled dependencies (postgresql.enabled, rabbitmq.enabled, redis.enabled). Point the external* sections
+# at your own services, or enable the bundled ones for a quick evaluation install.
+
+# -- Overrides the chart name in resource names.
+nameOverride: ""
+# -- Overrides the full resource name prefix (defaults to <release>-milvaion).
+fullnameOverride: ""
+# -- Labels added to every resource the chart creates.
+commonLabels: {}
+# -- Secrets used to pull every image the chart deploys.
+imagePullSecrets: []
+
+global:
+  # -- Registry prepended to every Milvaion image (API and workers), for example a pull-through mirror.
+  imageRegistry: ""
+
+# -----------------------------------------------------------------------------------------------------------------
+# Milvaion API (also serves the dashboard)
+# -----------------------------------------------------------------------------------------------------------------
+api:
+  image:
+    repository: milvasoft/milvaion-api
+    # -- Image tag. Defaults to the chart's appVersion.
+    tag: ""
+    # -- Pin by digest (sha256:...). Takes precedence over the tag.
+    digest: ""
+    pullPolicy: IfNotPresent
+
+  # -- Number of API pods when the HPA is off. The API applies database migrations at startup, so install with 1
+  # and scale out afterwards (see the chart README, "Database migrations").
+  replicaCount: 1
+
+  # -- Value of ASPNETCORE_ENVIRONMENT.
+  environment: Production
+  # -- Value of MILVA_ENV, used to label metrics and logs (dev, test, prod...).
+  milvaEnv: prod
+  # -- Port the API listens on inside the container.
+  containerPort: 5000
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+  # -- Pod security context. The image runs as the non-root user milvaion (UID/GID 999).
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+
+  # -- Container security context. The API writes nothing to its root filesystem; /tmp is an emptyDir.
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: ["ALL"]
+
+  # Probes on the API's health endpoints. Migrations run before the API starts listening, so the startup probe
+  # allows up to failureThreshold x periodSeconds (5 minutes by default) for the first boot.
+  startupProbe:
+    enabled: true
+    path: /api/v1/healthcheck/startup
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+  livenessProbe:
+    enabled: true
+    path: /api/v1/healthcheck/live
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # -- The readiness endpoint checks PostgreSQL, Redis and RabbitMQ and returns 503 while any is unhealthy.
+  readinessProbe:
+    enabled: true
+    path: /api/v1/healthcheck/ready
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+
+  # -- An init container that waits for PostgreSQL, RabbitMQ and Redis to accept connections before the API starts.
+  waitForDependencies:
+    enabled: true
+    timeoutSeconds: 300
+
+  terminationGracePeriodSeconds: 30
+  # -- Container lifecycle hooks, for example a preStop sleep so the load balancer drains before shutdown.
+  lifecycle: {}
+
+  service:
+    type: ClusterIP
+    port: 80
+    annotations: {}
+    # -- None or ClientIP. ClientIP keeps a browser on one pod, which helps the dashboard's live updates when
+    # several API pods run (see the README, "Running several API pods").
+    sessionAffinity: None
+    nodePort: ""
+
+  pdb:
+    # -- Create a PodDisruptionBudget. Only rendered when more than one API pod can run (replicaCount > 1 or
+    # the HPA is on), so a single pod never blocks a node drain.
+    enabled: true
+    minAvailable: 1
+    maxUnavailable: ""
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: ""
+    behavior: {}
+
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # -- Defaults to spreading API pods across nodes when left empty and more than one pod runs.
+  topologySpreadConstraints: []
+  priorityClassName: ""
+
+  # -- Extra environment variables for the API container.
+  extraEnv: []
+  # -- Extra envFrom sources (ConfigMaps or Secrets) for the API container.
+  extraEnvFrom: []
+  extraVolumes: []
+  extraVolumeMounts: []
+  initContainers: []
+  sidecars: []
+
+# -----------------------------------------------------------------------------------------------------------------
+# Application configuration (appsettings)
+# -----------------------------------------------------------------------------------------------------------------
+# -- How `config` reaches the API. "env": a ConfigMap of environment variables (MilvaionConfig__Redis__Database=0)
+# loaded with envFrom. "file": a ConfigMap mounted as /app/appsettings.Production.json (requires
+# api.environment=Production).
+configFormat: env
+
+# -- Any appsettings.json section, merged over the image's defaults. Passwords and keys do not belong here: they
+# come from the Secret described under `auth` and the external*/bundled dependency settings.
+config:
+  MilvaionConfig:
+    # Serve the API and dashboard under a path prefix, for example /milvaion. Leave empty for the root.
+    BasePath: ""
+    Developer:
+      EndpointsEnabled: false
+      ApiDocsEnabled: false
+    Logging:
+      Seq:
+        # The image defaults to a Seq server at http://seq:5341. Turn it on and set Uri if you run Seq.
+        Enabled: false
+    OpenTelemetry:
+      Enabled: true
+      ExportPath: /api/metrics
+      Environment: production
+    Alerting:
+      # Public URL of the dashboard, used for links in alerts.
+      MilvaionAppUrl: ""
+
+# -----------------------------------------------------------------------------------------------------------------
+# Secrets: JWT signing key, API key secret and the root user's password
+# -----------------------------------------------------------------------------------------------------------------
+auth:
+  # -- Use an existing Secret for the keys below instead of letting the chart create one. It must contain the
+  # keys named in auth.secretKeys.
+  existingSecret: ""
+  secretKeys:
+    jwtSigningKey: jwt-signing-key
+    apiKeySecret: api-key-secret
+    rootPassword: root-password
+  # -- JWT signing key (Milvasoft__Identity__Token__SymmetricPublicKey). Generated when empty and kept across
+  # upgrades.
+  jwtSigningKey: ""
+  # -- Secret used to hash API keys (MilvaionConfig__ApiKey__Secret). Generated when empty and kept across
+  # upgrades. Changing it invalidates every issued API key.
+  apiKeySecret: ""
+  # -- Password of the `rootuser` account created on first start (MILVAION_ROOT_PASSWORD). Generated when empty.
+  rootPassword: ""
+
+# -----------------------------------------------------------------------------------------------------------------
+# External services (used when the matching bundled dependency is disabled)
+# -----------------------------------------------------------------------------------------------------------------
+externalDatabase:
+  host: ""
+  port: 5432
+  database: MilvaionDb
+  username: milvaion
+  # -- Stored in the chart's Secret. Prefer existingSecret in production.
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: db-password
+  # -- Npgsql settings appended to the connection string.
+  connectionParameters: "Pooling=true;Minimum Pool Size=20;Maximum Pool Size=100;Connection Lifetime=900;Connection Idle Lifetime=180;Command Timeout=30"
+
+externalRabbitmq:
+  host: ""
+  port: 5672
+  username: milvaion
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: rabbitmq-password
+  virtualHost: /
+
+externalRedis:
+  host: ""
+  port: 6379
+  # -- Leave empty (and existingSecret empty) for a Redis without authentication.
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: redis-password
+  database: 0
+
+# -----------------------------------------------------------------------------------------------------------------
+# Bundled dependencies - for evaluation and development only
+# -----------------------------------------------------------------------------------------------------------------
+# Each is a single pod with a PersistentVolumeClaim and no replication, failover or backups. For production use a
+# managed service or an operator (CloudNativePG, the RabbitMQ Cluster Operator, a Redis operator) and the
+# external* settings above.
+postgresql:
+  enabled: false
+  auth:
+    database: MilvaionDb
+    username: milvaion
+    # -- Generated when empty and kept across upgrades.
+    password: ""
+  persistence:
+    size: 8Gi
+    storageClass: ""
+
+rabbitmq:
+  enabled: false
+  auth:
+    username: milvaion
+    password: ""
+  persistence:
+    size: 4Gi
+    storageClass: ""
+
+redis:
+  enabled: false
+  auth:
+    enabled: true
+    password: ""
+  persistence:
+    size: 2Gi
+    storageClass: ""
+
+# -----------------------------------------------------------------------------------------------------------------
+# Ingress
+# -----------------------------------------------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  # -- For several API pods behind ingress-nginx, cookie affinity keeps the dashboard's SignalR connection on one
+  # pod: nginx.ingress.kubernetes.io/affinity: cookie
+  annotations: {}
+  hosts:
+    - host: milvaion.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- TLS settings, for example [{secretName: milvaion-tls, hosts: [milvaion.example.com]}].
+  tls: []
+
+# -----------------------------------------------------------------------------------------------------------------
+# ServiceAccount and metrics
+# -----------------------------------------------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  # -- Name of the ServiceAccount. Defaults to the full name when create is true, "default" otherwise.
+  name: ""
+  annotations: {}
+  # -- Neither the API nor the workers call the Kubernetes API.
+  automountServiceAccountToken: false
+
+metrics:
+  serviceMonitor:
+    # -- Create a Prometheus Operator ServiceMonitor for the API's /api/metrics endpoint.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+# -----------------------------------------------------------------------------------------------------------------
+# Built-in workers
+# -----------------------------------------------------------------------------------------------------------------
+# Settings shared by every worker. Each worker below can override any of them.
+workerDefaults:
+  replicaCount: 1
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: ["ALL"]
+  # -- Running jobs get this long to finish after SIGTERM.
+  terminationGracePeriodSeconds: 60
+  # Workers report health through files the SDK refreshes every Worker:HealthCheck:IntervalSeconds.
+  livenessProbe:
+    enabled: true
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startupProbe:
+    enabled: true
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 36
+  # -- Offline-resilience store (/app/worker_data). An emptyDir unless you name an existing PVC.
+  dataVolume:
+    existingClaim: ""
+  pdb:
+    enabled: false
+    maxUnavailable: 1
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  # -- Appsettings for the worker, turned into environment variables (Worker__MaxParallelJobs=64).
+  config: {}
+  extraEnv: []
+  extraEnvFrom: []
+  extraVolumes: []
+  extraVolumeMounts: []
+  # -- Environment variables that receive the Milvaion PostgreSQL connection string.
+  milvaionDatabaseEnv: []
+  # -- Npgsql settings appended to that connection string.
+  databaseConnectionParameters: "Command Timeout=30"
+  # -- Environment variables that receive the Redis connection string (host:port[,password=...]).
+  redisConnectionStringEnv: []
+
+workers:
+  http:
+    enabled: false
+    workerId: http-worker
+    image:
+      repository: milvasoft/milvaion-http-worker
+      tag: "1.1.3"
+    config:
+      HttpWorker:
+        Security:
+          # Refuse requests to private and cluster-internal addresses unless you need them.
+          BlockPrivateNetworks: true
+
+  sql:
+    enabled: false
+    workerId: sql-worker
+    image:
+      repository: milvasoft/milvaion-sql-worker
+      tag: "1.1.2"
+    # Add your connections with extraEnv, for example
+    # SqlExecutorConfig__Connections__Reporting__ConnectionString from a Secret, and
+    # SqlExecutorConfig__Connections__Reporting__Provider=PostgreSql.
+    # Connection strings belong in a Secret, not in config.
+    milvaionDatabaseEnv: []
+
+  email:
+    enabled: false
+    workerId: email-worker
+    image:
+      repository: milvasoft/milvaion-email-worker
+      tag: "1.1.3"
+    # SMTP settings go under EmailConfig__SmtpConfigs__<Name>__*; put the password in a Secret via extraEnv.
+
+  command:
+    enabled: false
+    workerId: command-worker
+    image:
+      repository: milvasoft/milvaion-command-worker
+      tag: "1.0.0"
+    # The allow-list of commands lives under CommandWorker:Commands. The image ships only a sample "echo"
+    # command; mount your own appsettings or set CommandWorker__Commands__* variables.
+
+  maintenance:
+    enabled: false
+    workerId: maintenance-worker
+    image:
+      repository: milvasoft/milvaion-maintenance-worker
+      tag: "1.1.4"
+    # The maintenance worker cleans the Milvaion database and Redis, so it gets both connection strings.
+    milvaionDatabaseEnv:
+      - MaintenanceConfig__DatabaseConnectionString
+    # Vacuum and archive batches run long.
+    databaseConnectionParameters: "Command Timeout=300"
+    redisConnectionStringEnv:
+      - MaintenanceConfig__RedisConnectionString
+
+# -- Extra Kubernetes manifests rendered with the release (templated).
+extraObjects: []
+
+tests:
+  # -- Image used by `helm test` to call the readiness endpoint.
+  image: curlimages/curl:8.11.1

@@ -1,0 +1,25 @@
+{{- if not (has .Values.configFormat (list "env" "file")) -}}
+{{- fail "configFormat must be \"env\" or \"file\"." -}}
+{{- end -}}
+{{- if and (eq .Values.configFormat "file") (ne .Values.api.environment "Production") -}}
+{{- fail "configFormat=file mounts appsettings.Production.json, so api.environment must be Production. Use configFormat=env otherwise." -}}
+{{- end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "milvaion.api.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "milvaion.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+data:
+{{- if eq .Values.configFormat "file" }}
+  appsettings.Production.json: |
+    {{- toPrettyJson (default dict .Values.config) | nindent 4 }}
+{{- else }}
+  {{- $flat := dict -}}
+  {{- include "milvaion.flatten" (dict "prefix" "" "value" (default dict .Values.config) "out" $flat) -}}
+  {{- range $k, $v := $flat }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+{{- end }}
