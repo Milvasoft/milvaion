@@ -3,7 +3,7 @@
 <h1 align="center">Milvaion</h1>
 
 <p align="center">
-  <img src="https://portal.milvasoft.com/assets/images/logo256-e8d874bf50d543bf1319f5cbd1effba5.png" alt="MilvaionLogo"  />
+  <img src="./src/MilvaionUI/public/logo.png" alt="Milvaion logo" width="256" />
 </p>
 
 <p align="center">
@@ -128,7 +128,7 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 
 ## Features
 
-![Milvaion Real Time](https://portal.milvasoft.com/assets/images/executions-4b5918b7fca1b603f54be133c7880397.gif)
+![Job executions in the Milvaion dashboard](./docs/src/executions.png)
 
 ### Reliability
 - **At-least-once delivery** via RabbitMQ publisher confirms and manual ACK
