@@ -1154,6 +1154,7 @@
             <summary>
             Initializes new instance of <see cref="T:Milvaion.Domain.UserSessionHistory"/> with given <paramref name="session"/>.
             </summary>
+            <remarks>The tokens are deliberately not copied: an archive has no use for them and they may still be valid.</remarks>
             <param name="session"></param>
         </member>
         <member name="T:Milvaion.Domain.DomainAssembly">

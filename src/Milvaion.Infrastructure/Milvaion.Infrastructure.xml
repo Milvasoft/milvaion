@@ -19,7 +19,7 @@
              the rest of the system - the only thing a user ever sees is the notification itself.
              </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Milvaion.Application.Interfaces.IAlertNotifier,StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Milvaion.Application.Interfaces.IAlertNotifier,StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.BackgroundServices.ApiKeyExpiryMonitorService})">
              <summary>
              Periodically scans API keys and raises an alert as each one approaches, then passes, its
              expiry. Fires <see cref="F:Milvaion.Domain.Enums.AlertType.ApiKeyExpiring"/> within a window before the date and
@@ -150,9 +150,9 @@
             Tracks memory after each iteration. Call this at the end of each work cycle.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.ForceGarbageCollection">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.ShouldSendLeakAlert">
             <summary>
-            Forces garbage collection and logs results.
+            True at most once per hour across all services in this process.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.GetCurrentMemoryUsage">
@@ -211,6 +211,11 @@
             Process batch of occurrence messages - create/update JobOccurrence records.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.PersistOccurrenceBatchAsync(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.Received{Milvasoft.Milvaion.Sdk.Domain.JsonModels.ExternalJobOccurrenceMessage}},System.Threading.CancellationToken)">
+            <summary>
+            Creates and updates the occurrences of a batch. Safe to run again for messages that were redelivered.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.StopAsync(System.Threading.CancellationToken)">
             <inheritdoc />
         </member>
@@ -241,11 +246,6 @@
             <summary>
             The JobData column is jsonb, which rejects anything that is not JSON. Jobs without data arrive with an empty string,
             so empty becomes null and any other non-JSON text is stored as a JSON string.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.IsPermanentDataError(System.Exception)">
-            <summary>
-            Postgres data exceptions (class 22, e.g. invalid JSON) and integrity violations (class 23) fail the same way on every retry.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractCorrelationId(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
@@ -337,7 +337,7 @@
             Dispatches due jobs from Redis to RabbitMQ.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.MarkCompletedOneTimeJobsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.MarkCompletedOneTimeJobsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
              <summary>
              Stamps one-time jobs that were dispatched in this cycle as finished.
              </summary>
@@ -377,15 +377,23 @@
             Acquires distributed locks and creates job occurrences.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.IsStillDueUnderLock(System.Collections.Generic.Dictionary{System.Guid,System.Nullable{System.DateTime}},Milvasoft.Milvaion.Sdk.Domain.ScheduledJob)">
+            <summary>
+            A job is still claimable only while its score is the one this cycle read as due.
+            A missing score (removed, or Redis unavailable) means the job must not be dispatched in this cycle.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.PersistOccurrencesAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
             <summary>
             Persists occurrences to database and publishes events.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleDbUpdateExceptionAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.RemoveJobsMissingFromDatabaseAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
             <summary>
-            Handles DbUpdateException by removing stale jobs from Redis.
+            Handles a failed insert by removing jobs that exist in Redis but no longer in the database, then inserting the rest.
+            Without this a single stale entry fails the whole batch on every poll.
             </summary>
+            <returns>False when no stale job explains the failure.</returns>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.RecordDispatchMetrics(System.Diagnostics.Stopwatch,System.Int32)">
             <summary>
@@ -401,10 +409,21 @@
             <summary>
             Dispatches jobs to RabbitMQ in parallel.
             </summary>
+            <returns>
+            Occurrences whose publish failed and that will be retried, and occurrences that were abandoned
+            without being published because the schedule could not be advanced.
+            </returns>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleFailedDispatchesAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleFailedDispatchesAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
             <summary>
-            Handles failed dispatch occurrences with exponential backoff retry scheduling.
+            Records the outcome of failed dispatches. Publish failures stay Queued with a retry time so that
+            <see cref="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.RetryFailedDispatchesAsync(System.Threading.CancellationToken)"/> picks them up; the schedule has already moved on, so the
+            retry is the only thing that re-sends this occurrence.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.UpdateFailedStatusCountersAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Moves occurrences counted as Queued to Failed on the dashboard counters.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.GetDueJobsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
@@ -416,20 +435,12 @@
             <param name="cancellationToken"></param>
             <returns></returns>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchJobToRabbitMQAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.TryAdvanceScheduleAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Threading.CancellationToken)">
             <summary>
-            Dispatches a job to RabbitMQ (worker checks and lock already acquired).
+            Advances a job's schedule for this dispatch: a recurring job moves to its next slot, a one-time job
+            leaves the scheduled set.
             </summary>
-            <returns>True if successfully published, false otherwise</returns>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleRecurringJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Threading.CancellationToken)">
-            <summary>
-            Handles recurring job logic (reschedules if needed).
-            For one-time jobs, removes from Redis scheduled set (if not already removed).
-            NOTE: This method may be called when:
-            1. Job is skipped due to ConcurrentExecutionPolicy (already removed from scheduled set)
-            2. Job is successfully dispatched (not yet removed from scheduled set for one-time jobs)
-            </summary>
+            <returns>False when Redis did not take the change, in which case the job must not be published.</returns>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.PerformStartupRecoveryAsync(System.Threading.CancellationToken)">
              <summary>
@@ -438,17 +449,11 @@
             
              Sequential (blocks dispatcher start):
                STEP 1 — Stale Redis cleanup (required before dispatcher polls Redis)
-               STEP 3 — Redis repopulation   (required before dispatcher polls Redis)
+               STEP 2 — Redis repopulation   (required before dispatcher polls Redis)
             
-             Background (non-blocking):
-               STEP 2 — Zombie occurrence cleanup (DB-only, dispatcher does not depend on it)
+             Occurrences are deliberately left alone. Workers are separate processes, so an API restart says
+             nothing about the jobs they are running; ZombieOccurrenceDetectorService judges those by heartbeat.
              </summary>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.CleanupZombieOccurrencesAsync(System.Threading.CancellationToken)">
-            <summary>
-            Cleans up zombie occurrences (Queued/Running) left over from a previous run.
-            Runs in the background after startup so it does not delay dispatcher start.
-            </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.WaitForDatabaseReadyAsync(System.Threading.CancellationToken)">
             <summary>
@@ -458,6 +463,13 @@
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.RetryFailedDispatchesAsync(System.Threading.CancellationToken)">
             <summary>
             Retries occurrences that failed to dispatch (with exponential backoff).
+            Runs on one instance at a time; otherwise two instances would publish the same occurrence.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.CompleteSuccessfulRetriesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Threading.CancellationToken)">
+            <summary>
+            Clears the retry state of re-published occurrences and stamps one-time jobs as finished.
+            Status is not written: the worker may already have reported Running by now.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService">
@@ -475,7 +487,7 @@
              dispatch flow, is not part of any monitoring/metrics registry, and swallows its own failures.
              </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.IAlertNotifier,StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.IAlertNotifier,StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILogger{Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService})">
              <summary>
              Detects misfired jobs and raises <see cref="F:Milvaion.Domain.Enums.AlertType.JobMisfired"/>.
             
@@ -506,6 +518,16 @@
             Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
             </summary>
         </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.Delivery">
+            <summary>
+            One received RabbitMQ message. It may carry many logs and is acknowledged once the last of them is settled.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.Delivery.#ctor(RabbitMQ.Client.IChannel,System.UInt64,System.Int32)">
+            <summary>
+            One received RabbitMQ message. It may carry many logs and is acknowledged once the last of them is settled.
+            </summary>
+        </member>
         <member name="P:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.ServiceName">
             <inheritdoc/>
         </member>
@@ -515,7 +537,11 @@
         <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.ProcessBatchAsync(System.Threading.CancellationToken)">
             <summary>
             Process batch of logs - single DB transaction for all logs.
-            Uses optimistic concurrency control to prevent lost updates when multiple instances run concurrently.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.IsolatePoisonLogsAsync(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.LogCollectorService.LogItem},System.Threading.CancellationToken)">
+            <summary>
+            Writes a rejected batch one log at a time, so a single bad log cannot hold back the rest of the queue.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.RetryPendingLogsAsync(System.Threading.CancellationToken)">
@@ -551,20 +577,30 @@
             Process batch of status updates - single DB transaction.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.PersistBatchAndAckAsync(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem},System.Diagnostics.Stopwatch,System.Threading.CancellationToken)">
+            <summary>
+            Persists a batch and applies its side effects. Messages are acknowledged only after the write.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.IsolatePoisonMessagesAsync(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem},System.Threading.CancellationToken)">
+            <summary>
+            Writes the messages of a rejected batch one at a time, so one bad message cannot hold back the others.
+            Only messages the database rejects outright are dropped; a transient failure goes back to the batch queue.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DequeueBatch">
             <summary>
             Dequeues all messages (with their delivery tags) from the batch queue.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.RequeueMessages(System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage,System.UInt64}})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.RequeueMessages(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem})">
             <summary>
             Re-queues messages back to the batch queue for retry (delivery tags preserved — NOT ACK'd).
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DeduplicateByOccurrenceId(System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage,System.UInt64}})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DeduplicateByOccurrenceId(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem})">
             <summary>
-            Deduplicates messages by OccurrenceId (last update wins) and collects all delivery tags.
-            Returns both the deduplicated status map and ALL delivery tags (including duplicates) for ACK.
+            Deduplicates messages by OccurrenceId (last update wins).
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.FetchOccurrencesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
@@ -580,7 +616,9 @@
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.PersistOccurrenceChangesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
             <summary>
-            Persists occurrence changes to database using bulk update.
+            Persists occurrence changes. The status read for this batch may be out of date by now (another instance,
+            or the zombie detector), so a late non-final update is checked against the locked row: it must never
+            overwrite a final status. Rows rejected that way are removed from <paramref name="occurrences"/>.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DrainPendingRedisCompletionsAsync(System.Threading.CancellationToken)">
@@ -635,6 +673,16 @@
             Updates consumer-level job counters in Redis (batch operation with Lua script).
             Groups updates by workerId/instanceId/jobType and applies net changes in SINGLE Redis call.
             Example: 100 updates with net change calculation → 1 Lua script call
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem">
+            <summary>
+            A received message waiting to be persisted.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem.#ctor(Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage,System.UInt64,RabbitMQ.Client.IChannel)">
+            <summary>
+            A received message waiting to be persisted.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.CircuitBreakerUpdate">
@@ -912,6 +960,30 @@
             <param name="multiple">If true, NACKs all messages up to and including deliveryTag.</param>
             <param name="requeue">If true, requeues the message(s).</param>
         </member>
+        <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.IsPermanentDataError(System.Exception)">
+            <summary>
+            Postgres data exceptions (class 22) and integrity violations (class 23), and payloads that cannot be
+            converted at all, fail the same way on every retry. Requeueing such a message would block its queue forever.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.WaitForShutdownAsync(RabbitMQ.Client.IChannel,System.Threading.CancellationToken)">
+            <summary>
+            Completes when the channel closes, for whatever reason. Throws <see cref="T:System.OperationCanceledException"/> when
+            <paramref name="stoppingToken"/> is cancelled first. A consumer waits on this so that a dead channel leads to a reconnect.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.RunConsumerLoopAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task},Milvasoft.Core.Abstractions.IMilvaLogger,System.String,System.Action{System.Int32},System.Threading.CancellationToken,System.Int32)">
+            <summary>
+            Runs a consumer until the application stops, reconnecting whenever the channel dies or the connection attempt fails.
+            A consumer that gives up would stop processing silently while the process still looks healthy, so this never stops retrying.
+            </summary>
+            <param name="connectAndConsume">Connects and consumes. Returns when the channel has died.</param>
+            <param name="logger">Logger for diagnostics.</param>
+            <param name="serviceName">Name used in logs.</param>
+            <param name="onDegraded">Called once per outage, after <paramref name="alertAfterAttempts"/> consecutive failures.</param>
+            <param name="stoppingToken">Stops the loop.</param>
+            <param name="alertAfterAttempts">Consecutive failures before <paramref name="onDegraded"/> is called.</param>
+        </member>
         <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.SafeCloseAsync(RabbitMQ.Client.IChannel,Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken)">
             <summary>
             Safely closes and disposes the channel with proper error handling.
@@ -974,7 +1046,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck.#ctor(Milvaion.Infrastructure.Services.Redis.RedisConnectionService)">
+        <member name="M:Milvaion.Infrastructure.HealthChecks.RedisHealthCheck.#ctor(Milvaion.Infrastructure.Services.Redis.RedisConnectionService,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker)">
             <summary>
             Health check for Redis connection.
             </summary>
@@ -1193,11 +1265,19 @@
                     This can affect performance little bit. But you want audit every record easily you must use this :( </para>
              </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SaveChanges">
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SaveChanges(System.Boolean)">
             <inheritdoc/>
+            <remarks>
+            MilvaDbContext runs its save logic in the bool overloads only (every other SaveChanges overload ends here),
+            so the GUIDv7 assignment lives here too.
+            </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SaveChangesAsync(System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SaveChangesAsync(System.Boolean,System.Threading.CancellationToken)">
             <inheritdoc/>
+            <remarks>
+            MilvaDbContext runs its save logic in the bool overloads only (every other SaveChangesAsync overload ends here),
+            so the GUIDv7 assignment lives here too.
+            </remarks>
         </member>
         <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SetGuidV7">
             <inheritdoc/>
@@ -1339,6 +1419,42 @@
             <param name="sameData"></param>
             <param name="locale"></param>
         </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions">
+            <summary>
+            Concurrency control for the many writers of <see cref="T:Milvasoft.Milvaion.Sdk.Domain.JobOccurrence"/> rows.
+            </summary>
+            <remarks>
+            Milvasoft.BulkExtensions does not apply concurrency tokens, so a row version would not protect the bulk
+            updates these services use. Instead the rows are locked and re-checked in the transaction that writes
+            them, which turns read-then-write into a single atomic step.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow">
+            <summary>
+            The state of an occurrence row as seen under its row lock.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow.Id">
+            <summary>Occurrence id.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow.Status">
+            <summary>Status currently stored in the database.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow.LastHeartbeat">
+            <summary>Heartbeat currently stored in the database.</summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.BulkUpdateGuardedAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Func{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow,System.Boolean},System.Action{Milvasoft.BulkExtensions.BulkConfig},System.Threading.CancellationToken)">
+            <summary>
+            Bulk-updates only the occurrences whose current database state still allows the write.
+            Rows that no longer exist are skipped.
+            </summary>
+            <param name="dbContext">Context to write with.</param>
+            <param name="occurrences">Candidates carrying the new values.</param>
+            <param name="canWrite">Receives the candidate and its locked row; returns whether the write may proceed.</param>
+            <param name="configure">Bulk configuration.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>The candidates that were not written.</returns>
+        </member>
         <member name="T:Milvaion.Infrastructure.Persistence.Repository.MilvaionRepositoryBase`1">
             <summary>
             Constructor of <c>BillRepository</c> class.
@@ -1421,13 +1537,6 @@
             User login operation.
             It updates sessions in database.
             Generates access and refresh tokens.
-            </summary>
-            <returns></returns>
-        </member>
-        <member name="M:Milvaion.Infrastructure.Services.AccountManager.GenerateToken(Milvaion.Domain.User,System.Nullable{System.DateTime})">
-            <summary>
-            Generates token for ci user.
-            Generates access token.
             </summary>
             <returns></returns>
         </member>
@@ -1571,16 +1680,6 @@
             Raw DTO for bloated table query (matches PostgreSQL column names).
             </summary>
         </member>
-        <member name="T:Milvaion.Infrastructure.Services.OccurrenceGrowthRawDto">
-            <summary>
-            Raw DTO for occurrence growth query (matches PostgreSQL column names).
-            </summary>
-        </member>
-        <member name="T:Milvaion.Infrastructure.Services.LargeOccurrenceRawDto">
-            <summary>
-            Raw DTO for large occurrence query (matches PostgreSQL column names).
-            </summary>
-        </member>
         <member name="T:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1">
             <summary>
             Base class for alert channels providing common functionality.
@@ -1686,17 +1785,54 @@
             no entry for it - in which case the caller falls back to appsettings.
             </summary>
         </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel">
+            <summary>
+            Alert channel implementation for Crewhall chat using incoming webhooks. The webhook URL carries its key, so it is a
+            secret: it is never logged or returned.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Net.Http.IHttpClientFactory,System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Alert channel implementation for Crewhall chat using incoming webhooks. The webhook URL carries its key, so it is a
+            secret: it is never logged or returned.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel.ChannelName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel.GetChannelOptions(Milvaion.Application.Utils.Models.Options.AlertingOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel.ReadErrorCodeAsync(System.Net.Http.HttpResponseMessage,System.Threading.CancellationToken)">
+            <summary>
+            Reads only Crewhall's error code; the rest of the body is not repeated.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.CrewhallAlertChannel.CreateButtons(System.String)">
+            <summary>
+            Crewhall accepts only absolute button addresses; a relative link (no MilvaionAppUrl configured) is left out.
+            </summary>
+        </member>
         <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel">
             <summary>
-            Alert channel implementation for Email using SMTP.
+            Alert channel implementation for Email using SMTP, or Notifike when that delivery is active.
             </summary>
             <remarks>
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger},Milvaion.Application.Interfaces.INotifikeTransport)">
             <summary>
-            Alert channel implementation for Email using SMTP.
+            Alert channel implementation for Email using SMTP, or Notifike when that delivery is active.
             </summary>
             <remarks>
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel"/> class.
@@ -1874,19 +2010,15 @@
         </member>
         <member name="T:Milvaion.Infrastructure.Services.DispatcherControlService">
             <summary>
-            Implementation of dispatcher control service.
+            Implementation of dispatcher control service. The stop state lives in Redis so that an emergency stop
+            reaches every API instance and survives a restart; each instance keeps a local copy to read cheaply.
             </summary>
-            <remarks>
-            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.DispatcherControlService"/> class.
-            </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions})">
+        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Infrastructure.Services.Redis.RedisConnectionService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions})">
             <summary>
-            Implementation of dispatcher control service.
+            Implementation of dispatcher control service. The stop state lives in Redis so that an emergency stop
+            reaches every API instance and survives a restart; each instance keeps a local copy to read cheaply.
             </summary>
-            <remarks>
-            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.DispatcherControlService"/> class.
-            </remarks>
         </member>
         <member name="P:Milvaion.Infrastructure.Services.DispatcherControlService.IsEnabled">
             <inheritdoc/>
@@ -1898,6 +2030,9 @@
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.GetStopReason">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.RefreshAsync(System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.ExportService">
@@ -1940,7 +2075,7 @@
         <member name="M:Milvaion.Infrastructure.Services.ExportService.DisplayFormatRegex">
             <remarks>
             Pattern:<br/>
-            <code>\\{(.*?)\\}</code><br/>
+            <code>\{(.*?)\}</code><br/>
             Explanation:<br/>
             <code>
             ○ Match '{'.<br/>
@@ -2011,10 +2146,23 @@
         <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.ResolveAndBuildClaimsAsync(Milvaion.Application.Interfaces.ExternalIdentityDescriptor,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.SyncIdentityAsync(Milvaion.Domain.User,Milvaion.Application.Interfaces.ExternalIdentityDescriptor,System.Threading.CancellationToken)">
+            <summary>
+            Refreshes the shadow record from the provider, which owns the identity. A sign-in that arrived without a user name
+            claim stored the subject as the name, so a later token carrying the real one has to replace it.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.GetMappedLocalRolesAsync(System.Collections.Generic.IReadOnlyCollection{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Loads the local roles an explicit mapping grants. Provider-owned roles with the same name do not qualify, and a
+            name that matches nothing grants nothing.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.EnsureRolesAsync(System.Collections.Generic.IReadOnlyCollection{System.String},Milvaion.Domain.Enums.ExternalProvider,System.Threading.CancellationToken)">
             <summary>
             Loads the provider's roles with their permissions, creating any that do not exist yet (with an
-            empty permission set for an admin to fill in).
+            empty permission set for an admin to fill in). Only roles owned by this provider can match: a group
+            named after a local role, or after one mirrored from another provider, is dropped instead of inheriting it.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.ExternalIdentityService.CachedIdentity">
@@ -2045,6 +2193,22 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.AuthenticateAsync(System.String,System.String,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.FormatBindName(System.String,System.String)">
+            <summary>
+            Fills the bind name template. Only a real DN template needs escaping: a UPN style one such as
+            <c>{0}@corp.example.com</c> has no DN syntax for the value to break out of.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.EscapeFilterValue(System.String)">
+            <summary>
+            Escapes a value for use inside an LDAP search filter (RFC 4515).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.EscapeDnValue(System.String)">
+            <summary>
+            Escapes a value for use as an attribute value inside a distinguished name (RFC 4514).
+            </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.LdapAuthenticator.ExtractCommonName(System.String)">
             <summary>"CN=Admins,OU=Groups,DC=corp,DC=com" becomes "Admins".</summary>
@@ -2165,8 +2329,9 @@
             <param name="notificationRepository"></param>
             <param name="userRepository"></param>
             <param name="logger"></param>
+            <param name="notifikeTransport"></param>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.NotificationService.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.InternalNotification},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.InternalNotification},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger},Milvaion.Application.Interfaces.INotifikeTransport)">
             <summary>
             Provides functionality for managing and delivering notifications to users.
             </summary>
@@ -2178,11 +2343,18 @@
             <param name="notificationRepository"></param>
             <param name="userRepository"></param>
             <param name="logger"></param>
+            <param name="notifikeTransport"></param>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.NotificationService.PublishAsync(Milvaion.Application.Dtos.NotificationDtos.InternalNotificationRequest,System.Linq.Expressions.Expression{System.Func{Milvaion.Domain.User,System.Boolean}},System.Threading.CancellationToken)">
             <summary>
             Publishes a notification based on a user predicate.
             This is the core publishing method.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotificationService.SendToNotifikeAsync(Milvaion.Application.Dtos.NotificationDtos.InternalNotificationRequest,System.Collections.Generic.List{Milvaion.Domain.User},System.String,System.Threading.CancellationToken)">
+            <summary>
+            Copies the notification to the recipients' Notifike boxes. The local rows stay, because Milvaion's own
+            notification screens read them.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.NotificationService.MarkAsSeenAsync(System.Collections.Generic.List{System.Int64},System.String,System.Threading.CancellationToken)">
@@ -2204,6 +2376,34 @@
             <summary>
             Deletes all of notifications belonging to the current user.
             </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.NotifikeTransport">
+            <summary>
+            Delivers e-mails and in-app notifications through Notifike's HTTP integration API.
+            </summary>
+            <param name="options"></param>
+            <param name="httpClientFactory"></param>
+            <param name="logger"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotifikeTransport.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.NotifikeOptions},System.Net.Http.IHttpClientFactory,System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Delivers e-mails and in-app notifications through Notifike's HTTP integration API.
+            </summary>
+            <param name="options"></param>
+            <param name="httpClientFactory"></param>
+            <param name="logger"></param>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.NotifikeTransport.CanSendEmail">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.NotifikeTransport.CanSendInApp">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotifikeTransport.SendEmailAsync(Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.NotifikeTransport.SendInAppAsync(Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification,System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.PermissionManager">
             <summary>
@@ -2271,6 +2471,11 @@
             <summary>
             Gets the active RabbitMQ connection.
             Throws if InitializeAsync() has not been called.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.PublisherConfirmsEnabled">
+            <summary>
+            Whether channels created for publishing wait for broker confirms.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.InitializeAsync(System.Threading.CancellationToken)">
@@ -2368,6 +2573,18 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.JobCancellationService.PublishCancellationAsync(System.Guid,System.Guid,System.Guid,System.String,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.NamedLockExtensions">
+            <summary>
+            Runs periodic work on a single instance at a time.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.NamedLockExtensions.RunExclusiveAsync(Milvaion.Application.Interfaces.Redis.IRedisLockService,System.String,System.String,System.TimeSpan,System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task},Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken)">
+            <summary>
+            Runs <paramref name="work"/> if the named lock is free, renewing the lock until the work ends.
+            The TTL can stay short because of the renewal, so a crashed instance only blocks the others for a moment.
+            </summary>
+            <returns>True if the work ran, false if another instance holds the lock or Redis is unavailable.</returns>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.Redis.RedisCancellationService">
             <summary>
@@ -2520,6 +2737,9 @@
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ReleaseNamedLockAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ExtendNamedLockAsync(System.String,System.String,System.TimeSpan,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService">
@@ -2746,6 +2966,13 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetConsumerCapacityAsync(System.String,System.String,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetConsumerJobCountAsync(System.String,System.String,System.String)">
+            <summary>
+            Totals the running jobs of one type. The status tracker counts per instance, so the total covers the live instances.
+            An instance's count is capped by the job count it reports in its heartbeat: the counters are only decremented on a
+            Running to final transition, and without the cap a job lost to the zombie detector would hold capacity indefinitely.
+            </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.IncrementConsumerJobCountAsync(System.String,System.String,System.Threading.CancellationToken)">
             <inheritdoc/>
@@ -3288,12 +3515,6 @@
             <summary>
             Generates a documentation comment ID for a property.
             Example: P:Namespace.ContainingType.PropertyName or for an indexer P:Namespace.ContainingType.Item(System.Int32)
-            </summary>
-        </member>
-        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type,System.String)">
-            <summary>
-            Generates a documentation comment ID for a property given its container type and property name.
-            Example: P:Namespace.ContainingType.PropertyName
             </summary>
         </member>
         <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.MethodInfo)">

@@ -27,7 +27,7 @@ Milvaion is built on the principle of **separation of concerns**, splitting job 
 
 ### High-Level Architecture
 
-![Milvaion High-Level Architecture](https://portal.milvasoft.com/assets/images/architecture-bb9bd8cc65898fd524913e866f9db9b6.png)
+![Milvaion High-Level Architecture](../portaldocs/src/architecture.png)
 
 ---
 

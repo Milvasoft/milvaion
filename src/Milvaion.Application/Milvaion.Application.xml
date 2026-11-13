@@ -3607,6 +3607,72 @@
             <param name="type"></param>
             <param name="data"></param>
         </member>
+        <member name="T:Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail">
+            <summary>
+            An e-mail to deliver through Notifike.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail.Subject">
+            <summary>Subject.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail.HtmlBody">
+            <summary>HTML body.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail.Recipients">
+            <summary>E-mail addresses.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail.IsHighPriority">
+            <summary>Whether Notifike should send it ahead of normal traffic.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail.Tag">
+            <summary>Free label stored with the message, the alert type for example.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification">
+            <summary>
+            An in-app notification to put in the Notifike boxes of users.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification.Type">
+            <summary>Kind of the notification.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification.Text">
+            <summary>Text; may be null when clients render it from the type and the data.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification.Link">
+            <summary>Address opened when the notification is tapped.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification.EntityType">
+            <summary>Kind of the record the notification is about.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification.EntityId">
+            <summary>Id of the record the notification is about.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification.DataJson">
+            <summary>Extra data as JSON. Sent only when it is a JSON object within Notifike's limit.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification.UserKeys">
+            <summary>User names of the recipients.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.NotificationDtos.NotifikeTransportResult">
+            <summary>
+            Outcome of a delivery through Notifike.
+            </summary>
+            <param name="Success">Whether Notifike accepted the delivery.</param>
+            <param name="Error">Why it failed; carries no credentials.</param>
+        </member>
+        <member name="M:Milvaion.Application.Dtos.NotificationDtos.NotifikeTransportResult.#ctor(System.Boolean,System.String)">
+            <summary>
+            Outcome of a delivery through Notifike.
+            </summary>
+            <param name="Success">Whether Notifike accepted the delivery.</param>
+            <param name="Error">Why it failed; carries no credentials.</param>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeTransportResult.Success">
+            <summary>Whether Notifike accepted the delivery.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.NotificationDtos.NotifikeTransportResult.Error">
+            <summary>Why it failed; carries no credentials.</summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.PermissionDtos.PermissionListDto">
             <summary>
             Data transfer object for permission list.
@@ -3798,6 +3864,11 @@
             <summary>
             External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
             Used to correlate occurrences from external schedulers.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.MaxLogsInDetail">
+            <summary>
+            Most recent logs returned with the detail. The paged log list serves the rest.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.Projection">
@@ -5782,109 +5853,6 @@
         <member name="M:Milvaion.Application.Features.Account.ChangePassword.ChangePasswordCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.Account.ChangePassword.ChangePasswordCommandValidator"/>
         </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommand">
-            <summary>
-            Data transfer object for delete notification.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommand.NotificationIdList">
-            <summary>
-            Delete the notifications for the current user.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommand.DeleteAll">
-            <summary>
-            Delete all notifications.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommandHandler">
-            <summary>
-            Handles the RefreshLoginCommand and refreshes the user's login token.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommandHandler.#ctor(Milvaion.Application.Interfaces.INotificationService,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
-            <summary>
-            Handles the RefreshLoginCommand and refreshes the user's login token.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommandHandler.Handle(Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommand,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommandValidator">
-            <summary>
-            Query validations. 
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
-            <inheritdoc cref="T:Milvaion.Application.Features.Account.InternalNotifications.DeleteNotification.DeleteNotificationsCommandValidator"/>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQuery">
-            <summary>
-            Data transfer object for account details.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQuery.UserId">
-            <summary>
-            The user Id whose account details you want to access.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQueryHandler">
-            <summary>
-            Handles the query for retrieving the account details.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.InternalNotification},Microsoft.AspNetCore.Http.IHttpContextAccessor)">
-            <summary>
-            Handles the query for retrieving the account details.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQueryHandler.Handle(Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQuery,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQueryValidator">
-            <summary>
-            Query validations. 
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
-            <inheritdoc cref="T:Milvaion.Application.Features.Account.InternalNotifications.GetAccountNotifications.GetAccountNotificationsQueryValidator"/>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommand">
-            <summary>
-            Data transfer object for mark as seen notification.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommand.NotificationIdList">
-            <summary>
-            Mark the notifications as seen for the current user.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommand.MarkAll">
-            <summary>
-            Mark all notifications as seen if true.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommandHandler">
-            <summary>
-            Handles the RefreshLoginCommand and refreshes the user's login token.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommandHandler.#ctor(Milvaion.Application.Interfaces.INotificationService,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
-            <summary>
-            Handles the RefreshLoginCommand and refreshes the user's login token.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommandHandler.Handle(Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommand,System.Threading.CancellationToken)">
-            <inheritdoc/>
-        </member>
-        <member name="T:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommandValidator">
-            <summary>
-            Query validations. 
-            </summary>
-        </member>
-        <member name="M:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
-            <inheritdoc cref="T:Milvaion.Application.Features.Account.InternalNotifications.MarkNotificationsAsSeen.MarkNotificationsAsSeenCommandValidator"/>
-        </member>
         <member name="T:Milvaion.Application.Features.Account.Login.LoginCommand">
             <summary>
             Data transfer object for login operation.
@@ -5910,7 +5878,7 @@
             Handles the login command and performs the necessary operations.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.Account.Login.LoginCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32},Milvaion.Application.Interfaces.IAccountManager,Milvaion.Application.Interfaces.IUIService,Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer,Milvasoft.Identity.Concrete.Options.MilvaIdentityOptions,Milvaion.Application.Utils.Models.Options.MilvaionConfig,Milvaion.Application.Interfaces.ILdapAuthenticator,Milvaion.Application.Interfaces.IExternalIdentityService)">
+        <member name="M:Milvaion.Application.Features.Account.Login.LoginCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32},Milvaion.Application.Interfaces.IAccountManager,Milvaion.Application.Interfaces.IUIService,Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer,Milvaion.Application.Utils.Models.Options.MilvaionConfig,Milvaion.Application.Interfaces.ILdapAuthenticator,Milvaion.Application.Interfaces.IExternalIdentityService)">
             <summary>
             Handles the login command and performs the necessary operations.
             </summary>
@@ -6075,8 +6043,9 @@
             </remarks>
             <param name="ApiKeyRepository"></param>
             <param name="ApiKeyGenerator"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IApiKeyGenerator)">
+        <member name="M:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IApiKeyGenerator,Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the creation of the api key.
             </summary>
@@ -6086,11 +6055,15 @@
             </remarks>
             <param name="ApiKeyRepository"></param>
             <param name="ApiKeyGenerator"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.ApiKeyRepository">
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.ApiKeyGenerator">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommandHandler.Handle(Milvaion.Application.Features.ApiKeys.CreateApiKey.CreateApiKeyCommand,System.Threading.CancellationToken)">
@@ -6283,14 +6256,16 @@
             <param name="ApiKeyRepository"></param>
             <param name="ApiKeyPermissionRelationRepository"></param>
             <param name="ApiKeyCacheInvalidator"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKeyPermissionRelation},Milvaion.Application.Interfaces.IApiKeyCacheInvalidator)">
+        <member name="M:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKeyPermissionRelation},Milvaion.Application.Interfaces.IApiKeyCacheInvalidator,Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the update of the api key.
             </summary>
             <param name="ApiKeyRepository"></param>
             <param name="ApiKeyPermissionRelationRepository"></param>
             <param name="ApiKeyCacheInvalidator"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.ApiKeyRepository">
             <summary></summary>
@@ -6299,6 +6274,9 @@
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.ApiKeyCacheInvalidator">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommandHandler.Handle(Milvaion.Application.Features.ApiKeys.UpdateApiKey.UpdateApiKeyCommand,System.Threading.CancellationToken)">
@@ -6388,6 +6366,11 @@
             returned shape is unchanged - the reader's richer sample is mapped back down to the DTO this payload has
             always carried.
             </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.GetRedisEndpoints(System.String)">
+            <summary>
+            Reduces a Redis connection string to its endpoints. Options such as password= must not leave the server.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Features.Configuration.GetSystemResourceUsage.GetSystemResourceUsageQuery">
             <summary>
@@ -7626,13 +7609,13 @@
             <summary>
             Deletes old metric reports that are older than a specified number of days.
             </summary>
-            <param name="metricReportRepository"></param>
+            <param name="milvaionDbContextAccessor"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor)">
             <summary>
             Deletes old metric reports that are older than a specified number of days.
             </summary>
-            <param name="metricReportRepository"></param>
+            <param name="milvaionDbContextAccessor"></param>
         </member>
         <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler.Handle(Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand,System.Threading.CancellationToken)">
             <inheritdoc />
@@ -7657,13 +7640,13 @@
             <summary>
             Gets latest metric report for a specified metric type.
             </summary>
-            <param name="metricReportRepository"></param>
+            <param name="milvaionDbContextAccessor"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor)">
             <summary>
             Gets latest metric report for a specified metric type.
             </summary>
-            <param name="metricReportRepository"></param>
+            <param name="milvaionDbContextAccessor"></param>
         </member>
         <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery,System.Threading.CancellationToken)">
             <inheritdoc />
@@ -7850,14 +7833,19 @@
             Handles the creation of the role.
             </summary>
             <param name="RoleRepository"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Roles.CreateRole.CreateRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role})">
+        <member name="M:Milvaion.Application.Features.Roles.CreateRole.CreateRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the creation of the role.
             </summary>
             <param name="RoleRepository"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.CreateRole.CreateRoleCommandHandler.RoleRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Roles.CreateRole.CreateRoleCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Roles.CreateRole.CreateRoleCommandHandler.Handle(Milvaion.Application.Features.Roles.CreateRole.CreateRoleCommand,System.Threading.CancellationToken)">
@@ -7887,18 +7875,23 @@
             </summary>
             <param name="RoleRepository"></param>
             <param name="ExternalIdentityService"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IExternalIdentityService)">
+        <member name="M:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IExternalIdentityService,Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the deletion of the role.
             </summary>
             <param name="RoleRepository"></param>
             <param name="ExternalIdentityService"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.RoleRepository">
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.ExternalIdentityService">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommandHandler.Handle(Milvaion.Application.Features.Roles.DeleteRole.DeleteRoleCommand,System.Threading.CancellationToken)">
@@ -7996,14 +7989,16 @@
             <param name="RoleRepository"></param>
             <param name="RolePermissionRelationRepository"></param>
             <param name="ExternalIdentityService"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.RolePermissionRelation},Milvaion.Application.Interfaces.IExternalIdentityService)">
+        <member name="M:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Role},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.RolePermissionRelation},Milvaion.Application.Interfaces.IExternalIdentityService,Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the update of the role.
             </summary>
             <param name="RoleRepository"></param>
             <param name="RolePermissionRelationRepository"></param>
             <param name="ExternalIdentityService"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.RoleRepository">
             <summary></summary>
@@ -8012,6 +8007,9 @@
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.ExternalIdentityService">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandHandler.Handle(Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommand,System.Threading.CancellationToken)">
@@ -8045,7 +8043,7 @@
             Handles job occurrence cancellation by publishing cancellation signal to Redis Pub/Sub.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence.CancelJobOccurrenceCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},Milvaion.Application.Interfaces.Redis.IJobCancellationService,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence.CancelJobOccurrenceCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},Milvaion.Application.Interfaces.Redis.IJobCancellationService,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.AspNetCore.Http.IHttpContextAccessor,Milvasoft.Core.Abstractions.IMilvaLogger)">
             <summary>
             Handles job occurrence cancellation by publishing cancellation signal to Redis Pub/Sub.
             </summary>
@@ -8204,7 +8202,7 @@
             Handles the deletion of a job occurrence.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.DeleteJobOccurrence.DeleteJobOccurrenceCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.DeleteJobOccurrence.DeleteJobOccurrenceCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
             <summary>
             Handles the deletion of a job occurrence.
             </summary>
@@ -8311,14 +8309,6 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.GetValueWithCorrectType``1(System.Object)">
-            <summary>
-            Gets the value with the correct type from the object.
-            </summary>
-            <typeparam name="TActualType"></typeparam>
-            <param name="value"></param>
-            <returns></returns>
-        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery">
             <summary>
             Data transfer object for scheduledjob list.
@@ -8345,14 +8335,6 @@
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
-        </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.GetValueWithCorrectType``1(System.Object)">
-            <summary>
-            Gets the value with the correct type from the object.
-            </summary>
-            <typeparam name="TActualType"></typeparam>
-            <param name="value"></param>
-            <returns></returns>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator">
             <summary>
@@ -8771,6 +8753,22 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.JobOccurrenceListSearch">
+            <summary>
+            Search and count logic shared by the paged and cursor based occurrence lists.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.JobOccurrenceListSearch.BuildPredicate(System.String)">
+            <summary>
+            Builds the search predicate: an exact id match for a guid, otherwise a job name search.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.JobOccurrenceListSearch.GetCountFromStatsAsync(Milvasoft.Components.Rest.Request.FilterRequest,System.String,Milvaion.Application.Interfaces.Redis.IRedisStatsService,System.Threading.CancellationToken)">
+            <summary>
+            Returns the total from the Redis counters when they answer exactly this query, or null when the database has
+            to count. The counters only know the grand total and a total per status.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommand">
             <summary>
             Command to manually trigger a scheduled job (create occurrence and dispatch immediately).
@@ -8802,13 +8800,28 @@
             Handles manual job triggering by creating occurrence and dispatching immediately.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,Milvasoft.Core.Abstractions.IMilvaLogger,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,Milvasoft.Core.Abstractions.IMilvaLogger,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
             <summary>
             Handles manual job triggering by creating occurrence and dispatching immediately.
             </summary>
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommandHandler.Handle(Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommand,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.JobVersionHistory">
+            <summary>
+            Maintains the snapshots kept in <see cref="P:Milvasoft.Milvaion.Sdk.Domain.ScheduledJob.JobVersions"/>.
+            </summary>
+            <remarks>
+            A snapshot must not contain the history itself: each one would then embed every earlier snapshot and the column
+            would roughly double with every update.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.JobVersionHistory.Append(System.Collections.Generic.List{System.String},Milvasoft.Milvaion.Sdk.Domain.ScheduledJob)">
+            <summary>
+            Returns the history with a snapshot of <paramref name="job"/> appended. Snapshots written before the history
+            was excluded are compacted on the way through, so rows that have already grown shrink on their next update.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand">
             <summary>
@@ -8890,15 +8903,15 @@
             </summary>
             <param name="ScheduledJobRepository"></param>
             <param name="RedisSchedulerService"></param>
-            <param name="EventPublisher"></param>
+            <param name="RedisWorkerService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
             <summary>
             Handles the update of the scheduledjob.
             </summary>
             <param name="ScheduledJobRepository"></param>
             <param name="RedisSchedulerService"></param>
-            <param name="EventPublisher"></param>
+            <param name="RedisWorkerService"></param>
         </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.ScheduledJobRepository">
             <summary></summary>
@@ -8906,7 +8919,7 @@
         <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.RedisSchedulerService">
             <summary></summary>
         </member>
-        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.EventPublisher">
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.RedisWorkerService">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.Handle(Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand,System.Threading.CancellationToken)">
@@ -9060,18 +9073,23 @@
             </summary>
             <param name="UserRepository"></param>
             <param name="UserManager"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Users.CreateUser.CreateUserCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32})">
+        <member name="M:Milvaion.Application.Features.Users.CreateUser.CreateUserCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32},Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the creation of the user.
             </summary>
             <param name="UserRepository"></param>
             <param name="UserManager"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Users.CreateUser.CreateUserCommandHandler.UserRepository">
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.Users.CreateUser.CreateUserCommandHandler.UserManager">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Users.CreateUser.CreateUserCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Users.CreateUser.CreateUserCommandHandler.Handle(Milvaion.Application.Features.Users.CreateUser.CreateUserCommand,System.Threading.CancellationToken)">
@@ -9100,14 +9118,19 @@
             Handles the deletion of the user.
             </summary>
             <param name="UserRepository"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Users.DeleteUser.DeleteUserCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User})">
+        <member name="M:Milvaion.Application.Features.Users.DeleteUser.DeleteUserCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the deletion of the user.
             </summary>
             <param name="UserRepository"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Users.DeleteUser.DeleteUserCommandHandler.UserRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Users.DeleteUser.DeleteUserCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Users.DeleteUser.DeleteUserCommandHandler.Handle(Milvaion.Application.Features.Users.DeleteUser.DeleteUserCommand,System.Threading.CancellationToken)">
@@ -9230,8 +9253,9 @@
             <param name="MilvaIdentityOptions"></param>
             <param name="MilvaUserManager"></param>
             <param name="MilvaPasswordHasher"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserRoleRelation},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserSession},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserSessionHistory},System.Lazy{Milvasoft.Identity.Concrete.Options.MilvaIdentityOptions},System.Lazy{Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32}},System.Lazy{Milvasoft.Identity.Abstract.IMilvaPasswordHasher})">
+        <member name="M:Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.User},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserRoleRelation},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserSession},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserSessionHistory},System.Lazy{Milvasoft.Identity.Concrete.Options.MilvaIdentityOptions},System.Lazy{Milvasoft.Identity.Abstract.IMilvaUserManager{Milvaion.Domain.User,System.Int32}},System.Lazy{Milvasoft.Identity.Abstract.IMilvaPasswordHasher},Milvaion.Application.Interfaces.IPrivilegeGuard)">
             <summary>
             Handles the update of the user.
             </summary>
@@ -9242,6 +9266,7 @@
             <param name="MilvaIdentityOptions"></param>
             <param name="MilvaUserManager"></param>
             <param name="MilvaPasswordHasher"></param>
+            <param name="PrivilegeGuard"></param>
         </member>
         <member name="P:Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommandHandler.UserRepository">
             <summary></summary>
@@ -9262,6 +9287,9 @@
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommandHandler.MilvaPasswordHasher">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommandHandler.PrivilegeGuard">
             <summary></summary>
         </member>
         <member name="M:Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommandHandler.Handle(Milvaion.Application.Features.Users.UpdateUser.UpdateUserCommand,System.Threading.CancellationToken)">
@@ -9937,7 +9965,7 @@
             full-replace shape made impossible.
             </remarks>
         </member>
-        <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+        <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
             <summary>
             Handles workflow settings update.
             </summary>
@@ -10013,13 +10041,6 @@
             User login operation.
             It updates sessions in database.
             Generates access and refresh tokens.
-            </summary>
-            <returns></returns>
-        </member>
-        <member name="M:Milvaion.Application.Interfaces.IAccountManager.GenerateToken(Milvaion.Domain.User,System.Nullable{System.DateTime})">
-            <summary>
-            Generates token for ci user.
-            Generates access token.
             </summary>
             <returns></returns>
         </member>
@@ -10306,6 +10327,12 @@
             Gets the current stop reason if dispatcher is stopped.
             </summary>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.IDispatcherControlService.RefreshAsync(System.Threading.CancellationToken)">
+            <summary>
+            Picks up a stop or resume requested through another API instance.
+            Keeps the last known state when the shared store cannot be read.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.IExportService">
             <summary>
             Used to export data. 
@@ -10395,6 +10422,9 @@
         </member>
         <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.RoleNames">
             <summary>Role/group names carried by the provider. Milvaion mirrors these as roles and their permissions are assigned here.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ExternalIdentityDescriptor.LocalRoleNames">
+            <summary>Existing local role names granted through an explicit mapping. These are never created.</summary>
         </member>
         <member name="T:Milvaion.Application.Interfaces.IHasActiviyLogDecision">
             <summary>
@@ -10564,6 +10594,38 @@
             Deletes all of notifications belonging to the current user.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Interfaces.INotifikeTransport">
+            <summary>
+            Optional delivery of e-mails and in-app notifications through Notifike. Implementations report failures in the
+            result and never throw, so a Notifike outage cannot break the caller.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.INotifikeTransport.CanSendEmail">
+            <summary>
+            Whether e-mails should go through Notifike: enabled, fully configured and allowed in this environment.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.INotifikeTransport.CanSendInApp">
+            <summary>
+            Whether in-app notifications should go through Notifike: enabled, fully configured and allowed in this environment.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.INotifikeTransport.SendEmailAsync(Milvaion.Application.Dtos.NotificationDtos.NotifikeEmail,System.Threading.CancellationToken)">
+            <summary>
+            Sends an e-mail.
+            </summary>
+            <param name="email"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.INotifikeTransport.SendInAppAsync(Milvaion.Application.Dtos.NotificationDtos.NotifikeInAppNotification,System.Threading.CancellationToken)">
+            <summary>
+            Puts a notification in the boxes of users.
+            </summary>
+            <param name="notification"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.IPermissionManager">
             <summary>
             Permission manager for managing system permissions.
@@ -10580,6 +10642,44 @@
             Migrate permissions to the database.
             </summary>
             <returns></returns>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.IPrivilegeGuard">
+            <summary>
+            The rules that stop a caller from handing out more than it holds. Every method fails the request with 403.
+            </summary>
+            <remarks>
+            A caller may only grant permissions it holds itself, and only a super admin may touch anything that carries the
+            super admin permission. Permissions a role or key already has are not "granted" by keeping them, so a caller can
+            still edit an existing record it could not have created. Code running outside a request (seeding, background work)
+            is not subject to these rules.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.AllPermissionsExistAsync(System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <summary>Returns whether every one of these permission ids exists.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.EnsureCanGrantPermissionsAsync(System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <summary>Checks that the caller may put these permissions on a new role.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.EnsureCanChangeRolePermissionsAsync(System.Int32,System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <summary>Checks that the caller may set this permission list on an existing role.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.EnsureCanManageRoleAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>Checks that the caller may modify or delete this role.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.EnsureCanGrantRolesAsync(System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <summary>Checks that the caller may put these roles on a new user.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.EnsureCanChangeUserRolesAsync(System.Int32,System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <summary>Checks that the caller may set this role list on an existing user.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.EnsureCanManageUserAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>Checks that the caller may modify or delete this user.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IPrivilegeGuard.EnsureCanGrantApiKeyPermissionsAsync(System.Nullable{System.Int32},System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            Checks that the caller may put these permissions on an api key, new when <paramref name="apiKeyId"/> is null.
+            The super admin permission can never be put on a key, whoever asks.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Interfaces.IQueueDepthMonitor">
             <summary>
@@ -10831,6 +10931,16 @@
             <param name="workerId">Worker identifier (must match the one who acquired the lock)</param>
             <param name="cancellationToken">Cancellation token</param>
             <returns>True if released, false if lock not found or owned by another instance</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisLockService.ExtendNamedLockAsync(System.String,System.String,System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Extends a named distributed lock held by <paramref name="workerId"/>.
+            </summary>
+            <param name="lockName">Unique name for the lock</param>
+            <param name="workerId">Worker identifier (must match the one who acquired the lock)</param>
+            <param name="ttl">New time-to-live</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>True if extended, false if the lock was lost</returns>
         </member>
         <member name="T:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService">
             <summary>
@@ -11668,6 +11778,26 @@
             <param name="hash"></param>
             <returns></returns>
         </member>
+        <member name="F:Milvaion.Application.Utils.Extensions.MilvaionExtensions.LikeEscapeCharacter">
+            <summary>
+            Escape character used with <see cref="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.ToContainsPattern(System.String)"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.ToContainsPattern(System.String)">
+            <summary>
+            Builds a contains pattern for ILIKE, treating <paramref name="term"/> literally. Pass
+            <see cref="F:Milvaion.Application.Utils.Extensions.MilvaionExtensions.LikeEscapeCharacter"/> as the escape character of the ILIKE call.
+            </summary>
+            <param name="term"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.ToSaturatedInt(System.Int64)">
+            <summary>
+            Narrows a counter to <see cref="T:System.Int32"/>, stopping at the limit instead of overflowing.
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
         <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.GetCurrentEnvironment">
             <summary>
             Gets current environment.
@@ -11738,7 +11868,7 @@
         <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.DataUriRegex">
             <remarks>
             Pattern:<br/>
-            <code>^data:(?&lt;mediatype&gt;[\\w/+.-]+);base64,(?&lt;data&gt;[a-zA-Z0-9+/]+={0,2})$</code><br/>
+            <code>^data:(?&lt;mediatype&gt;[\w/+.-]+);base64,(?&lt;data&gt;[a-zA-Z0-9+/]+={0,2})$</code><br/>
             Explanation:<br/>
             <code>
             ○ Match if at the beginning of the string.<br/>
@@ -11756,7 +11886,7 @@
         <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.ReplaceAndToLowerRegex">
             <remarks>
             Pattern:<br/>
-            <code>\\s+</code><br/>
+            <code>\s+</code><br/>
             Explanation:<br/>
             <code>
             ○ Match a whitespace character atomically at least once.<br/>
@@ -11766,7 +11896,7 @@
         <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.UrlRegex">
             <remarks>
             Pattern:<br/>
-            <code>^(ht|f)tp(s?)\\:\\/\\/[0-9a-zA-Z]([-.\\w]*[0-9a-zA-Z])*(:(0-9)*)*(\\/?)([a-zA-Z0-9\\-\\.\\?\\,\\'\\/\\\\\\+&amp;%\\$#_]*)?$</code><br/>
+            <code>^(ht|f)tp(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&amp;%\$#_]*)?$</code><br/>
             Explanation:<br/>
             <code>
             ○ Match if at the beginning of the string.<br/>
@@ -12228,6 +12358,36 @@
             Internal notification channel configuration.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.CrewhallChannelOptions">
+            <summary>
+            Crewhall chat channel configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.CrewhallChannelOptions.DefaultChat">
+            <summary>
+            Gets or sets the default chat to send alerts to when not specified.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.CrewhallChannelOptions.Chats">
+            <summary>
+            Gets or sets the configured chats with their incoming webhook URLs.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.CrewhallChatConfig">
+            <summary>
+            Crewhall chat configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.CrewhallChatConfig.Chat">
+            <summary>
+            Gets or sets the chat identifier/name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.CrewhallChatConfig.WebhookUrl">
+            <summary>
+            Gets or sets the incoming webhook URL of this chat. It carries the key, so it is a secret: never log or return it.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.AlertConfigBase">
             <summary>
             Base configuration for alert types.
@@ -12352,6 +12512,19 @@
         </member>
         <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.RolePrefix">
             <summary>Optional prefix filter: only roles starting with this are provisioned. Empty takes them all.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.OidcOptions.RoleMappings">
+            <summary>
+            Explicit grants from a provider role to existing local Milvaion roles (comma-separated), for example
+            <c>owner = SuperAdmin</c>. Only what is listed here can reach a local role. Provider roles not listed are mirrored
+            as provider roles with an empty permission set.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Models.Options.OidcOptions.ResolveRoles(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            Splits the roles a provider asserted into roles to mirror and local roles granted by <see cref="P:Milvaion.Application.Utils.Models.Options.OidcOptions.RoleMappings"/>.
+            Keys are matched case-insensitively because environment variable names may be upper-cased by the deployment.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.LdapOptions">
             <summary>
@@ -12644,6 +12817,46 @@
             External identity settings (OIDC and LDAP/AD). Off by default, so local username/password stays in effect until a provider is enabled.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.NotifikeOptions">
+            <summary>
+            Optional delivery of Milvaion's e-mails and internal notifications through Notifike, the company's notification service.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.NotifikeOptions.SectionKey">
+            <summary>
+            Configuration section key in appsettings.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.NotifikeOptions.Enabled">
+            <summary>
+            Gets or sets whether Notifike is used at all. Off by default, so the local delivery paths stay in effect.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.NotifikeOptions.SendOnlyInProduction">
+            <summary>
+            Gets or sets whether Notifike is used only in the production environment.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.NotifikeOptions.BaseUrl">
+            <summary>
+            Gets or sets the base address of the Notifike API. Example: "https://api.notifike.example.com"
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.NotifikeOptions.ApiKey">
+            <summary>
+            Gets or sets the API key of the Notifike application. A secret: never log or return it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.NotifikeOptions.UseForEmail">
+            <summary>
+            Gets or sets whether e-mail alerts are sent through Notifike instead of SMTP.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.NotifikeOptions.UseForInternalNotifications">
+            <summary>
+            Gets or sets whether internal notifications are also put in the recipients' Notifike in-app boxes.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RabbitMQOptions">
             <summary>
             RabbitMQ configuration options for job dispatcher.
@@ -12910,6 +13123,36 @@
             Gets all permissions in the system as grouped by permission group.
             </summary>
             <returns> Permission group and group's permissions pair. </returns>
+        </member>
+        <member name="T:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard">
+            <inheritdoc cref="T:Milvaion.Application.Interfaces.IPrivilegeGuard"/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.#ctor(Microsoft.AspNetCore.Http.IHttpContextAccessor,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.Permission},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.RolePermissionRelation},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.UserRoleRelation},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKeyPermissionRelation})">
+            <inheritdoc cref="T:Milvaion.Application.Interfaces.IPrivilegeGuard"/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.AllPermissionsExistAsync(System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanGrantPermissionsAsync(System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanChangeRolePermissionsAsync(System.Int32,System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanManageRoleAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanGrantRolesAsync(System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanChangeUserRolesAsync(System.Int32,System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanManageUserAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanGrantApiKeyPermissionsAsync(System.Nullable{System.Int32},System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Application.Utils.SystemResourceReader">
              <summary>
