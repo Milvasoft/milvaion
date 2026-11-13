@@ -1,0 +1,51 @@
+name: PHP SDK - Build & Test
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/php/**'
+      - '.github/workflows/php-sdk.yml'
+  pull_request:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/php/**'
+      - '.github/workflows/php-sdk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '8.2', '8.3', '8.4' ]
+
+    defaults:
+      run:
+        working-directory: sdks/php/milvaion-worker
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: sockets, pcntl, posix, mbstring
+          tools: composer:v2
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Test
+        run: vendor/bin/phpunit

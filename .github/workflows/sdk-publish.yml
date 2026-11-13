@@ -1,0 +1,147 @@
+name: Language SDKs - Publish
+
+# Publishes one language SDK to its package registry when its tag is pushed:
+#   sdk-node-v0.1.0    -> npm        (@milvasoft/milvaion-worker)
+#   sdk-python-v0.1.0  -> PyPI       (milvaion-worker)
+#   sdk-java-v0.1.0    -> Maven Central (com.milvasoft:milvaion-worker)
+#   sdk-php-v0.1.0     -> Packagist, through the split repository (milvasoft/milvaion-worker)
+# Go needs no registry: tag sdks/go/milvaion/v0.1.0 and the Go module proxy serves it.
+# The tag's version must match the version in the package's manifest.
+
+on:
+  push:
+    tags:
+      - 'sdk-node-v*'
+      - 'sdk-python-v*'
+      - 'sdk-java-v*'
+      - 'sdk-php-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      sdk: ${{ steps.parse.outputs.sdk }}
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - name: Parse tag
+        id: parse
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          sdk="$(echo "$tag" | sed -E 's/^sdk-([a-z]+)-v.*$/\1/')"
+          version="${tag#sdk-$sdk-v}"
+          echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  node:
+    needs: version
+    if: needs.version.outputs.sdk == 'node'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    defaults:
+      run:
+        working-directory: sdks/node/milvaion-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check version
+        run: test "$(node -p "require('./package.json').version")" = "${{ needs.version.outputs.version }}"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Publish
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  python:
+    needs: version
+    if: needs.version.outputs.sdk == 'python'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write # PyPI trusted publishing, no token needed
+    defaults:
+      run:
+        working-directory: sdks/python/milvaion-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check version
+        run: grep -q "^version = \"${{ needs.version.outputs.version }}\"$" pyproject.toml
+      - run: pip install -e ".[test]" build
+      - run: pytest -q
+      - run: python -m build
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdks/python/milvaion-worker/dist
+
+  java:
+    needs: version
+    if: needs.version.outputs.sdk == 'java'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/java/milvaion-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Check version
+        run: test "$(mvn -q -B help:evaluate -Dexpression=project.version -DforceStdout)" = "${{ needs.version.outputs.version }}"
+      - name: Publish
+        run: mvn -B -P release deploy
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
+  php:
+    needs: version
+    if: needs.version.outputs.sdk == 'php'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test
+        working-directory: sdks/php/milvaion-worker
+        run: |
+          composer validate --strict
+          composer install --no-interaction --no-progress
+          vendor/bin/phpunit
+      # Packagist reads composer.json from a repository's root, so the package lives in its own
+      # repository. This pushes the SDK folder's history there and tags it; Packagist picks the
+      # tag up through its GitHub hook.
+      - name: Push to the split repository
+        env:
+          SPLIT_REPOSITORY: ${{ vars.PHP_SDK_SPLIT_REPOSITORY }}
+          SPLIT_TOKEN: ${{ secrets.PHP_SDK_SPLIT_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          test -n "$SPLIT_REPOSITORY" || { echo "Set the PHP_SDK_SPLIT_REPOSITORY variable, e.g. Milvasoft/milvaion-worker-php"; exit 1; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git subtree split --prefix=sdks/php/milvaion-worker -b php-split
+          remote="https://x-access-token:${SPLIT_TOKEN}@github.com/${SPLIT_REPOSITORY}.git"
+          git push "$remote" php-split:main
+          git tag "v${VERSION}" php-split
+          git push "$remote" "v${VERSION}"

@@ -121,6 +121,9 @@
     </Project>
   </Folder>
   <Folder Name="/src/Workers/Built-in/">
+    <Project Path="src/Workers/CommandWorker/CommandWorker.csproj" Id="3116fb79-f1da-4b6f-9250-846e740bb392">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
     <Project Path="src/Workers/EmailWorker/EmailWorker.csproj" Id="b346bdda-4a00-4b12-b506-8cdcd5a481a2">
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>

@@ -41,7 +41,7 @@ Welcome to the official Milvaion documentation. This documentation will help you
 | [Scaling](09-scaling.md) | Horizontal scaling strategies |
 | [Monitoring](10-monitoring.md) | Health checks, metrics, logging, alerting |
 | [Maintenance](11-maintenance.md) | Database cleanup and retention policies |
-| [Built-in Workers](./built-in-workers/14-http-worker.md) | Pre-built workers (HTTP Worker, SQL Worker, Email Worker, Maintenance Worker) |
+| [Built-in Workers](./built-in-workers/14-http-worker.md) | Pre-built workers (HTTP Worker, SQL Worker, Email Worker, Command Worker, Maintenance Worker) |
 | [Workflows](20-workflows.md) | Build multi-step job pipelines with DAG-based orchestration |
 | [Api Keys](24-api-keys.md) | Credentials for CI pipelines, scripts and MCP clients |
 | [MCP Server](25-mcp-server.md) | Connect Claude Code, Cursor or Copilot and ask about your jobs |

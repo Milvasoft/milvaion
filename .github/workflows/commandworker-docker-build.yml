@@ -1,0 +1,111 @@
+name: CommandWorker Docker Build & Push
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'src/Workers/CommandWorker/**'
+      - 'src/Sdk/**'
+      - '**/Directory.Build.props'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci-gate:
+    uses: ./.github/workflows/wait-for-ci.yml
+    permissions:
+      actions: read
+
+  build:
+    needs: ci-gate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Read VERSION file
+        id: version
+        run: echo "VERSION=$(cat src/Workers/CommandWorker/VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Prepare platform pair
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./src/Workers/CommandWorker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,"name=${{ secrets.DOCKERHUB_USERNAME }}/milvaion-command-worker",push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=build-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=build-${{ env.PLATFORM_PAIR }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        run: |
+          docker buildx imagetools create \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-command-worker:latest \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-command-worker:${{ needs.build.outputs.version }} \
+            $(printf '${{ secrets.DOCKERHUB_USERNAME }}/milvaion-command-worker@sha256:%s ' $(ls /tmp/digests/))
+
+      - name: Image digest
+        run: echo "CommandWorker image pushed with version ${{ needs.build.outputs.version }}"

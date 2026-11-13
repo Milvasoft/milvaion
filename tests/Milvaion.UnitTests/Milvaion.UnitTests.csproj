@@ -43,6 +43,10 @@
     <Compile Include="..\..\src\Workers\SqlWorker\Options\SqlWorkerOptions.cs" Link="WorkerTests\Linked\SqlWorkerOptions.cs" />
     <Compile Include="..\..\src\Workers\SqlWorker\Jobs\SqlJobData.cs" Link="WorkerTests\Linked\SqlJobData.cs" />
     <Compile Include="..\..\src\Workers\SqlWorker\Services\SqlStatementGuard.cs" Link="WorkerTests\Linked\SqlStatementGuard.cs" />
+    <Compile Include="..\..\src\Workers\CommandWorker\Options\CommandWorkerOptions.cs" Link="WorkerTests\Linked\CommandWorkerOptions.cs" />
+    <Compile Include="..\..\src\Workers\CommandWorker\Jobs\CommandJobData.cs" Link="WorkerTests\Linked\CommandJobData.cs" />
+    <Compile Include="..\..\src\Workers\CommandWorker\Services\CommandLineBuilder.cs" Link="WorkerTests\Linked\CommandLineBuilder.cs" />
+    <Compile Include="..\..\src\Workers\CommandWorker\Services\ProcessRunner.cs" Link="WorkerTests\Linked\ProcessRunner.cs" />
     <ProjectReference Include="..\..\src\Milvaion.Api\Milvaion.Api.csproj" />
     <ProjectReference Include="..\..\src\Milvaion.Application\Milvaion.Application.csproj" />
     <ProjectReference Include="..\..\src\Milvaion.Domain\Milvaion.Domain.csproj" />

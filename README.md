@@ -62,7 +62,7 @@ Milvaion solves these problems by **completely separating scheduling from execut
 
 ### Workers in any language
 
-The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK, there are worker SDKs for **Node.js**, **Go** and **Python**. Workers written with them show up in the same dashboard, with live logs, retries, dead-lettering, cancellation, timeouts and graceful shutdown.
+The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK, there are worker SDKs for **Node.js**, **Go**, **Python**, **Java** and **PHP**. Workers written with them show up in the same dashboard, with live logs, retries, dead-lettering, cancellation, timeouts and graceful shutdown.
 
 | Language | SDK |
 |---|---|
@@ -70,8 +70,10 @@ The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK
 | Node.js | [`sdks/node/milvaion-worker`](./sdks/node/milvaion-worker/README.md) |
 | Go | [`sdks/go/milvaion`](./sdks/go/milvaion/README.md) |
 | Python | [`sdks/python/milvaion-worker`](./sdks/python/milvaion-worker/README.md) |
+| Java / Kotlin | [`sdks/java/milvaion-worker`](./sdks/java/milvaion-worker/README.md) |
+| PHP | [`sdks/php/milvaion-worker`](./sdks/php/milvaion-worker/README.md) |
 
-Any other language can join through the [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md), which documents the queues and message formats.
+Any other language can join through the [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md), which documents the queues and message formats. To schedule existing scripts without an SDK, use the built-in **Command Worker**.
 
 ---
 
@@ -164,11 +166,12 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 - **HTTP Worker** - Call REST APIs on schedule
 - **SQL Worker** - Execute database queries
 - **Email Worker** - Send emails via SMTP
+- **Command Worker** - Run allow-listed scripts and programs (any language) and stream their output
 - **Maintenance Worker** - Milvaion self data warehouse cleanup and archival
 
 ### Built-in workers
 
-Four workers run out of the box with no code to write: **HTTP** (call REST endpoints on a schedule), **SQL** (run queries), **Email** (send over SMTP) and **Maintenance** (Milvaion's own data cleanup and archival).
+Five workers run out of the box with no code to write: **HTTP** (call REST endpoints on a schedule), **SQL** (run queries), **Email** (send over SMTP), **Command** (run allow-listed scripts and programs in any language) and **Maintenance** (Milvaion's own data cleanup and archival).
 
 ### External Scheduler Integration
 Milvaion also monitors jobs running in **Quartz.NET** and **Hangfire** without replacing them — see [Already Running Hangfire or Quartz.NET?](#already-running-hangfire-or-quartznet) above.
@@ -289,12 +292,15 @@ milvaion/
 │   │   ├── HttpWorker/               # Built-in HTTP worker
 │   │   ├── SqlWorker/                # Built-in SQL worker
 │   │   ├── EmailWorker/              # Built-in Email worker
+│   │   ├── CommandWorker/            # Built-in Command worker
 │   │   └── MilvaionMaintenanceWorker/ # Maintenance jobs
 │   └── MilvaionUI/                   # React dashboard
 ├── sdks/
 │   ├── node/milvaion-worker/         # Node.js worker SDK
 │   ├── go/milvaion/                  # Go worker SDK
-│   └── python/milvaion-worker/       # Python worker SDK
+│   ├── python/milvaion-worker/       # Python worker SDK
+│   ├── java/milvaion-worker/         # Java worker SDK
+│   └── php/milvaion-worker/          # PHP worker SDK
 ├── tests/
 │   ├── Milvaion.UnitTests/
 │   └── Milvaion.IntegrationTests/
@@ -500,6 +506,8 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Node.js Worker SDK](./sdks/node/milvaion-worker/README.md) | Running Milvaion jobs in Node.js |
 | [Go Worker SDK](./sdks/go/milvaion/README.md) | Running Milvaion jobs in Go |
 | [Python Worker SDK](./sdks/python/milvaion-worker/README.md) | Running Milvaion jobs in Python |
+| [Java Worker SDK](./sdks/java/milvaion-worker/README.md) | Running Milvaion jobs on the JVM |
+| [PHP Worker SDK](./sdks/php/milvaion-worker/README.md) | Running Milvaion jobs in PHP |
 | [MCP Server](./docs/githubdocs/MCP-SERVER.md) | MCP server and api key auth internals |
 | [Security](./SECURITY.md) | Security policies |
 
@@ -584,6 +592,11 @@ go get github.com/Milvasoft/milvaion/sdks/go/milvaion
 
 # Python
 pip install "git+https://github.com/Milvasoft/milvaion.git#subdirectory=sdks/python/milvaion-worker"
+
+# Java (Maven): not on Maven Central yet, run "mvn install" in sdks/java/milvaion-worker
+#   com.milvasoft:milvaion-worker:0.1.0
+
+# PHP: not on Packagist yet, see sdks/php/milvaion-worker/README.md
 ```
 
 ---

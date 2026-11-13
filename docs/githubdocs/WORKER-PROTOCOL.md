@@ -1,6 +1,6 @@
 # Worker Protocol
 
-This document describes how a worker talks to Milvaion, independent of any programming language. The .NET worker SDK (`Milvasoft.Milvaion.Sdk.Worker`) and the Node.js, Go and Python worker SDKs (`sdks/node/milvaion-worker`, `sdks/go/milvaion`, `sdks/python/milvaion-worker`) all implement it. A worker written in any other language that follows this document works with an unmodified Milvaion API.
+This document describes how a worker talks to Milvaion, independent of any programming language. The .NET worker SDK (`Milvasoft.Milvaion.Sdk.Worker`) and the Node.js, Go, Python, Java and PHP worker SDKs under `sdks/` all implement it. A worker written in any other language that follows this document works with an unmodified Milvaion API.
 
 A worker needs two connections:
 

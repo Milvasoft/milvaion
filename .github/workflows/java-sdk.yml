@@ -1,0 +1,46 @@
+name: Java SDK - Build & Test
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/java/**'
+      - '.github/workflows/java-sdk.yml'
+  pull_request:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/java/**'
+      - '.github/workflows/java-sdk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Java ${{ matrix.java }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '17', '21' ]
+
+    defaults:
+      run:
+        working-directory: sdks/java/milvaion-worker
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+          cache-dependency-path: sdks/java/milvaion-worker/pom.xml
+
+      - name: Build and test
+        run: mvn -B verify
