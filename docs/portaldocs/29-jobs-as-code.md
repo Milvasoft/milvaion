@@ -2,7 +2,7 @@
 id: jobs-as-code
 title: "Jobs as Code"
 sidebar_label: "Jobs as Code"
-sidebar_position: 124
+sidebar_position: 125
 description: "Keep Milvaion jobs in version control and apply them from CI with the milvaion CLI or the Terraform provider."
 keywords: [milvaion cli, milvaion terraform, jobs as code, gitops scheduler, terraform job scheduler, yaml jobs]
 ---

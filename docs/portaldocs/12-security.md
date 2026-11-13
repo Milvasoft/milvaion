@@ -424,7 +424,7 @@ RABBITMQ_MANAGEMENT_LISTENER_IP=127.0.0.1
 
 ## Secrets Management
 
-This section covers Milvaion's own settings. For credentials that jobs need (SMTP passwords, API tokens), do not write them into job data: use [secret references](./28-secret-references.md) such as `{{secret:smtp-password}}`, which are resolved from environment variables, configuration, HashiCorp Vault or Azure Key Vault only when the job is sent to a worker.
+This section covers Milvaion's own settings. For credentials that jobs need (SMTP passwords, API tokens), do not write them into job data: use [secret references](./30-secret-references.md) such as `{{secret:smtp-password}}`, which are resolved from environment variables, configuration, HashiCorp Vault or Azure Key Vault only when the job is sent to a worker.
 
 ### Environment Variables
 
@@ -685,7 +685,7 @@ Only expose necessary ports:
 ## Related Documentation
 
 - [Configuration Reference](./06-configuration.md)
-- [Secret References](./28-secret-references.md)
+- [Secret References](./30-secret-references.md)
 - [Deployment Guide](./07-deployment.md)
 - [Monitoring Guide](./10-monitoring.md)
 - [Maintenance Guide](./11-maintenance.md)

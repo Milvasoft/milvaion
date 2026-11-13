@@ -10,6 +10,8 @@ const LANGUAGES = {
   python: { label: 'Python' },
   java: { label: 'Java' },
   php: { label: 'PHP' },
+  rust: { label: 'Rust' },
+  ruby: { label: 'Ruby' },
 }
 
 const RUNTIME_PREFIXES = [
@@ -18,6 +20,8 @@ const RUNTIME_PREFIXES = [
   ['Python', 'python'],
   ['Java', 'java'],
   ['PHP', 'php'],
+  ['Rust ', 'rust'],
+  ['Ruby ', 'ruby'],
 ]
 
 function field(metadata, camel, pascal) {

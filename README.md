@@ -62,7 +62,7 @@ Milvaion solves these problems by **completely separating scheduling from execut
 
 ### Workers in any language
 
-The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK, there are worker SDKs for **Node.js**, **Go**, **Python**, **Java** and **PHP**. Workers written with them show up in the same dashboard, with live logs, retries, dead-lettering, cancellation, timeouts and graceful shutdown. Each worker carries a badge for its language.
+The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK, there are worker SDKs for **Node.js**, **Go**, **Python**, **Java**, **PHP**, **Rust** and **Ruby**. Workers written with them show up in the same dashboard, with live logs, retries, dead-lettering, cancellation, timeouts and graceful shutdown. Each worker carries a badge for its language.
 
 ![Workers in PHP, Go, Node.js, Python and .NET on the Workers page](./docs/src/workers-languages.png)
 
@@ -74,6 +74,8 @@ The scheduler is .NET, but workers don't have to be. Besides the .NET worker SDK
 | Python | [`sdks/python/milvaion-worker`](./sdks/python/milvaion-worker/README.md) |
 | Java / Kotlin | [`sdks/java/milvaion-worker`](./sdks/java/milvaion-worker/README.md) |
 | PHP | [`sdks/php/milvaion-worker`](./sdks/php/milvaion-worker/README.md) |
+| Rust | [`sdks/rust/milvaion-worker`](./sdks/rust/milvaion-worker/README.md) |
+| Ruby | [`sdks/ruby/milvaion-worker`](./sdks/ruby/milvaion-worker/README.md) |
 
 Any other language can join through the [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md), which documents the queues and message formats. To schedule existing scripts without an SDK, use the built-in **Command Worker**.
 
@@ -182,7 +184,7 @@ Keep credentials out of job data. Write `{{secret:smtp-password}}` in a job's JS
 { "smtpPassword": "{{secret:smtp-password}}", "auth": "Bearer {{secret:vault:apps/billing#token}}" }
 ```
 
-📖 **[Secret references guide →](./docs/portaldocs/28-secret-references.md)**
+📖 **[Secret references guide →](./docs/portaldocs/30-secret-references.md)**
 
 ### External Scheduler Integration
 Milvaion also monitors jobs running in **Quartz.NET** and **Hangfire** without replacing them — see [Already Running Hangfire or Quartz.NET?](#already-running-hangfire-or-quartznet) above.
@@ -557,6 +559,8 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 | [Python Worker SDK](./sdks/python/milvaion-worker/README.md) | Running Milvaion jobs in Python |
 | [Java Worker SDK](./sdks/java/milvaion-worker/README.md) | Running Milvaion jobs on the JVM |
 | [PHP Worker SDK](./sdks/php/milvaion-worker/README.md) | Running Milvaion jobs in PHP |
+| [Rust Worker SDK](./sdks/rust/milvaion-worker/README.md) | Running Milvaion jobs in Rust |
+| [Ruby Worker SDK](./sdks/ruby/milvaion-worker/README.md) | Running Milvaion jobs in Ruby |
 | [MCP Server](./docs/githubdocs/MCP-SERVER.md) | MCP server and api key auth internals |
 | [milvaion CLI](./tools/milvaion-cli/README.md) | CLI internals, the YAML schema table, releasing |
 | [Terraform Provider](./tools/terraform-provider-milvaion/README.md) | Provider development, acceptance tests, GPG and registry setup |
@@ -649,6 +653,12 @@ pip install milvaion-worker
 
 # PHP
 composer require milvasoft/milvaion-worker
+
+# Rust
+cargo add milvaion-worker
+
+# Ruby
+gem install milvaion-worker
 ```
 
 ---
