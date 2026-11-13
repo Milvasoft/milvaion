@@ -44,6 +44,31 @@ public class UpdateScheduledJobCommand : MilvaionBaseDto<Guid>, ICommand<Guid>
     public UpdateProperty<string> CronExpression { get; set; }
 
     /// <summary>
+    /// IANA time zone id the cron expression is evaluated in. Null or empty means UTC.
+    /// </summary>
+    public UpdateProperty<string> TimeZoneId { get; set; }
+
+    /// <summary>
+    /// What happens to runs missed while the scheduler was down.
+    /// </summary>
+    public UpdateProperty<MissedRunPolicy> MissedRunPolicy { get; set; }
+
+    /// <summary>
+    /// Maximum catch-up runs for <see cref="Milvasoft.Milvaion.Sdk.Domain.Enums.MissedRunPolicy.RunAll"/>, 1 to 100.
+    /// </summary>
+    public UpdateProperty<int> MaxCatchUpRuns { get; set; }
+
+    /// <summary>
+    /// Dispatch priority, 0 (lowest) to 9 (highest).
+    /// </summary>
+    public UpdateProperty<int> Priority { get; set; }
+
+    /// <summary>
+    /// Ids of exclusion calendars whose days this job does not run on. Replaces the whole list.
+    /// </summary>
+    public UpdateProperty<List<Guid>> ExclusionCalendarIds { get; set; }
+
+    /// <summary>
     /// Indicates whether the job is active and should be processed by the dispatcher.
     /// Inactive jobs are skipped during scheduling. Users can toggle this via dashboard.
     /// </summary>

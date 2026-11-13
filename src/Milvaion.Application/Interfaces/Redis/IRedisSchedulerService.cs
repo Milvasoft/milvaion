@@ -88,6 +88,21 @@ public interface IRedisSchedulerService
     /// <returns>Count of scheduled jobs</returns>
     Task<long> GetScheduledJobsCountAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Records that a dispatcher polled at <paramref name="nowUtc"/> and returns the most recent dispatcher outage.
+    /// </summary>
+    /// <remarks>
+    /// Every dispatcher instance calls this once per poll. When the previous poll by any instance is older than
+    /// <paramref name="gapThreshold"/>, the gap between the two polls is stored as the latest outage: no dispatcher
+    /// was running in it, so the runs due in it were missed. The missed-run policy reads this to tell a run missed
+    /// during an outage from one that is only late because it was held back.
+    /// </remarks>
+    /// <param name="nowUtc">Time of this poll.</param>
+    /// <param name="gapThreshold">Smallest gap between polls that counts as an outage.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The latest outage, or null when none has been recorded (or Redis is unavailable).</returns>
+    Task<Milvaion.Application.Utils.Scheduling.DispatcherOutage> RecordDispatcherPollAsync(DateTime nowUtc, TimeSpan gapThreshold, CancellationToken cancellationToken = default);
+
     // ============ JOB CACHING METHODS ============
 
     /// <summary>

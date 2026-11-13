@@ -151,11 +151,14 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
                                     WorkerId = j.WorkerId,
                                     JobNameInWorker = j.JobNameInWorker,
                                     Tags = j.Tags,
-                                    IsExternal = j.IsExternal
+                                    IsExternal = j.IsExternal,
+                                    TimeZoneId = j.TimeZoneId,
+                                    ExclusionCalendarIds = j.ExclusionCalendarIds
                                 })
                                 .ToListAsync(cancellationToken);
 
         var jobsById = jobs.ToDictionary(j => j.Id);
+        var calendarsByJob = await LoadCalendarsAsync(context, jobs, cancellationToken);
 
         var items = new List<UpcomingExecutionDto>(scheduled.Count);
 
@@ -166,10 +169,57 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
             if (!jobsById.TryGetValue(entry.Key, out var job))
                 continue;
 
-            items.Add(ToDto(job, entry.Value, UpcomingExecutionHealth.Scheduled));
+            var scheduledAt = entry.Value;
+            var shifted = false;
+
+            // The dispatcher holds a run on an excluded day: it will record it as skipped, not run it. Show the first
+            // run that will actually happen instead, using the same search the dispatcher uses after a skip.
+            if (calendarsByJob.TryGetValue(job.Id, out var calendars) && calendars.Count > 0)
+            {
+                var zone = ZonedCron.ResolveTimeZone(job.TimeZoneId);
+
+                if (ExclusionCalendar.FindExcluding(calendars, ZonedCron.ToLocalDate(scheduledAt, zone)) is not null)
+                {
+                    if (!ZonedCron.TryParse(job.CronExpression, out var cron))
+                        continue; // A one-time job on an excluded day never runs.
+
+                    var allowed = RunPlanner.GetNextAllowedOccurrence(cron, scheduledAt, zone, calendars);
+
+                    if (!allowed.HasValue || allowed.Value > windowEnd)
+                        continue;
+
+                    scheduledAt = allowed.Value;
+                    shifted = true;
+                }
+            }
+
+            var dto = ToDto(job, scheduledAt, UpcomingExecutionHealth.Scheduled);
+            dto.ShiftedByCalendar = shifted;
+
+            items.Add(dto);
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// Loads the exclusion calendars of the given jobs, keyed by job.
+    /// </summary>
+    private static async Task<Dictionary<Guid, List<ExclusionCalendar>>> LoadCalendarsAsync(IMilvaBulkDbContextBase context, List<JobRow> jobs, CancellationToken cancellationToken)
+    {
+        var withCalendars = jobs.Where(j => j.ExclusionCalendarIds?.Count > 0).ToList();
+
+        if (withCalendars.Count == 0)
+            return [];
+
+        var ids = withCalendars.SelectMany(j => j.ExclusionCalendarIds).Distinct().ToList();
+
+        var calendars = await context.Set<ExclusionCalendar>()
+                                     .AsNoTracking()
+                                     .Where(c => ids.Contains(c.Id))
+                                     .ToDictionaryAsync(c => c.Id, cancellationToken);
+
+        return withCalendars.ToDictionary(j => j.Id, j => j.ExclusionCalendarIds.Where(calendars.ContainsKey).Select(id => calendars[id]).ToList());
     }
 
     /// <summary>
@@ -203,7 +253,8 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
                                         WorkerId = j.WorkerId,
                                         JobNameInWorker = j.JobNameInWorker,
                                         Tags = j.Tags,
-                                        IsExternal = j.IsExternal
+                                        IsExternal = j.IsExternal,
+                                        TimeZoneId = j.TimeZoneId
                                     })
                                     .Take(_healthScanLimit + 1)
                                     .ToListAsync(cancellationToken);
@@ -282,7 +333,8 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
                     Health = UpcomingExecutionHealth.InvalidSchedule,
                     CronExpression = workflow.CronExpression,
                     IsRecurring = true,
-                    Tags = workflow.Tags
+                    Tags = workflow.Tags,
+                    TimeZoneId = ScheduledJob.DefaultTimeZoneId
                 });
 
                 continue;
@@ -302,7 +354,9 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
                 Health = UpcomingExecutionHealth.Projected,
                 CronExpression = workflow.CronExpression,
                 IsRecurring = true,
-                Tags = workflow.Tags
+                Tags = workflow.Tags,
+                TimeZoneId = ScheduledJob.DefaultTimeZoneId,
+                LocalScheduledAt = nextRun.Value
             });
         }
 
@@ -332,20 +386,27 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
         }
     }
 
-    private static UpcomingExecutionDto ToDto(JobRow job, DateTime? scheduledAt, UpcomingExecutionHealth health) => new()
+    private static UpcomingExecutionDto ToDto(JobRow job, DateTime? scheduledAt, UpcomingExecutionHealth health)
     {
-        Id = job.Id,
-        Kind = UpcomingExecutionKind.Job,
-        DisplayName = job.DisplayName,
-        ScheduledAt = scheduledAt,
-        Health = health,
-        CronExpression = job.CronExpression,
-        IsRecurring = !string.IsNullOrWhiteSpace(job.CronExpression),
-        WorkerId = job.WorkerId,
-        JobNameInWorker = job.JobNameInWorker,
-        Tags = job.Tags,
-        IsExternal = job.IsExternal
-    };
+        var timeZoneId = string.IsNullOrWhiteSpace(job.TimeZoneId) ? ScheduledJob.DefaultTimeZoneId : job.TimeZoneId;
+
+        return new()
+        {
+            Id = job.Id,
+            Kind = UpcomingExecutionKind.Job,
+            DisplayName = job.DisplayName,
+            ScheduledAt = scheduledAt,
+            Health = health,
+            CronExpression = job.CronExpression,
+            IsRecurring = !string.IsNullOrWhiteSpace(job.CronExpression),
+            WorkerId = job.WorkerId,
+            JobNameInWorker = job.JobNameInWorker,
+            Tags = job.Tags,
+            IsExternal = job.IsExternal,
+            TimeZoneId = timeZoneId,
+            LocalScheduledAt = scheduledAt.HasValue ? DateTime.SpecifyKind(ZonedCron.ToLocalTime(scheduledAt.Value, ZonedCron.ResolveTimeZone(timeZoneId)), DateTimeKind.Unspecified) : null
+        };
+    }
 
     private sealed class JobRow
     {
@@ -356,6 +417,8 @@ public class GetUpcomingExecutionListQueryHandler(IMilvaionDbContextAccessor mil
         public string JobNameInWorker { get; set; }
         public string Tags { get; set; }
         public bool IsExternal { get; set; }
+        public string TimeZoneId { get; set; }
+        public List<Guid> ExclusionCalendarIds { get; set; }
     }
 
     private sealed class WorkflowRow

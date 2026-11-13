@@ -1073,6 +1073,12 @@ Maksimum dosya boyutu:
   <data name="Global.MilvaionApiKey" xml:space="preserve">
     <value>Api Key</value>
   </data>
+  <data name="PG.ExclusionCalendarManagement" xml:space="preserve">
+    <value>Hariç Tutma Takvimi Yönetimi yetkileri</value>
+  </data>
+  <data name="Global.ExclusionCalendar" xml:space="preserve">
+    <value>Hariç Tutma Takvimi</value>
+  </data>
   <data name="Global.MilvaionApiKeyPermissionRelation" xml:space="preserve">
     <value>Api Key/Yetki İlişkisi</value>
   </data>

@@ -44,6 +44,31 @@ public record CreateScheduledJobCommand : ICommand<Guid>
     public string CronExpression { get; set; }
 
     /// <summary>
+    /// IANA time zone id the cron expression is evaluated in, e.g. "Europe/Istanbul". Defaults to "UTC".
+    /// </summary>
+    public string TimeZoneId { get; set; } = ScheduledJob.DefaultTimeZoneId;
+
+    /// <summary>
+    /// What happens to runs missed while the scheduler was down: Skip (default), RunOnce or RunAll.
+    /// </summary>
+    public MissedRunPolicy MissedRunPolicy { get; set; } = MissedRunPolicy.Skip;
+
+    /// <summary>
+    /// Maximum catch-up runs for <see cref="MissedRunPolicy.RunAll"/>, 1 to 100. Default 10.
+    /// </summary>
+    public int MaxCatchUpRuns { get; set; } = ScheduledJob.DefaultMaxCatchUpRuns;
+
+    /// <summary>
+    /// Dispatch priority, 0 (default, lowest) to 9 (highest).
+    /// </summary>
+    public int Priority { get; set; }
+
+    /// <summary>
+    /// Ids of exclusion calendars whose days this job does not run on.
+    /// </summary>
+    public List<Guid> ExclusionCalendarIds { get; set; } = [];
+
+    /// <summary>
     /// Indicates whether the job is active and should be processed by the dispatcher.
     /// Inactive jobs are skipped during scheduling. Users can toggle this via dashboard.
     /// </summary>

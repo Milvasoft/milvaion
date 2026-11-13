@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Milvaion.Application.Behaviours;
+using Milvaion.Application.Utils.Scheduling;
 using Milvasoft.Core.Abstractions.Localization;
 using System.Text.Json;
 
@@ -26,6 +27,31 @@ public sealed class UpdateScheduledJobCommandValidator : AbstractValidator<Updat
             .Must(BeValidCronExpression)
             .WithMessage(localizer[MessageKey.InvalidCronExpression])
             .When(q => q.CronExpression.IsUpdated && !string.IsNullOrWhiteSpace(q.CronExpression.Value));
+
+        RuleFor(x => x.TimeZoneId.Value)
+            .Must(ZonedCron.IsValidTimeZoneId)
+            .WithMessage(x => SchedulingValidation.InvalidTimeZoneMessage(x.TimeZoneId.Value))
+            .When(x => x.TimeZoneId.IsUpdated && !string.IsNullOrEmpty(x.TimeZoneId.Value));
+
+        RuleFor(x => x.MissedRunPolicy.Value)
+            .IsInEnum()
+            .WithMessage(SchedulingValidation.InvalidMissedRunPolicyMessage)
+            .When(x => x.MissedRunPolicy.IsUpdated);
+
+        RuleFor(x => x.MaxCatchUpRuns.Value)
+            .InclusiveBetween(1, SchedulingValidation.MaxCatchUpRunsLimit)
+            .WithMessage(SchedulingValidation.InvalidMaxCatchUpRunsMessage)
+            .When(x => x.MaxCatchUpRuns.IsUpdated);
+
+        RuleFor(x => x.Priority.Value)
+            .InclusiveBetween(ScheduledJob.MinPriority, ScheduledJob.MaxPriority)
+            .WithMessage(SchedulingValidation.InvalidPriorityMessage)
+            .When(x => x.Priority.IsUpdated);
+
+        RuleFor(x => x.ExclusionCalendarIds.Value)
+            .Must(ids => ids is null || ids.Count <= SchedulingValidation.MaxCalendarsPerJob)
+            .WithMessage(SchedulingValidation.TooManyCalendarsMessage)
+            .When(x => x.ExclusionCalendarIds.IsUpdated);
 
         //  Validate JobData is valid JSON if updated
         RuleFor(query => query.JobData.Value)

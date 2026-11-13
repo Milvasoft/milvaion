@@ -1,6 +1,7 @@
 ﻿using Cronos;
 using FluentValidation;
 using Milvaion.Application.Behaviours;
+using Milvaion.Application.Utils.Scheduling;
 using Milvasoft.Core.Abstractions.Localization;
 using System.Text.Json;
 
@@ -52,11 +53,33 @@ public sealed class CreateScheduledJobCommandValidator : AbstractValidator<Creat
             .Must(date => date < DateTime.UtcNow.AddYears(1))
             .WithMessage("Job execution time cannot be more than 1 year in the future")
             .When(q => !q.IsExternal);
+
+        RuleFor(x => x.TimeZoneId)
+            .Must(ZonedCron.IsValidTimeZoneId)
+            .WithMessage(x => SchedulingValidation.InvalidTimeZoneMessage(x.TimeZoneId))
+            .When(x => x.TimeZoneId is not null);
+
+        RuleFor(x => x.MissedRunPolicy)
+            .IsInEnum()
+            .WithMessage(SchedulingValidation.InvalidMissedRunPolicyMessage);
+
+        RuleFor(x => x.MaxCatchUpRuns)
+            .InclusiveBetween(1, SchedulingValidation.MaxCatchUpRunsLimit)
+            .WithMessage(SchedulingValidation.InvalidMaxCatchUpRunsMessage);
+
+        RuleFor(x => x.Priority)
+            .InclusiveBetween(ScheduledJob.MinPriority, ScheduledJob.MaxPriority)
+            .WithMessage(SchedulingValidation.InvalidPriorityMessage);
+
+        RuleFor(x => x.ExclusionCalendarIds)
+            .Must(ids => ids is null || ids.Count <= SchedulingValidation.MaxCalendarsPerJob)
+            .WithMessage(SchedulingValidation.TooManyCalendarsMessage);
     }
+
     private static bool BeValidCronExpression(string cronExpression) => CronExpression.TryParse(cronExpression, CronFormat.IncludeSeconds, out _);
 
-    private static bool HaveFutureOccurrence(string cronExpression)
-        => CronExpression.Parse(cronExpression, CronFormat.IncludeSeconds).GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc).HasValue;
+    private static bool HaveFutureOccurrence(CreateScheduledJobCommand command, string cronExpression)
+        => ZonedCron.GetNextOccurrence(ZonedCron.Parse(cronExpression), DateTime.UtcNow, ZonedCron.ResolveTimeZone(command.TimeZoneId)).HasValue;
 
     private static bool BeValidJson(string jobData)
     {

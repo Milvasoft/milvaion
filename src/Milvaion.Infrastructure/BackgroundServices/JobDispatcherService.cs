@@ -1,5 +1,4 @@
-﻿using Cronos;
-using Milvasoft.BulkExtensions;
+﻿using Milvasoft.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -12,6 +11,8 @@ using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Application.Utils.Scheduling;
+using Milvaion.Domain;
 using Milvaion.Infrastructure.Scheduling;
 using Milvaion.Infrastructure.Services.Redis.Utils;
 using Milvaion.Infrastructure.Telemetry;
@@ -217,6 +218,10 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     {
         var sw = Stopwatch.StartNew();
 
+        // 0. Heartbeat. Done before anything else - including the early return below - so that only a real gap in
+        //    polling, not an idle cycle, is ever recorded as an outage.
+        var outage = await _redisScheduler.RecordDispatcherPollAsync(DateTime.UtcNow, MisfireRules.Grace, cancellationToken);
+
         // 1. Get due jobs from Redis ZSET
         var dueJobIds = await GetDueJobIdsFromRedisAsync(cancellationToken);
 
@@ -229,6 +234,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
         var allJobs = await GetDueJobsAsync(dbContext, dueJobIds, cancellationToken);
+        var calendarsByJob = await LoadExclusionCalendarsAsync(dbContext, allJobs.Values, cancellationToken);
 
         // 3. Check running jobs and get capacities
         var runningJobIdsSet = await _redisScheduler.GetRunningJobIdsAsync(allJobs.Keys.ToList(), cancellationToken);
@@ -240,8 +246,12 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
         _logger.Debug("Pre-validation: {Passed}/{Total} jobs passed", jobsPassedValidation.Count, dueJobIds.Count);
 
-        // 5. Acquire locks and create occurrences
-        var (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch, lockedJobIds) = await AcquireLocksAndCreateOccurrencesAsync(jobsPassedValidation, cancellationToken);
+        // 4.1. Higher priority first. Everything below keeps this order, so it decides who gets a lock, an occurrence
+        //      and a publish slot first; within a priority the job that has waited longest goes first.
+        jobsPassedValidation = OrderByPriority(jobsPassedValidation);
+
+        // 5. Acquire locks, decide each run (dispatch, catch up, or skip) and create occurrences
+        var (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch, lockedJobIds, decisions) = await AcquireLocksAndCreateOccurrencesAsync(jobsPassedValidation, outage, calendarsByJob, cancellationToken);
 
         try
         {
@@ -266,13 +276,19 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
             await PersistOccurrencesAsync(scope2, dbContext, jobOccurrenceRepository, allJobs, occurrences, occurrencesAsEvents, cancellationToken);
 
-            // 8. Record metrics and update Redis counters
-            RecordDispatchMetrics(sw, occurrences.Count);
+            // 8. Record metrics and update Redis counters. Skipped occurrences are final already and never queued.
+            var queuedCount = occurrences.Count(o => o.Status == JobOccurrenceStatus.Queued);
+            var skippedCount = occurrences.Count - queuedCount;
 
-            await UpdateRedisCountersAfterDispatchAsync(occurrences.Count, cancellationToken);
+            RecordDispatchMetrics(sw, queuedCount);
+
+            await UpdateRedisCountersAfterDispatchAsync(queuedCount, cancellationToken);
+
+            if (skippedCount > 0)
+                await UpdateSkippedCounterAsync(skippedCount, cancellationToken);
 
             // 9. Advance the schedule and dispatch to RabbitMQ
-            var (retryOccurrences, abandonedOccurrences) = await DispatchJobsToRabbitMQAsync(jobsToDispatch, occurrences, logsToInsert, cancellationToken);
+            var (retryOccurrences, abandonedOccurrences) = await DispatchJobsToRabbitMQAsync(jobsToDispatch, occurrences, decisions, logsToInsert, cancellationToken);
 
             // 10. Handle failed dispatches
             await HandleFailedDispatchesAsync(scope2, retryOccurrences, abandonedOccurrences, logsToInsert, cancellationToken);
@@ -458,13 +474,17 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     /// <summary>
     /// Acquires distributed locks and creates job occurrences.
     /// </summary>
-    private async Task<(List<JobOccurrence> Occurrences, List<JobOccurrence> OccurrencesAsEvents, ConcurrentBag<JobOccurrenceLog> LogsToInsert, List<ScheduledJob> JobsToDispatch, List<Guid> LockedJobIds)>
-        AcquireLocksAndCreateOccurrencesAsync(List<ScheduledJob> jobsPassedValidation, CancellationToken cancellationToken)
+    private async Task<(List<JobOccurrence> Occurrences, List<JobOccurrence> OccurrencesAsEvents, ConcurrentBag<JobOccurrenceLog> LogsToInsert, List<ScheduledJob> JobsToDispatch, List<Guid> LockedJobIds, Dictionary<Guid, RunDecision> Decisions)>
+        AcquireLocksAndCreateOccurrencesAsync(List<ScheduledJob> jobsPassedValidation,
+                                              DispatcherOutage outage,
+                                              Dictionary<Guid, List<ExclusionCalendar>> calendarsByJob,
+                                              CancellationToken cancellationToken)
     {
         var occurrences = new List<JobOccurrence>();
         var occurrencesAsEvents = new List<JobOccurrence>();
         var logsToInsert = new ConcurrentBag<JobOccurrenceLog>();
         var jobsToDispatch = new List<ScheduledJob>();
+        var decisions = new Dictionary<Guid, RunDecision>();
 
         // Bulk lock -> Single Redis call using Lua script
         var jobIdsToLock = jobsPassedValidation.Select(j => j.Id).ToList();
@@ -487,7 +507,17 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 continue;
             }
 
+            // Decided under the lock, so two instances can never both record the same skip or catch-up.
+            var now = DateTime.UtcNow;
+            var decision = RunPlanner.Plan(job, now, outage, calendarsByJob.GetValueOrDefault(job.Id) ?? []);
+
+            decisions[job.Id] = decision;
+
+            // RunAll may drop the oldest missed runs, so the run actually sent can be later than the score.
+            job.ExecuteAt = decision.RunSlotUtc;
+
             var correlationId = Guid.CreateVersion7();
+            var status = decision.Dispatches || decision.Kind == RunDecisionKind.InvalidSchedule ? JobOccurrenceStatus.Queued : JobOccurrenceStatus.Skipped;
 
             var occurrence = new JobOccurrence
             {
@@ -500,29 +530,44 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 ZombieTimeoutMinutes = job.ZombieTimeoutMinutes,
                 ExecutionTimeoutSeconds = job.ExecutionTimeoutSeconds,
                 WorkerId = job.WorkerId,
-                Status = JobOccurrenceStatus.Queued,
-                CreatedAt = DateTime.UtcNow,
+                Status = status,
+                CreatedAt = now,
                 CreatorUserName = GlobalConstant.SystemUsername
             };
+
+            if (status == JobOccurrenceStatus.Skipped)
+            {
+                // Final at birth: no worker will ever pick it up, so it is closed here with the reason as its result.
+                occurrence.EndTime = now;
+                occurrence.Result = decision.Message;
+                occurrence.StatusChangeLogs = [new OccurrenceStatusChangeLog { Timestamp = now, From = JobOccurrenceStatus.Queued, To = JobOccurrenceStatus.Skipped }];
+            }
 
             occurrences.Add(occurrence);
             jobsToDispatch.Add(job);
 
-            logsToInsert.Add(new()
+            if (status == JobOccurrenceStatus.Queued)
             {
-                Id = Guid.CreateVersion7(),
-                OccurrenceId = correlationId,
-                Timestamp = DateTime.UtcNow,
-                Level = "Information",
-                Message = "Job dispatched to RabbitMQ queue and will start closely...",
-                Category = "Dispatcher",
-                Data = new Dictionary<string, object>
+                logsToInsert.Add(new()
                 {
-                    ["ExecuteAt"] = job.ExecuteAt.ToString("O"),
-                    ["WorkerId"] = job.WorkerId,
-                    ["JobVersion"] = job.Version
-                }
-            });
+                    Id = Guid.CreateVersion7(),
+                    OccurrenceId = correlationId,
+                    Timestamp = now,
+                    Level = "Information",
+                    Message = "Job dispatched to RabbitMQ queue and will start closely...",
+                    Category = "Dispatcher",
+                    Data = new Dictionary<string, object>
+                    {
+                        ["ExecuteAt"] = job.ExecuteAt.ToString("O"),
+                        ["WorkerId"] = job.WorkerId,
+                        ["JobVersion"] = job.Version,
+                        ["Priority"] = job.Priority
+                    }
+                });
+            }
+
+            if (decision.Message is not null)
+                logsToInsert.Add(NewSchedulerLog(correlationId, job, decision));
 
             occurrencesAsEvents.Add(new JobOccurrence
             {
@@ -530,13 +575,97 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 JobId = job.Id,
                 JobName = job.DisplayName,
                 JobDisplayName = job.DisplayName,
-                Status = JobOccurrenceStatus.Queued,
+                Status = status,
                 WorkerId = job.WorkerId,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = now,
             });
         }
 
-        return (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch, lockedJobIds);
+        return (occurrences, occurrencesAsEvents, logsToInsert, jobsToDispatch, lockedJobIds, decisions);
+    }
+
+    /// <summary>
+    /// The log line that explains a catch-up run or a skipped run on its occurrence.
+    /// </summary>
+    private static JobOccurrenceLog NewSchedulerLog(Guid occurrenceId, ScheduledJob job, RunDecision decision)
+    {
+        var data = new Dictionary<string, object>
+        {
+            ["Decision"] = decision.Kind.ToString(),
+            ["ScheduledFor"] = decision.RunSlotUtc.ToString("O"),
+            ["LocalDate"] = decision.LocalDate.ToString("yyyy-MM-dd"),
+            ["TimeZoneId"] = job.TimeZoneId ?? ScheduledJob.DefaultTimeZoneId,
+            ["NextRunAt"] = decision.NextRunAtUtc?.ToString("O")
+        };
+
+        if (decision.MissedCount > 0)
+        {
+            data["CatchUp"] = decision.Kind == RunDecisionKind.CatchUp;
+            data["MissedRunPolicy"] = job.MissedRunPolicy.ToString();
+            data["MissedCount"] = decision.MissedCount;
+            data["DroppedCount"] = decision.DroppedCount;
+            data["FirstMissedAt"] = decision.FirstMissedUtc?.ToString("O");
+            data["LastMissedAt"] = decision.LastMissedUtc?.ToString("O");
+        }
+
+        if (decision.ExcludedBy is not null)
+        {
+            data["ExclusionCalendarId"] = decision.ExcludedBy.Id;
+            data["ExclusionCalendarName"] = decision.ExcludedBy.Name;
+        }
+
+        return new JobOccurrenceLog
+        {
+            Id = Guid.CreateVersion7(),
+            OccurrenceId = occurrenceId,
+            Timestamp = DateTime.UtcNow,
+            Level = decision.Kind == RunDecisionKind.CatchUp ? "Warning" : "Information",
+            Message = decision.Message,
+            Category = "Scheduler",
+            Data = data
+        };
+    }
+
+    /// <summary>
+    /// Sorts due jobs by priority, highest first, then by how long they have waited.
+    /// </summary>
+    internal static List<ScheduledJob> OrderByPriority(IEnumerable<ScheduledJob> jobs)
+        => [.. jobs.OrderByDescending(j => Math.Clamp(j.Priority, ScheduledJob.MinPriority, ScheduledJob.MaxPriority)).ThenBy(j => j.ExecuteAt)];
+
+    /// <summary>
+    /// Loads the exclusion calendars referenced by the due jobs, in one query, keyed by job.
+    /// </summary>
+    private static async Task<Dictionary<Guid, List<ExclusionCalendar>>> LoadExclusionCalendarsAsync(MilvaionDbContext dbContext, IEnumerable<ScheduledJob> jobs, CancellationToken cancellationToken)
+    {
+        var jobsWithCalendars = jobs.Where(j => j.ExclusionCalendarIds?.Count > 0).ToList();
+
+        if (jobsWithCalendars.Count == 0)
+            return [];
+
+        var calendarIds = jobsWithCalendars.SelectMany(j => j.ExclusionCalendarIds).Distinct().ToList();
+
+        var calendars = await dbContext.ExclusionCalendars
+                                       .AsNoTracking()
+                                       .Where(c => calendarIds.Contains(c.Id))
+                                       .ToDictionaryAsync(c => c.Id, cancellationToken);
+
+        // A reference to a deleted calendar is ignored rather than failing the job.
+        return jobsWithCalendars.ToDictionary(j => j.Id, j => j.ExclusionCalendarIds.Where(calendars.ContainsKey).Select(id => calendars[id]).ToList());
+    }
+
+    /// <summary>
+    /// Counts skipped occurrences on the dashboard counters.
+    /// </summary>
+    private async Task UpdateSkippedCounterAsync(int count, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Skipped, count, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Failed to increment Skipped counter (non-critical)");
+        }
     }
 
     /// <summary>
@@ -565,7 +694,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             try
             {
                 await _redisStatsService.IncrementTotalOccurrencesAsync(occurrences.Count, cancellationToken);
-                await _redisStatsService.TrackExecutionsAsync([.. occurrences.Select(o => o.Id)], cancellationToken);
+                await _redisStatsService.TrackExecutionsAsync([.. occurrences.Where(o => o.Status == JobOccurrenceStatus.Queued).Select(o => o.Id)], cancellationToken);
             }
             catch (Exception ex)
             {
@@ -664,6 +793,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     private async Task<(List<JobOccurrence> Retry, List<JobOccurrence> Abandoned)> DispatchJobsToRabbitMQAsync(
         List<ScheduledJob> jobsToDispatch,
         List<JobOccurrence> occurrences,
+        Dictionary<Guid, RunDecision> decisions,
         ConcurrentBag<JobOccurrenceLog> logsToInsert,
         CancellationToken cancellationToken)
     {
@@ -674,57 +804,75 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         // A job may have been dropped while persisting (FK verification path).
         var dispatchable = jobsToDispatch.Where(j => occurrenceByJobId.ContainsKey(j.Id)).ToList();
 
-        await Parallel.ForEachAsync(dispatchable, new ParallelOptions
+        // One priority level at a time, highest first, so a lower priority message never reaches the broker ahead
+        // of a higher priority one from the same cycle. Within a level publishes still run in parallel.
+        foreach (var priorityGroup in dispatchable.GroupBy(j => Math.Clamp(j.Priority, ScheduledJob.MinPriority, ScheduledJob.MaxPriority)).OrderByDescending(g => g.Key))
         {
-            MaxDegreeOfParallelism = 4,
-            CancellationToken = cancellationToken
-        }, async (job, ct) =>
-        {
-            var occurrence = occurrenceByJobId[job.Id];
-
-            // The schedule moves first. The other order - publish, then reschedule - sends the job
-            // twice whenever the Redis write after a successful publish fails.
-            if (!await TryAdvanceScheduleAsync(job, ct))
+            await Parallel.ForEachAsync(priorityGroup, new ParallelOptions
             {
-                occurrence.Status = JobOccurrenceStatus.Failed;
-                occurrence.Exception = "The schedule could not be advanced in Redis, so this occurrence was not dispatched. The job stays due and will fire again.";
+                MaxDegreeOfParallelism = 4,
+                CancellationToken = cancellationToken
+            }, async (job, ct) => await AdvanceAndPublishAsync(job, occurrenceByJobId[job.Id], decisions.GetValueOrDefault(job.Id), logsToInsert, retry, abandoned, ct));
+        }
 
-                logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", occurrence.Exception));
+        return ([.. retry], [.. abandoned]);
+    }
 
-                abandoned.Add(occurrence);
+    /// <summary>
+    /// Moves one job's schedule on and, unless its run was skipped, publishes it.
+    /// </summary>
+    private async Task AdvanceAndPublishAsync(ScheduledJob job,
+                                              JobOccurrence occurrence,
+                                              RunDecision decision,
+                                              ConcurrentBag<JobOccurrenceLog> logsToInsert,
+                                              ConcurrentBag<JobOccurrence> retry,
+                                              ConcurrentBag<JobOccurrence> abandoned,
+                                              CancellationToken ct)
+    {
+        // The schedule moves first. The other order - publish, then reschedule - sends the job
+        // twice whenever the Redis write after a successful publish fails.
+        if (!await TryAdvanceScheduleAsync(job, decision, ct))
+        {
+            occurrence.Status = JobOccurrenceStatus.Failed;
+            occurrence.Exception = "The schedule could not be advanced in Redis, so this occurrence was not dispatched. The job stays due and will fire again.";
 
+            logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", occurrence.Exception));
+
+            abandoned.Add(occurrence);
+
+            return;
+        }
+
+        // Skipped by the missed-run policy or a calendar: the schedule has moved on and there is nothing to send.
+        if (occurrence.Status == JobOccurrenceStatus.Skipped)
+            return;
+
+        try
+        {
+            if (await _rabbitMQPublisher.PublishJobAsync(job, occurrence.Id, ct))
+            {
+                _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with OccurrenceId {OccurrenceId}", job.Id, job.JobNameInWorker, occurrence.Id);
                 return;
             }
 
-            try
-            {
-                if (await _rabbitMQPublisher.PublishJobAsync(job, occurrence.Id, ct))
-                {
-                    _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with OccurrenceId {OccurrenceId}", job.Id, job.JobNameInWorker, occurrence.Id);
-                    return;
-                }
+            _logger.Error("Failed to publish job {JobId} to RabbitMQ", job.Id);
 
-                _logger.Error("Failed to publish job {JobId} to RabbitMQ", job.Id);
+            occurrence.Exception = "Failed to publish to RabbitMQ";
+            logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", "Failed to publish to RabbitMQ"));
 
-                occurrence.Exception = "Failed to publish to RabbitMQ";
-                logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", "Failed to publish to RabbitMQ"));
+            retry.Add(occurrence);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            occurrence.Exception = $"Dispatch exception: {ex.Message}";
+            logsToInsert.Add(NewDispatchLog(occurrence.Id, "Error", $"Exception during dispatch: {ex.Message}"));
 
-                retry.Add(occurrence);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                occurrence.Exception = $"Dispatch exception: {ex.Message}";
-                logsToInsert.Add(NewDispatchLog(occurrence.Id, "Error", $"Exception during dispatch: {ex.Message}"));
-
-                retry.Add(occurrence);
-            }
-        });
-
-        return ([.. retry], [.. abandoned]);
+            retry.Add(occurrence);
+        }
     }
 
     private static JobOccurrenceLog NewDispatchLog(Guid occurrenceId, string level, string message, Dictionary<string, object> data = null) => new()
@@ -952,7 +1100,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     /// leaves the scheduled set.
     /// </summary>
     /// <returns>False when Redis did not take the change, in which case the job must not be published.</returns>
-    private async Task<bool> TryAdvanceScheduleAsync(ScheduledJob job, CancellationToken cancellationToken)
+    private async Task<bool> TryAdvanceScheduleAsync(ScheduledJob job, RunDecision decision, CancellationToken cancellationToken)
     {
         try
         {
@@ -965,15 +1113,9 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 return removed;
             }
 
-            CronExpression cronExpression;
-
-            try
+            if (decision is null || decision.Kind == RunDecisionKind.InvalidSchedule)
             {
-                cronExpression = CronExpression.Parse(job.CronExpression, CronFormat.IncludeSeconds);
-            }
-            catch (CronFormatException ex)
-            {
-                _logger.Error(ex, "Failed to parse cron expression '{CronExpression}' for job {JobId}", job.CronExpression, job.Id);
+                _logger.Error("Failed to parse cron expression '{CronExpression}' for job {JobId}", job.CronExpression, job.Id);
 
                 await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
                 await _redisScheduler.RemoveCachedJobAsync(job.Id, cancellationToken);
@@ -981,7 +1123,9 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 return false;
             }
 
-            var nextRun = cronExpression.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc);
+            // Worked out by RunPlanner in the job's time zone: the next cron run for a normal run, the next missed
+            // run for a RunAll catch-up, or the first run on a non-excluded day after a calendar skip.
+            var nextRun = decision.NextRunAtUtc;
 
             if (!nextRun.HasValue)
             {
@@ -1114,7 +1258,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                     // frozen at the last create or update and is in the past for any
                     // recurring job that has run. Writing it back put every such job at a
                     // due score and made a restart fire the entire catalogue at once.
-                    var scheduleTime = StartupScheduleResolver.Resolve(job.CronExpression, job.ExecuteAt, job.CompletedAt, existingScheduleTime, DateTime.UtcNow);
+                    var scheduleTime = StartupScheduleResolver.Resolve(job.CronExpression, job.ExecuteAt, job.CompletedAt, existingScheduleTime, DateTime.UtcNow, job.TimeZoneId);
 
                     if (scheduleTime.HasValue)
                     {

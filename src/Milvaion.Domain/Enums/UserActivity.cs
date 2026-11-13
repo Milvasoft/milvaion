@@ -39,5 +39,8 @@ public enum UserActivity : byte
     RevokeApiKey,
     DeleteApiKey,
     DeleteWorker,
+    CreateExclusionCalendar,
+    UpdateExclusionCalendar,
+    DeleteExclusionCalendar,
 }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

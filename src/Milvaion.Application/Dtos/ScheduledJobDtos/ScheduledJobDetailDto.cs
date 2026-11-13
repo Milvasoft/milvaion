@@ -1,4 +1,5 @@
-﻿using Milvasoft.Attributes.Annotations;
+﻿using Milvaion.Application.Dtos.ExclusionCalendarDtos;
+using Milvasoft.Attributes.Annotations;
 using System.Linq.Expressions;
 using System.Text.Json.Serialization;
 
@@ -132,6 +133,36 @@ public class ScheduledJobDetailDto : MilvaionBaseDto<Guid>
     public ExternalJobInfoDto ExternalJobInfo { get; set; }
 
     /// <summary>
+    /// IANA time zone the cron expression is evaluated in.
+    /// </summary>
+    public string TimeZoneId { get; set; }
+
+    /// <summary>
+    /// What happens to runs missed while the scheduler was down.
+    /// </summary>
+    public MissedRunPolicy MissedRunPolicy { get; set; }
+
+    /// <summary>
+    /// Maximum catch-up runs when <see cref="MissedRunPolicy"/> is RunAll.
+    /// </summary>
+    public int MaxCatchUpRuns { get; set; }
+
+    /// <summary>
+    /// Dispatch priority, 0 (lowest) to 9 (highest).
+    /// </summary>
+    public int Priority { get; set; }
+
+    /// <summary>
+    /// Ids of the exclusion calendars the job honours.
+    /// </summary>
+    public List<Guid> ExclusionCalendarIds { get; set; }
+
+    /// <summary>
+    /// The exclusion calendars the job honours, with their names. Ids whose calendar no longer exists are left out.
+    /// </summary>
+    public List<ExclusionCalendarRefDto> ExclusionCalendars { get; set; }
+
+    /// <summary>
     /// Projection expression for mapping ScheduledJob scheduledjob to ScheduledJobDetailDto.
     /// </summary>
     [JsonIgnore]
@@ -158,6 +189,11 @@ public class ScheduledJobDetailDto : MilvaionBaseDto<Guid>
         Version = r.Version,
         JobVersions = r.JobVersions,
         AutoDisableSettings = r.AutoDisableSettings,
+        TimeZoneId = r.TimeZoneId,
+        MissedRunPolicy = r.MissedRunPolicy,
+        MaxCatchUpRuns = r.MaxCatchUpRuns,
+        Priority = r.Priority,
+        ExclusionCalendarIds = r.ExclusionCalendarIds,
         ExternalJobInfo = r.IsExternal ? new ExternalJobInfoDto
         {
             ExternalJobId = r.ExternalJobId,

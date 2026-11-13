@@ -16,6 +16,26 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 public class ScheduledJob : AuditableEntity<Guid>
 {
     /// <summary>
+    /// Time zone used when a job does not set one.
+    /// </summary>
+    public const string DefaultTimeZoneId = "UTC";
+
+    /// <summary>
+    /// Default maximum number of catch-up runs for <see cref="MissedRunPolicy.RunAll"/>.
+    /// </summary>
+    public const int DefaultMaxCatchUpRuns = 10;
+
+    /// <summary>
+    /// Lowest dispatch priority.
+    /// </summary>
+    public const int MinPriority = 0;
+
+    /// <summary>
+    /// Highest dispatch priority.
+    /// </summary>
+    public const int MaxPriority = 9;
+
+    /// <summary>
     /// Display name of the scheduled job.
     /// </summary>
     public string DisplayName { get; set; }
@@ -70,6 +90,44 @@ public class ScheduledJob : AuditableEntity<Guid>
     /// </summary>
     [MaxLength(100)]
     public string CronExpression { get; set; }
+
+    /// <summary>
+    /// IANA time zone id the cron expression is evaluated in (e.g. "Europe/Istanbul", "America/New_York").
+    /// Defaults to "UTC", which is how every job was evaluated before this setting existed.
+    /// </summary>
+    /// <remarks>
+    /// Daylight saving time is handled the way people expect from a wall clock: a run whose local time is skipped
+    /// when the clocks go forward does not run that day, and a run whose local time occurs twice when the clocks go
+    /// back runs once, at the first of the two.
+    /// </remarks>
+    [Required]
+    [MaxLength(64)]
+    public string TimeZoneId { get; set; } = DefaultTimeZoneId;
+
+    /// <summary>
+    /// What happens to runs of this recurring job that were missed while the scheduler was down. Default: Skip.
+    /// </summary>
+    [Required]
+    public MissedRunPolicy MissedRunPolicy { get; set; } = MissedRunPolicy.Skip;
+
+    /// <summary>
+    /// Upper bound on catch-up runs when <see cref="MissedRunPolicy"/> is <see cref="MissedRunPolicy.RunAll"/>.
+    /// </summary>
+    [Required]
+    public int MaxCatchUpRuns { get; set; } = DefaultMaxCatchUpRuns;
+
+    /// <summary>
+    /// Dispatch priority from 0 (lowest, default) to 9 (highest). When several jobs are due at once, higher
+    /// priority jobs are sent first, and the value is carried in the AMQP priority property of the message.
+    /// </summary>
+    [Required]
+    public int Priority { get; set; }
+
+    /// <summary>
+    /// Ids of the exclusion calendars this job honours. A run whose date, in the job's time zone, is excluded by
+    /// any of them is skipped and recorded as skipped.
+    /// </summary>
+    public List<Guid> ExclusionCalendarIds { get; set; } = [];
 
     /// <summary>
     /// Indicates whether the job is active and should be processed by the dispatcher.
@@ -215,6 +273,11 @@ public class ScheduledJob : AuditableEntity<Guid>
             JobNameInWorker = s.JobNameInWorker,
             JobData = s.JobData,
             CronExpression = s.CronExpression,
+            TimeZoneId = s.TimeZoneId,
+            MissedRunPolicy = s.MissedRunPolicy,
+            MaxCatchUpRuns = s.MaxCatchUpRuns,
+            Priority = s.Priority,
+            ExclusionCalendarIds = s.ExclusionCalendarIds,
             ConcurrentExecutionPolicy = s.ConcurrentExecutionPolicy,
             WorkerId = s.WorkerId,
             RoutingPattern = s.RoutingPattern,
@@ -246,6 +309,8 @@ public class ScheduledJob : AuditableEntity<Guid>
             JobNameInWorker = s.JobNameInWorker,
             JobData = s.JobData,
             CronExpression = s.CronExpression,
+            TimeZoneId = s.TimeZoneId,
+            Priority = s.Priority,
             IsActive = s.IsActive,
             CreationDate = s.CreationDate,
             CreatorUserName = s.CreatorUserName,

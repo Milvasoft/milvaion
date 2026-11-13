@@ -12,16 +12,19 @@ namespace Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
 /// Handles the update of the scheduledjob.
 /// </summary>
 /// <param name="ScheduledJobRepository"></param>
+/// <param name="ExclusionCalendarRepository"></param>
 /// <param name="RedisSchedulerService"></param>
 /// <param name="RedisWorkerService"></param>
 [Log]
 [Transaction]
 [UserActivityTrack(UserActivity.UpdateScheduledJob)]
 public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<ScheduledJob> ScheduledJobRepository,
+                                               IMilvaionRepositoryBase<ExclusionCalendar> ExclusionCalendarRepository,
                                                IRedisSchedulerService RedisSchedulerService,
                                                IRedisWorkerService RedisWorkerService) : IInterceptable, ICommandHandler<UpdateScheduledJobCommand, Guid>
 {
     private readonly IMilvaionRepositoryBase<ScheduledJob> _scheduledjobRepository = ScheduledJobRepository;
+    private readonly IMilvaionRepositoryBase<ExclusionCalendar> _exclusionCalendarRepository = ExclusionCalendarRepository;
     private readonly IRedisSchedulerService _redisSchedulerService = RedisSchedulerService;
     private readonly IRedisWorkerService _redisWorkerService = RedisWorkerService;
 
@@ -41,15 +44,39 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
         if (!IsValidForExternalUpdate(existingJob, request))
             return Response<Guid>.Error(existingJob.Id, "External job cannot modified!");
 
+        // A cleared zone means UTC, so the column never holds an empty value.
+        if (request.TimeZoneId.IsUpdated && string.IsNullOrWhiteSpace(request.TimeZoneId.Value))
+            request.TimeZoneId = new UpdateProperty<string> { Value = ScheduledJob.DefaultTimeZoneId, IsUpdated = true };
+
+        if (request.ExclusionCalendarIds.IsUpdated)
+        {
+            var calendarIds = ExclusionCalendarReferences.Normalize(request.ExclusionCalendarIds.Value);
+
+            var missingCalendars = await ExclusionCalendarReferences.FindMissingAsync(_exclusionCalendarRepository, calendarIds, cancellationToken);
+
+            if (missingCalendars is not null)
+                return Response<Guid>.Error(default, missingCalendars);
+
+            request.ExclusionCalendarIds = new UpdateProperty<List<Guid>> { Value = calendarIds, IsUpdated = true };
+        }
+
+        var effectiveZone = ZonedCron.ResolveTimeZone(request.TimeZoneId.IsUpdated ? request.TimeZoneId.Value : existingJob.TimeZoneId);
+        var timeZoneChanged = request.TimeZoneId.IsUpdated && request.TimeZoneId.Value != (existingJob.TimeZoneId ?? ScheduledJob.DefaultTimeZoneId);
+
         if (request.CronExpression.IsUpdated && !string.IsNullOrWhiteSpace(request.CronExpression.Value))
         {
-            var cronExpression = Cronos.CronExpression.Parse(request.CronExpression.Value, Cronos.CronFormat.IncludeSeconds);
+            var cronExpression = ZonedCron.Parse(request.CronExpression.Value);
 
-            newExecuteAt = cronExpression.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc)!.Value;
+            newExecuteAt = ZonedCron.GetNextOccurrence(cronExpression, DateTime.UtcNow, effectiveZone);
 
             if (existingJob.CronExpression != request.CronExpression.Value)
                 jobDefinitionChanged = true;
         }
+
+        // Same cron, new zone: the next run moves to the same wall time in the new zone.
+        if (!newExecuteAt.HasValue && timeZoneChanged && !request.CronExpression.IsUpdated
+            && ZonedCron.TryParse(existingJob.CronExpression, out var existingCron))
+            newExecuteAt = ZonedCron.GetNextOccurrence(existingCron, DateTime.UtcNow, effectiveZone);
 
         if (request.JobData.IsUpdated)
         {
@@ -85,8 +112,8 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
         var hasCron = !string.IsNullOrWhiteSpace(effectiveCron);
 
         if (!newExecuteAt.HasValue && request.IsActive.IsUpdated && request.IsActive.Value && hasCron
-            && Cronos.CronExpression.TryParse(effectiveCron, Cronos.CronFormat.IncludeSeconds, out var activeCron))
-            newExecuteAt = activeCron.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc);
+            && ZonedCron.TryParse(effectiveCron, out var activeCron))
+            newExecuteAt = ZonedCron.GetNextOccurrence(activeCron, DateTime.UtcNow, effectiveZone);
 
         // Update in database
         var setPropertyBuilder = _scheduledjobRepository.GetUpdatablePropertiesBuilder(request);
@@ -178,6 +205,21 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
 
         if (request.ExecutionTimeoutSeconds.IsUpdated)
             cacheUpdates["ExecutionTimeoutSeconds"] = request.ExecutionTimeoutSeconds.Value?.ToString() ?? string.Empty;
+
+        if (request.TimeZoneId.IsUpdated)
+            cacheUpdates["TimeZoneId"] = request.TimeZoneId.Value;
+
+        if (request.MissedRunPolicy.IsUpdated)
+            cacheUpdates["MissedRunPolicy"] = ((int)request.MissedRunPolicy.Value).ToString();
+
+        if (request.MaxCatchUpRuns.IsUpdated)
+            cacheUpdates["MaxCatchUpRuns"] = request.MaxCatchUpRuns.Value.ToString();
+
+        if (request.Priority.IsUpdated)
+            cacheUpdates["Priority"] = request.Priority.Value.ToString();
+
+        if (request.ExclusionCalendarIds.IsUpdated)
+            cacheUpdates["ExclusionCalendarIds"] = string.Join(',', request.ExclusionCalendarIds.Value ?? []);
 
         if (jobDefinitionChanged)
         {

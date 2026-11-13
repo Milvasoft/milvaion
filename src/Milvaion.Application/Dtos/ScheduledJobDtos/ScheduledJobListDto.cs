@@ -71,6 +71,16 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
     public bool IsExternal { get; set; }
 
     /// <summary>
+    /// IANA time zone the cron expression is evaluated in.
+    /// </summary>
+    public string TimeZoneId { get; set; }
+
+    /// <summary>
+    /// Dispatch priority, 0 (lowest) to 9 (highest).
+    /// </summary>
+    public int Priority { get; set; }
+
+    /// <summary>
     /// Projection expression for mapping ScheduledJob to ScheduledJobListDto.
     /// </summary>
     [JsonIgnore]
@@ -87,6 +97,8 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
         CompletedAt = r.CompletedAt,
         ConcurrentExecutionPolicy = r.ConcurrentExecutionPolicy,
         Tags = r.Tags,
-        IsExternal = r.IsExternal
+        IsExternal = r.IsExternal,
+        TimeZoneId = r.TimeZoneId,
+        Priority = r.Priority
     };
 }
