@@ -1,0 +1,90 @@
+name: Ruby SDK - Publish
+
+# Publishes the Ruby worker SDK (gem milvaion-worker) to RubyGems when a tag like sdk-ruby-v1.0.0 is pushed.
+# The tag's version must match the version in milvaion-worker.gemspec.
+#
+# Authentication, in order of preference:
+#   1. RubyGems trusted publishing: add this workflow as a trusted publisher of the gem on rubygems.org and
+#      set the repository variable RUBYGEMS_OIDC_ROLE to the role token it shows (rg_oidc_akr_...).
+#   2. An API key with the "Push rubygem" scope in the secret RUBYGEMS_API_KEY.
+
+on:
+  push:
+    tags:
+      - 'sdk-ruby-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: rubygems
+    permissions:
+      contents: read
+      id-token: write # RubyGems trusted publishing
+
+    services:
+      rabbitmq:
+        image: rabbitmq:4
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: sdks/ruby/milvaion-worker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: sdks/ruby/milvaion-worker
+
+      - name: Check version
+        run: |
+          version="${GITHUB_REF_NAME#sdk-ruby-v}"
+          actual="$(ruby -e 'puts Gem::Specification.load("milvaion-worker.gemspec").version')"
+          test "$actual" = "$version" || { echo "Tag version $version does not match the gemspec version $actual"; exit 1; }
+
+      - name: Test
+        run: bundle exec rspec
+        env:
+          MILVAION_TEST_RABBITMQ_URL: amqp://guest:guest@localhost:5672
+          MILVAION_TEST_REDIS_URL: redis://localhost:6379
+
+      - name: Build gem
+        run: gem build milvaion-worker.gemspec
+
+      - name: Configure RubyGems trusted publishing
+        if: vars.RUBYGEMS_OIDC_ROLE != ''
+        uses: rubygems/configure-rubygems-credentials@v1.0.0
+        with:
+          role-to-assume: ${{ vars.RUBYGEMS_OIDC_ROLE }}
+
+      - name: Publish
+        env:
+          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+          OIDC_ROLE: ${{ vars.RUBYGEMS_OIDC_ROLE }}
+        run: |
+          if [ -z "$OIDC_ROLE" ]; then
+            test -n "$RUBYGEMS_API_KEY" || { echo "Set the RUBYGEMS_OIDC_ROLE variable or the RUBYGEMS_API_KEY secret"; exit 1; }
+            export GEM_HOST_API_KEY="$RUBYGEMS_API_KEY"
+          fi
+          gem push "milvaion-worker-${GITHUB_REF_NAME#sdk-ruby-v}.gem"

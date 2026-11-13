@@ -1,0 +1,73 @@
+name: Ruby SDK - Build & Test
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/ruby/**'
+      - '.github/workflows/sdk-ruby.yml'
+  pull_request:
+    branches: [ master, develop ]
+    paths:
+      - 'sdks/ruby/**'
+      - '.github/workflows/sdk-ruby.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: [ '3.1', '3.2', '3.3', '3.4' ]
+
+    # The integration specs run a worker end to end against these.
+    services:
+      rabbitmq:
+        image: rabbitmq:4
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: sdks/ruby/milvaion-worker
+
+    env:
+      MILVAION_TEST_RABBITMQ_URL: amqp://guest:guest@localhost:5672
+      MILVAION_TEST_REDIS_URL: redis://localhost:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          working-directory: sdks/ruby/milvaion-worker
+
+      - name: Test
+        run: bundle exec rspec
+
+      - name: Build gem
+        run: gem build milvaion-worker.gemspec
