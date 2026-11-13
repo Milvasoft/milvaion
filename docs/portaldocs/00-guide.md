@@ -76,7 +76,7 @@ For new users, we recommend reading in this order:
 ## Version
 
 This documentation covers **Milvaion 1.0.0** with:
-- .NET 10
+- .NET 11
 - PostgreSQL 16
 - Redis 7
 - RabbitMQ 3.x

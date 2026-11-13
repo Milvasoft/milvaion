@@ -12,7 +12,7 @@ This guide walks you through creating a custom .Net Milvaion worker from scratch
 
 ## Prerequisites
 
-- **.NET 10 SDK** installed
+- **.NET 11 SDK** installed
 - **Milvaion stack running** (see [Quick Start](02-quick-start.md))
 - Basic C# knowledge
 

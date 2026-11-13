@@ -7,14 +7,14 @@
 </p>
 
 <p align="center">
-A distributed job scheduling system built on .NET 10
+A distributed job scheduling system built on .NET 11
 <br>
 <sub>Already on <b>Hangfire</b> or <b>Quartz.NET</b>? Keep it — <a href="#already-running-hangfire-or-quartznet">add Milvaion monitoring in two lines</a>.</sub>
 </p>
 
 <div align="center">
 
-[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![.NET 11](https://img.shields.io/badge/.NET-11-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-APACHE2.0-green?style=flat-square)](LICENSE)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker?style=flat-square&label=downloads)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
 
@@ -299,7 +299,7 @@ milvaion/
 
 ### Prerequisites
 
-- **.NET 10 SDK**
+- **.NET 11 SDK**
 - **PostgreSQL 16**
 - **Redis 7**
 - **RabbitMQ 3.x**
@@ -488,7 +488,7 @@ Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-ca
 
 | Component | Technology |
 |-----------|------------|
-| **Backend** | .NET 10, ASP.NET Core |
+| **Backend** | .NET 11, ASP.NET Core |
 | **Database** | PostgreSQL 16, Entity Framework Core |
 | **Cache/Scheduling** | Redis 7 |
 | **Message Queue** | RabbitMQ 3.x |

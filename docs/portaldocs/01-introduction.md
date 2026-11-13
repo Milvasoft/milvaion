@@ -11,7 +11,7 @@ description: Overview of Milvaion, its purpose, and core philosophy.
 
 # Introduction
 
-Milvaion is a **distributed job scheduling system** built on .NET 10. It separates the *scheduler* (API that decides when jobs run) from the *workers* (processes that execute jobs), connected via Redis and RabbitMQ.
+Milvaion is a **distributed job scheduling system** built on .NET 11. It separates the *scheduler* (API that decides when jobs run) from the *workers* (processes that execute jobs), connected via Redis and RabbitMQ.
 
 :::tip Already using Hangfire or Quartz.NET?
 

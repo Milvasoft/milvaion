@@ -104,7 +104,7 @@ Your `.csproj` should look like:
 	<PackageReference Include="xunit" Version="2.9.3" />
 	<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
 	<PackageReference Include="FluentAssertions" Version="7.0.0" />
-	<PackageReference Include="Milvasoft.Milvaion.Sdk.Worker" Version="10.1.3" />
+	<PackageReference Include="Milvasoft.Milvaion.Sdk.Worker" Version="11.0.0" />
   </ItemGroup>
 
   <ItemGroup>
