@@ -18,9 +18,9 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Milvasoft.Attributes" Version="11.0.0" />
-		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="11.0.0" />
-		<PackageReference Include="Milvasoft.DataAccess.EfCore" Version="11.0.0" />
+		<PackageReference Include="Milvasoft.Attributes" Version="11.0.1" />
+		<PackageReference Include="Milvasoft.Core.MultiLanguage" Version="11.0.1" />
+		<PackageReference Include="Milvasoft.DataAccess.EfCore" Version="11.0.1" />
 	</ItemGroup>
 
 	<PropertyGroup>
