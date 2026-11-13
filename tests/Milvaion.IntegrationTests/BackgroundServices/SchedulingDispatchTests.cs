@@ -49,7 +49,7 @@ public class SchedulingDispatchTests(ServicesWebApplicationFactory factory, ITes
 
     private async Task<ScheduledJob> SeedAsync(DateTime executeAt,
                                                string cron = _everyMinute,
-                                               MissedRunPolicy policy = MissedRunPolicy.Skip,
+                                               MissedRunPolicy policy = MissedRunPolicy.RunOnce,
                                                int priority = 0,
                                                List<Guid> calendarIds = null,
                                                string routingPattern = "worker.*")

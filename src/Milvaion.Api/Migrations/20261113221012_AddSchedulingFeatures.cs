@@ -12,7 +12,7 @@ public partial class AddSchedulingFeatures : Migration
 {
     /// <inheritdoc />
     /// <remarks>
-    /// Existing jobs get the values that reproduce their behaviour from before these settings existed: UTC, the Skip
+    /// Existing jobs get the values that reproduce their behaviour from before these settings existed: UTC, the RunOnce
     /// missed-run policy, priority 0 and no calendars. MaxCatchUpRuns gets its default of 10 so that switching a job
     /// to RunAll later does not start from a zero limit.
     /// </remarks>
@@ -36,7 +36,7 @@ public partial class AddSchedulingFeatures : Migration
             table: "ScheduledJobs",
             type: "integer",
             nullable: false,
-            defaultValue: 0);
+            defaultValue: 1);
 
         migrationBuilder.AddColumn<int>(
             name: "Priority",

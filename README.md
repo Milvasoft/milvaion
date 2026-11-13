@@ -139,7 +139,7 @@ Plenty of teams stop at step 2. That's a perfectly good outcome.
 
 ### Scheduling
 - **Per-job time zones** - Cron expressions run at local wall clock time in any IANA zone, with predictable daylight saving behaviour
-- **Missed-run policy** - Skip, run once or catch up on every run missed while the scheduler was down
+- **Missed-run policy** - Run once (the default), skip, or catch up on every run missed while the scheduler was down
 - **Job priority** - Higher priority jobs are dispatched first when several are due at once
 - **Exclusion calendars** - Skip holidays, maintenance days or weekends; skipped runs are recorded as skipped, not failed
 

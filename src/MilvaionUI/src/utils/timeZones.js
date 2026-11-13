@@ -88,7 +88,7 @@ export const MISSED_RUN_POLICIES = [
 /** Label for a missed-run policy, whether the API sent it as a number or a name. */
 export function missedRunPolicyLabel(value) {
   const policy = MISSED_RUN_POLICIES.find(p => p.value === value || p.key === value)
-  return policy ? policy.label : 'Skip'
+  return policy ? policy.label : 'Run once'
 }
 
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']

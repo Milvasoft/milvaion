@@ -21,7 +21,7 @@ public class RunPlannerTests
 
     private static DateTime Utc(int h, int mi, int s = 0) => new(2026, 6, 10, h, mi, s, DateTimeKind.Utc);
 
-    private static ScheduledJob Job(string cron = _everyTenMinutes, DateTime? executeAt = null, MissedRunPolicy policy = MissedRunPolicy.Skip, int max = 10, string zone = "UTC") => new()
+    private static ScheduledJob Job(string cron = _everyTenMinutes, DateTime? executeAt = null, MissedRunPolicy policy = MissedRunPolicy.RunOnce, int max = 10, string zone = "UTC") => new()
     {
         Id = Guid.CreateVersion7(),
         CronExpression = cron,
@@ -74,6 +74,16 @@ public class RunPlannerTests
         decision.LastMissedUtc.Should().Be(Utc(11, 0));
         decision.NextRunAtUtc.Should().Be(Utc(11, 10));
         decision.Message.Should().Contain("Skipped 6 runs");
+    }
+
+    [Fact]
+    public void DefaultPolicy_ShouldBeRunOnce_SoMissedRunsBehaveAsBefore()
+    {
+        // A job created without the setting - and every job that existed before it - gets one catch-up run.
+        var job = new ScheduledJob { CronExpression = _everyTenMinutes, ExecuteAt = Utc(10, 10), TimeZoneId = "UTC" };
+
+        job.MissedRunPolicy.Should().Be(MissedRunPolicy.RunOnce);
+        RunPlanner.Plan(job, _now, _outage, []).Kind.Should().Be(RunDecisionKind.CatchUp);
     }
 
     [Fact]

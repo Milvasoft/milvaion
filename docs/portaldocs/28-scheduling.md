@@ -14,11 +14,11 @@ Every job has a schedule: either a cron expression for a recurring job or a sing
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | Time zone | `UTC` | The zone the cron expression is read in. See [Time Zones](29-time-zones.md). |
-| Missed runs | `Skip` | What happens to runs missed while the scheduler was down. |
+| Missed runs | `RunOnce` | What happens to runs missed while the scheduler was down. |
 | Priority | `0` | Which jobs are sent first when several are due at once. |
 | Exclusion calendars | none | Days on which the job does not run. See [Exclusion Calendars](30-exclusion-calendars.md). |
 
-The defaults reproduce how jobs behaved before these settings existed, apart from the missed-run note below. You set them on the job form in the dashboard, through the API (`POST /api/v1/jobs/job`, `PUT /api/v1/jobs/job`) or with the MCP tools `create_job` and `update_job`.
+The defaults reproduce how jobs behaved before these settings existed, so existing jobs run exactly as they did. You set them on the job form in the dashboard, through the API (`POST /api/v1/jobs/job`, `PUT /api/v1/jobs/job`) or with the MCP tools `create_job` and `update_job`.
 
 ## Cron expressions
 
@@ -44,8 +44,8 @@ If the scheduler is down - a deploy, a crash, a restart, or the emergency stop o
 
 | Policy | Behaviour |
 |--------|-----------|
-| `Skip` (default) | The missed runs are not executed. One occurrence with the status **Skipped** is recorded for them, and the job continues at its next scheduled time. |
-| `RunOnce` | One catch-up run is executed for all of them, then the job continues at its next scheduled time. |
+| `RunOnce` (default) | One catch-up run is executed for all of them, then the job continues at its next scheduled time. This is how missed runs behaved before this setting existed. |
+| `Skip` | The missed runs are not executed. One occurrence with the status **Skipped** is recorded for them, and the job continues at its next scheduled time. |
 | `RunAll` | Each missed run is executed, one after another, up to the job's **maximum catch-up runs** (1 to 100, default 10). If more runs were missed, the oldest are dropped and only the most recent ones run. |
 
 Catch-up runs are normal runs: they respect the job's concurrency policy and its worker's capacity, so `RunAll` with the Skip concurrency policy runs them one at a time. Each catch-up occurrence has a log line from the scheduler that starts with "Catch-up run" and lists how many runs were missed, between which times, and how many were dropped.
@@ -60,10 +60,6 @@ A run counts as missed when both of these are true:
 A run that is late for any other reason - the previous run is still going and the concurrency policy is Skip, or the worker is at capacity - is not missed. It runs late, as it always has.
 
 One-time jobs are never dropped by this policy. A one-time job that was due during an outage runs when the scheduler comes back.
-
-:::note Upgrading
-Before this setting existed, a recurring job that was due during an outage ran once when the scheduler came back. With the default `Skip` policy that run is now recorded as skipped instead. Set the policy to `RunOnce` on jobs that should keep the old behaviour.
-:::
 
 ## Priority
 

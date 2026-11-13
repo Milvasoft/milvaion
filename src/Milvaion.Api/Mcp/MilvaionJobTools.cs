@@ -442,7 +442,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
         [Description("Comma separated tags.")] string tags = null,
         [Description("Whether the job is scheduled straight away. Pass false to create it paused.")] bool isActive = true,
         [Description("IANA time zone the cron expression is evaluated in, e.g. 'Europe/Istanbul'. Defaults to 'UTC'. Across daylight saving changes a skipped local time does not run and a repeated one runs once.")] string timeZoneId = null,
-        [Description("What happens to runs missed while the scheduler was down: Skip (default), RunOnce (one catch-up run) or RunAll (each missed run, up to maxCatchUpRuns).")] MissedRunPolicy? missedRunPolicy = null,
+        [Description("What happens to runs missed while the scheduler was down: RunOnce (default, one catch-up run), Skip (none) or RunAll (each missed run, up to maxCatchUpRuns).")] MissedRunPolicy? missedRunPolicy = null,
         [Description("Maximum catch-up runs for RunAll, 1 to 100. Defaults to 10.")] int? maxCatchUpRuns = null,
         [Description("Dispatch priority from 0 (lowest, default) to 9 (highest). Higher priority jobs are sent first when several are due at once.")] int? priority = null,
         [Description("Ids of exclusion calendars, from list_exclusion_calendars. Runs on days they exclude are skipped.")] List<Guid> exclusionCalendarIds = null,
@@ -462,7 +462,7 @@ public class MilvaionJobTools(IMediator mediator, McpPermissionGuard guard)
             WorkerId = workerId,
             SelectedJobName = selectedJobName,
             TimeZoneId = string.IsNullOrWhiteSpace(timeZoneId) ? ScheduledJob.DefaultTimeZoneId : timeZoneId,
-            MissedRunPolicy = missedRunPolicy ?? MissedRunPolicy.Skip,
+            MissedRunPolicy = missedRunPolicy ?? MissedRunPolicy.RunOnce,
             MaxCatchUpRuns = maxCatchUpRuns ?? ScheduledJob.DefaultMaxCatchUpRuns,
             Priority = priority ?? 0,
             ExclusionCalendarIds = exclusionCalendarIds ?? []

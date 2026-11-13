@@ -890,7 +890,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                 ExternalJobId = dict.GetValueOrDefault("ExternalJobId"),
                 // Entries cached before these fields existed fall back to the column defaults, which are exactly the old behaviour.
                 TimeZoneId = string.IsNullOrEmpty(dict.GetValueOrDefault("TimeZoneId")) ? ScheduledJob.DefaultTimeZoneId : dict["TimeZoneId"],
-                MissedRunPolicy = dict.TryGetValue("MissedRunPolicy", out var missedStr) && int.TryParse(missedStr, out var missed) ? (MissedRunPolicy)missed : MissedRunPolicy.Skip,
+                MissedRunPolicy = dict.TryGetValue("MissedRunPolicy", out var missedStr) && int.TryParse(missedStr, out var missed) ? (MissedRunPolicy)missed : MissedRunPolicy.RunOnce,
                 MaxCatchUpRuns = dict.TryGetValue("MaxCatchUpRuns", out var maxCatchUpStr) && int.TryParse(maxCatchUpStr, out var maxCatchUp) ? maxCatchUp : ScheduledJob.DefaultMaxCatchUpRuns,
                 Priority = dict.TryGetValue("Priority", out var priorityStr) && int.TryParse(priorityStr, out var priority) ? priority : 0,
                 ExclusionCalendarIds = ParseGuidList(dict.GetValueOrDefault("ExclusionCalendarIds")),

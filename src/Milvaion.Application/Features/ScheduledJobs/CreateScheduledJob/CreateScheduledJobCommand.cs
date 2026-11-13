@@ -49,9 +49,9 @@ public record CreateScheduledJobCommand : ICommand<Guid>
     public string TimeZoneId { get; set; } = ScheduledJob.DefaultTimeZoneId;
 
     /// <summary>
-    /// What happens to runs missed while the scheduler was down: Skip (default), RunOnce or RunAll.
+    /// What happens to runs missed while the scheduler was down: RunOnce (default), Skip or RunAll.
     /// </summary>
-    public MissedRunPolicy MissedRunPolicy { get; set; } = MissedRunPolicy.Skip;
+    public MissedRunPolicy MissedRunPolicy { get; set; } = MissedRunPolicy.RunOnce;
 
     /// <summary>
     /// Maximum catch-up runs for <see cref="MissedRunPolicy.RunAll"/>, 1 to 100. Default 10.

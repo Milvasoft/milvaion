@@ -141,8 +141,8 @@ public static class RunPlanner
 
             switch (job.MissedRunPolicy)
             {
-                case MissedRunPolicy.RunOnce:
-                    kind = RunDecisionKind.CatchUp;
+                case MissedRunPolicy.Skip:
+                    kind = RunDecisionKind.SkipMissed;
                     next = ZonedCron.GetNextOccurrence(cron, nowUtc, zone);
                     break;
 
@@ -162,8 +162,9 @@ public static class RunPlanner
                     next = ZonedCron.GetNextOccurrence(cron, runSlot, zone);
                     break;
 
+                // RunOnce, the default - and the safe reading of any value this code does not know.
                 default:
-                    kind = RunDecisionKind.SkipMissed;
+                    kind = RunDecisionKind.CatchUp;
                     next = ZonedCron.GetNextOccurrence(cron, nowUtc, zone);
                     break;
             }

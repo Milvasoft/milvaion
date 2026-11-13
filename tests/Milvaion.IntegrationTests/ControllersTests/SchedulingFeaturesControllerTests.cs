@@ -204,7 +204,7 @@ public class SchedulingFeaturesControllerTests(CustomWebApplicationFactory facto
     }
 
     [Fact]
-    public async Task CreateJob_ShouldDefaultToUtcSkipAndPriorityZero()
+    public async Task CreateJob_ShouldDefaultToUtcRunOnceAndPriorityZero()
     {
         var client = await RootClientAsync();
 
@@ -214,7 +214,7 @@ public class SchedulingFeaturesControllerTests(CustomWebApplicationFactory facto
         var job = await dbContext.ScheduledJobs.AsNoTracking().FirstAsync(j => j.Id == created.Data);
 
         job.TimeZoneId.Should().Be("UTC");
-        job.MissedRunPolicy.Should().Be(MissedRunPolicy.Skip);
+        job.MissedRunPolicy.Should().Be(MissedRunPolicy.RunOnce);
         job.MaxCatchUpRuns.Should().Be(10);
         job.Priority.Should().Be(0);
         job.ExclusionCalendarIds.Should().BeEmpty();
@@ -272,7 +272,7 @@ public class SchedulingFeaturesControllerTests(CustomWebApplicationFactory facto
             Id = created.Data,
             TimeZoneId = new UpdateProperty<string>("Asia/Tokyo"),
             Priority = new UpdateProperty<int>(3),
-            MissedRunPolicy = new UpdateProperty<MissedRunPolicy>(MissedRunPolicy.RunOnce)
+            MissedRunPolicy = new UpdateProperty<MissedRunPolicy>(MissedRunPolicy.Skip)
         });
         var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
 
@@ -283,7 +283,7 @@ public class SchedulingFeaturesControllerTests(CustomWebApplicationFactory facto
 
         job.TimeZoneId.Should().Be("Asia/Tokyo");
         job.Priority.Should().Be(3);
-        job.MissedRunPolicy.Should().Be(MissedRunPolicy.RunOnce);
+        job.MissedRunPolicy.Should().Be(MissedRunPolicy.Skip);
 
         // 09:00 in Tokyo (UTC+9, no DST) is 00:00 UTC.
         var scheduledAt = await _serviceProvider.GetRequiredService<IRedisSchedulerService>().GetScheduledTimeAsync(created.Data);

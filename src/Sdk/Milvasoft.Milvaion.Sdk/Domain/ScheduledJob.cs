@@ -105,10 +105,11 @@ public class ScheduledJob : AuditableEntity<Guid>
     public string TimeZoneId { get; set; } = DefaultTimeZoneId;
 
     /// <summary>
-    /// What happens to runs of this recurring job that were missed while the scheduler was down. Default: Skip.
+    /// What happens to runs of this recurring job that were missed while the scheduler was down. Default: RunOnce,
+    /// which is how a missed run behaved before this setting existed.
     /// </summary>
     [Required]
-    public MissedRunPolicy MissedRunPolicy { get; set; } = MissedRunPolicy.Skip;
+    public MissedRunPolicy MissedRunPolicy { get; set; } = MissedRunPolicy.RunOnce;
 
     /// <summary>
     /// Upper bound on catch-up runs when <see cref="MissedRunPolicy"/> is <see cref="MissedRunPolicy.RunAll"/>.

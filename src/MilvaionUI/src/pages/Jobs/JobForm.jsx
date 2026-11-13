@@ -164,7 +164,7 @@ function JobForm() {
     executionTimeoutSeconds: '',
     // Scheduling
     timeZoneId: 'UTC',
-    missedRunPolicy: 0, // 0=Skip, 1=RunOnce, 2=RunAll
+    missedRunPolicy: 1, // 0=Skip, 1=RunOnce (default), 2=RunAll
     maxCatchUpRuns: 10,
     priority: 0,
     exclusionCalendarIds: [],
@@ -276,7 +276,7 @@ function JobForm() {
         zombieTimeoutMinutes: data.zombieTimeoutMinutes || '',
         executionTimeoutSeconds: data.executionTimeoutSeconds || '',
         timeZoneId: data.timeZoneId || 'UTC',
-        missedRunPolicy: MISSED_RUN_POLICIES.find(p => p.value === data.missedRunPolicy || p.key === data.missedRunPolicy)?.value ?? 0,
+        missedRunPolicy: MISSED_RUN_POLICIES.find(p => p.value === data.missedRunPolicy || p.key === data.missedRunPolicy)?.value ?? 1,
         maxCatchUpRuns: data.maxCatchUpRuns || 10,
         priority: data.priority ?? 0,
         exclusionCalendarIds: data.exclusionCalendarIds || [],

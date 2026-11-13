@@ -20,6 +20,7 @@ public enum MissedRunPolicy
 
     /// <summary>
     /// A single catch-up run is executed for all the missed runs, then the job resumes at its next scheduled time.
+    /// The default, and how a missed run behaved before this setting existed.
     /// </summary>
     RunOnce = 1,
 
