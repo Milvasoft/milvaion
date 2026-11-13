@@ -5,19 +5,17 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
-using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Secrets;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
@@ -25,29 +23,24 @@ using System.Text.Json;
 namespace Milvaion.Infrastructure.BackgroundServices;
 
 /// <summary>
-/// Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
+/// Consumes worker logs from the message transport and appends them to JobOccurrence.Logs.
 /// </summary>
 public class LogCollectorService(IServiceProvider serviceProvider,
-                                 RabbitMQConnectionFactory rabbitMQFactory,
+                                 IMessageConsumerTransport transport,
                                  IAlertNotifier alertNotifier,
                                  IOptions<LogCollectorOptions> logCollectorOptions,
-                                 IOptions<RabbitMQOptions> rabbitMQOptions,
                                  ILoggerFactory loggerFactory,
                                  BackgroundServiceMetrics metrics,
                                  IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, logCollectorOptions.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly ISecretMasker _secretMasker = serviceProvider.GetService<ISecretMasker>();
-    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
+    private readonly IMessageConsumerTransport _transport = transport;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogCollectorService>();
     private readonly LogCollectorOptions _options = logCollectorOptions.Value;
-    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
-    private IChannel _channel;
-
-    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
-    private readonly SemaphoreSlim _channelLock = new(1, 1);
+    private IMessageConsumer _consumer;
 
     // Batch processing
     private readonly ConcurrentQueue<LogItem> _logBatch = new();
@@ -58,14 +51,13 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     private readonly ConcurrentQueue<(WorkerLogMessage Log, int RetryCount, DateTime AddedAt)> _pendingLogs = new();
 
     /// <summary>
-    /// One received RabbitMQ message. It may carry many logs and is acknowledged once the last of them is settled.
+    /// One received message. It may carry many logs and is acknowledged once the last of them is settled.
     /// </summary>
-    private sealed class Delivery(IChannel channel, ulong deliveryTag, int logCount)
+    private sealed class Delivery(IMessageDelivery message, int logCount)
     {
         private int _remaining = logCount;
 
-        public IChannel Channel { get; } = channel;
-        public ulong DeliveryTag { get; } = deliveryTag;
+        public IMessageDelivery Message { get; } = message;
         public bool SettleOne() => Interlocked.Decrement(ref _remaining) == 0;
     }
 
@@ -117,7 +109,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
             {
                 Title = "LogCollector Service Degraded",
-                Message = $"LogCollectorService failed to connect to RabbitMQ after {failures} attempts. Logs are not being collected; the service keeps retrying.",
+                Message = $"LogCollectorService failed to connect to {_transport.Name} after {failures} attempts. Logs are not being collected; the service keeps retrying.",
                 Severity = AlertSeverity.Critical,
                 Source = nameof(LogCollectorService),
                 ThreadKey = "service-degraded-logcollector"
@@ -127,59 +119,29 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        // Get channel from shared connection factory
-        var channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-
-        _channel = channel;
-
-        // Declare queue (idempotent)
-        await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.WorkerLogs,
-                                         durable: true,
-                                         exclusive: false,
-                                         autoDelete: false,
-                                         arguments: _rabbitMQOptions.BuildQueueArguments(),
-                                         cancellationToken: stoppingToken);
-
-        // Set prefetch count
         // Messages stay unacked until written, so the window has to cover at least a full batch.
-        await _channel.BasicQosAsync(0, (ushort)Math.Clamp(_options.BatchSize * 2, 10, ushort.MaxValue), false, stoppingToken);
+        var prefetch = (ushort)Math.Clamp(_options.BatchSize * 2, 10, ushort.MaxValue);
 
-        _logger.Information("LogCollector connected to RabbitMQ (shared connection). Queue: {Queue}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.WorkerLogs, _channel.ChannelNumber);
+        var consumer = await _transport.StartConsumerAsync(new ConsumerSubscription(WorkerConstant.Queues.WorkerLogs, prefetch, ServiceName),
+                                                           delivery => ProcessLogMessageAsync(delivery, stoppingToken),
+                                                           stoppingToken);
 
-        // Setup consumer
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-
-        consumer.ReceivedAsync += async (model, ea) =>
-        {
-            try
-            {
-                await ProcessLogMessageAsync(ea, channel, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.Fatal(ex, "Unhandled exception in log consumer");
-            }
-        };
-
-        await _channel.BasicConsumeAsync(queue: WorkerConstant.Queues.WorkerLogs,
-                                         autoAck: false,
-                                         consumer: consumer,
-                                         cancellationToken: stoppingToken);
+        _consumer = consumer;
 
         _logger.Information("LogCollectorService is now consuming messages...");
 
-        // Keep running until cancellation or channel death
-        await channel.WaitForShutdownAsync(stoppingToken);
+        // Keep running until cancellation or consumer death
+        await consumer.Completion.WaitAsync(stoppingToken);
 
-        await channel.SafeCloseAsync(_logger, CancellationToken.None);
+        await consumer.DisposeAsync();
     }
 
-    private async Task ProcessLogMessageAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
+    private async Task ProcessLogMessageAsync(IMessageDelivery message, CancellationToken cancellationToken)
     {
         try
         {
             // Try to parse as batch message first (new format), then the single message format (backward compatibility)
-            var batchMessage = JsonSerializer.Deserialize<WorkerLogBatchMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            var batchMessage = JsonSerializer.Deserialize<WorkerLogBatchMessage>(message.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
             List<WorkerLogMessage> logs;
 
@@ -189,12 +151,12 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             }
             else
             {
-                var singleMessage = JsonSerializer.Deserialize<WorkerLogMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+                var singleMessage = JsonSerializer.Deserialize<WorkerLogMessage>(message.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
                 if (singleMessage == null)
                 {
                     _logger.Debug("Failed to deserialize log message");
-                    await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+                    await message.NackAsync(requeue: false, cancellationToken);
                     return;
                 }
 
@@ -205,7 +167,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             if (_logBatch.Count >= _maxQueueSize)
             {
                 _logger.Warning("Log batch queue is full ({Count} messages). Dropping message to prevent OOM.", _logBatch.Count);
-                await channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+                await message.AckAsync(cancellationToken);
                 return;
             }
 
@@ -217,7 +179,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             }
 
             // Add to batch queue (NO DB operation here!). The message is acknowledged after its logs are written.
-            var delivery = new Delivery(channel, ea.DeliveryTag, logs.Count);
+            var delivery = new Delivery(message, logs.Count);
 
             foreach (var log in logs)
                 _logBatch.Enqueue(new LogItem(log, delivery));
@@ -229,7 +191,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process log message");
-            await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+            await message.NackAsync(requeue: false, cancellationToken);
         }
     }
 
@@ -350,7 +312,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         foreach (var item in batch)
         {
             if (item.Delivery.SettleOne())
-                await item.Delivery.Channel.SafeAckAsync(item.Delivery.DeliveryTag, _channelLock, _logger, cancellationToken);
+                await item.Delivery.Message.AckAsync(cancellationToken);
         }
     }
 
@@ -509,12 +471,12 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             _logger.Warning(ex, "Failed to process remaining logs during shutdown");
         }
 
-        // Close only channel (connection is managed by RabbitMQConnectionFactory)
-        await _channel.SafeCloseAsync(_logger, cancellationToken);
+        // Stop the consumer only now: the logs above still had to be acknowledged on it
+        if (_consumer != null)
+            await _consumer.DisposeAsync();
 
         // Dispose semaphores last: the work above still needs them
         _batchLock?.Dispose();
-        _channelLock?.Dispose();
 
         _logger.Information("LogCollectorService stopped");
     }

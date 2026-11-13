@@ -217,7 +217,7 @@ public static class RabbitMQChannelExtensions
                 failures = 0;
                 delay = TimeSpan.FromSeconds(1);
 
-                logger.Warning("{Service} lost its RabbitMQ channel. Reconnecting...", serviceName);
+                logger.Warning("{Service} lost its message broker consumer. Reconnecting...", serviceName);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -229,7 +229,7 @@ public static class RabbitMQChannelExtensions
             {
                 failures++;
 
-                logger.Error(ex, "{Service} RabbitMQ connection failed (consecutive failures: {Failures})", serviceName, failures);
+                logger.Error(ex, "{Service} message broker connection failed (consecutive failures: {Failures})", serviceName, failures);
 
                 if (failures == alertAfterAttempts)
                 {

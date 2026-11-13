@@ -1,3 +1,4 @@
+using Milvaion.Application.Interfaces.Messaging;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -1073,7 +1074,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             Options.Create(new StatusTrackerOptions
             {
                 Enabled = true,
@@ -1086,7 +1087,6 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
                 ConsecutiveFailureThreshold = 5,
                 FailureWindowMinutes = 60
             }),
-            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
@@ -1096,7 +1096,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             Options.Create(new StatusTrackerOptions
             {
                 Enabled = false,
@@ -1109,7 +1109,6 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
                 ConsecutiveFailureThreshold = 5,
                 FailureWindowMinutes = 60
             }),
-            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
@@ -1119,7 +1118,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             Options.Create(new StatusTrackerOptions
             {
                 Enabled = true,
@@ -1132,7 +1131,6 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
                 ConsecutiveFailureThreshold = threshold,
                 FailureWindowMinutes = 60
             }),
-            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );

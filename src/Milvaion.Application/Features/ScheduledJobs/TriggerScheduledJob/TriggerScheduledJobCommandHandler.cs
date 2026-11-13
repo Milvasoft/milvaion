@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Milvaion.Application.Interfaces.RabbitMQ;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Interfaces.Secrets;
 using Milvasoft.Components.CQRS.Command;
@@ -18,7 +18,7 @@ namespace Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<ScheduledJob> JobRepository,
                                                 IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
                                                 IMilvaionRepositoryBase<JobOccurrenceLog> OccurrenceLogRepository,
-                                                IRabbitMQPublisher RabbitMQPublisher,
+                                                IJobPublisher RabbitMQPublisher,
                                                 IRedisSchedulerService RedisScheduler,
                                                 IRedisStatsService StatsService,
                                                 IJobOccurrenceEventPublisher EventPublisher,
@@ -28,7 +28,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
     private readonly IMilvaionRepositoryBase<ScheduledJob> _jobRepository = JobRepository;
     private readonly IMilvaionRepositoryBase<JobOccurrence> _occurrenceRepository = OccurrenceRepository;
     private readonly IMilvaionRepositoryBase<JobOccurrenceLog> _occurrenceLogRepository = OccurrenceLogRepository;
-    private readonly IRabbitMQPublisher _rabbitMQPublisher = RabbitMQPublisher;
+    private readonly IJobPublisher _rabbitMQPublisher = RabbitMQPublisher;
     private readonly IRedisSchedulerService _redisScheduler = RedisScheduler;
     private readonly IRedisStatsService _statsService = StatsService;
     private readonly IJobOccurrenceEventPublisher _eventPublisher = EventPublisher;

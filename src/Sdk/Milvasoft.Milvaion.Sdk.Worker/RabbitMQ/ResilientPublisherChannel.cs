@@ -1,4 +1,5 @@
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Milvaion.Sdk.Worker.Kafka;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using RabbitMQ.Client;
 
@@ -14,7 +15,7 @@ namespace Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
 /// RabbitMQ.Client 7 assigns sequence numbers and writes frames under its own semaphore and awaits the confirm outside
 /// it, whereas a lock here would make every status update of every parallel job wait for the previous broker confirm.
 /// </remarks>
-internal sealed class ResilientPublisherChannel(WorkerOptions options, IMilvaLogger logger, params string[] queuesToDeclare) : IAsyncDisposable
+internal sealed class ResilientPublisherChannel(WorkerOptions options, IMilvaLogger logger, params string[] queuesToDeclare) : IQueuePublisher
 {
     private readonly WorkerOptions _options = options;
     private readonly IMilvaLogger _logger = logger;
@@ -38,6 +39,10 @@ internal sealed class ResilientPublisherChannel(WorkerOptions options, IMilvaLog
                                         body: body,
                                         cancellationToken: cancellationToken);
     }
+
+    /// <inheritdoc/>
+    Task IQueuePublisher.PublishAsync(string queue, ReadOnlyMemory<byte> body, bool persistent, string key, CancellationToken cancellationToken)
+        => PublishAsync(queue, body, persistent, cancellationToken);
 
     private async Task<IChannel> GetOpenChannelAsync(CancellationToken cancellationToken)
     {

@@ -1,3 +1,4 @@
+using Milvaion.Application.Interfaces.Messaging;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -633,7 +634,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
 
     private LogCollectorService CreateLogCollectorService() => new(
             _serviceProvider,
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new LogCollectorOptions
             {
@@ -641,14 +642,13 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
                 BatchSize = 1,
                 BatchIntervalMs = 100 // Faster batch processing for tests
             }),
-            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 
     private LogCollectorService CreateDisabledLogCollectorService() => new(
             _serviceProvider,
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new LogCollectorOptions
             {
@@ -656,7 +656,6 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
                 BatchSize = 1,
                 BatchIntervalMs = 100
             }),
-            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );

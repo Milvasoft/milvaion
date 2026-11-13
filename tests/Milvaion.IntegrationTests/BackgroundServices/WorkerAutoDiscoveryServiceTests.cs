@@ -1,3 +1,4 @@
+using Milvaion.Application.Interfaces.Messaging;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -515,12 +516,11 @@ public class WorkerAutoDiscoveryServiceTests(ServicesWebApplicationFactory facto
 
     private WorkerAutoDiscoveryService CreateWorkerAutoDiscoveryService() => new(
             _serviceProvider.GetRequiredService<IRedisWorkerService>(),
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             Options.Create(new WorkerAutoDiscoveryOptions
             {
                 Enabled = true
             }),
-            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider,

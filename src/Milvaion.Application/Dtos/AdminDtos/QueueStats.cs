@@ -28,14 +28,25 @@ public record QueueStats
     public uint MessagesReady { get; init; }
 
     /// <summary>
-    /// Messages unacknowledged
+    /// Messages delivered but not acknowledged yet. Null when the transport cannot report it (Kafka).
     /// </summary>
-    public uint MessagesUnacknowledged { get; init; }
+    public uint? MessagesUnacknowledged { get; init; }
 
     /// <summary>
     /// Queue health status
     /// </summary>
     public QueueHealthStatus HealthStatus { get; init; }
+
+    /// <summary>
+    /// Transport the figures come from ("Kafka"). Null on RabbitMQ. On Kafka the queue is a topic and the
+    /// message count is the consumer lag of the group that reads it.
+    /// </summary>
+    public string Transport { get; init; }
+
+    /// <summary>
+    /// Explains the figures, or why they are not available.
+    /// </summary>
+    public string Note { get; init; }
 
     /// <summary>
     /// Timestamp of statistics

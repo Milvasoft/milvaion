@@ -36,20 +36,100 @@ export interface Publisher {
   publish(exchange: string, routingKey: string, body: Buffer | object, options?: PublishOptions): Promise<void>;
 }
 
-/** One message taken from a job queue. */
+/**
+ * One message taken from a job queue or topic. `ack` and `nack` may return a promise; the
+ * processor waits for it, since on Kafka settling a record can mean producing another one.
+ */
 export interface Delivery {
   body: Buffer;
   headers?: Record<string, unknown>;
   correlationId?: string;
   redelivered: boolean;
-  ack(): void;
-  nack(requeue: boolean): void;
+  /** The job's outcome has been reported: the message is done. A returned promise is awaited. */
+  ack(): unknown;
+  /**
+   * `requeue`: give the message back so it runs again (worker shutdown). Otherwise dead-letter it
+   * as it is, because it could not be handled; `reason` says why.
+   */
+  nack(requeue: boolean, reason?: string): unknown;
+}
+
+/** Where a delivery came from. On RabbitMQ it is the job's queue, on Kafka the topic. */
+export interface JobSource {
+  queue: string;
+}
+
+export interface RetryRequest {
+  delivery: Delivery;
+  source: JobSource;
+  job: ScheduledJobMessage;
+  occurrenceId: string;
+  /** Retry count the next attempt runs with. */
+  retryCount: number;
+  maxRetries: number;
+  /** Unix time in milliseconds before which the next attempt must not run. */
+  notBefore: number;
+}
+
+export interface DeadLetterRequest {
+  message: DlqJobMessage;
+  occurrenceId: string;
+  retryCount: number;
+  /** 0 for a permanent failure. */
+  maxRetries: number;
+}
+
+/** Where the processor reports outcomes. Each transport has its own. */
+export interface JobOutput {
+  /**
+   * `in-process`: the processor waits out the retry backoff itself, then calls `publishRetry`.
+   * `broker`: `publishRetry` is called right away and the transport holds the record until `notBefore`.
+   */
+  readonly retryDelay: 'in-process' | 'broker';
+  publishStatus(message: JobStatusUpdateMessage): Promise<void>;
+  /** Resolves once the broker has accepted the retry. */
+  publishRetry(request: RetryRequest): Promise<void>;
+  /** Resolves once the broker has accepted the dead letter. */
+  publishDeadLetter(request: DeadLetterRequest): Promise<void>;
+}
+
+/** Job outcomes over RabbitMQ: status queue, in-process retry wait, republish to the job queue, DLX. */
+export class RabbitMqJobOutput implements JobOutput {
+  readonly retryDelay = 'in-process';
+  private readonly publisher: Publisher;
+
+  constructor(publisher: Publisher) {
+    this.publisher = publisher;
+  }
+
+  publishStatus(message: JobStatusUpdateMessage): Promise<void> {
+    return this.publisher.sendToQueue(Queues.statusUpdates, message, { persistent: true });
+  }
+
+  publishRetry({ delivery, source, occurrenceId, retryCount, maxRetries }: RetryRequest): Promise<void> {
+    return this.publisher.sendToQueue(source.queue, delivery.body, {
+      persistent: true,
+      correlationId: occurrenceId,
+      headers: { CorrelationId: occurrenceId, 'x-retry-count': retryCount, MaxRetries: maxRetries },
+    });
+  }
+
+  publishDeadLetter({ message, occurrenceId, retryCount, maxRetries }: DeadLetterRequest): Promise<void> {
+    return this.publisher.publish(Exchanges.deadLetter, DeadLetterRoutingKey, message, {
+      persistent: true,
+      correlationId: occurrenceId,
+      headers: { CorrelationId: occurrenceId, 'x-retry-count': retryCount, MaxRetries: maxRetries },
+    });
+  }
 }
 
 export interface ProcessorDeps {
   options: ResolvedWorkerOptions;
   jobs: ReadonlyMap<string, RegisteredJob>;
-  publisher: Publisher;
+  /** Where outcomes go. Default: RabbitMQ through `publisher`. */
+  output?: JobOutput;
+  /** RabbitMQ publisher, used when no `output` is given. */
+  publisher?: Publisher;
   logs: LogBuffer;
   cancellations: CancellationRegistry;
   /** Called whenever the number of running jobs changes. */
@@ -68,9 +148,11 @@ const GuidPattern = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-
 /** Runs job deliveries and reports their progress to the API, following the worker protocol. */
 export class JobProcessor {
   private readonly deps: ProcessorDeps;
+  private readonly output: JobOutput;
   private readonly logger: Logger;
   private readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
   private readonly shutdown = new AbortController();
+  private readonly retryHeartbeats = new Set<NodeJS.Timeout>();
   private runningCount = 0;
   private idleWaiters: Array<() => void> = [];
 
@@ -78,15 +160,30 @@ export class JobProcessor {
     this.deps = deps;
     this.logger = deps.options.logger;
     this.sleep = deps.sleep ?? abortableSleep;
+
+    if (deps.output)
+      this.output = deps.output;
+    else if (deps.publisher)
+      this.output = new RabbitMqJobOutput(deps.publisher);
+    else
+      throw new Error('JobProcessor needs an output or a publisher.');
   }
 
   get running(): number {
     return this.runningCount;
   }
 
-  /** Makes jobs waiting out a retry delay give their message back to the queue right away. */
+  /**
+   * Makes jobs waiting out a retry delay give their message back to the queue right away, and
+   * stops the heartbeats of retries the broker holds.
+   */
   beginShutdown(): void {
     this.shutdown.abort();
+
+    for (const timer of this.retryHeartbeats)
+      clearInterval(timer);
+
+    this.retryHeartbeats.clear();
   }
 
   /** Resolves once no job is running, or after `timeoutMs`. Returns whether all jobs finished. */
@@ -104,7 +201,7 @@ export class JobProcessor {
     });
   }
 
-  async handle(delivery: Delivery, consumer: RegisteredJob): Promise<void> {
+  async handle(delivery: Delivery, consumer: JobSource): Promise<void> {
     this.runningCount++;
     this.deps.onJobCountChanged?.();
 
@@ -112,7 +209,7 @@ export class JobProcessor {
       await this.process(delivery, consumer);
     } catch (error) {
       this.logger.error('Unexpected error while processing a job delivery.', error);
-      safe(() => delivery.nack(false), this.logger);
+      await settle(() => delivery.nack(false, `Unexpected error: ${error instanceof Error ? error.message : String(error)}`), this.logger);
     } finally {
       this.runningCount--;
       this.deps.onJobCountChanged?.();
@@ -126,12 +223,12 @@ export class JobProcessor {
     }
   }
 
-  private async process(delivery: Delivery, consumer: RegisteredJob): Promise<void> {
+  private async process(delivery: Delivery, consumer: JobSource): Promise<void> {
     const job = parseJob(delivery.body);
 
     if (!job) {
       this.logger.error(`Received a message on ${consumer.queue} that is not a valid job. Sending it to the dead letter queue.`);
-      safe(() => delivery.nack(false), this.logger);
+      await settle(() => delivery.nack(false, 'The message body is not a valid job.'), this.logger);
       return;
     }
 
@@ -139,11 +236,11 @@ export class JobProcessor {
 
     if (!occurrenceId) {
       this.logger.error(`Job ${job.id} arrived without an occurrence id. Sending it to the dead letter queue.`);
-      safe(() => delivery.nack(false), this.logger);
+      await settle(() => delivery.nack(false, 'The message has no occurrence id.'), this.logger);
       return;
     }
 
-    const run = new JobRun(this.deps, job, occurrenceId, parseRetryCount(delivery.headers));
+    const run = new JobRun(this.deps, this.output, job, occurrenceId, parseRetryCount(delivery.headers));
 
     if (delivery.redelivered) {
       this.logger.warn(`Job ${job.id} (occurrence ${occurrenceId}) was redelivered; the previous attempt may have crashed.`);
@@ -163,7 +260,7 @@ export class JobProcessor {
     }
   }
 
-  private async execute(delivery: Delivery, consumer: RegisteredJob, run: JobRun, controller: AbortController): Promise<void> {
+  private async execute(delivery: Delivery, consumer: JobSource, run: JobRun, controller: AbortController): Promise<void> {
     const { job } = run;
     const startTime = new Date();
 
@@ -192,7 +289,7 @@ export class JobProcessor {
       case 'completed':
         await run.flushLogs();
         await run.status(JobOccurrenceStatus.Completed, { startTime, endTime, durationMs, result: outcome.result });
-        safe(() => delivery.ack(), this.logger);
+        await settle(() => delivery.ack(), this.logger);
         return;
 
       case 'aborted':
@@ -270,7 +367,7 @@ export class JobProcessor {
       // Nobody cancelled this job; it goes back to the queue and runs again.
       this.logger.warn(`Job ${run.job.id} (occurrence ${run.occurrenceId}) was interrupted by worker shutdown. Returning it to the queue.`);
       await run.flushLogs();
-      safe(() => delivery.nack(true), this.logger);
+      await settle(() => delivery.nack(true), this.logger);
       return;
     }
 
@@ -287,10 +384,10 @@ export class JobProcessor {
       await run.status(JobOccurrenceStatus.Cancelled, { startTime, endTime, durationMs, result: 'Job cancelled by user or system' });
     }
 
-    safe(() => delivery.ack(), this.logger);
+    await settle(() => delivery.ack(), this.logger);
   }
 
-  private async finishFailed(delivery: Delivery, consumer: RegisteredJob, registered: RegisteredJob, run: JobRun,
+  private async finishFailed(delivery: Delivery, consumer: JobSource, registered: RegisteredJob, run: JobRun,
     outcome: Extract<Outcome, { kind: 'failed' }>, timing: { startTime: Date; endTime: Date; durationMs: number }): Promise<void> {
     const { error, permanent } = outcome;
     const message = error instanceof Error ? error.message : String(error);
@@ -334,42 +431,75 @@ export class JobProcessor {
   }
 
   /**
-   * Waits out the backoff, then republishes the job with a higher retry count and acks the original.
-   * The original stays unacked meanwhile, so a crash during the wait gets it redelivered.
+   * RabbitMQ: waits out the backoff, then republishes the job with a higher retry count and acks the
+   * original. The original stays unacked meanwhile, so a crash during the wait gets it redelivered.
+   *
+   * Kafka: produces the retry record with its due time right away and settles the original once the
+   * broker has it. The job heartbeat continues until the retry is due, since the occurrence stays Running.
    */
-  private async retry(delivery: Delivery, consumer: RegisteredJob, run: JobRun, delaySeconds: number, maxRetries: number): Promise<void> {
+  private async retry(delivery: Delivery, consumer: JobSource, run: JobRun, delaySeconds: number, maxRetries: number): Promise<void> {
     const heartbeatMs = this.deps.options.jobHeartbeatIntervalSeconds * 1000;
-    let remainingMs = delaySeconds * 1000;
 
-    try {
-      while (remainingMs > 0) {
-        const step = heartbeatMs > 0 ? Math.min(remainingMs, heartbeatMs) : remainingMs;
+    if (this.output.retryDelay === 'in-process') {
+      let remainingMs = delaySeconds * 1000;
 
-        await this.sleep(step, this.shutdown.signal);
-        remainingMs -= step;
+      try {
+        while (remainingMs > 0) {
+          const step = heartbeatMs > 0 ? Math.min(remainingMs, heartbeatMs) : remainingMs;
 
-        if (remainingMs > 0 && heartbeatMs > 0)
-          await run.status(JobOccurrenceStatus.Running, {}, false);
+          await this.sleep(step, this.shutdown.signal);
+          remainingMs -= step;
+
+          if (remainingMs > 0 && heartbeatMs > 0)
+            await run.status(JobOccurrenceStatus.Running, {}, false);
+        }
+      } catch {
+        this.logger.warn(`Worker is stopping during the retry delay of job ${run.job.id}. Returning it to the queue.`);
+        await settle(() => delivery.nack(true), this.logger);
+        return;
       }
-    } catch {
-      this.logger.warn(`Worker is stopping during the retry delay of job ${run.job.id}. Returning it to the queue.`);
-      safe(() => delivery.nack(true), this.logger);
-      return;
     }
 
+    const notBefore = this.output.retryDelay === 'in-process' ? Date.now() : Date.now() + delaySeconds * 1000;
+
     try {
-      await this.deps.publisher.sendToQueue(consumer.queue, delivery.body, {
-        persistent: true,
-        correlationId: run.occurrenceId,
-        headers: { CorrelationId: run.occurrenceId, 'x-retry-count': run.retryCount + 1, MaxRetries: maxRetries },
+      await this.output.publishRetry({
+        delivery,
+        source: consumer,
+        job: run.job,
+        occurrenceId: run.occurrenceId,
+        retryCount: run.retryCount + 1,
+        maxRetries,
+        notBefore,
       });
     } catch (error) {
       this.logger.error(`Failed to republish job ${run.job.id} for retry. Dead-lettering the message.`, error);
-      safe(() => delivery.nack(false), this.logger);
+      await settle(() => delivery.nack(false, `Could not publish the retry: ${error instanceof Error ? error.message : String(error)}`), this.logger);
       return;
     }
 
-    safe(() => delivery.ack(), this.logger);
+    await settle(() => delivery.ack(), this.logger);
+
+    if (this.output.retryDelay === 'broker')
+      this.heartbeatUntil(run, notBefore, heartbeatMs);
+  }
+
+  /** Sends job heartbeats for a retry the broker holds, until it is due or the worker stops. */
+  private heartbeatUntil(run: JobRun, notBefore: number, heartbeatMs: number): void {
+    if (heartbeatMs <= 0 || this.shutdown.signal.aborted || notBefore - Date.now() <= heartbeatMs)
+      return;
+
+    const timer = setInterval(() => {
+      if (Date.now() + heartbeatMs > notBefore) {
+        clearInterval(timer);
+        this.retryHeartbeats.delete(timer);
+      }
+
+      void run.status(JobOccurrenceStatus.Running, {}, false);
+    }, heartbeatMs);
+
+    timer.unref();
+    this.retryHeartbeats.add(timer);
   }
 
   private async deadLetter(delivery: Delivery, run: JobRun, exception: string, retryCount: number, maxRetries: number): Promise<void> {
@@ -385,19 +515,15 @@ export class JobProcessor {
     };
 
     try {
-      await this.deps.publisher.publish(Exchanges.deadLetter, DeadLetterRoutingKey, message, {
-        persistent: true,
-        correlationId: run.occurrenceId,
-        headers: { CorrelationId: run.occurrenceId, 'x-retry-count': retryCount, MaxRetries: maxRetries },
-      });
+      await this.output.publishDeadLetter({ message, occurrenceId: run.occurrenceId, retryCount, maxRetries });
     } catch (error) {
       // The queue dead-letters a rejected message itself, just without the exception details.
       this.logger.error(`Failed to publish job ${job.id} to the dead letter queue. Rejecting the message instead.`, error);
-      safe(() => delivery.nack(false), this.logger);
+      await settle(() => delivery.nack(false, exception), this.logger);
       return;
     }
 
-    safe(() => delivery.ack(), this.logger);
+    await settle(() => delivery.ack(), this.logger);
   }
 }
 
@@ -407,9 +533,11 @@ class JobRun {
   readonly occurrenceId: string;
   readonly retryCount: number;
   private readonly deps: ProcessorDeps;
+  private readonly output: JobOutput;
 
-  constructor(deps: ProcessorDeps, job: ScheduledJobMessage, occurrenceId: string, retryCount: number) {
+  constructor(deps: ProcessorDeps, output: JobOutput, job: ScheduledJobMessage, occurrenceId: string, retryCount: number) {
     this.deps = deps;
+    this.output = output;
     this.job = job;
     this.occurrenceId = occurrenceId;
     this.retryCount = retryCount;
@@ -451,7 +579,7 @@ class JobRun {
   async status(status: JobOccurrenceStatus,
     fields: { startTime?: Date; endTime?: Date; durationMs?: number; result?: string; exception?: string },
     retry = true): Promise<void> {
-    const { options, publisher } = this.deps;
+    const { options } = this.deps;
     const message: JobStatusUpdateMessage = {
       occurrenceId: this.occurrenceId,
       jobId: this.job.id,
@@ -470,7 +598,7 @@ class JobRun {
 
     for (let attempt = 0; ; attempt++) {
       try {
-        await publisher.sendToQueue(Queues.statusUpdates, message, { persistent: true });
+        await this.output.publishStatus(message);
         return;
       } catch (error) {
         if (attempt >= delays.length) {
@@ -541,11 +669,12 @@ function serializeResult(value: unknown, jobName: string): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
-function safe(action: () => void, logger: Logger): void {
+async function settle(action: () => unknown, logger: Logger): Promise<void> {
   try {
-    action();
+    await action();
   } catch (error) {
-    // An ack or nack on a channel that has closed: the broker redelivers the message.
+    // An ack or nack on a channel that has closed, or a record that could not be produced:
+    // the broker delivers the message again.
     logger.warn('Could not settle a message; the broker will redeliver it.', error);
   }
 }

@@ -1,12 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Secrets;
+using Milvaion.Infrastructure.Services.Messaging;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
-using System.Text;
-using System.Text.Json;
 
 namespace Milvaion.Infrastructure.Services.RabbitMQ;
 
@@ -17,9 +16,7 @@ public class RabbitMQPublisher : IRabbitMQPublisher
 {
     private readonly RabbitMQConnectionFactory _connectionFactory;
     private readonly IMilvaLogger _logger;
-    private readonly JsonSerializerOptions _jsonOptions;
-    private readonly ISecretResolver _secretResolver;
-    private readonly ISecretTemplateStore _templateStore;
+    private readonly JobMessageBodyBuilder _bodyBuilder;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQPublisher"/> class.
@@ -30,16 +27,8 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                              ISecretTemplateStore templateStore = null)
     {
         _connectionFactory = connectionFactory;
-        _secretResolver = secretResolver;
-        _templateStore = templateStore;
+        _bodyBuilder = new JobMessageBodyBuilder(secretResolver, templateStore);
         _logger = loggerFactory.CreateMilvaLogger<RabbitMQPublisher>();
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false,
-            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-        };
     }
 
     /// <inheritdoc/>
@@ -153,22 +142,8 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     /// to it could end up in Redis or the database. The resolved data exists only in the returned bytes.
     /// </remarks>
     /// <exception cref="SecretResolutionException">A referenced secret could not be resolved.</exception>
-    private async Task<byte[]> BuildMessageBodyAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken)
-    {
-        if (_secretResolver == null || !SecretReferences.ContainsReference(job.JobData))
-            return Encoding.UTF8.GetBytes(JsonSerializer.Serialize(job, _jsonOptions));
-
-        var resolved = await _secretResolver.ResolveAsync(job.JobData, cancellationToken);
-
-        if (_templateStore != null)
-            await _templateStore.SaveAsync(occurrenceId, job.JobData, cancellationToken);
-
-        var node = JsonSerializer.SerializeToNode(job, _jsonOptions)!.AsObject();
-
-        node["jobData"] = resolved;
-
-        return Encoding.UTF8.GetBytes(node.ToJsonString(_jsonOptions));
-    }
+    private Task<byte[]> BuildMessageBodyAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken)
+        => _bodyBuilder.BuildAsync(job, occurrenceId, cancellationToken);
 
     /// <summary>
     /// Converts JobType to routing key WITHOUT splitting words.

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
-using Milvaion.Application.Interfaces.RabbitMQ;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Utils.Constants;
@@ -37,7 +37,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                                   IRedisLockService redisLock,
                                   IRedisWorkerService redisWorkerService,
                                   IRedisStatsService redisStatsService,
-                                  IRabbitMQPublisher rabbitMQPublisher,
+                                  IJobPublisher rabbitMQPublisher,
                                   IAlertNotifier alertNotifier,
                                   IOptions<JobDispatcherOptions> options,
                                   IDispatcherControlService controlService,
@@ -50,7 +50,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     private readonly IRedisLockService _redisLock = redisLock;
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
-    private readonly IRabbitMQPublisher _rabbitMQPublisher = rabbitMQPublisher;
+    private readonly IJobPublisher _rabbitMQPublisher = rabbitMQPublisher;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<JobDispatcherService>();
     private readonly JobDispatcherOptions _options = options.Value;

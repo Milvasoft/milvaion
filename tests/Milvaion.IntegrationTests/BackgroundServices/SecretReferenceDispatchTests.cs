@@ -1,3 +1,4 @@
+using Milvaion.Application.Interfaces.Messaging;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -108,7 +109,7 @@ public class SecretReferenceDispatchTests(ServicesWebApplicationFactory factory,
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
             var handler = new FailedOccurrenceHandler(_serviceProvider,
-                                                      _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+                                                      _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
                                                       _serviceProvider.GetRequiredService<IAlertNotifier>(),
                                                       Options.Create(new FailedOccurrenceHandlerOptions { Enabled = true }),
                                                       _serviceProvider.GetRequiredService<ILoggerFactory>(),

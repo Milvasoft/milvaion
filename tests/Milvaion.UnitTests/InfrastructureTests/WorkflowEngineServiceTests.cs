@@ -2,7 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Milvaion.Application.Interfaces.RabbitMQ;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
@@ -21,7 +21,7 @@ namespace Milvaion.UnitTests.InfrastructureTests;
 public class WorkflowEngineServiceTests
 {
     private readonly Mock<IServiceProvider> _serviceProviderMock;
-    private readonly Mock<IRabbitMQPublisher> _rabbitMQPublisherMock;
+    private readonly Mock<IJobPublisher> _rabbitMQPublisherMock;
     private readonly Mock<IRedisSchedulerService> _redisSchedulerMock;
     private readonly Mock<IRedisStatsService> _redisStatsMock;
     private readonly IOptions<WorkflowEngineOptions> _options;
@@ -33,7 +33,7 @@ public class WorkflowEngineServiceTests
     public WorkflowEngineServiceTests()
     {
         _serviceProviderMock = new Mock<IServiceProvider>();
-        _rabbitMQPublisherMock = new Mock<IRabbitMQPublisher>();
+        _rabbitMQPublisherMock = new Mock<IJobPublisher>();
         _redisSchedulerMock = new Mock<IRedisSchedulerService>();
         _redisStatsMock = new Mock<IRedisStatsService>();
         _options = Options.Create(new WorkflowEngineOptions
@@ -54,7 +54,7 @@ public class WorkflowEngineServiceTests
         _serviceProviderMock.Setup(x => x.GetService(typeof(IServiceScopeFactory))).Returns(_serviceScopeFactoryMock.Object);
 
         // Setup required service mocks for WorkflowEngineService constructor
-        _serviceProviderMock.Setup(x => x.GetService(typeof(IRabbitMQPublisher))).Returns(_rabbitMQPublisherMock.Object);
+        _serviceProviderMock.Setup(x => x.GetService(typeof(IJobPublisher))).Returns(_rabbitMQPublisherMock.Object);
         _serviceProviderMock.Setup(x => x.GetService(typeof(IRedisSchedulerService))).Returns(_redisSchedulerMock.Object);
         _serviceProviderMock.Setup(x => x.GetService(typeof(IRedisStatsService))).Returns(_redisStatsMock.Object);
         _serviceProviderMock.Setup(x => x.GetService(typeof(BackgroundServiceMetrics))).Returns(_metrics);

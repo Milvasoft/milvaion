@@ -41,6 +41,16 @@ public class MilvaionConfig
 
     public RedisOptions Redis { get; set; }
     public RabbitMQOptions RabbitMQ { get; set; }
+
+    /// <summary>
+    /// Message broker selection. RabbitMQ when the section is missing.
+    /// </summary>
+    public TransportOptions Transport { get; set; } = new();
+
+    /// <summary>
+    /// Kafka settings, used when <see cref="TransportOptions.Type"/> is Kafka.
+    /// </summary>
+    public KafkaOptions Kafka { get; set; }
     public JobDispatcherOptions JobDispatcher { get; set; }
     public ZombieOccurrenceDetectorOptions ZombieOccurrenceDetector { get; set; }
     public JobAutoDisableOptions JobAutoDisable { get; set; }

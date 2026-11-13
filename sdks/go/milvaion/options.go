@@ -19,6 +19,12 @@ type Options struct {
 	// WorkerID identifies the worker application. Use the same value on every replica.
 	WorkerID string
 
+	// Transport is the message broker: "rabbitmq" (default) or "kafka". The API and every worker of a
+	// deployment must use the same one.
+	Transport string
+	// Kafka configures the Kafka transport. Only used when Transport is "kafka".
+	Kafka KafkaOptions
+
 	// RabbitMQURL, e.g. "amqp://guest:guest@localhost:5672/". Default: guest on localhost.
 	RabbitMQURL string
 	// QueueType must match the API's MilvaionConfig:RabbitMQ:QueueType: "classic" (default) or "quorum".
@@ -41,7 +47,7 @@ type Options struct {
 	JobHeartbeatInterval time.Duration
 	// ShutdownTimeout is how long Run lets running jobs finish after its context is cancelled. Default: 30s.
 	ShutdownTimeout time.Duration
-	// StartupTimeout is how long Run waits for the first RabbitMQ and Redis connection. Default: 30s.
+	// StartupTimeout is how long Run waits for the first broker and Redis connection. Default: 30s.
 	StartupTimeout time.Duration
 
 	// Version is shown in the dashboard. Default: "1.0.0".
@@ -59,6 +65,7 @@ type JobOptions struct {
 	// ConsumerID shown in the dashboard. Default: "{name without Job}-consumer".
 	ConsumerID string
 	// MaxParallelJobs of this type on this instance (prefetch). Default: min(10, worker MaxParallelJobs).
+	// RabbitMQ only: on Kafka the worker's MaxParallelJobs and Kafka.MaxInFlightPerPartition apply.
 	MaxParallelJobs int
 	// ExecutionTimeout. A timeout set on the job in the dashboard wins. Negative disables it. Default: the worker default.
 	ExecutionTimeout time.Duration
@@ -77,6 +84,8 @@ type JobOptions struct {
 const NoRetries = -1
 
 type resolvedOptions struct {
+	transport            string
+	kafka                resolvedKafka
 	workerID             string
 	instanceID           string
 	rabbitURL            string
@@ -168,7 +177,29 @@ func resolveOptions(o Options) (resolvedOptions, error) {
 		logger = slog.Default()
 	}
 
+	transport := strings.ToLower(strings.TrimSpace(o.Transport))
+
+	switch transport {
+	case "", transportRabbitMQ:
+		transport = transportRabbitMQ
+	case transportKafka:
+	default:
+		return resolvedOptions{}, fmt.Errorf("milvaion: Transport must be \"rabbitmq\" or \"kafka\", got %q", o.Transport)
+	}
+
+	var kafka resolvedKafka
+
+	if transport == transportKafka {
+		var err error
+
+		if kafka, err = resolveKafka(o.Kafka, maxParallel); err != nil {
+			return resolvedOptions{}, err
+		}
+	}
+
 	return resolvedOptions{
+		transport:            transport,
+		kafka:                kafka,
 		workerID:             workerID,
 		instanceID:           instanceID,
 		rabbitURL:            rabbitURL,
@@ -245,7 +276,8 @@ func resolveJob(name string, handler Handler, o JobOptions, w resolvedOptions) (
 
 // OptionsFromEnv reads options from MILVAION_WORKER_ID, MILVAION_RABBITMQ_URL,
 // MILVAION_RABBITMQ_QUEUE_TYPE, MILVAION_REDIS_URL ("false" disables Redis), MILVAION_REDIS_KEY_PREFIX,
-// MILVAION_MAX_PARALLEL_JOBS, MILVAION_EXECUTION_TIMEOUT_SECONDS and MILVAION_HEARTBEAT_INTERVAL_SECONDS.
+// MILVAION_MAX_PARALLEL_JOBS, MILVAION_EXECUTION_TIMEOUT_SECONDS and MILVAION_HEARTBEAT_INTERVAL_SECONDS,
+// and the transport from MILVAION_TRANSPORT and the MILVAION_KAFKA_* variables (see KafkaOptions).
 // Non-zero fields of base win over the environment.
 func OptionsFromEnv(base Options) (Options, error) {
 	env := func(key string) string { return strings.TrimSpace(os.Getenv(key)) }
@@ -262,6 +294,12 @@ func OptionsFromEnv(base Options) (Options, error) {
 	if o.QueueType == "" {
 		o.QueueType = env("MILVAION_RABBITMQ_QUEUE_TYPE")
 	}
+
+	if o.Transport == "" {
+		o.Transport = env("MILVAION_TRANSPORT")
+	}
+
+	kafkaEnv(&o.Kafka, env)
 
 	if redis := env("MILVAION_REDIS_URL"); strings.EqualFold(redis, "false") {
 		o.DisableRedis = true
@@ -281,6 +319,10 @@ func OptionsFromEnv(base Options) (Options, error) {
 		{"MILVAION_MAX_PARALLEL_JOBS", func(v int) { o.MaxParallelJobs = v }, o.MaxParallelJobs != 0},
 		{"MILVAION_EXECUTION_TIMEOUT_SECONDS", func(v int) { o.ExecutionTimeout = secondsOrDisabled(v) }, o.ExecutionTimeout != 0},
 		{"MILVAION_HEARTBEAT_INTERVAL_SECONDS", func(v int) { o.HeartbeatInterval = time.Duration(v) * time.Second }, o.HeartbeatInterval != 0},
+		{"MILVAION_KAFKA_PARTITIONS", func(v int) { o.Kafka.NumPartitions = v }, o.Kafka.NumPartitions != 0},
+		{"MILVAION_KAFKA_NUM_PARTITIONS", func(v int) { o.Kafka.NumPartitions = v }, o.Kafka.NumPartitions != 0},
+		{"MILVAION_KAFKA_REPLICATION_FACTOR", func(v int) { o.Kafka.ReplicationFactor = v }, o.Kafka.ReplicationFactor != 0},
+		{"MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION", func(v int) { o.Kafka.MaxInFlightPerPartition = v }, o.Kafka.MaxInFlightPerPartition != 0},
 	}
 
 	for _, entry := range ints {

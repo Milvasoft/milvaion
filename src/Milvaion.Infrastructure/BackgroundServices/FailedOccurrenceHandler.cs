@@ -4,19 +4,18 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
-using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Secrets;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
+using Milvasoft.Milvaion.Sdk.Utils.Kafka;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -28,7 +27,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// Provides visibility and manual recovery capability for jobs that exceeded max retry attempts.
 /// </summary>
 public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
-                                     RabbitMQConnectionFactory rabbitMQFactory,
+                                     IMessageConsumerTransport transport,
                                      IAlertNotifier alertNotifier,
                                      IOptions<FailedOccurrenceHandlerOptions> options,
                                      ILoggerFactory loggerFactory,
@@ -38,17 +37,14 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly ISecretMasker _secretMasker = serviceProvider.GetService<ISecretMasker>();
     private readonly ISecretTemplateStore _secretTemplateStore = serviceProvider.GetService<ISecretTemplateStore>();
-    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
+    private readonly IMessageConsumerTransport _transport = transport;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<FailedOccurrenceHandler>();
     private readonly FailedOccurrenceHandlerOptions _options = options.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
-    private IChannel _channel;
+    private IMessageConsumer _consumer;
     private const int _maxExceptionLength = 3000;
     private static readonly TimeSpan _transientFailureDelay = TimeSpan.FromSeconds(5);
-
-    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
-    private readonly SemaphoreSlim _channelLock = new(1, 1);
 
     /// <inheritdoc/>
     protected override string ServiceName => "FailedOccurrenceHandler";
@@ -70,7 +66,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
             _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
             {
                 Title = "FailedOccurrenceHandler Service Degraded",
-                Message = $"FailedOccurrenceHandler failed to connect to RabbitMQ after {failures} attempts. The DLQ is not being processed; the service keeps retrying.",
+                Message = $"FailedOccurrenceHandler failed to connect to {_transport.Name} after {failures} attempts. The DLQ is not being processed; the service keeps retrying.",
                 Severity = AlertSeverity.Critical,
                 Source = nameof(FailedOccurrenceHandler),
                 ThreadKey = "service-degraded-failedoccurrencehandler"
@@ -80,70 +76,63 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        var channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        // Process one message at a time. The DLQ is declared with its dead letter binding at startup, so it is not redeclared here.
+        var consumer = await _transport.StartConsumerAsync(new ConsumerSubscription(WorkerConstant.Queues.FailedOccurrences, 1, ServiceName, DeclareQueue: false),
+                                                           delivery => HandleDeliveryAsync(delivery, stoppingToken),
+                                                           stoppingToken);
 
-        _channel = channel;
-
-        // Configure QoS - process one message at a time
-        await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
-
-        var consumer = new AsyncEventingBasicConsumer(channel);
-
-        consumer.ReceivedAsync += async (model, ea) =>
-        {
-            try
-            {
-                await ProcessFailedOccurrenceAsync(ea, stoppingToken);
-
-                // Acknowledge successful processing
-                await channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken);
-
-                TrackMemoryAfterIteration();
-            }
-            catch (Exception ex) when (ex is ArgumentException || RabbitMQChannelExtensions.IsPermanentDataError(ex))
-            {
-                // A malformed message or data the database rejects: requeueing would fail the same way forever.
-                _logger.Error(ex, "Dropping DLQ message that cannot be stored. DeliveryTag: {DeliveryTag}, MessageId: {MessageId}", ea.DeliveryTag, ea.BasicProperties?.MessageId);
-
-                await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: false);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                // Not acked, so the broker redelivers it after the restart.
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Error processing failed job from DLQ. DeliveryTag: {DeliveryTag}", ea.DeliveryTag);
-
-                // With prefetch 1 this pause also throttles the redelivery loop during an outage.
-                await Task.Delay(_transientFailureDelay, CancellationToken.None);
-
-                await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: true);
-            }
-        };
-
-        await channel.BasicConsumeAsync(queue: WorkerConstant.Queues.FailedOccurrences,
-                                        autoAck: false,
-                                        consumer: consumer,
-                                        cancellationToken: stoppingToken);
+        _consumer = consumer;
 
         _logger.Information("FailedOccurrenceHandler consumer registered for DLQ: {DLQ}", WorkerConstant.Queues.FailedOccurrences);
 
-        await channel.WaitForShutdownAsync(stoppingToken);
+        await consumer.Completion.WaitAsync(stoppingToken);
 
-        await channel.SafeCloseAsync(_logger, CancellationToken.None);
+        await consumer.DisposeAsync();
+    }
+
+    private async Task HandleDeliveryAsync(IMessageDelivery delivery, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await ProcessFailedOccurrenceAsync(delivery, stoppingToken);
+
+            // Acknowledge successful processing
+            await delivery.AckAsync(stoppingToken);
+
+            TrackMemoryAfterIteration();
+        }
+        catch (Exception ex) when (ex is ArgumentException || RabbitMQChannelExtensions.IsPermanentDataError(ex))
+        {
+            // A malformed message or data the database rejects: requeueing would fail the same way forever.
+            _logger.Error(ex, "Dropping DLQ message that cannot be stored. DeliveryTag: {DeliveryTag}, MessageId: {MessageId}", delivery.DeliveryTag, delivery.MessageId);
+
+            await delivery.NackAsync(requeue: false, stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Not acked, so the broker redelivers it after the restart.
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error processing failed job from DLQ. DeliveryTag: {DeliveryTag}", delivery.DeliveryTag);
+
+            // With prefetch 1 this pause also throttles the redelivery loop during an outage.
+            await Task.Delay(_transientFailureDelay, CancellationToken.None);
+
+            await delivery.NackAsync(requeue: true, stoppingToken);
+        }
     }
 
     /// <summary>
     /// Processes a failed job message and stores it in database.
     /// </summary>
-    private async Task ProcessFailedOccurrenceAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private async Task ProcessFailedOccurrenceAsync(IMessageDelivery ea, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
 
-        _logger.Debug("Processing failed job from DLQ. MessageId: {MessageId}", ea.BasicProperties.MessageId);
+        _logger.Debug("Processing failed job from DLQ. MessageId: {MessageId}", ea.MessageId);
 
-        // Deserialize as ScheduledJob (RabbitMQ publishes full job object)
+        // Deserialize the dead letter body (the job with its exception)
         var message = JsonSerializer.Deserialize<DlqJobMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
         if (message == null)
@@ -152,7 +141,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
             return;
         }
 
-        // Extract CorrelationId from message headers (set by RabbitMQPublisher)
+        // Extract CorrelationId from message headers (set by the worker)
         var correlationId = ExtractCorrelationId(ea);
 
         if (correlationId == Guid.Empty)
@@ -297,43 +286,41 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Extracts OccurrenceId from RabbitMQ message headers.
+    /// Extracts OccurrenceId from the message headers.
     /// </summary>
-    private static Guid ExtractCorrelationId(BasicDeliverEventArgs ea)
+    private static Guid ExtractCorrelationId(IMessageDelivery ea)
     {
         // Check OccurrenceId header first (new naming)
-        if (ea.BasicProperties.Headers?.TryGetValue("OccurrenceId", out var occurrenceIdObj) == true)
-            return Guid.Parse(Encoding.UTF8.GetString((byte[])occurrenceIdObj));
+        if (ea.Headers?.ContainsKey("OccurrenceId") == true)
+            return Guid.Parse(MessageHeaderValues.GetString(ea.Headers, "OccurrenceId"));
 
         // Fallback to CorrelationId property (contains OccurrenceId value)
-        if (!string.IsNullOrEmpty(ea.BasicProperties.CorrelationId))
-            return Guid.Parse(ea.BasicProperties.CorrelationId);
+        if (!string.IsNullOrEmpty(ea.CorrelationId))
+            return Guid.Parse(ea.CorrelationId);
 
         return Guid.Empty;
     }
 
     /// <summary>
-    /// Extracts MaxRetries from RabbitMQ message headers.
+    /// Extracts MaxRetries from the message headers.
     /// </summary>
-    private static int ExtractMaxRetries(BasicDeliverEventArgs ea)
+    private static int ExtractMaxRetries(IMessageDelivery ea)
     {
-        if (ea.BasicProperties.Headers?.TryGetValue("MaxRetries", out var maxRetriesObj) == true)
-            return Convert.ToInt32(maxRetriesObj);
+        if (ea.Headers?.ContainsKey("MaxRetries") == true)
+            return MessageHeaderValues.GetInt(ea.Headers, "MaxRetries") ?? throw new FormatException("The MaxRetries header is not a number.");
 
         // Default fallback
         return 3;
     }
 
     /// <summary>
-    /// Extracts retry count from RabbitMQ message headers.
+    /// Extracts retry count from the message headers.
     /// Returns the number of retry attempts that were made before moving to DLQ.
     /// </summary>
-    private static int ExtractRetryCount(BasicDeliverEventArgs ea)
+    private static int ExtractRetryCount(IMessageDelivery ea)
     {
-        if (ea.BasicProperties.Headers?.TryGetValue("x-retry-count", out var retryCountObj) == true)
-        {
-            return Convert.ToInt32(retryCountObj);
-        }
+        if (ea.Headers?.ContainsKey("x-retry-count") == true)
+            return MessageHeaderValues.GetInt(ea.Headers, "x-retry-count") ?? throw new FormatException("The x-retry-count header is not a number.");
 
         return 0; // Default - no retries (original message)
     }
@@ -398,10 +385,8 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 
         await base.StopAsync(cancellationToken);
 
-        // Close channel using extension method
-        await _channel.SafeCloseAsync(_logger, cancellationToken);
-
-        _channelLock?.Dispose();
+        if (_consumer != null)
+            await _consumer.DisposeAsync();
 
         _logger.Information("FailedOccurrenceHandler stopped");
     }

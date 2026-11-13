@@ -51,6 +51,12 @@
       </exclusions>
     </dependency>
     <dependency>
+      <!-- Only loaded when the Kafka transport is selected. RabbitMQ-only users may exclude it. -->
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka-clients</artifactId>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>2.23.0</version>

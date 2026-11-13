@@ -8,9 +8,13 @@ export {
   type WorkerOptions,
   type JobOptions,
   type RabbitMqOptions,
+  type KafkaOptions,
+  type KafkaSaslOptions,
+  type TransportType,
   type RedisOptions,
   type Logger,
 } from './options.ts';
 export { generateRoutingPattern, queueNameForPattern } from './routing.ts';
+export { kafkaTopicNames, kafkaWorkerSegment, type KafkaTopicNames } from './kafka/topics.ts';
 export { JobOccurrenceStatus, Queues, Exchanges } from './protocol.ts';
 export type { ScheduledJobMessage } from './protocol.ts';

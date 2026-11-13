@@ -10,6 +10,8 @@ import java.util.Objects;
 /** Worker configuration. Only {@link #workerId(String)} is required. */
 public final class WorkerOptions {
     private String workerId;
+    private TransportType transport = TransportType.RABBITMQ;
+    private KafkaOptions kafka = new KafkaOptions();
     private String rabbitMqUri = "amqp://guest:guest@localhost:5672/";
     private String queueType = "classic";
     private String redisUri = "redis://localhost:6379";
@@ -26,6 +28,18 @@ public final class WorkerOptions {
     /** Identifies the worker application. Use the same value on every replica. */
     public WorkerOptions workerId(String workerId) {
         this.workerId = workerId;
+        return this;
+    }
+
+    /** The broker to use: {@link TransportType#RABBITMQ} (default) or {@link TransportType#KAFKA}. Must match the API. */
+    public WorkerOptions transport(TransportType transport) {
+        this.transport = transport;
+        return this;
+    }
+
+    /** Kafka settings, used when the transport is {@link TransportType#KAFKA}. */
+    public WorkerOptions kafka(KafkaOptions kafka) {
+        this.kafka = kafka;
         return this;
     }
 
@@ -103,7 +117,8 @@ public final class WorkerOptions {
     /**
      * Reads MILVAION_WORKER_ID, MILVAION_RABBITMQ_URL, MILVAION_RABBITMQ_QUEUE_TYPE, MILVAION_REDIS_URL
      * ("false" disables Redis), MILVAION_REDIS_KEY_PREFIX, MILVAION_MAX_PARALLEL_JOBS,
-     * MILVAION_EXECUTION_TIMEOUT_SECONDS and MILVAION_HEARTBEAT_INTERVAL_SECONDS.
+     * MILVAION_EXECUTION_TIMEOUT_SECONDS, MILVAION_HEARTBEAT_INTERVAL_SECONDS and MILVAION_TRANSPORT
+     * ("rabbitmq" or "kafka"), plus the MILVAION_KAFKA_* variables listed on {@link KafkaOptions#fromEnv()}.
      */
     public static WorkerOptions fromEnv() {
         return fromEnv(System.getenv());
@@ -114,6 +129,10 @@ public final class WorkerOptions {
         String value;
 
         if (!(value = get(env, "MILVAION_WORKER_ID")).isEmpty()) options.workerId(value);
+        if (!(value = get(env, "MILVAION_TRANSPORT")).isEmpty()) options.transport(TransportType.parse(value));
+
+        options.kafka(KafkaOptions.fromEnv(env));
+
         if (!(value = get(env, "MILVAION_RABBITMQ_URL")).isEmpty()) options.rabbitMqUri(value);
         if (!(value = get(env, "MILVAION_RABBITMQ_QUEUE_TYPE")).isEmpty()) options.queueType(value);
         if (!(value = get(env, "MILVAION_REDIS_KEY_PREFIX")).isEmpty()) options.redisKeyPrefix(value);
@@ -155,7 +174,10 @@ public final class WorkerOptions {
 
         if (maxParallelJobs <= 0) throw new IllegalArgumentException("maxParallelJobs must be positive, got " + maxParallelJobs);
 
-        Objects.requireNonNull(rabbitMqUri, "rabbitMqUri");
+        if (transport == null) transport = TransportType.RABBITMQ;
+
+        if (transport == TransportType.KAFKA) Objects.requireNonNull(kafka, "kafka").resolve(maxParallelJobs);
+        else Objects.requireNonNull(rabbitMqUri, "rabbitMqUri");
 
         if (instanceId == null || instanceId.isBlank()) {
             byte[] bytes = new byte[4];
@@ -167,6 +189,8 @@ public final class WorkerOptions {
     }
 
     String workerId() { return workerId; }
+    TransportType transport() { return transport; }
+    KafkaOptions kafka() { return kafka; }
     String rabbitMqUri() { return rabbitMqUri; }
     boolean quorum() { return "quorum".equals(queueType); }
     String redisUri() { return redisUri; }

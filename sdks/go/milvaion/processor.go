@@ -18,21 +18,39 @@ type publishOptions struct {
 	persistent    bool
 	correlationID string
 	headers       map[string]any
+	// key is the Kafka record key. RabbitMQ ignores it.
+	key string
 }
 
-// publisher is the publishing side of the broker, with publisher confirms.
+// publisher is the publishing side of the broker, with publisher confirms. Destinations are named
+// the RabbitMQ way (exchange and routing key); the Kafka transport maps them to its topics.
 type publisher interface {
 	publish(ctx context.Context, exchange, routingKey string, body []byte, o publishOptions) error
 }
 
-// delivery is one message taken from a job queue.
+// delivery is one message taken from a job queue or topic.
 type delivery struct {
 	body          []byte
 	headers       map[string]any
 	correlationID string
 	redelivered   bool
 	ack           func() error
-	nack          func(requeue bool) error
+	// nack(true) returns the message to its queue so it runs again; nack(false) dead-letters it.
+	nack func(requeue bool) error
+	// reject, when set, dead-letters a message that cannot be processed and says why. Otherwise nack(false) is used.
+	reject func(reason string) error
+	// scheduleRetry, when set, hands a failed job to the broker for a delayed retry instead of
+	// waiting in process (Kafka's retry topic). It returns once the broker has accepted the retry.
+	scheduleRetry func(ctx context.Context, r retryRequest) error
+}
+
+// retryRequest describes the next attempt of a failed job.
+type retryRequest struct {
+	jobID        string
+	occurrenceID string
+	retryCount   int // of the next attempt
+	maxRetries   int
+	notBefore    time.Time
 }
 
 // cancelRegistry holds the cancel functions of the jobs running on this instance.
@@ -149,7 +167,7 @@ func (p *processor) handle(d delivery, consumer *resolvedJob) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			p.opts.logger.Error("unexpected panic while processing a job delivery", "panic", recovered)
-			p.settle(d.nack(false))
+			p.reject(d, fmt.Sprintf("panic while processing the job: %v", recovered))
 		}
 
 		p.mu.Lock()
@@ -181,7 +199,7 @@ func (p *processor) process(d delivery, consumer *resolvedJob) {
 
 	if err := json.Unmarshal(d.body, &scheduled); err != nil || scheduled.ID == "" || scheduled.JobNameInWorker == "" {
 		p.opts.logger.Error("received a message that is not a valid job; sending it to the dead letter queue", "queue", consumer.queue)
-		p.settle(d.nack(false))
+		p.reject(d, "the message is not a valid job")
 		return
 	}
 
@@ -189,7 +207,7 @@ func (p *processor) process(d delivery, consumer *resolvedJob) {
 
 	if occurrenceID == "" {
 		p.opts.logger.Error("job arrived without an occurrence id; sending it to the dead letter queue", "job", scheduled.ID)
-		p.settle(d.nack(false))
+		p.reject(d, "the message has no occurrence id")
 		return
 	}
 
@@ -404,8 +422,14 @@ func (p *processor) finishFailed(d delivery, consumer, registered *resolvedJob, 
 }
 
 // retry waits out the backoff, republishes the job with a higher retry count and acks the original.
-// The original stays unacked meanwhile, so a crash during the wait gets it redelivered.
+// The original stays unacked meanwhile, so a crash during the wait gets it redelivered. A broker
+// that schedules retries itself (Kafka) gets the retry right away instead.
 func (p *processor) retry(d delivery, consumer *resolvedJob, run *jobRun, delay time.Duration, maxRetries int) {
+	if d.scheduleRetry != nil {
+		p.scheduleRetry(d, run, delay, maxRetries)
+		return
+	}
+
 	interval := p.opts.jobHeartbeatInterval
 	remaining := delay
 
@@ -441,12 +465,73 @@ func (p *processor) retry(d delivery, consumer *resolvedJob, run *jobRun, delay 
 
 	if err != nil {
 		p.opts.logger.Error("failed to republish a job for retry; dead-lettering the message", "job", run.job.ID, "error", err)
-		p.settle(d.nack(false))
+		p.reject(d, "the job could not be republished for retry: "+err.Error())
 
 		return
 	}
 
 	p.settle(d.ack())
+}
+
+// scheduleRetry hands the next attempt to the broker, settles the original and keeps the
+// occurrence's heartbeat going until the attempt is due, since the occurrence stays Running.
+func (p *processor) scheduleRetry(d delivery, run *jobRun, delay time.Duration, maxRetries int) {
+	due := time.Now().Add(delay)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := d.scheduleRetry(ctx, retryRequest{
+		jobID:        run.job.ID,
+		occurrenceID: run.occurrenceID,
+		retryCount:   run.retryCount + 1,
+		maxRetries:   maxRetries,
+		notBefore:    due,
+	})
+
+	if err != nil {
+		p.opts.logger.Error("failed to schedule a job for retry; dead-lettering the message", "job", run.job.ID, "error", err)
+		p.reject(d, "the job could not be scheduled for retry: "+err.Error())
+
+		return
+	}
+
+	p.settle(d.ack())
+	go p.heartbeatWhileWaiting(run, due, nil)
+}
+
+// heartbeatWhileWaiting sends Running statuses every JobHeartbeatInterval for an occurrence that
+// waits for its next attempt, until due, stop is closed or the worker stops.
+func (p *processor) heartbeatWhileWaiting(run *jobRun, due time.Time, stop <-chan struct{}) {
+	interval := p.opts.jobHeartbeatInterval
+
+	if interval <= 0 {
+		return
+	}
+
+	for {
+		wait := time.Until(due)
+
+		if wait <= 0 {
+			return
+		}
+
+		timer := time.NewTimer(min(wait, interval))
+
+		select {
+		case <-timer.C:
+		case <-stop:
+			timer.Stop()
+			return
+		case <-p.shutdownCtx.Done():
+			timer.Stop()
+			return
+		}
+
+		if time.Until(due) > 0 {
+			run.status(StatusRunning, statusFields{}, false)
+		}
+	}
 }
 
 func (p *processor) deadLetter(d delivery, run *jobRun, exception string, retryCount, maxRetries int) {
@@ -466,18 +551,29 @@ func (p *processor) deadLetter(d delivery, run *jobRun, exception string, retryC
 	err := p.pub.publish(ctx, exchangeDeadLetter, deadLetterRoutingKey, body, publishOptions{
 		persistent:    true,
 		correlationID: run.occurrenceID,
+		key:           run.occurrenceID,
 		headers:       map[string]any{"CorrelationId": run.occurrenceID, "x-retry-count": int32(retryCount), "MaxRetries": int32(maxRetries)},
 	})
 
 	if err != nil {
 		// The queue dead-letters a rejected message itself, just without the exception details.
 		p.opts.logger.Error("failed to publish to the dead letter queue; rejecting the message instead", "job", run.job.ID, "error", err)
-		p.settle(d.nack(false))
+		p.reject(d, "the dead letter message could not be published: "+err.Error())
 
 		return
 	}
 
 	p.settle(d.ack())
+}
+
+// reject dead-letters a message that cannot be processed.
+func (p *processor) reject(d delivery, reason string) {
+	if d.reject != nil {
+		p.settle(d.reject(reason))
+		return
+	}
+
+	p.settle(d.nack(false))
 }
 
 func (p *processor) settle(err error) {
@@ -565,7 +661,7 @@ func (r *jobRun) status(status Status, f statusFields, retry bool) {
 
 	for attempt := 0; ; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		err := r.p.pub.publish(ctx, "", queueStatusUpdates, body, publishOptions{persistent: true})
+		err := r.p.pub.publish(ctx, "", queueStatusUpdates, body, publishOptions{persistent: true, key: r.occurrenceID})
 		cancel()
 
 		if err == nil {

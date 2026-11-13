@@ -1,3 +1,5 @@
+﻿using Milvasoft.Milvaion.Sdk.Utils.Kafka;
+
 namespace Milvasoft.Milvaion.Sdk.Worker.Options;
 
 /// <summary>
@@ -50,9 +52,24 @@ public class WorkerOptions
     public HealthCheckOptions HealthCheck { get; set; } = new();
 
     /// <summary>
+    /// Message broker selection (<c>Worker:Transport:Type</c>): RabbitMQ (default) or Kafka. Must match the API.
+    /// </summary>
+    public WorkerTransportSettings Transport { get; set; } = new();
+
+    /// <summary>
     /// RabbitMQ connection settings.
     /// </summary>
     public RabbitMQSettings RabbitMQ { get; set; } = new();
+
+    /// <summary>
+    /// Kafka connection and topic settings (<c>Worker:Kafka</c>), used when <see cref="Transport"/> is Kafka.
+    /// </summary>
+    public KafkaSettings Kafka { get; set; } = new();
+
+    /// <summary>
+    /// Whether this worker runs on Kafka.
+    /// </summary>
+    public bool UsesKafka => Transport?.Type == MessageTransportType.Kafka;
 
     /// <summary>
     /// Redis connection settings.
@@ -123,4 +140,15 @@ public class WorkerOptions
     /// </summary>
     /// <param name="instanceId">The instance ID to set</param>
     public void SetInstanceId(string instanceId) => InstanceId = instanceId;
+}
+
+/// <summary>
+/// Message broker selection of a worker.
+/// </summary>
+public class WorkerTransportSettings
+{
+    /// <summary>
+    /// RabbitMQ (default) or Kafka.
+    /// </summary>
+    public MessageTransportType Type { get; set; } = MessageTransportType.RabbitMQ;
 }

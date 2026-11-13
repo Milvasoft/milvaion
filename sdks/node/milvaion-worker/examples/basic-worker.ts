@@ -1,6 +1,7 @@
 // Run from this package's folder: node --experimental-strip-types examples/basic-worker.ts
 // Configure with MILVAION_* environment variables (see README), e.g.
 //   MILVAION_WORKER_ID=node-sample-worker MILVAION_RABBITMQ_URL=amqp://guest:guest@localhost:5672 MILVAION_REDIS_URL=redis://localhost:6379
+// On Kafka, set MILVAION_TRANSPORT=kafka MILVAION_KAFKA_BOOTSTRAP_SERVERS=localhost:9092 instead of the RabbitMQ URL.
 import { MilvaionWorker, PermanentJobError, workerOptionsFromEnv } from '../src/index.ts';
 
 interface GreetData {

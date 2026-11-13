@@ -5,6 +5,7 @@ using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Core;
+using Milvasoft.Milvaion.Sdk.Worker.Kafka;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Utils;
 using RabbitMQ.Client;
@@ -31,6 +32,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     private readonly Dictionary<string, JobConsumerConfig> _jobConfigs = jobConfigs;
     private IConnection _connection;
     private IChannel _channel;
+    private IQueuePublisher _kafkaPublisher;
     private readonly SemaphoreSlim _publishLock = new(1, 1);
     private readonly string _version = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version?.ToString() ?? "1.0.0";
     private readonly string _hostName = Environment.MachineName;
@@ -51,6 +53,13 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.Information("WorkerRegistrationPublisher starting for {Count} workers...", _jobConfigs.Count);
+
+        if (_options.UsesKafka)
+        {
+            await RunOnKafkaAsync(stoppingToken);
+
+            return;
+        }
 
         var retryCount = 0;
         const int maxRetries = 10;
@@ -157,6 +166,71 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     }
 
     /// <summary>
+    /// Registers and sends heartbeats over Kafka. The producer reconnects on its own, so there is no connection to rebuild;
+    /// a failure only repeats the registration after a pause.
+    /// </summary>
+    private async Task RunOnKafkaAsync(CancellationToken stoppingToken)
+    {
+        var clients = _serviceProvider.GetRequiredService<KafkaWorkerClients>();
+
+        _kafkaPublisher = QueuePublisherFactory.Create(_options, _logger, clients);
+
+        var retryCount = 0;
+        const int maxRetries = 10;
+        const int retryDelaySeconds = 5;
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                // The job topic must exist before the API is told about this worker, or its first dispatch finds no topic.
+                await clients.EnsureWorkerTopicsAsync(stoppingToken);
+
+                await RegisterAllWorkersAsync(stoppingToken);
+
+                retryCount = 0;
+
+                var heartbeatInterval = _options.Heartbeat?.IntervalSeconds ?? 30;
+
+                _logger.Information("Starting heartbeat loop on Kafka (interval: {Interval}s)", heartbeatInterval);
+
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(heartbeatInterval), stoppingToken);
+
+                    try
+                    {
+                        await SendAllHeartbeatsAsync(stoppingToken);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.Warning(ex, "Heartbeat failed, will retry");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Information("WorkerRegistrationPublisher shutting down");
+                break;
+            }
+            catch (Exception ex)
+            {
+                retryCount++;
+
+                _logger.Error(ex, "Error in WorkerRegistrationPublisher on Kafka (attempt {Retry}/{MaxRetries})", retryCount, maxRetries);
+
+                if (retryCount >= maxRetries)
+                {
+                    _logger.Fatal("WorkerRegistrationPublisher failed after {MaxRetries} attempts. Service will stop.", maxRetries);
+                    throw;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds * retryCount), stoppingToken);
+            }
+        }
+    }
+
+    /// <summary>
     /// Registers all workers with the scheduler.
     /// </summary>
     private async Task RegisterAllWorkersAsync(CancellationToken cancellationToken = default)
@@ -252,6 +326,13 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
     /// </summary>
     private async Task PublishAsync(string queue, byte[] body, CancellationToken cancellationToken)
     {
+        if (_kafkaPublisher != null)
+        {
+            await _kafkaPublisher.PublishAsync(queue, body, persistent: true, key: _options.InstanceId, cancellationToken);
+
+            return;
+        }
+
         await _publishLock.WaitAsync(cancellationToken);
 
         try

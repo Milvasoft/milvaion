@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
@@ -12,30 +13,26 @@ using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence;
 using Milvaion.Infrastructure.Persistence.Context;
-using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Secrets;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using System.Diagnostics;
 using System.Text.Json;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
 
 /// <summary>
-/// Consumes job status updates from RabbitMQ and updates JobOccurrence records.
+/// Consumes job status updates from the message transport and updates JobOccurrence records.
 /// </summary>
 public class StatusTrackerService(IServiceProvider serviceProvider,
                                   IRedisSchedulerService redisScheduler,
                                   IRedisStatsService redisStatsService,
                                   IAlertNotifier alertNotifier,
-                                  RabbitMQConnectionFactory rabbitMQFactory,
+                                  IMessageConsumerTransport transport,
                                   IOptions<StatusTrackerOptions> options,
                                   IOptions<JobAutoDisableOptions> autoDisableOptions,
-                                  IOptions<RabbitMQOptions> rabbitMQOptions,
                                   ILoggerFactory loggerFactory,
                                   BackgroundServiceMetrics metrics,
                                   IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
@@ -45,16 +42,12 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
-    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
+    private readonly IMessageConsumerTransport _transport = transport;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<StatusTrackerService>();
     private readonly StatusTrackerOptions _options = options.Value;
     private readonly JobAutoDisableOptions _autoDisableOptions = autoDisableOptions.Value;
-    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
-    private IChannel _channel;
-
-    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
-    private readonly SemaphoreSlim _channelLock = new(1, 1);
+    private IMessageConsumer _consumer;
 
     private static readonly JobOccurrenceStatus[] _finalStatuses =
     [
@@ -70,9 +63,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         JobOccurrenceStatus.Running
     ];
 
-    //  Batch processing — stores the RabbitMQ delivery tag alongside each message so the
+    //  Batch processing — stores the delivery alongside each message so the
     //  ACK can be deferred until after the batch is persisted to the database.
-    //  The channel travels with the tag: a delivery tag is only valid on the channel that delivered it.
     private readonly System.Collections.Concurrent.ConcurrentQueue<BatchItem> _statusBatch = new();
     private readonly SemaphoreSlim _batchLock = new(1, 1);
 
@@ -150,12 +142,12 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
         await RabbitMQChannelExtensions.RunConsumerLoopAsync(ConnectAndConsumeAsync, _logger, ServiceName, failures =>
         {
-            _metrics.RecordServiceError(ServiceName, "RabbitMQ_Connection_Failed");
+            _metrics.RecordServiceError(ServiceName, $"{_transport.Name}_Connection_Failed");
 
             _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
             {
                 Title = "StatusTracker Service Degraded",
-                Message = $"StatusTrackerService failed to connect to RabbitMQ after {failures} attempts. Status updates are not being processed; the service keeps retrying.",
+                Message = $"StatusTrackerService failed to connect to {_transport.Name} after {failures} attempts. Status updates are not being processed; the service keeps retrying.",
                 Severity = AlertSeverity.Critical,
                 Source = nameof(StatusTrackerService),
                 ThreadKey = "service-degraded-statustracker"
@@ -165,93 +157,34 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        // Get channel from shared connection factory
-        var channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-
-        _channel = channel;
-
-        // Subscribe to channel events
-        _channel.ChannelShutdownAsync += async (sender, args) =>
-        {
-            _logger.Warning("StatusTracker RabbitMQ channel shutdown. Reason: {Reason}", args.ReplyText);
-            await Task.CompletedTask;
-        };
-
-        // Declare queue (idempotent)
-        await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.StatusUpdates,
-                                         durable: true,
-                                         exclusive: false,
-                                         autoDelete: false,
-                                         arguments: _rabbitMQOptions.BuildQueueArguments(),
-                                         cancellationToken: stoppingToken);
-
-        // Set prefetch count
         // Twice the batch size, so a batch can fill up while the previous one is being written.
         var prefetch = (ushort)Math.Clamp(_options.BatchSize * 2, 10, ushort.MaxValue);
 
-        await _channel.BasicQosAsync(0, prefetch, false, stoppingToken);
+        var consumer = await _transport.StartConsumerAsync(new ConsumerSubscription(WorkerConstant.Queues.StatusUpdates, prefetch, ServiceName),
+                                                           delivery => ProcessStatusUpdateAsync(delivery, stoppingToken),
+                                                           stoppingToken);
 
-        _logger.Information("StatusTracker connected to RabbitMQ (shared connection). Queue: {Queue}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.StatusUpdates, _channel.ChannelNumber);
+        _consumer = consumer;
 
-        // Setup consumer with all event handlers
-        var consumer = new AsyncEventingBasicConsumer(_channel);
+        // Keep running until cancellation or consumer death
+        await consumer.Completion.WaitAsync(stoppingToken);
 
-        consumer.ReceivedAsync += async (model, ea) =>
-        {
-            try
-            {
-                await ProcessStatusUpdateAsync(ea, channel, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Error in StatusTracker consumer handler for OccurrenceId: {OccurrenceId}", ea.BasicProperties?.CorrelationId);
-            }
-        };
-
-        consumer.ShutdownAsync += async (sender, args) =>
-        {
-            _logger.Warning("StatusTracker consumer shutdown. Reason: {Reason}", args.ReplyText);
-            await Task.CompletedTask;
-        };
-
-        consumer.RegisteredAsync += async (sender, args) =>
-        {
-            _logger.Information("StatusTracker consumer registered. ConsumerTags: {Tags}", string.Join(", ", args.ConsumerTags));
-            await Task.CompletedTask;
-        };
-
-        consumer.UnregisteredAsync += async (sender, args) =>
-        {
-            _logger.Warning("StatusTracker consumer unregistered. ConsumerTags: {Tags}", string.Join(", ", args.ConsumerTags));
-            await Task.CompletedTask;
-        };
-
-        var consumerTag = await _channel.BasicConsumeAsync(queue: WorkerConstant.Queues.StatusUpdates,
-                                                           autoAck: false,
-                                                           consumer: consumer,
-                                                           cancellationToken: stoppingToken);
-
-        _logger.Information("StatusTrackerService consuming from {Queue}. ConsumerTag: {ConsumerTag}, ChannelOpen: {IsOpen}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.StatusUpdates, consumerTag, _channel.IsOpen, _channel.ChannelNumber);
-
-        // Keep running until cancellation or channel death
-        await channel.WaitForShutdownAsync(stoppingToken);
-
-        await channel.SafeCloseAsync(_logger, CancellationToken.None);
+        await consumer.DisposeAsync();
     }
 
-    private async Task ProcessStatusUpdateAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
+    private async Task ProcessStatusUpdateAsync(IMessageDelivery delivery, CancellationToken cancellationToken)
     {
         try
         {
             // Parse message
-            var message = JsonSerializer.Deserialize<JobStatusUpdateMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            var message = JsonSerializer.Deserialize<JobStatusUpdateMessage>(delivery.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
             if (message == null)
             {
                 _logger.Debug("Failed to deserialize status update message");
                 _metrics.RecordStatusUpdateFailure("Deserialization_Failed");
 
-                await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+                await delivery.NackAsync(requeue: false, cancellationToken);
 
                 return;
             }
@@ -280,7 +213,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             //  Add to batch queue together with its delivery tag (NO DB operation here!).
             //  ACK is deferred until ProcessBatchAsync persists the batch to the database,
             //  guaranteeing at-least-once delivery if the app crashes before the DB write.
-            _statusBatch.Enqueue(new BatchItem(message, ea.DeliveryTag, channel));
+            _statusBatch.Enqueue(new BatchItem(message, delivery));
 
             //  Trigger immediate batch if full
             if (_statusBatch.Count >= _options.BatchSize)
@@ -291,7 +224,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
             _logger.Error(ex, "Failed to process status update message");
 
-            await channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
+            await delivery.NackAsync(requeue: false, cancellationToken);
         }
     }
 
@@ -413,7 +346,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     private async Task AckAsync(List<BatchItem> batch, CancellationToken cancellationToken)
     {
         foreach (var item in batch)
-            await item.Channel.SafeAckAsync(item.DeliveryTag, _channelLock, _logger, cancellationToken);
+            await item.Delivery.AckAsync(cancellationToken);
     }
 
     /// <summary>
@@ -433,7 +366,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 _metrics.RecordStatusUpdateFailure("Poison_Message");
                 _logger.Error(ex, "Dropping status update the database rejects. OccurrenceId: {OccurrenceId}, Status: {Status}", item.Message.OccurrenceId, item.Message.Status);
 
-                await item.Channel.SafeNackAsync(item.DeliveryTag, _channelLock, _logger, cancellationToken, requeue: false);
+                await item.Delivery.NackAsync(requeue: false, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -1053,12 +986,12 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             _logger.Warning(ex, "Failed to process remaining batch during shutdown");
         }
 
-        // Close only channel (connection is managed by RabbitMQConnectionFactory)
-        await _channel.SafeCloseAsync(_logger, cancellationToken);
+        // Stop the consumer only now: the batch above still had to be acknowledged on it
+        if (_consumer != null)
+            await _consumer.DisposeAsync();
 
         // Dispose semaphores last: the work above still needs them
         _batchLock?.Dispose();
-        _channelLock?.Dispose();
 
         _logger.Information("StatusTrackerService stopped");
     }
@@ -1119,7 +1052,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     /// <summary>
     /// A received message waiting to be persisted.
     /// </summary>
-    private readonly record struct BatchItem(JobStatusUpdateMessage Message, ulong DeliveryTag, IChannel Channel);
+    private readonly record struct BatchItem(JobStatusUpdateMessage Message, IMessageDelivery Delivery);
 
     /// <summary>
     /// Represents a circuit breaker update for a job.

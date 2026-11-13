@@ -1,3 +1,4 @@
+using Milvaion.Application.Interfaces.Messaging;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -729,7 +730,7 @@ public class FailedOccurrenceHandlerTests(ServicesWebApplicationFactory factory,
 
     private FailedOccurrenceHandler CreateFailedOccurrenceHandler() => new(
             _serviceProvider,
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new FailedOccurrenceHandlerOptions
             {
