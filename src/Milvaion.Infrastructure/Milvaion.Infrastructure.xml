@@ -242,6 +242,12 @@
             Processes a failed job message and stores it in database.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.GetUnresolvedJobDataAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <summary>
+            The job data to store for a dead-lettered occurrence: the template saved at dispatch when there is one,
+            otherwise the worker's copy with every known secret value masked.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.NormalizeJobData(System.String)">
             <summary>
             The JobData column is jsonb, which rejects anything that is not JSON. Jobs without data arrive with an empty string,
@@ -372,9 +378,29 @@
             Validates jobs and filters based on concurrency policy and worker capacity.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.AcquireLocksAndCreateOccurrencesAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.AcquireLocksAndCreateOccurrencesAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Utils.Scheduling.DispatcherOutage,System.Collections.Generic.Dictionary{System.Guid,System.Collections.Generic.List{Milvaion.Domain.ExclusionCalendar}},System.Threading.CancellationToken)">
             <summary>
             Acquires distributed locks and creates job occurrences.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.NewSchedulerLog(System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,Milvaion.Application.Utils.Scheduling.RunDecision)">
+            <summary>
+            The log line that explains a catch-up run or a skipped run on its occurrence.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.OrderByPriority(System.Collections.Generic.IEnumerable{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Sorts due jobs by priority, highest first, then by how long they have waited.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.LoadExclusionCalendarsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.IEnumerable{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Threading.CancellationToken)">
+            <summary>
+            Loads the exclusion calendars referenced by the due jobs, in one query, keyed by job.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.UpdateSkippedCounterAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Counts skipped occurrences on the dashboard counters.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.IsStillDueUnderLock(System.Collections.Generic.Dictionary{System.Guid,System.Nullable{System.DateTime}},Milvasoft.Milvaion.Sdk.Domain.ScheduledJob)">
@@ -405,7 +431,7 @@
             Updates Redis counters after successful dispatch.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchJobsToRabbitMQAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchJobsToRabbitMQAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvaion.Application.Utils.Scheduling.RunDecision},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
             <summary>
             Dispatches jobs to RabbitMQ in parallel.
             </summary>
@@ -413,6 +439,11 @@
             Occurrences whose publish failed and that will be retried, and occurrences that were abandoned
             without being published because the schedule could not be advanced.
             </returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.AdvanceAndPublishAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvaion.Application.Utils.Scheduling.RunDecision,System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+            <summary>
+            Moves one job's schedule on and, unless its run was skipped, publishes it.
+            </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleFailedDispatchesAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
             <summary>
@@ -435,7 +466,7 @@
             <param name="cancellationToken"></param>
             <returns></returns>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.TryAdvanceScheduleAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.TryAdvanceScheduleAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,Milvaion.Application.Utils.Scheduling.RunDecision,System.Threading.CancellationToken)">
             <summary>
             Advances a job's schedule for this dispatch: a recurring job moves to its next slot, a one-time job
             leaves the scheduled set.
@@ -501,9 +532,6 @@
              separate, silent monitor rather than a hook in the dispatcher's hot path: it never touches the
              dispatch flow, is not part of any monitoring/metrics registry, and swallows its own failures.
              </summary>
-        </member>
-        <member name="F:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService._misfireGraceSeconds">
-            <summary>How late a still-scheduled job must be before it counts as a misfire.</summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobMisfireMonitorService.ExecuteAsync(System.Threading.CancellationToken)">
             <inheritdoc/>
@@ -1506,7 +1534,7 @@
              column that cannot be current.
              </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Scheduling.StartupScheduleResolver.Resolve(System.String,System.DateTime,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.DateTime)">
+        <member name="M:Milvaion.Infrastructure.Scheduling.StartupScheduleResolver.Resolve(System.String,System.DateTime,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.DateTime,System.String)">
             <summary>
             Returns the time recovery should write, or null to leave the schedule untouched.
             </summary>
@@ -1515,6 +1543,7 @@
             <param name="completedAt">When a one-time job was dispatched, or null.</param>
             <param name="existingScheduleTime">Current sorted set score, or null when absent.</param>
             <param name="now">Current time, UTC.</param>
+            <param name="timeZoneId">IANA zone the cron expression is evaluated in; null or empty means UTC.</param>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.AccountManager">
             <summary>
@@ -2537,13 +2566,23 @@
             RabbitMQ publisher implementation for job dispatching.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Interfaces.Secrets.ISecretResolver,Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore)">
             <summary>
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher"/> class.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.PublishJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.BuildMessageBodyAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Serializes the job for the worker, with secret references in its job data resolved.
+            </summary>
+            <remarks>
+            The job object itself is never changed: it may be the cached or tracked instance, and anything written
+            to it could end up in Redis or the database. The resolved data exists only in the returned bytes.
+            </remarks>
+            <exception cref="T:Milvaion.Application.Interfaces.Secrets.SecretResolutionException">A referenced secret could not be resolved.</exception>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.GetRoutingKeyFromJobType(System.String,System.String)">
             <summary>
@@ -2792,6 +2831,15 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetScheduledJobsCountAsync(System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="F:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService._recordPollScript">
+            <summary>
+            Reads the previous poll time, writes the current one and, on a gap, records the outage - atomically, so two
+            instances polling at once cannot both see the old value and record overlapping outages.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RecordDispatcherPollAsync(System.DateTime,System.TimeSpan,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetUnixTimestamp(System.DateTime)">
             <summary>
             Converts DateTime to Unix timestamp (seconds since epoch).
@@ -2835,6 +2883,16 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetExternalJobMappingKey(System.String)">
             <summary>
             Gets the Redis key for external job ID to internal job ID mapping.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.FormatGuidList(System.Collections.Generic.IEnumerable{System.Guid})">
+            <summary>
+            Formats a list of ids for a hash field: comma separated, empty for none.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.ParseGuidList(System.String)">
+            <summary>
+            Parses a hash field written by <see cref="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.FormatGuidList(System.Collections.Generic.IEnumerable{System.Guid})"/>, ignoring anything that is not an id.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.DeserializeJob(StackExchange.Redis.HashEntry[])">
@@ -3075,6 +3133,239 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException.#ctor(System.String,System.Exception)">
             <summary>
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.Utils.RedisCircuitBreakerOpenException"/> class.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.AzureKeyVaultSecretProvider">
+            <summary>
+            Reads secrets from Azure Key Vault.
+            </summary>
+            <remarks>
+            <c>{{secret:azurekeyvault:smtp-password}}</c> reads the latest version of <c>smtp-password</c>;
+            <c>{{secret:azurekeyvault:smtp-password/0f2c...}}</c> reads one version. Key Vault names allow only
+            letters, digits and dashes. Credentials come from a service principal when one is configured, otherwise
+            from <c>DefaultAzureCredential</c> (managed identity, workload identity, environment, Azure CLI).
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Secrets.AzureKeyVaultSecretProvider.ProviderName">
+            <summary>
+            Provider name used in configuration and explicit references.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.AzureKeyVaultSecretProvider.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions})">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Secrets.AzureKeyVaultSecretProvider"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.AzureKeyVaultSecretProvider.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions},System.Func{Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions,Azure.Security.KeyVault.Secrets.SecretClient})">
+            <summary>
+            Initializes a new instance with a custom client factory (tests).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Secrets.AzureKeyVaultSecretProvider.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.AzureKeyVaultSecretProvider.GetSecretAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.ConfigurationSecretProvider">
+            <summary>
+            Reads secrets from <c>MilvaionConfig:Secrets:Values</c>. Any configuration source works: environment
+            variables (<c>MilvaionConfig__Secrets__Values__smtp-password</c>), a mounted JSON file, user secrets.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.ConfigurationSecretProvider.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions})">
+            <summary>
+            Reads secrets from <c>MilvaionConfig:Secrets:Values</c>. Any configuration source works: environment
+            variables (<c>MilvaionConfig__Secrets__Values__smtp-password</c>), a mounted JSON file, user secrets.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Secrets.ConfigurationSecretProvider.ProviderName">
+            <summary>
+            Provider name used in configuration and explicit references.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Secrets.ConfigurationSecretProvider.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.ConfigurationSecretProvider.GetSecretAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.EnvironmentSecretProvider">
+            <summary>
+            Reads secrets from environment variables. <c>{{secret:smtp-password}}</c> reads
+            <c>MILVAION_SECRET_SMTP_PASSWORD</c> (the prefix is configurable).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.EnvironmentSecretProvider.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions})">
+            <summary>
+            Reads secrets from environment variables. <c>{{secret:smtp-password}}</c> reads
+            <c>MILVAION_SECRET_SMTP_PASSWORD</c> (the prefix is configurable).
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Secrets.EnvironmentSecretProvider.ProviderName">
+            <summary>
+            Provider name used in configuration and explicit references.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Secrets.EnvironmentSecretProvider.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.EnvironmentSecretProvider.GetSecretAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.EnvironmentSecretProvider.ToVariableName(System.String,System.String)">
+            <summary>
+            Maps a secret name to its variable: upper case, every character that is not a letter or digit
+            becomes an underscore.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.RedisSecretTemplateStore">
+            <summary>
+            Redis-backed <see cref="T:Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore"/>. Only templates are stored here, never resolved values.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.RedisSecretTemplateStore.#ctor(StackExchange.Redis.IConnectionMultiplexer,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Redis-backed <see cref="T:Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore"/>. Only templates are stored here, never resolved values.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.RedisSecretTemplateStore.SaveAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.RedisSecretTemplateStore.GetAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.SecretMasker">
+            <summary>
+            Replaces recently resolved secret values with their references in text sent back by workers.
+            </summary>
+            <remarks>
+            Values live only in this process's memory and are forgotten after
+            <see cref="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.MaskRetentionMinutes"/> without use. Both the raw value and its JSON-escaped form
+            are matched, because a value echoed inside a JSON document (dead-lettered job data, log data) is escaped.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretMasker.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions},System.TimeProvider)">
+            <summary>
+            Replaces recently resolved secret values with their references in text sent back by workers.
+            </summary>
+            <remarks>
+            Values live only in this process's memory and are forgotten after
+            <see cref="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.MaskRetentionMinutes"/> without use. Both the raw value and its JSON-escaped form
+            are matched, because a value echoed inside a JSON document (dead-lettered job data, log data) is escaped.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretMasker.Register(System.String,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretMasker.Mask(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Secrets.SecretMasker.Count">
+            <summary>
+            Number of remembered values (raw and escaped forms both count).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.SecretMaskerExtensions">
+            <summary>
+            Masking helpers for the messages workers send back.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretMaskerExtensions.MaskLog(Milvaion.Application.Interfaces.Secrets.ISecretMasker,Milvasoft.Milvaion.Sdk.Domain.JsonModels.OccurrenceLog)">
+            <summary>
+            Masks the message and the data of a worker log in place.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretMaskerExtensions.MaskData(Milvaion.Application.Interfaces.Secrets.ISecretMasker,System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Masks the values of structured log data. The data is round-tripped through JSON only when masking
+            changed something, so the common case costs one serialization.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.SecretResolver">
+            <summary>
+            Resolves <c>{{secret:name}}</c> references through the registered <see cref="T:Milvaion.Application.Interfaces.Secrets.ISecretProvider"/>s, with a
+            short in-memory cache.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretResolver.#ctor(System.Collections.Generic.IEnumerable{Milvaion.Application.Interfaces.Secrets.ISecretProvider},Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions},Milvaion.Application.Interfaces.Secrets.ISecretMasker,Microsoft.Extensions.Logging.ILoggerFactory,System.TimeProvider)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Secrets.SecretResolver"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretResolver.ResolveAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretResolver.EscapeForJsonString(System.String)">
+            <summary>
+            Escapes a value for use inside a JSON string literal, so that quotes, backslashes and control
+            characters in a secret cannot break the document.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretResolver.ClearCache">
+            <summary>
+            Drops every cached value. Values are fetched again on next use.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretResolver.SelectProviders(System.String,Milvaion.Application.Utils.Models.Options.SecretsOptions)">
+            <summary>
+            <c>provider:name</c> goes to that provider only; a plain name goes through the configured order.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.SecretsServiceCollectionExtensions">
+            <summary>
+            Registers secret references support.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.SecretsServiceCollectionExtensions.AddSecretReferences(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers the secret resolver, the masker, the template store and the built-in providers
+            (environment variables, configuration, HashiCorp Vault KV v2, Azure Key Vault).
+            </summary>
+            <remarks>
+            To add a provider of your own, register another <see cref="T:Milvaion.Application.Interfaces.Secrets.ISecretProvider"/> and list its name in
+            <c>MilvaionConfig:Secrets:Providers</c> (or name it in references).
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Secrets.VaultSecretProvider">
+            <summary>
+            Reads secrets from a HashiCorp Vault KV version 2 engine.
+            </summary>
+            <remarks>
+            A reference names a path and, after <c>#</c>, a key: <c>{{secret:vault:apps/mail#password}}</c> reads key
+            <c>password</c> of <c>{mount}/data/apps/mail</c>. Without a key, <see cref="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.DefaultKey"/>
+            is read. Authentication is by token (configured, read from a file, or <c>VAULT_TOKEN</c>).
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.VaultSecretProvider.#ctor(System.Net.Http.IHttpClientFactory,Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.SecretsOptions})">
+            <summary>
+            Reads secrets from a HashiCorp Vault KV version 2 engine.
+            </summary>
+            <remarks>
+            A reference names a path and, after <c>#</c>, a key: <c>{{secret:vault:apps/mail#password}}</c> reads key
+            <c>password</c> of <c>{mount}/data/apps/mail</c>. Without a key, <see cref="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.DefaultKey"/>
+            is read. Authentication is by token (configured, read from a file, or <c>VAULT_TOKEN</c>).
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Secrets.VaultSecretProvider.ProviderName">
+            <summary>
+            Provider name used in configuration and explicit references.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Secrets.VaultSecretProvider.HttpClientName">
+            <summary>
+            Name of the HTTP client registered for this provider.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Secrets.VaultSecretProvider.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.VaultSecretProvider.GetSecretAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Secrets.VaultSecretProvider.SplitName(System.String,System.String)">
+            <summary>
+            Splits <c>path#key</c>. Without <c>#</c>, the key is <paramref name="defaultKey"/>.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.Settings.SettingsProvider">

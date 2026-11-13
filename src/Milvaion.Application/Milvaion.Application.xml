@@ -2756,6 +2756,126 @@
             Enum localized name.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto">
+            <summary>
+            An exclusion calendar as listed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto.Name">
+            <summary>
+            Unique name of the calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto.Description">
+            <summary>
+            What the calendar is for.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto.DateCount">
+            <summary>
+            Number of single excluded dates.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto.DateRangeCount">
+            <summary>
+            Number of excluded date ranges.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto.Weekdays">
+            <summary>
+            Excluded days of the week (0 = Sunday ... 6 = Saturday).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto.CreationDate">
+            <summary>
+            When the calendar was created.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarListDto.Projection">
+            <summary>
+            Projection from the entity.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto">
+            <summary>
+            An exclusion calendar in full, with the jobs that use it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.Name">
+            <summary>
+            Unique name of the calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.Description">
+            <summary>
+            What the calendar is for.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.Dates">
+            <summary>
+            Single excluded dates, sorted.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.DateRanges">
+            <summary>
+            Excluded date ranges, both ends inclusive.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.Weekdays">
+            <summary>
+            Excluded days of the week (0 = Sunday ... 6 = Saturday).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.Jobs">
+            <summary>
+            Jobs that reference this calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.AuditInfo">
+            <summary>
+            Information about record audit.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarDetailDto.Projection">
+            <summary>
+            Projection from the entity.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarRefDto">
+            <summary>
+            A short reference to a calendar, as shown on a job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarRefDto.Id">
+            <summary>
+            Calendar id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarRefDto.Name">
+            <summary>
+            Calendar name.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarJobRefDto">
+            <summary>
+            A short reference to a job, as shown on a calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarJobRefDto.Id">
+            <summary>
+            Job id.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarJobRefDto.DisplayName">
+            <summary>
+            Job display name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ExclusionCalendarDtos.ExclusionCalendarJobRefDto.IsActive">
+            <summary>
+            Whether the job is active.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.ExportDtos.ExportType">
             <summary>
             Export types.
@@ -4260,6 +4380,36 @@
             Information about the external job associated with this scheduled job.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.TimeZoneId">
+            <summary>
+            IANA time zone the cron expression is evaluated in.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.MissedRunPolicy">
+            <summary>
+            What happens to runs missed while the scheduler was down.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.MaxCatchUpRuns">
+            <summary>
+            Maximum catch-up runs when <see cref="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.MissedRunPolicy"/> is RunAll.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.Priority">
+            <summary>
+            Dispatch priority, 0 (lowest) to 9 (highest).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.ExclusionCalendarIds">
+            <summary>
+            Ids of the exclusion calendars the job honours.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.ExclusionCalendars">
+            <summary>
+            The exclusion calendars the job honours, with their names. Ids whose calendar no longer exists are left out.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.Projection">
             <summary>
             Projection expression for mapping ScheduledJob scheduledjob to ScheduledJobDetailDto.
@@ -4328,6 +4478,16 @@
             <summary>
             Indicates whether this job is from an external scheduler (Quartz, Hangfire, etc.).
             External jobs are not dispatched by Milvaion - they only report their occurrences for monitoring.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.TimeZoneId">
+            <summary>
+            IANA time zone the cron expression is evaluated in.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.Priority">
+            <summary>
+            Dispatch priority, 0 (lowest) to 9 (highest).
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.Projection">
@@ -4845,6 +5005,22 @@
             already ran. They are absent from the Redis set by design, so their absence
             is not a fault.
             </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.TimeZoneId">
+            <summary>
+            IANA time zone the job's cron expression is evaluated in. "UTC" for workflows, which are always evaluated in UTC.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.LocalScheduledAt">
+            <summary>
+            <see cref="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.ScheduledAt"/> as wall clock time in <see cref="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.TimeZoneId"/>, without an offset.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.ShiftedByCalendar">
+            <summary>
+            True when the run the dispatcher holds falls on an excluded day and <see cref="P:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionDto.ScheduledAt"/> was moved to the
+            first run on a day that is not excluded. The excluded run itself will be recorded as skipped.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.UpcomingExecutionDtos.UpcomingExecutionKind">
             <summary>
@@ -7114,6 +7290,246 @@
         <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand">
+            <summary>
+            Creates an exclusion calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand.Name">
+            <summary>Unique name of the calendar.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand.Description">
+            <summary>What the calendar is for.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand.Dates">
+            <summary>Single excluded dates (yyyy-MM-dd).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand.DateRanges">
+            <summary>Excluded date ranges, both ends inclusive.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand.Weekdays">
+            <summary>Excluded days of the week (0 = Sunday ... 6 = Saturday).</summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommandValidator">
+            <summary>
+            Exclusion calendar creation validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommandHandler">
+            <summary>
+            Handles exclusion calendar creation.
+            </summary>
+            <param name="CalendarRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar})">
+            <summary>
+            Handles exclusion calendar creation.
+            </summary>
+            <param name="CalendarRepository"></param>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommandHandler.CalendarRepository">
+            <summary></summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommandHandler.Handle(Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommand">
+            <summary>
+            Deletes an exclusion calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommand.CalendarId">
+            <summary>Id of the calendar.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandValidator">
+            <summary>
+            Exclusion calendar deletion validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandHandler">
+            <summary>
+            Handles exclusion calendar deletion.
+            </summary>
+            <remarks>
+            A calendar still referenced by a job is not deleted. Removing it would make those jobs run on days someone chose
+            to exclude - holidays, maintenance windows - without anyone deciding that. The caller removes it from the jobs
+            first, which makes that decision explicit.
+            </remarks>
+            <param name="CalendarRepository"></param>
+            <param name="JobRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Handles exclusion calendar deletion.
+            </summary>
+            <remarks>
+            A calendar still referenced by a job is not deleted. Removing it would make those jobs run on days someone chose
+            to exclude - holidays, maintenance windows - without anyone deciding that. The caller removes it from the jobs
+            first, which makes that decision explicit.
+            </remarks>
+            <param name="CalendarRepository"></param>
+            <param name="JobRepository"></param>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandHandler.CalendarRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandHandler.JobRepository">
+            <summary></summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommandHandler.Handle(Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields">
+            <summary>
+            The fields a calendar is created and updated with.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields.Name">
+            <summary>Unique name of the calendar.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields.Description">
+            <summary>What the calendar is for.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields.Dates">
+            <summary>Single excluded dates.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields.DateRanges">
+            <summary>Excluded date ranges, both ends inclusive.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields.Weekdays">
+            <summary>Excluded days of the week (0 = Sunday ... 6 = Saturday).</summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.ExclusionCalendarRules">
+            <summary>
+            Validation and clean-up shared by the create and update commands.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Features.ExclusionCalendars.ExclusionCalendarRules.MaxRangeDays">
+            <summary>Longest range accepted, so a typo in a year cannot create a range of centuries.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.ExclusionCalendarRules.AddFieldRules``1(FluentValidation.AbstractValidator{``0})">
+            <summary>
+            Adds the rules for <see cref="T:Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields"/> to a validator.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.ExclusionCalendarRules.Apply(Milvaion.Application.Features.ExclusionCalendars.IExclusionCalendarFields,Milvaion.Domain.ExclusionCalendar)">
+            <summary>
+            Copies the fields onto an entity, sorted and de-duplicated so the stored calendar reads cleanly.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarDetail.GetExclusionCalendarDetailQuery">
+            <summary>
+            Gets one exclusion calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarDetail.GetExclusionCalendarDetailQuery.CalendarId">
+            <summary>Id of the calendar.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarDetail.GetExclusionCalendarDetailQueryHandler">
+            <summary>
+            Handles the exclusion calendar detail.
+            </summary>
+            <param name="calendarRepository"></param>
+            <param name="jobRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarDetail.GetExclusionCalendarDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Handles the exclusion calendar detail.
+            </summary>
+            <param name="calendarRepository"></param>
+            <param name="jobRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarDetail.GetExclusionCalendarDetailQueryHandler.Handle(Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarDetail.GetExclusionCalendarDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarList.GetExclusionCalendarListQuery">
+            <summary>
+            Lists exclusion calendars.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarList.GetExclusionCalendarListQuery.SearchTerm">
+            <summary>
+            Free text search over calendar names and descriptions.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarList.GetExclusionCalendarListQueryHandler">
+            <summary>
+            Handles the exclusion calendar list.
+            </summary>
+            <param name="calendarRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarList.GetExclusionCalendarListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar})">
+            <summary>
+            Handles the exclusion calendar list.
+            </summary>
+            <param name="calendarRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarList.GetExclusionCalendarListQueryHandler.Handle(Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarList.GetExclusionCalendarListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand">
+            <summary>
+            Replaces an exclusion calendar's name, description and rules. Every field is written, so send the full calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand.Id">
+            <summary>Id of the calendar.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand.Name">
+            <summary>Unique name of the calendar.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand.Description">
+            <summary>What the calendar is for.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand.Dates">
+            <summary>Single excluded dates (yyyy-MM-dd).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand.DateRanges">
+            <summary>Excluded date ranges, both ends inclusive.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand.Weekdays">
+            <summary>Excluded days of the week (0 = Sunday ... 6 = Saturday).</summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommandValidator">
+            <summary>
+            Exclusion calendar update validations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommandHandler">
+            <summary>
+            Handles exclusion calendar updates.
+            </summary>
+            <remarks>
+            Nothing is cached: the dispatcher reads the calendars of due jobs from the database on every cycle, so a change
+            applies from the next run on.
+            </remarks>
+            <param name="CalendarRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar})">
+            <summary>
+            Handles exclusion calendar updates.
+            </summary>
+            <remarks>
+            Nothing is cached: the dispatcher reads the calendars of due jobs from the database on every cycle, so a change
+            applies from the next run on.
+            </remarks>
+            <param name="CalendarRepository"></param>
+        </member>
+        <member name="P:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommandHandler.CalendarRepository">
+            <summary></summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommandHandler.Handle(Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="T:Milvaion.Application.Features.FailedOccurrences.DeleteFailedOccurrence.DeleteFailedOccurrenceCommand">
             <summary>
             Data transfer object for failedjob deletion.
@@ -8089,6 +8505,31 @@
             If null, the job is a one-time job that executes at ExecuteAt and is not rescheduled.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.TimeZoneId">
+            <summary>
+            IANA time zone id the cron expression is evaluated in, e.g. "Europe/Istanbul". Defaults to "UTC".
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.MissedRunPolicy">
+            <summary>
+            What happens to runs missed while the scheduler was down: RunOnce (default), Skip or RunAll.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.MaxCatchUpRuns">
+            <summary>
+            Maximum catch-up runs for <see cref="F:Milvasoft.Milvaion.Sdk.Domain.Enums.MissedRunPolicy.RunAll"/>, 1 to 100. Default 10.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.Priority">
+            <summary>
+            Dispatch priority, 0 (default, lowest) to 9 (highest).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.ExclusionCalendarIds">
+            <summary>
+            Ids of exclusion calendars whose days this job does not run on.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.IsActive">
             <summary>
             Indicates whether the job is active and should be processed by the dispatcher.
@@ -8156,18 +8597,23 @@
             Handles the creation of the scheduledjob.
             </summary>
             <param name="ScheduledJobRepository"></param>
+            <param name="ExclusionCalendarRepository"></param>
             <param name="RedisSchedulerService"></param>
             <param name="RedisWorkerService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
             <summary>
             Handles the creation of the scheduledjob.
             </summary>
             <param name="ScheduledJobRepository"></param>
+            <param name="ExclusionCalendarRepository"></param>
             <param name="RedisSchedulerService"></param>
             <param name="RedisWorkerService"></param>
         </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommandHandler.ScheduledJobRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommandHandler.ExclusionCalendarRepository">
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommandHandler.RedisSchedulerService">
@@ -8508,13 +8954,15 @@
             Handles the scheduledjob detail operation.
             </summary>
             <param name="scheduledjobRepository"></param>
+            <param name="exclusionCalendarRepository"></param>
             <param name="redisSchedulerService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail.GetScheduledJobDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail.GetScheduledJobDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService)">
             <summary>
             Handles the scheduledjob detail operation.
             </summary>
             <param name="scheduledjobRepository"></param>
+            <param name="exclusionCalendarRepository"></param>
             <param name="redisSchedulerService"></param>
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail.GetScheduledJobDetailQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail.GetScheduledJobDetailQuery,System.Threading.CancellationToken)">
@@ -8725,6 +9173,11 @@
             Jobs the dispatcher holds a run time for.
             </summary>
         </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.LoadCalendarsAsync(Milvasoft.DataAccess.EfCore.Bulk.IMilvaBulkDbContextBase,System.Collections.Generic.List{Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.JobRow},System.Threading.CancellationToken)">
+            <summary>
+            Loads the exclusion calendars of the given jobs, keyed by job.
+            </summary>
+        </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQueryHandler.GetUnscheduledJobsAsync(Milvasoft.DataAccess.EfCore.Bulk.IMilvaBulkDbContextBase,Milvaion.Application.Features.ScheduledJobs.GetUpcomingExecutionList.GetUpcomingExecutionListQuery,System.Threading.CancellationToken)">
             <summary>
             Recurring jobs that are active but absent from the sorted set, so nothing will run them.
@@ -8860,6 +9313,31 @@
             If null, the job is a one-time job that executes at ExecuteAt and is not rescheduled.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.TimeZoneId">
+            <summary>
+            IANA time zone id the cron expression is evaluated in. Null or empty means UTC.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.MissedRunPolicy">
+            <summary>
+            What happens to runs missed while the scheduler was down.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.MaxCatchUpRuns">
+            <summary>
+            Maximum catch-up runs for <see cref="F:Milvasoft.Milvaion.Sdk.Domain.Enums.MissedRunPolicy.RunAll"/>, 1 to 100.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.Priority">
+            <summary>
+            Dispatch priority, 0 (lowest) to 9 (highest).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.ExclusionCalendarIds">
+            <summary>
+            Ids of exclusion calendars whose days this job does not run on. Replaces the whole list.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.IsActive">
             <summary>
             Indicates whether the job is active and should be processed by the dispatcher.
@@ -8902,18 +9380,23 @@
             Handles the update of the scheduledjob.
             </summary>
             <param name="ScheduledJobRepository"></param>
+            <param name="ExclusionCalendarRepository"></param>
             <param name="RedisSchedulerService"></param>
             <param name="RedisWorkerService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
             <summary>
             Handles the update of the scheduledjob.
             </summary>
             <param name="ScheduledJobRepository"></param>
+            <param name="ExclusionCalendarRepository"></param>
             <param name="RedisSchedulerService"></param>
             <param name="RedisWorkerService"></param>
         </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.ScheduledJobRepository">
+            <summary></summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.ExclusionCalendarRepository">
             <summary></summary>
         </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler.RedisSchedulerService">
@@ -10793,6 +11276,14 @@
             <param name="occurrenceId">Unique identifier for the job occurrence (Occurrence.Id)</param>
             <param name="cancellationToken">Cancellation token</param>
             <returns>True if published successfully</returns>
+            <remarks>
+            <c>{{secret:name}}</c> references in the job data are resolved into the message only; the job object is
+            not changed.
+            </remarks>
+            <exception cref="T:Milvaion.Application.Interfaces.Secrets.SecretResolutionException">
+            A referenced secret could not be resolved. Nothing was published; fail the occurrence with the
+            exception message (it names the secrets, never their values) rather than retrying.
+            </exception>
         </member>
         <member name="M:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher.PublishBatchAsync(System.Collections.Generic.Dictionary{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid},System.Threading.CancellationToken)">
             <summary>
@@ -11029,6 +11520,21 @@
             </summary>
             <param name="cancellationToken">Cancellation token</param>
             <returns>Count of scheduled jobs</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.RecordDispatcherPollAsync(System.DateTime,System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Records that a dispatcher polled at <paramref name="nowUtc"/> and returns the most recent dispatcher outage.
+            </summary>
+            <remarks>
+            Every dispatcher instance calls this once per poll. When the previous poll by any instance is older than
+            <paramref name="gapThreshold"/>, the gap between the two polls is stored as the latest outage: no dispatcher
+            was running in it, so the runs due in it were missed. The missed-run policy reads this to tell a run missed
+            during an outage from one that is only late because it was held back.
+            </remarks>
+            <param name="nowUtc">Time of this poll.</param>
+            <param name="gapThreshold">Smallest gap between polls that counts as an outage.</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>The latest outage, or null when none has been recorded (or Redis is unavailable).</returns>
         </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.CacheJobDetailsAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Nullable{System.TimeSpan},System.Threading.CancellationToken)">
             <summary>
@@ -11386,6 +11892,171 @@
             <param name="instanceId">Specific instance ID to remove</param>
             <param name="cancellationToken">Cancellation token</param>
             <returns>True if cleanup was successful</returns>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Secrets.ISecretMasker">
+            <summary>
+            Puts secret references back in place of secret values in text that comes back from workers.
+            </summary>
+            <remarks>
+            A worker receives the resolved job data, and nothing stops it from echoing a value into a log line,
+            an exception message or the job data of a dead-lettered message. Before the API stores any of those,
+            it passes them through <see cref="M:Milvaion.Application.Interfaces.Secrets.ISecretMasker.Mask(System.String)"/>, which replaces every value resolved recently by this
+            API instance with the reference it came from (<c>{{secret:name}}</c>).
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.ISecretMasker.Register(System.String,System.String)">
+            <summary>
+            Remembers that <paramref name="value"/> was resolved from <paramref name="reference"/>.
+            </summary>
+            <param name="reference">The full reference text, for example <c>{{secret:smtp-password}}</c>.</param>
+            <param name="value">The resolved value.</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.ISecretMasker.Mask(System.String)">
+            <summary>
+            Returns <paramref name="text"/> with every remembered value replaced by its reference.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Secrets.ISecretProvider">
+            <summary>
+            A source of secret values that job data can reference with <c>{{secret:name}}</c>.
+            </summary>
+            <remarks>
+            Implementations are registered in dependency injection and consulted in the order configured in
+            <c>MilvaionConfig:Secrets:Providers</c>. A reference can also name one provider explicitly with
+            <c>{{secret:provider:name}}</c>, for example <c>{{secret:vault:smtp#password}}</c>.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Secrets.ISecretProvider.Name">
+            <summary>
+            Short, case-insensitive name of the provider, used in configuration and in explicit references
+            (for example <c>env</c>, <c>config</c>, <c>vault</c>, <c>azurekeyvault</c>).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.ISecretProvider.GetSecretAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Reads one secret.
+            </summary>
+            <param name="name">The secret name as written in the reference, without the provider prefix.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>The value, or <c>null</c> when this provider has no secret with that name.</returns>
+            <remarks>
+            Return <c>null</c> for "not found" so the next provider can be tried. Throw only for real failures
+            (unreachable server, access denied); the message of that exception must not contain the value.
+            </remarks>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Secrets.ISecretResolver">
+            <summary>
+            Replaces <c>{{secret:name}}</c> references in job data with their values.
+            </summary>
+            <remarks>
+            Resolution happens only at dispatch, on the copy of the job data that goes into the RabbitMQ message.
+            The resolved text must never be written back to the database, the cache, the logs or an API response.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.ISecretResolver.ResolveAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Returns <paramref name="text"/> with every secret reference replaced by its value. Values are
+            JSON-escaped, so the result stays valid JSON when the input was.
+            </summary>
+            <param name="text">Job data (normally a JSON document).</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>The resolved text. The input is returned unchanged when it holds no references.</returns>
+            <exception cref="T:Milvaion.Application.Interfaces.Secrets.SecretResolutionException">One or more references could not be resolved.</exception>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore">
+            <summary>
+            Keeps the unresolved job data of dispatched occurrences that reference secrets.
+            </summary>
+            <remarks>
+            A worker that gives up on a job dead-letters the job as it received it, which is the resolved data. The
+            failed occurrence record stores the template from here instead, so its job data shows
+            <c>{{secret:name}}</c> and a retry from it resolves the secret again.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore.SaveAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Remembers <paramref name="template"/> for the occurrence. Failures are logged, not thrown.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore.GetAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            The template saved for the occurrence, or <c>null</c>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Secrets.SecretReferences">
+            <summary>
+            The <c>{{secret:name}}</c> syntax.
+            </summary>
+            <remarks>
+            <para>A reference is <c>{{secret:name}}</c>, optionally with a provider: <c>{{secret:provider:name}}</c>.
+            Whitespace inside the braces is allowed (<c>{{ secret:name }}</c>). The name may contain anything except
+            whitespace, braces, quotes and backslashes, so Vault paths such as <c>apps/mail#password</c> work.</para>
+            <para>A reference can make up a whole JSON string (<c>"password": "{{secret:smtp-password}}"</c>) or part
+            of one (<c>"auth": "Bearer {{secret:api-token}}"</c>).</para>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.SecretReferences.ReferenceRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>\{\{\s*secret:(?&lt;ref&gt;[^{}\s"\\]+)\s*\}\}</code><br/>
+            Options:<br/>
+            <code>RegexOptions.CultureInvariant</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match the string "{{".<br/>
+            ○ Match a whitespace character atomically any number of times.<br/>
+            ○ Match the string "secret:".<br/>
+            ○ "ref" capture group.<br/>
+                ○ Match a character in the set [^"\\{}\s] greedily at least once.<br/>
+            ○ Match a whitespace character atomically any number of times.<br/>
+            ○ Match the string "}}".<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Secrets.SecretReferences.Pattern">
+            <summary>
+            The compiled reference pattern. Group <c>ref</c> holds what follows <c>secret:</c>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.SecretReferences.ContainsReference(System.String)">
+            <summary>
+            Whether <paramref name="text"/> contains at least one reference. Cheap enough for every dispatch.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.SecretReferences.Find(System.String)">
+            <summary>
+            The distinct references in <paramref name="text"/>, as written after <c>secret:</c>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.SecretReferences.Format(System.String)">
+            <summary>
+            Builds the canonical reference text for <paramref name="reference"/>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Secrets.SecretResolutionException">
+            <summary>
+            Thrown when job data references a secret that could not be resolved. The occurrence fails and no
+            message is published.
+            </summary>
+            <remarks>
+            The message names the references, never values, so it is safe to store on the occurrence and show
+            on the dashboard.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Secrets.SecretResolutionException.MissingSecrets">
+            <summary>
+            The secret names that were not found in any provider.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Secrets.SecretResolutionException.FailedSecrets">
+            <summary>
+            Secret names whose provider failed (for example, the vault was unreachable), with a short reason.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Secrets.SecretResolutionException.#ctor(System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyDictionary{System.String,System.String})">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Application.Interfaces.Secrets.SecretResolutionException"/> class.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Aspects.UserActivityLogAspect.UserActivityLogInterceptor">
             <summary>
@@ -13045,6 +13716,155 @@
             Default lock TTL in seconds (10 minutes).
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.SecretsOptions">
+            <summary>
+            Settings for secret references in job data. Bound from <c>MilvaionConfig:Secrets</c>.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.SecretsOptions.SectionKey">
+            <summary>
+            Section key in configuration files.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.Enabled">
+            <summary>
+            When false, references are left in the job data untouched and workers receive the literal
+            <c>{{secret:name}}</c> text. Default true.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.Providers">
+            <summary>
+            The providers to consult, in order, for a reference that does not name one. Names are
+            case-insensitive: <c>env</c>, <c>config</c>, <c>vault</c>, <c>azurekeyvault</c>.
+            Default: environment variables, then configuration. Vault and Azure Key Vault are used only
+            when listed here or named in a reference, and only when configured.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.CacheTtlSeconds">
+            <summary>
+            How long a resolved value is kept in memory before the provider is asked again. Default 60 seconds;
+            0 disables the cache.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.MaskRetentionMinutes">
+            <summary>
+            How long a resolved value is remembered for masking text that workers send back (logs, exceptions,
+            dead-lettered job data). Default 24 hours. Only the API instance that resolved a value can mask it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.TemplateRetentionHours">
+            <summary>
+            How long the unresolved job data of a dispatched occurrence is kept in Redis, so a failed occurrence
+            record can store the template instead of the resolved data the worker sends back. Default 7 days.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.MinimumMaskLength">
+            <summary>
+            Values shorter than this are not masked, since replacing a two-letter value everywhere in a log
+            would do more harm than good. Default 4.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.Environment">
+            <summary>
+            Settings for the environment variable provider (<c>env</c>).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.Values">
+            <summary>
+            Secrets kept in configuration (<c>config</c> provider). Key is the secret name. Supply them through
+            environment variables or a mounted file rather than appsettings.json, for example
+            <c>MilvaionConfig__Secrets__Values__smtp-password</c>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.Vault">
+            <summary>
+            HashiCorp Vault KV version 2 settings (<c>vault</c> provider).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SecretsOptions.AzureKeyVault">
+            <summary>
+            Azure Key Vault settings (<c>azurekeyvault</c> provider).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.EnvironmentSecretsOptions">
+            <summary>
+            Environment variable provider settings.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EnvironmentSecretsOptions.Prefix">
+            <summary>
+            Prefix of the variables. <c>{{secret:smtp-password}}</c> reads <c>MILVAION_SECRET_SMTP_PASSWORD</c>:
+            the name is upper-cased and every character other than a letter or digit becomes an underscore.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions">
+            <summary>
+            HashiCorp Vault KV version 2 settings.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.Address">
+            <summary>
+            Vault address, for example <c>https://vault.example.com:8200</c>. The provider is off while empty.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.Token">
+            <summary>
+            Vault token. Prefer <see cref="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.TokenFile"/> or the <c>VAULT_TOKEN</c> environment variable.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.TokenFile">
+            <summary>
+            Path of a file holding the token, such as one written by Vault Agent. Read on every token use, so a
+            renewed token is picked up.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.Namespace">
+            <summary>
+            Vault Enterprise namespace, sent as <c>X-Vault-Namespace</c>. Optional.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.MountPath">
+            <summary>
+            Mount path of the KV v2 engine. Default <c>secret</c>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.DefaultKey">
+            <summary>
+            Key read when a reference has no <c>#key</c> part. Default <c>value</c>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.VaultSecretsOptions.TimeoutSeconds">
+            <summary>
+            Request timeout in seconds. Default 10.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions">
+            <summary>
+            Azure Key Vault settings.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions.VaultUri">
+            <summary>
+            Vault URI, for example <c>https://my-vault.vault.azure.net/</c>. The provider is off while empty.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions.TenantId">
+            <summary>
+            Tenant of a service principal. When <see cref="P:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions.TenantId"/>, <see cref="P:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions.ClientId"/> and
+            <see cref="P:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions.ClientSecret"/> are all set, that principal is used; otherwise <c>DefaultAzureCredential</c>
+            (managed identity, workload identity, environment variables, Azure CLI).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions.ClientId">
+            <summary>
+            Client id of a service principal, or of a user-assigned managed identity when no secret is given.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AzureKeyVaultSecretsOptions.ClientSecret">
+            <summary>
+            Client secret of a service principal.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.StatusTrackerOptions">
             <summary>
             Configuration options for LogCollectorService.
@@ -13154,6 +13974,316 @@
         <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanGrantApiKeyPermissionsAsync(System.Nullable{System.Int32},System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.ExclusionCalendarReferences">
+            <summary>
+            Checks the calendar ids a job refers to.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ExclusionCalendarReferences.Normalize(System.Collections.Generic.IEnumerable{System.Guid})">
+            <summary>
+            Removes duplicates and empty ids, keeping the caller's order.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ExclusionCalendarReferences.FindMissingAsync(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.ExclusionCalendar},System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Returns an error message naming the ids that do not exist, or null when all of them do.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.MisfireRules">
+            <summary>
+            The single definition of a misfire, shared by the misfire alert and the missed-run (catch-up) policy.
+            </summary>
+            <remarks>
+            A due job sits in the Redis scheduled set with its intended run time as the score, and the dispatcher clears it
+            within a poll or two. A run that is still waiting more than <see cref="F:Milvaion.Application.Utils.Scheduling.MisfireRules.Grace"/> after its time was not
+            dispatched on time: that is a misfire. <c>JobMisfireMonitorService</c> alerts on it, and the dispatcher uses the
+            same test to decide whether a run it is about to send was missed. Keeping one definition means a run the alert
+            called missed is exactly a run the catch-up policy treats as missed.
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.MisfireRules.Grace">
+            <summary>
+            How late a run must be before it counts as a misfire.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.MisfireRules.IsMisfired(System.DateTime,System.DateTime)">
+            <summary>
+            True when a run scheduled at <paramref name="scheduledAtUtc"/> is still undispatched past the grace window.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.MisfireRules.MisfireCutoff(System.DateTime)">
+            <summary>
+            The latest scheduled time that is a misfire at <paramref name="nowUtc"/>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.DispatcherOutage">
+            <summary>
+            A period in which no dispatcher was polling - the scheduler was down, restarting or paused by the emergency stop.
+            </summary>
+            <param name="StartUtc">Last poll before the gap.</param>
+            <param name="EndUtc">First poll after the gap.</param>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.DispatcherOutage.#ctor(System.DateTime,System.DateTime)">
+            <summary>
+            A period in which no dispatcher was polling - the scheduler was down, restarting or paused by the emergency stop.
+            </summary>
+            <param name="StartUtc">Last poll before the gap.</param>
+            <param name="EndUtc">First poll after the gap.</param>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.DispatcherOutage.StartUtc">
+            <summary>Last poll before the gap.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.DispatcherOutage.EndUtc">
+            <summary>First poll after the gap.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.DispatcherOutage.Covers(System.DateTime)">
+            <summary>
+            True when <paramref name="utc"/> fell inside the outage, after the last poll and up to the first poll back.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.RunDecisionKind">
+            <summary>
+            What the dispatcher does with a due run.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.RunDecisionKind.Run">
+            <summary>Dispatch it as a normal run.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.RunDecisionKind.CatchUp">
+            <summary>Dispatch it as a catch-up run for runs missed during an outage.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.RunDecisionKind.SkipMissed">
+            <summary>Do not dispatch: the run was missed and the job's policy is to skip missed runs.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.RunDecisionKind.SkipExcluded">
+            <summary>Do not dispatch: the run falls on a day excluded by one of the job's calendars.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.RunDecisionKind.InvalidSchedule">
+            <summary>The cron expression cannot be parsed.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.RunDecision">
+            <summary>
+            The dispatcher's decision for one due run, and where the job's schedule moves afterwards.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.Kind">
+            <summary>What to do with the run.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.RunSlotUtc">
+            <summary>The scheduled time this decision is about (UTC).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.NextRunAtUtc">
+            <summary>The next score to write to the scheduled set, or null when the job leaves it.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.MissedCount">
+            <summary>Number of runs missed during the outage, counting this one. Zero when nothing was missed.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.DroppedCount">
+            <summary>Missed runs dropped because they exceeded the maximum number of catch-up runs.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.FirstMissedUtc">
+            <summary>Earliest missed run (UTC).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.LastMissedUtc">
+            <summary>Latest missed run (UTC).</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.ExcludedBy">
+            <summary>The calendar that excluded the run, for <see cref="F:Milvaion.Application.Utils.Scheduling.RunDecisionKind.SkipExcluded"/>.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.LocalDate">
+            <summary>Local date of the run in the job's time zone.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.Dispatches">
+            <summary>True when the run is dispatched to a worker.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Scheduling.RunDecision.Message">
+            <summary>A one-line explanation for the occurrence log.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.RunPlanner">
+            <summary>
+            Decides, for a job whose run is due, whether to dispatch it, skip it, or run it as a catch-up - and where its
+            schedule goes next. Pure logic: no I/O, so every rule here is unit tested directly.
+            </summary>
+            <remarks>
+            Order of the rules:
+            <list type="number">
+              <item>Missed-run policy, for recurring jobs whose run was missed during a dispatcher outage.</item>
+              <item>Exclusion calendars, for whatever run survives the first step.</item>
+            </list>
+            The schedule always advances through plain cron runs, never straight past excluded days. That is what lets an
+            excluded run be reached and recorded as skipped rather than silently vanishing. When a run is skipped by a
+            calendar the schedule then jumps to the first run on a day that is not excluded, so a calendar that excludes a
+            whole weekend records one skipped occurrence, not one per run.
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.RunPlanner._maxMissedRunsToEnumerate">
+            <summary>Bounds the count of missed runs, so an every-second job after a long outage cannot stall a cycle.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.RunPlanner._maxExcludedDaysToSkip">
+            <summary>Bounds the search for a non-excluded day (ten years of days).</summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.RunPlanner.Plan(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.DateTime,Milvaion.Application.Utils.Scheduling.DispatcherOutage,System.Collections.Generic.IReadOnlyCollection{Milvaion.Domain.ExclusionCalendar})">
+            <summary>
+            Plans one due run.
+            </summary>
+            <param name="job">The job. <see cref="P:Milvasoft.Milvaion.Sdk.Domain.ScheduledJob.ExecuteAt"/> must be the due score from Redis.</param>
+            <param name="nowUtc">Current time.</param>
+            <param name="outage">The most recent dispatcher outage, or null when none is known.</param>
+            <param name="calendars">The job's exclusion calendars; may be empty.</param>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.RunPlanner.GetNextAllowedOccurrence(Cronos.CronExpression,System.DateTime,System.TimeZoneInfo,System.Collections.Generic.IReadOnlyCollection{Milvaion.Domain.ExclusionCalendar},System.Boolean)">
+            <summary>
+            First run at or after (<paramref name="inclusive"/>) <paramref name="fromUtc"/> whose local date no calendar excludes.
+            </summary>
+            <returns>The run in UTC, or null when there is none within the search bound.</returns>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.RunPlanner.StartOfLocalDay(System.DateOnly,System.TimeZoneInfo)">
+            <summary>
+            UTC instant at which <paramref name="date"/> begins in <paramref name="zone"/>.
+            </summary>
+            <remarks>A few zones start DST at midnight, so 00:00 can be missing; the day then begins at the first valid minute.</remarks>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.RunPlanner.CountMissedRuns(Cronos.CronExpression,System.TimeZoneInfo,System.DateTime,System.DateTime,System.Int32)">
+            <summary>
+            Counts the runs in [first, now], returning the count, the latest one and the most recent <paramref name="keep"/>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.SchedulingValidation">
+            <summary>
+            Limits and messages shared by the job create and update validators and the calendar validators.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.SchedulingValidation.MaxCatchUpRunsLimit">
+            <summary>Upper bound for <see cref="P:Milvasoft.Milvaion.Sdk.Domain.ScheduledJob.MaxCatchUpRuns"/>.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.SchedulingValidation.MaxCalendarsPerJob">
+            <summary>How many calendars one job may reference.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.SchedulingValidation.MaxCalendarEntries">
+            <summary>How many single dates or ranges one calendar may hold.</summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.SchedulingValidation.InvalidTimeZoneMessage(System.String)">
+            <summary>Message for an unknown or non-IANA time zone id.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.SchedulingValidation.InvalidMissedRunPolicyMessage">
+            <summary>Message for an out of range missed-run policy.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.SchedulingValidation.InvalidMaxCatchUpRunsMessage">
+            <summary>Message for an out of range catch-up maximum.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.SchedulingValidation.InvalidPriorityMessage">
+            <summary>Message for an out of range priority.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.SchedulingValidation.TooManyCalendarsMessage">
+            <summary>Message for too many calendars on a job.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Scheduling.ZonedCron">
+            <summary>
+            Evaluates six part cron expressions in a job's own time zone, with wall clock semantics across daylight saving
+            time changes.
+            </summary>
+            <remarks>
+            Cronos already converts between the zone and UTC, but it follows Vixie cron on the two DST edges, and that is
+            not what a person reading "every day at 02:30" expects:
+            <list type="bullet">
+              <item>
+                When the clocks go forward, a time inside the gap (02:30 on a night where 02:00 jumps to 03:00) does not
+                exist. Cronos moves such a run to the end of the gap; here it is dropped, because that wall time never
+                happened that day.
+              </item>
+              <item>
+                When the clocks go back, an hour happens twice. Cronos fires interval and range expressions in both copies;
+                here a wall time runs once, at its first occurrence.
+              </item>
+            </list>
+            Every scheduling path - the dispatcher, startup recovery, job create and update, and Upcoming Executions - goes
+            through this class, so the time on screen and the time a job fires cannot drift apart.
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Scheduling.ZonedCron._maxSkips">
+            <summary>
+            Guards the skip loop. A real expression meets at most a handful of DST edges in a row.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.Parse(System.String)">
+            <summary>
+            Parses a six part (seconds first) cron expression.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.TryParse(System.String,Cronos.CronExpression@)">
+            <summary>
+            Tries to parse a six part (seconds first) cron expression.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.IsValidTimeZoneId(System.String)">
+            <summary>
+            Returns true when <paramref name="timeZoneId"/> is an IANA time zone id this machine knows.
+            </summary>
+            <remarks>
+            Windows ids such as "Turkey Standard Time" are rejected even where the runtime would resolve them: the id is
+            stored and shown to people, and the API documents IANA ids, so one spelling per zone keeps it unambiguous.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.ResolveTimeZone(System.String)">
+            <summary>
+            Resolves a time zone id, falling back to UTC for null, empty or unknown ids.
+            </summary>
+            <remarks>
+            Falling back rather than throwing keeps a job with a zone that was removed from the host's tz database
+            running on UTC instead of stopping the whole dispatch cycle. Ids are validated on the way in, so this only
+            matters for data that changed underneath the scheduler.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.GetNextOccurrence(Cronos.CronExpression,System.DateTime,System.TimeZoneInfo,System.Boolean)">
+            <summary>
+            Returns the next run strictly after (or, with <paramref name="inclusive"/>, at or after) <paramref name="fromUtc"/>.
+            </summary>
+            <param name="expression">Parsed cron expression.</param>
+            <param name="fromUtc">Start of the search, UTC.</param>
+            <param name="zone">Zone the expression is written in.</param>
+            <param name="inclusive">Whether <paramref name="fromUtc"/> itself may be returned.</param>
+            <returns>The next run in UTC, or null when the expression has no further runs.</returns>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.GetNextOccurrence(System.String,System.DateTime,System.String,System.Boolean)">
+            <summary>
+            Convenience overload taking the expression and zone as strings.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.GetOccurrences(Cronos.CronExpression,System.DateTime,System.DateTime,System.TimeZoneInfo,System.Boolean)">
+            <summary>
+            Enumerates runs in <c>[fromUtc, toUtc]</c> (start inclusive only when <paramref name="fromInclusive"/>).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.ToLocalDate(System.DateTime,System.TimeZoneInfo)">
+            <summary>
+            The calendar date of <paramref name="utc"/> as seen on a wall clock in <paramref name="zone"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.ToLocalTime(System.DateTime,System.TimeZoneInfo)">
+            <summary>
+            The wall clock time of <paramref name="utc"/> in <paramref name="zone"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.IsShiftedOutOfGap(Cronos.CronExpression,System.DateTime,System.TimeZoneInfo)">
+            <summary>
+            True when Cronos moved a run that falls inside a spring-forward gap to the end of the gap.
+            </summary>
+            <remarks>
+            Detected by asking whether the expression matches the candidate's local wall time at all. A run moved out of
+            the gap lands on a wall time the expression does not name (03:00 for "30 2 * * *"); a genuine run always
+            lands on one it names. Evaluating the wall time as if it were UTC is safe here because UTC has no gaps.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Scheduling.ZonedCron.IsSecondCopyOfRepeatedTime(System.DateTime,System.TimeZoneInfo)">
+            <summary>
+            True when the candidate is the second time a repeated (fall-back) wall time occurs.
+            </summary>
+            <remarks>
+            During the repeated hour the zone has two offsets; the first pass through it uses the larger (daylight)
+            offset and the second the smaller (standard) one. The first pass has already run - or lay before the start
+            of the search, in which case it was the run - so the second is dropped.
+            </remarks>
+        </member>
         <member name="T:Milvaion.Application.Utils.SystemResourceReader">
              <summary>
              Reads live CPU, memory and disk usage of the API process and its host.
@@ -13197,98 +14327,130 @@
             figures alongside the disk ones. Isolated here so a disk problem costs only the disk numbers.
             </remarks>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.DataUriRegex_0">
+        <member name="T:System.Text.RegularExpressions.Generated.ReferenceRegex_0">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the ReferenceRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.ReferenceRegex_0.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.ReferenceRegex_0.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.ReferenceRegex_0.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.ReferenceRegex_0.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.ReferenceRegex_0.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.ReferenceRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.ReferenceRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.ReferenceRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.DataUriRegex_1">
             <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the DataUriRegex method.</summary>
         </member>
-        <member name="F:System.Text.RegularExpressions.Generated.DataUriRegex_0.Instance">
+        <member name="F:System.Text.RegularExpressions.Generated.DataUriRegex_1.Instance">
             <summary>Cached, thread-safe singleton instance.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_0.#ctor">
+        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_1.#ctor">
             <summary>Initializes the instance.</summary>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.DataUriRegex_0.RunnerFactory">
+        <member name="T:System.Text.RegularExpressions.Generated.DataUriRegex_1.RunnerFactory">
             <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_0.RunnerFactory.CreateInstance">
+        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_1.RunnerFactory.CreateInstance">
             <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.DataUriRegex_0.RunnerFactory.Runner">
+        <member name="T:System.Text.RegularExpressions.Generated.DataUriRegex_1.RunnerFactory.Runner">
             <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_1.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
             <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_1.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
             <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
             <returns>true if a possible match was found; false if no more matches are possible.</returns>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.DataUriRegex_1.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
             <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
             <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1">
+        <member name="T:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2">
             <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the ReplaceAndToLowerRegex method.</summary>
         </member>
-        <member name="F:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.Instance">
+        <member name="F:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.Instance">
             <summary>Cached, thread-safe singleton instance.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.#ctor">
+        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.#ctor">
             <summary>Initializes the instance.</summary>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.RunnerFactory">
+        <member name="T:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.RunnerFactory">
             <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.RunnerFactory.CreateInstance">
+        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.RunnerFactory.CreateInstance">
             <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.RunnerFactory.Runner">
+        <member name="T:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.RunnerFactory.Runner">
             <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
             <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
             <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
             <returns>true if a possible match was found; false if no more matches are possible.</returns>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_1.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.ReplaceAndToLowerRegex_2.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
             <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
             <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.UrlRegex_2">
+        <member name="T:System.Text.RegularExpressions.Generated.UrlRegex_3">
             <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the UrlRegex method.</summary>
         </member>
-        <member name="F:System.Text.RegularExpressions.Generated.UrlRegex_2.Instance">
+        <member name="F:System.Text.RegularExpressions.Generated.UrlRegex_3.Instance">
             <summary>Cached, thread-safe singleton instance.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_2.#ctor">
+        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_3.#ctor">
             <summary>Initializes the instance.</summary>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.UrlRegex_2.RunnerFactory">
+        <member name="T:System.Text.RegularExpressions.Generated.UrlRegex_3.RunnerFactory">
             <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_2.RunnerFactory.CreateInstance">
+        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_3.RunnerFactory.CreateInstance">
             <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
         </member>
-        <member name="T:System.Text.RegularExpressions.Generated.UrlRegex_2.RunnerFactory.Runner">
+        <member name="T:System.Text.RegularExpressions.Generated.UrlRegex_3.RunnerFactory.Runner">
             <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_2.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_3.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
             <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_2.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_3.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
             <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
             <returns>true if a possible match was found; false if no more matches are possible.</returns>
         </member>
-        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_2.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+        <member name="M:System.Text.RegularExpressions.Generated.UrlRegex_3.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
             <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
             <param name="inputSpan">The text being scanned by the regular expression.</param>
             <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
@@ -13322,6 +14484,9 @@
         </member>
         <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_ascii_F8F8FF83FEFFFF97FEFFFF07">
             <summary>Supports searching for characters in or not in "#$%&amp;'+,-./0123456789?ABCDEFGHIJKLMNOPQRSTUVWXYZ\\_abcdefghijklmnopqrstuvwxyz".</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_indexOfString_BB1C8D594CD963F65D3EAF61D3D969FEE92730B1764726818716F84676CA8389">
+            <summary>Supports searching for the string "{{".</summary>
         </member>
         <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_whitespace">
             <summary>Supports searching for characters in or not in "\t\n\v\f\r \u0085             \u2028\u2029  　".</summary>
