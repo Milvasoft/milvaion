@@ -12,7 +12,7 @@ It requires Java 17 or later, and connects to the same RabbitMQ and Redis instan
 </dependency>
 ```
 
-The artifact is not on Maven Central yet. Until it is, build and install it locally with `mvn install` from this folder.
+With Gradle: `implementation("com.milvasoft:milvaion-worker:1.0.0")`.
 
 The SDK logs through SLF4J. Add a binding such as `slf4j-simple` or Logback to see its output.
 

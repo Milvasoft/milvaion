@@ -584,21 +584,22 @@ dotnet new install Milvasoft.Templates.Milvaion
 
 ### Other Languages
 
-These SDKs speak the same [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md) as the .NET SDK. They are not published to the package registries yet; install them from this repository.
+These SDKs speak the same [worker protocol](./docs/githubdocs/WORKER-PROTOCOL.md) as the .NET SDK.
 
 ```bash
-# Node.js: not on npm yet, see sdks/node/milvaion-worker/README.md
+# Node.js
+npm install @milvasoft/milvaion-worker
 
 # Go
 go get github.com/Milvasoft/milvaion/sdks/go/milvaion
 
 # Python
-pip install "git+https://github.com/Milvasoft/milvaion.git#subdirectory=sdks/python/milvaion-worker"
+pip install milvaion-worker
 
-# Java (Maven): not on Maven Central yet, run "mvn install" in sdks/java/milvaion-worker
-#   com.milvasoft:milvaion-worker:1.0.0
+# Java / Kotlin (Maven Central): com.milvasoft:milvaion-worker:1.0.0
 
-# PHP: not on Packagist yet, see sdks/php/milvaion-worker/README.md
+# PHP
+composer require milvasoft/milvaion-worker
 ```
 
 ---

@@ -26,17 +26,13 @@ The Workers page shows each worker's language next to its name, so a mixed fleet
 
 All of them speak the same [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md). That document describes the RabbitMQ queues and message formats, so a worker in any other language can be written against it too.
 
-| Language | Requires | Source and full reference |
-|---|---|---|
-| Node.js | Node.js 20+ | [sdks/node/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/node/milvaion-worker) |
-| Go | Go 1.24+ | [sdks/go/milvaion](https://github.com/Milvasoft/milvaion/tree/master/sdks/go/milvaion) |
-| Python | Python 3.10+ | [sdks/python/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/python/milvaion-worker) |
-| Java / Kotlin | Java 17+ | [sdks/java/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/java/milvaion-worker) |
-| PHP | PHP 8.2+ | [sdks/php/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/php/milvaion-worker) |
-
-:::info
-The Go module is available through `go get`. The other SDKs are not on their package registries yet, so install them from the GitHub repository.
-:::
+| Language | Requires | Package | Source and full reference |
+|---|---|---|---|
+| Node.js | Node.js 20+ | npm `@milvasoft/milvaion-worker` | [sdks/node/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/node/milvaion-worker) |
+| Go | Go 1.24+ | `github.com/Milvasoft/milvaion/sdks/go/milvaion` | [sdks/go/milvaion](https://github.com/Milvasoft/milvaion/tree/master/sdks/go/milvaion) |
+| Python | Python 3.10+ | PyPI `milvaion-worker` | [sdks/python/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/python/milvaion-worker) |
+| Java / Kotlin | Java 17+ | Maven Central `com.milvasoft:milvaion-worker` | [sdks/java/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/java/milvaion-worker) |
+| PHP | PHP 8.2+ | Packagist `milvasoft/milvaion-worker` | [sdks/php/milvaion-worker](https://github.com/Milvasoft/milvaion/tree/master/sdks/php/milvaion-worker) |
 
 :::tip No SDK for your language?
 The [Command Worker](./27-command-worker.md) runs scripts and programs in any language as Milvaion jobs, with live output, retries, cancellation and timeouts, without an SDK.
@@ -59,7 +55,9 @@ Delivery is at least once. A job whose worker crashes runs again, so make handle
 
 ## Node.js
 
-The package is not on npm yet. Clone the repository and build it from `sdks/node/milvaion-worker`.
+```bash
+npm install @milvasoft/milvaion-worker
+```
 
 ```ts
 import { MilvaionWorker, PermanentJobError } from '@milvasoft/milvaion-worker';
@@ -121,7 +119,7 @@ worker.Run(ctx) // returns after a graceful shutdown
 ## Python
 
 ```bash
-pip install "git+https://github.com/Milvasoft/milvaion.git#subdirectory=sdks/python/milvaion-worker"
+pip install milvaion-worker
 ```
 
 ```python
@@ -150,7 +148,15 @@ A handler can be `async def` or a plain function. Plain functions run in a threa
 
 ## Java
 
-The artifact `com.milvasoft:milvaion-worker` is not on Maven Central yet; run `mvn install` in `sdks/java/milvaion-worker` to use it locally.
+```xml
+<dependency>
+  <groupId>com.milvasoft</groupId>
+  <artifactId>milvaion-worker</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
+
+With Gradle: `implementation("com.milvasoft:milvaion-worker:1.0.0")`.
 
 ```java
 MilvaionWorker worker = new MilvaionWorker(new WorkerOptions()
@@ -175,7 +181,9 @@ worker.run(); // SIGTERM or Ctrl+C shut down gracefully
 
 ## PHP
 
-The package `milvasoft/milvaion-worker` is not on Packagist yet; add the repository folder as a Composer path or VCS repository.
+```bash
+composer require milvasoft/milvaion-worker
+```
 
 ```php
 $worker = new Worker(new WorkerOptions(
