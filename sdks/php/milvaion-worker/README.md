@@ -8,8 +8,6 @@ It requires PHP 8.2 or later with `ext-sockets`, and connects to the same Rabbit
 composer require milvasoft/milvaion-worker
 ```
 
-The package is not on Packagist yet. Until it is, add the repository as a Composer `vcs` repository, or copy the folder into your project as a path repository.
-
 ## Quick start
 
 ```php
@@ -142,7 +140,7 @@ For containers, `WorkerOptions::fromEnv()` reads the following variables. Named 
 
 ## How it works
 
-The SDK implements the language-neutral [worker protocol](../../../docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses.
+The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses.
 
 ## Development
 

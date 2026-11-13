@@ -129,7 +129,7 @@ For containers, `workerOptionsFromEnv(overrides?)` reads the following variables
 
 ## How it works
 
-The SDK implements the language-neutral [worker protocol](../../../docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses. Workers in other languages can be written against the same document.
+The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses. Workers in other languages can be written against the same document.
 
 ## Development
 

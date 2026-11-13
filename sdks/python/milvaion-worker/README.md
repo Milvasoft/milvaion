@@ -2,11 +2,11 @@
 
 Run [Milvaion](https://github.com/Milvasoft/milvaion) jobs in Python. A Python worker shows up in the dashboard like a .NET worker. The scheduler dispatches jobs to it, and the dashboard shows its live logs, status, retries, cancellation and timeouts.
 
-It requires Python 3.10 or later, and connects to the same RabbitMQ and Redis instances as your Milvaion API. The package is not on PyPI yet; install it from the repository:
-
 ```bash
-pip install "git+https://github.com/Milvasoft/milvaion.git#subdirectory=sdks/python/milvaion-worker"
+pip install milvaion-worker
 ```
+
+It requires Python 3.10 or later, and connects to the same RabbitMQ and Redis instances as your Milvaion API.
 
 ## Quick start
 
@@ -135,7 +135,7 @@ For containers, `Worker(WorkerOptions.from_env())` reads the following variables
 
 ## How it works
 
-The SDK implements the language-neutral [worker protocol](../../../docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses.
+The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses.
 
 ## Development
 
