@@ -1,0 +1,99 @@
+/* Exclusion calendars page. The table and form modal come from RoleList.css (.role-list). */
+
+.calendar-list .calendar-form-modal {
+  max-width: 640px;
+}
+
+.calendar-list .calendar-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.calendar-list .calendar-weekday {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.calendar-list .calendar-weekday.is-selected {
+  border-color: var(--accent-color);
+  background: var(--accent-glow);
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.calendar-list .calendar-add-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.calendar-list .calendar-add-row .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.calendar-list .calendar-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.calendar-list .calendar-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.calendar-list .calendar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.calendar-list .calendar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-list .calendar-chip.is-link {
+  padding-right: 0.6rem;
+  text-decoration: none;
+  color: var(--accent-color);
+}
+
+.calendar-list .calendar-chip button {
+  display: inline-flex;
+  padding: 0.1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+@media (max-width: 560px) {
+  .calendar-list .calendar-add-row {
+    flex-wrap: wrap;
+  }
+}

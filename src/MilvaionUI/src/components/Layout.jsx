@@ -195,6 +195,12 @@ const { title: brandingTitle } = useBranding()
               {!isSidebarCollapsed && <span>Tags</span>}
             </Link>
           </li>
+          <li className={isActive('/calendars') ? 'active' : ''}>
+            <Link to="/calendars" title="Exclusion Calendars">
+              <Icon name="event_busy" size={20} />
+              {!isSidebarCollapsed && <span>Calendars</span>}
+            </Link>
+          </li>
           <li className={isActive('/reports') ? 'active' : ''}>
             <Link to="/reports" title="Reports">
               <Icon name="analytics" size={20} />

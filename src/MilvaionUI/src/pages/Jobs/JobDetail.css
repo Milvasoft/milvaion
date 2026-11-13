@@ -1148,3 +1148,9 @@
 .jd-summary-metric--good .jd-summary-value { color: #22c55e; }
 .jd-summary-metric--warn .jd-summary-value { color: #f59e0b; }
 .jd-summary-metric--bad  .jd-summary-value { color: #ef4444; }
+
+/* Secondary detail inside an info value, e.g. a zone offset. */
+.info-value .info-muted {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}

@@ -1043,3 +1043,29 @@ textarea:disabled {
   font-weight: 400;
   white-space: nowrap;
 }
+
+/* Exclusion calendar checklist in the settings sidebar. */
+.calendar-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.calendar-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.calendar-check input {
+  width: auto;
+  margin: 0;
+}

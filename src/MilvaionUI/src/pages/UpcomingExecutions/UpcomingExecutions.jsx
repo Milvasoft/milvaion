@@ -6,6 +6,7 @@ import { SkeletonTable } from '../../components/Skeleton'
 import { TableToolbar, TableSearch, TableEmpty } from '../../components/TableParts'
 import jobService from '../../services/jobService'
 import { formatDateTime } from '../../utils/dateUtils'
+import { formatInZone } from '../../utils/timeZones'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import './UpcomingExecutions.css'
 
@@ -349,6 +350,16 @@ function UpcomingExecutions() {
                             {formatCountdown(item.scheduledAt)}
                           </span>
                           <span className="mv-table-muted">{formatDateTime(item.scheduledAt)}</span>
+                          {item.timeZoneId && item.timeZoneId !== 'UTC' && (
+                            <span className="mv-table-muted" title={`Wall clock time in ${item.timeZoneId}`}>
+                              {formatInZone(item.scheduledAt, item.timeZoneId)} {item.timeZoneId}
+                            </span>
+                          )}
+                          {item.shiftedByCalendar && (
+                            <span className="mv-table-muted" title="The run before this falls on a day excluded by an exclusion calendar and will be recorded as skipped.">
+                              <Icon name="event_busy" size={12} /> after excluded day
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span className="mv-table-dim">never</span>
@@ -371,6 +382,9 @@ function UpcomingExecutions() {
                       {item.cronExpression
                         ? <code className="mv-table-code">{item.cronExpression}</code>
                         : <span className="mv-table-dim">one-time</span>}
+                      {item.cronExpression && item.timeZoneId && (
+                        <span className="mv-table-muted">{item.timeZoneId}</span>
+                      )}
                     </td>
 
                     <td>

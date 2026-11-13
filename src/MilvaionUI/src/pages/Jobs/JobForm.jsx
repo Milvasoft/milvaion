@@ -6,6 +6,9 @@ import Icon from '../../components/Icon'
 import CronExpressionInput from '../../components/CronExpressionInput'
 import JsonStringConverter from '../../components/JsonStringConverter'
 import JsonEditor from '../../components/JsonEditor'
+import TimeZonePicker from '../../components/TimeZonePicker'
+import calendarService from '../../services/calendarService'
+import { MISSED_RUN_POLICIES } from '../../utils/timeZones'
 import { getApiErrorMessage } from '../../utils/errorUtils'
 import { getWorkerLanguage } from '../../utils/workerLanguage'
 import './JobForm.css'
@@ -159,6 +162,12 @@ function JobForm() {
     tags: [], // Tag array
     zombieTimeoutMinutes: '',
     executionTimeoutSeconds: '',
+    // Scheduling
+    timeZoneId: 'UTC',
+    missedRunPolicy: 0, // 0=Skip, 1=RunOnce, 2=RunAll
+    maxCatchUpRuns: 10,
+    priority: 0,
+    exclusionCalendarIds: [],
     // Auto-disable settings
     autoDisableSettings: {
       enabled: true,
@@ -178,6 +187,23 @@ function JobForm() {
   const [workers, setWorkers] = useState([])
   const [selectedWorker, setSelectedWorker] = useState(null)
   const [tagInput, setTagInput] = useState('') // Input for new tag
+  const [calendars, setCalendars] = useState([])
+
+  useEffect(() => {
+    // Calendars are optional; a user without the calendar list permission simply sees none.
+    calendarService.getAll()
+      .then(response => setCalendars(response?.data?.data || response?.data || []))
+      .catch(() => setCalendars([]))
+  }, [])
+
+  const toggleCalendar = (calendarId) => {
+    setFormData(prev => ({
+      ...prev,
+      exclusionCalendarIds: prev.exclusionCalendarIds.includes(calendarId)
+        ? prev.exclusionCalendarIds.filter(id => id !== calendarId)
+        : [...prev.exclusionCalendarIds, calendarId]
+    }))
+  }
 
   // Formun sunucudan gelen hali. Kirlilik bununla karşılaştırılarak bulunuyor;
   // her alana ayrı "değişti" bayrağı koymak, iç içe autoDisableSettings gibi
@@ -249,6 +275,11 @@ function JobForm() {
         tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(t => t) : [], // Split by comma
         zombieTimeoutMinutes: data.zombieTimeoutMinutes || '',
         executionTimeoutSeconds: data.executionTimeoutSeconds || '',
+        timeZoneId: data.timeZoneId || 'UTC',
+        missedRunPolicy: MISSED_RUN_POLICIES.find(p => p.value === data.missedRunPolicy || p.key === data.missedRunPolicy)?.value ?? 0,
+        maxCatchUpRuns: data.maxCatchUpRuns || 10,
+        priority: data.priority ?? 0,
+        exclusionCalendarIds: data.exclusionCalendarIds || [],
         autoDisableSettings: {
           enabled: data.autoDisableSettings?.enabled ?? true,
           threshold: data.autoDisableSettings?.threshold || '',
@@ -377,6 +408,11 @@ function JobForm() {
         tags: formData.tags.join(','), // Join tags with comma
         zombieTimeoutMinutes: formData.zombieTimeoutMinutes ? parseInt(formData.zombieTimeoutMinutes) : null,
         executionTimeoutSeconds: formData.executionTimeoutSeconds ? parseInt(formData.executionTimeoutSeconds) : null,
+        timeZoneId: formData.timeZoneId || 'UTC',
+        missedRunPolicy: parseInt(formData.missedRunPolicy),
+        maxCatchUpRuns: parseInt(formData.maxCatchUpRuns) || 10,
+        priority: parseInt(formData.priority),
+        exclusionCalendarIds: formData.exclusionCalendarIds,
         autoDisableSettings: {
           enabled: formData.autoDisableSettings.enabled,
           threshold: formData.autoDisableSettings.threshold ? parseInt(formData.autoDisableSettings.threshold) : null,
@@ -703,7 +739,25 @@ function JobForm() {
                     disabled={isExternalJob}
                   />
                 </div>
-              ) : (
+              ) : null}
+
+              {scheduleType === 'cron' && (
+                <div className="form-group">
+                  <label htmlFor="timeZoneId">Time Zone</label>
+                  <TimeZonePicker
+                    id="timeZoneId"
+                    value={formData.timeZoneId}
+                    onChange={(zone) => setFormData(prev => ({ ...prev, timeZoneId: zone }))}
+                    disabled={isExternalJob}
+                  />
+                  <small>
+                    The cron expression is read as wall clock time in this zone. When clocks go forward a skipped time
+                    does not run that day; when they go back a repeated time runs once.
+                  </small>
+                </div>
+              )}
+
+              {scheduleType === 'cron' ? null : (
                 <div className="form-group">
                   <label htmlFor="executeAt">
                     Execute At <span className="required">*</span>
@@ -843,6 +897,83 @@ function JobForm() {
                 </option>
               </select>
               <small>What happens if job is triggered while already running</small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="priority">Priority</label>
+              <select
+                id="priority"
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+                disabled={isExternalJob}
+              >
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(p => (
+                  <option key={p} value={p}>
+                    {p}{p === 0 ? ' (lowest, default)' : p === 9 ? ' (highest)' : ''}
+                  </option>
+                ))}
+              </select>
+              <small>When several jobs are due at once, higher priority jobs are sent first</small>
+            </div>
+
+            {scheduleType === 'cron' && (
+              <div className="form-group">
+                <label htmlFor="missedRunPolicy">Missed Runs</label>
+                <select
+                  id="missedRunPolicy"
+                  name="missedRunPolicy"
+                  value={formData.missedRunPolicy}
+                  onChange={handleChange}
+                  disabled={isExternalJob}
+                >
+                  {MISSED_RUN_POLICIES.map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                <small>{MISSED_RUN_POLICIES.find(p => p.value === parseInt(formData.missedRunPolicy))?.description} Applies to runs missed while the scheduler was down.</small>
+              </div>
+            )}
+
+            {scheduleType === 'cron' && parseInt(formData.missedRunPolicy) === 2 && (
+              <div className="form-group">
+                <label htmlFor="maxCatchUpRuns">Maximum Catch-up Runs</label>
+                <input
+                  type="number"
+                  id="maxCatchUpRuns"
+                  name="maxCatchUpRuns"
+                  value={formData.maxCatchUpRuns}
+                  onChange={handleChange}
+                  min="1"
+                  max="100"
+                  disabled={isExternalJob}
+                />
+                <small>If more runs were missed, only the most recent ones run (1 to 100)</small>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>Exclusion Calendars</label>
+              {calendars.length === 0 ? (
+                <small>
+                  No calendars yet. <Link to="/calendars">Create one</Link> to skip holidays or maintenance days.
+                </small>
+              ) : (
+                <div className="calendar-checklist">
+                  {calendars.map(calendar => (
+                    <label key={calendar.id} className="calendar-check" title={calendar.description || ''}>
+                      <input
+                        type="checkbox"
+                        checked={formData.exclusionCalendarIds.includes(calendar.id)}
+                        onChange={() => toggleCalendar(calendar.id)}
+                        disabled={isExternalJob}
+                      />
+                      <span>{calendar.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <small>Runs on days these calendars exclude are skipped and recorded as skipped</small>
             </div>
 
             <div className="form-group">

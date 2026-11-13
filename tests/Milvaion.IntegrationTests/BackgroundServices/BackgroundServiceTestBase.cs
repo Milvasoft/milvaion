@@ -16,6 +16,49 @@ namespace Milvaion.IntegrationTests.BackgroundServices;
 /// </summary>
 public abstract class BackgroundServiceTestBase(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
 {
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Also forgets the dispatcher heartbeat and the last recorded outage. Redis is shared by every test in the
+    /// collection, so without this the gap between one test's dispatcher and the next would be recorded as an
+    /// outage, and a recurring job seeded in the past would be treated as missed and skipped.
+    /// </remarks>
+    public override async Task InitializeAsync(Action<IServiceCollection> configureServices = null, Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> configureApp = null)
+    {
+        await base.InitializeAsync(configureServices, configureApp);
+
+        await ResetDispatcherHeartbeatAsync();
+    }
+
+    /// <summary>
+    /// Deletes the dispatcher heartbeat and outage keys.
+    /// </summary>
+    protected async Task ResetDispatcherHeartbeatAsync()
+    {
+        var (lastPollKey, outageKey) = DispatcherHeartbeatKeys();
+        var db = _serviceProvider.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>().GetDatabase();
+
+        await db.KeyDeleteAsync([lastPollKey, outageKey]);
+    }
+
+    /// <summary>
+    /// Makes the next dispatcher poll see a gap since <paramref name="lastPollUtc"/>, i.e. an outage that started then.
+    /// </summary>
+    protected async Task SimulateDispatcherDownSinceAsync(DateTime lastPollUtc)
+    {
+        var (lastPollKey, outageKey) = DispatcherHeartbeatKeys();
+        var db = _serviceProvider.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>().GetDatabase();
+
+        await db.KeyDeleteAsync(outageKey);
+        await db.StringSetAsync(lastPollKey, new DateTimeOffset(lastPollUtc).ToUnixTimeMilliseconds());
+    }
+
+    private (StackExchange.Redis.RedisKey LastPoll, StackExchange.Redis.RedisKey Outage) DispatcherHeartbeatKeys()
+    {
+        var prefix = _serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Milvaion.Application.Utils.Models.Options.RedisOptions>>().Value.KeyPrefix;
+
+        return ($"{prefix}dispatcher:last_poll", $"{prefix}dispatcher:last_outage");
+    }
+
     /// <summary>
     /// Starts a specific hosted service manually for testing.
     /// </summary>

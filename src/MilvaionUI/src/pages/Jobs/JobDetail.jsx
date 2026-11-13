@@ -4,6 +4,7 @@ import jobService from '../../services/jobService'
 import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
 import { formatDate } from '../../utils/dateUtils'
+import { formatInZone, formatUtcOffset, missedRunPolicyLabel } from '../../utils/timeZones'
 import Icon from '../../components/Icon'
 import JsonView from '../../components/JsonView'
 import JsonEditor from '../../components/JsonEditor'
@@ -734,12 +735,54 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
               </div>
             )}
 
+            {job.cronExpression && (
+              <div className="info-row">
+                <span className="info-label">Time Zone</span>
+                <span className="info-value">
+                  <Icon name="public" size={16} />
+                  {job.timeZoneId || 'UTC'}
+                  <span className="info-muted"> ({formatUtcOffset(job.timeZoneId || 'UTC')})</span>
+                </span>
+              </div>
+            )}
+
             {job.executeAt && (
               <div className="info-row">
                 <span className="info-label">{job.cronExpression ? 'Next Execution' : 'Execute At'}</span>
-                <span className="info-value">{formatDate(job.executeAt)}</span>
+                <span className="info-value">
+                  {formatDate(job.executeAt)}
+                  {job.cronExpression && job.timeZoneId && job.timeZoneId !== 'UTC' && (
+                    <span className="info-muted"> · {formatInZone(job.executeAt, job.timeZoneId)} {job.timeZoneId}</span>
+                  )}
+                </span>
               </div>
             )}
+
+            <div className="info-row">
+              <span className="info-label">Priority</span>
+              <span className="info-value">{job.priority ?? 0}{(job.priority ?? 0) === 0 ? ' (default)' : ''}</span>
+            </div>
+
+            {job.cronExpression && (
+              <div className="info-row">
+                <span className="info-label">Missed Runs</span>
+                <span className="info-value">
+                  {missedRunPolicyLabel(job.missedRunPolicy)}
+                  {(job.missedRunPolicy === 2 || job.missedRunPolicy === 'RunAll') && ` (up to ${job.maxCatchUpRuns})`}
+                </span>
+              </div>
+            )}
+
+            <div className="info-row">
+              <span className="info-label">Exclusion Calendars</span>
+              <span className="info-value">
+                {job.exclusionCalendars?.length
+                  ? job.exclusionCalendars.map((c, i) => (
+                    <span key={c.id}>{i > 0 && ', '}<Link to="/calendars">{c.name}</Link></span>
+                  ))
+                  : 'None'}
+              </span>
+            </div>
 
             <div className="info-row">
               <span className="info-label">Concurrent Policy</span>
