@@ -55,3 +55,9 @@ $worker->job('TestJob', function (JobContext $ctx) use ($mode, $attempts) {
 }, new JobOptions(maxRetries: (int) $env('TEST_MAX_RETRIES', '0'), baseRetryDelay: (float) $env('TEST_BASE_DELAY', '1')));
 
 $worker->run();
+
+// Lets the test check that stopping destroyed every librdkafka handle: a handle left behind keeps its
+// threads running while PHP unloads the extension at exit, which crashes the process.
+if (is_dir('/proc/self/task')) {
+    fwrite(STDERR, 'threads after run: ' . (count(scandir('/proc/self/task')) - 2) . "\n");
+}

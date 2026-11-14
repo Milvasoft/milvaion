@@ -148,12 +148,10 @@ final class KafkaTransport
         $this->syncPauses();
         $this->commit();
 
-        try {
-            $this->consumer->close();
-        } catch (\Throwable $e) {
-            $this->logger->warning('Could not leave the Kafka consumer group cleanly: ' . $e->getMessage());
-        }
-
+        // Leave the group by releasing the consumer: its destructor closes it and destroys the
+        // librdkafka handle. Do not call KafkaConsumer::close() here. With ext-rdkafka 6.0 the handle
+        // is never destroyed after an explicit close(), so its threads keep running until PHP unloads
+        // the extension at exit and the process dies with a segmentation fault.
         $this->consumer = null;
         $this->parts = [];
     }

@@ -68,12 +68,19 @@ final class KafkaIntegrationTest extends TestCase
     protected function tearDown(): void
     {
         $this->stopWorker();
-        $this->collector?->close();
+        // Released, not closed: the destructor closes the consumer and destroys its librdkafka handle,
+        // while an explicit close() leaves the handle's threads running until PHP exits (see
+        // KafkaTransport::stop()).
         $this->collector = null;
 
         $this->workerOutput = is_file($this->stderr) ? (string) file_get_contents($this->stderr) : '';
         @unlink($this->stderr);
         @unlink($this->attempts);
+
+        // The fixture reports its threads once Worker::run() has returned: only PHP's own should be left.
+        if (preg_match('/threads after run: (\d+)/', $this->workerOutput, $m)) {
+            $this->assertSame(1, (int) $m[1], 'the stopped worker left librdkafka threads running');
+        }
     }
 
     protected function onNotSuccessfulTest(\Throwable $t): never
@@ -266,17 +273,22 @@ final class KafkaIntegrationTest extends TestCase
 
         $deadline = microtime(true) + 60;
 
-        while (proc_get_status($this->process)['running'] && microtime(true) < $deadline) {
+        // Before PHP 8.3 only the first call after the child exits reports how it ended, so keep it.
+        while (($status = proc_get_status($this->process))['running'] && microtime(true) < $deadline) {
             usleep(50_000);
         }
 
-        if (proc_get_status($this->process)['running']) {
+        if ($status['running']) {
             proc_terminate($this->process, SIGKILL);
             $this->fail('the worker did not stop');
         }
 
         proc_close($this->process);
         $this->process = null;
+
+        // A worker that leaves librdkafka threads behind crashes while PHP shuts down (SIGSEGV).
+        $this->assertFalse($status['signaled'], "the worker died with signal {$status['termsig']} while stopping");
+        $this->assertSame(0, $status['exitcode'], 'the worker did not exit cleanly');
     }
 
     private function newCollector(): \RdKafka\KafkaConsumer
@@ -362,7 +374,7 @@ final class KafkaIntegrationTest extends TestCase
 
             $this->fail("committed offsets on {$topic} = {$total}, want {$count}");
         } finally {
-            $consumer->close();
+            $consumer = null;
         }
     }
 
