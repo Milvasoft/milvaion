@@ -8,11 +8,11 @@ It requires Java 17 or later, and connects to the same message broker (RabbitMQ 
 <dependency>
   <groupId>com.milvasoft</groupId>
   <artifactId>milvaion-worker</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
-With Gradle: `implementation("com.milvasoft:milvaion-worker:1.0.0")`.
+With Gradle: `implementation("com.milvasoft:milvaion-worker:1.1.0")`.
 
 The SDK logs through SLF4J. Add a binding such as `slf4j-simple` or Logback to see its output.
 

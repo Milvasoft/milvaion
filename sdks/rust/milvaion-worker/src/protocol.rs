@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 /// Version of this SDK, reported to the dashboard. A test keeps it equal to the crate version.
-pub const SDK_VERSION: &str = "1.0.0";
+pub const SDK_VERSION: &str = "1.1.0";
 
 pub(crate) const EXCHANGE_JOBS: &str = "jobs.topic";
 pub(crate) const EXCHANGE_DEAD_LETTER: &str = "dlx_scheduled_jobs";

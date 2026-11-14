@@ -6,7 +6,7 @@ package com.milvasoft.milvaion.worker;
  */
 final class Protocol {
     /** Version of this SDK, reported to the dashboard. Kept equal to the pom by a test. */
-    static final String SDK_VERSION = "1.0.0";
+    static final String SDK_VERSION = "1.1.0";
 
     static final String EXCHANGE_JOBS = "jobs.topic";
     static final String EXCHANGE_DEAD_LETTER = "dlx_scheduled_jobs";

@@ -9,7 +9,7 @@ gem install milvaion-worker
 Or add it to your Gemfile:
 
 ```ruby
-gem "milvaion-worker", "~> 1.0"
+gem "milvaion-worker", "~> 1.1"
 ```
 
 It requires Ruby 3.1 or later, and connects to the same RabbitMQ and Redis instances as your Milvaion API. It uses [bunny](https://github.com/ruby-amqp/bunny) for RabbitMQ and [redis-rb](https://github.com/redis/redis-rb) for Redis. Apache Kafka can replace RabbitMQ; see [Kafka](#kafka).
@@ -168,7 +168,7 @@ RabbitMQ is the default broker. A deployment can use Apache Kafka instead. The A
 The Kafka client is the [rdkafka](https://github.com/karafka/rdkafka-ruby) gem (librdkafka). It is not a dependency of `milvaion-worker`, so add it to your Gemfile next to the SDK. The worker loads it only when the transport is `kafka`, and `start` raises an error that says so if it is missing.
 
 ```ruby
-gem "milvaion-worker", "~> 1.0"
+gem "milvaion-worker", "~> 1.1"
 gem "rdkafka", ">= 0.19"
 ```
 
