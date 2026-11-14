@@ -2,7 +2,7 @@
 
 Run [Milvaion](https://github.com/Milvasoft/milvaion) jobs in PHP. A PHP worker shows up in the dashboard like a .NET worker. The scheduler dispatches jobs to it, and the dashboard shows its live logs, status, retries, cancellation and timeouts.
 
-It requires PHP 8.2 or later with `ext-sockets`, and connects to the same RabbitMQ and Redis instances as your Milvaion API. No Redis extension is needed.
+It requires PHP 8.2 or later with `ext-sockets`, and connects to the same RabbitMQ and Redis instances as your Milvaion API. No Redis extension is needed. Apache Kafka can replace RabbitMQ; see [Kafka](#kafka).
 
 ```bash
 composer require milvasoft/milvaion-worker
@@ -117,6 +117,8 @@ How the handler ends decides the outcome:
 | `startupTimeout` | 30 | How long `run()` waits for RabbitMQ and Redis |
 | `version` | `1.0.0` | Shown in the dashboard |
 | `logger` | STDERR at `MILVAION_LOG_LEVEL` (default `info`) | Any PSR-3 logger |
+| `transport` | `rabbitmq` | `rabbitmq` or `kafka`. See [Kafka](#kafka). |
+| `kafka` | `new KafkaOptions()` | Kafka settings, used when `transport` is `kafka` |
 
 For containers, `WorkerOptions::fromEnv()` reads the following variables. Named arguments win over them, for example `WorkerOptions::fromEnv(shutdownTimeout: 60)`.
 
@@ -127,6 +129,7 @@ For containers, `WorkerOptions::fromEnv()` reads the following variables. Named 
 - `MILVAION_REDIS_KEY_PREFIX`
 - `MILVAION_EXECUTION_TIMEOUT_SECONDS`
 - `MILVAION_HEARTBEAT_INTERVAL_SECONDS`
+- `MILVAION_TRANSPORT` (`kafka` selects Kafka; the `MILVAION_KAFKA_*` variables are listed under [Kafka](#kafka))
 
 ## Reliability
 
@@ -138,9 +141,68 @@ For containers, `WorkerOptions::fromEnv()` reads the following variables. Named 
   3. Returns the job to the queue if it is still running.
   4. Flushes logs and tells the API the instance has left.
 
+## Kafka
+
+Milvaion can run on Apache Kafka instead of RabbitMQ. The API and every worker of a deployment must use the same broker, so switch the API first (`MilvaionConfig:Transport:Type` set to `Kafka`).
+
+Kafka needs the [`rdkafka`](https://github.com/arnaud-lb/php-rdkafka) extension, version 6 or later, which is built on librdkafka. It is optional, so Composer does not install it:
+
+```bash
+# Debian / Ubuntu, and the official php Docker images
+apt-get install -y librdkafka-dev && pecl install rdkafka && docker-php-ext-enable rdkafka
+```
+
+Then start the worker with `transport: 'kafka'`:
+
+```php
+use Milvasoft\Milvaion\Worker\{KafkaOptions, Worker, WorkerOptions};
+
+$worker = new Worker(new WorkerOptions(
+    workerId: 'mail-worker',
+    redisUrl: 'redis://localhost:6379',
+    transport: 'kafka',
+    kafka: new KafkaOptions(brokers: ['kafka-1:9092', 'kafka-2:9092']),
+));
+```
+
+Without the extension, a Kafka worker fails at construction with an error that says so. Jobs are written the same way on both brokers, and the outcomes are the same. Cancellation still goes through Redis.
+
+`new KafkaOptions(...)` takes:
+
+| Option | Default | Description |
+|---|---|---|
+| `brokers` | `localhost:9092` | Bootstrap brokers as `host:port`, as an array or a comma separated string |
+| `tls` | `false` | TLS with the system CAs. Setting any of the files below turns TLS on too. |
+| `tlsCaFile` | none | PEM bundle used to verify the brokers |
+| `tlsCertFile`, `tlsKeyFile` | none | PEM client certificate and key for mutual TLS, set together |
+| `saslMechanism` | none | `plain`, `scram-sha-256` or `scram-sha-512` |
+| `saslUsername`, `saslPassword` | none | SASL credentials |
+| `topicPrefix` | none | Prepended to every topic and consumer group, e.g. `prod.`. Must match the API's `TopicPrefix`. Letters, digits, `.`, `_` and `-` only. |
+| `autoCreateTopics` | `true` | Create the worker's topics, and the shared topics it writes to, at startup |
+| `numPartitions` | 12 | Partitions of the topics it creates |
+| `replicationFactor` | -1 | Replication of the topics it creates. -1 uses the broker's default. |
+| `maxInFlightPerPartition` | 1 | Records of one partition the process takes before it pauses that partition. A PHP worker process runs one job at a time, so values above 1 only buffer records. |
+
+`WorkerOptions::fromEnv()` with `MILVAION_TRANSPORT=kafka` reads the Kafka settings with `KafkaOptions::fromEnv()`: `MILVAION_KAFKA_BOOTSTRAP_SERVERS` (comma separated; `KAFKA_BOOTSTRAP_SERVERS` also works), `MILVAION_KAFKA_TLS` (`true`), `MILVAION_KAFKA_TLS_CA_FILE`, `MILVAION_KAFKA_TLS_CERT_FILE`, `MILVAION_KAFKA_TLS_KEY_FILE`, `MILVAION_KAFKA_SASL_MECHANISM`, `MILVAION_KAFKA_SASL_USERNAME`, `MILVAION_KAFKA_SASL_PASSWORD`, `MILVAION_KAFKA_TOPIC_PREFIX`, `MILVAION_KAFKA_AUTO_CREATE_TOPICS` (`false`), `MILVAION_KAFKA_PARTITIONS`, `MILVAION_KAFKA_REPLICATION_FACTOR` and `MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION`.
+
+How it differs from RabbitMQ:
+
+- **Topics.** The worker reads one topic, `milvaion.jobs.{worker}`, where `{worker}` is the worker id in lower case with every character outside `a-z 0-9 . _ -` replaced by `_`. It picks the handler by the job name in the message, so routing patterns do not decide where a job goes.
+- **Scaling.** Every process of a worker joins the consumer group `milvaion.worker.{worker}`. Partitions are shared out between processes, so a topic with 12 partitions serves at most 12 worker processes. Each process still runs one job at a time; while it does, it pauses its partitions and keeps polling, so the group does not drop it.
+- **Retries.** A failed attempt is written to `milvaion.jobs.{worker}.retry` with the time it is due, and the process is free for other jobs during the wait. Any process of the worker runs it once it is due. A retry never runs early, but it can run late by up to the longest wait queued before it in the same partition. The occurrence's job heartbeats continue during the wait.
+- **Dead letters.** Failed jobs go to the `milvaion.dlq` topic. A message the worker cannot read at all is forwarded there unchanged.
+- **Commits.** A job's record is committed only after its outcome has been reported. Kafka commits a position, not a single message, so after a crash the records after the last commit run again even if they had finished. Make handlers idempotent; `$ctx->occurrenceId` helps with that.
+- **Shutdown.** On SIGTERM or SIGINT the worker stops taking records, lets the running job finish for up to `shutdownTimeout`, writes the record of an interrupted job back to its topic, commits and leaves the group.
+- **Priority.** Kafka has no message priority. Jobs of a partition run in the order the API sent them.
+- **Forked jobs.** librdkafka is not fork safe, so only the worker process uses the Kafka client. A job process sends its logs and outcome to the worker process, which produces the records and commits. The job process ends without running destructors, even when the handler calls `exit()`. Without `ext-pcntl`, a job runs inside the worker process and the consumer is only polled when the job calls its context; a job that runs longer than librdkafka's `max.poll.interval.ms` (5 minutes) without doing so loses its partitions to another process, which runs the job again.
+
+php-rdkafka has no admin API, so the worker creates its topics with Kafka's CreateTopics request itself, over the same TLS and SASL settings. Set `autoCreateTopics: false` if the worker's credentials may not create topics, and create `milvaion.jobs.{worker}` and `milvaion.jobs.{worker}.retry` yourself.
+
+The full design and wire contract is in [KAFKA-TRANSPORT.md](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/KAFKA-TRANSPORT.md).
+
 ## How it works
 
-The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses.
+The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses, or on Kafka the topics of the [Kafka transport](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/KAFKA-TRANSPORT.md).
 
 ## Development
 
@@ -148,4 +210,10 @@ The SDK implements the language-neutral [worker protocol](https://github.com/Mil
 composer install
 vendor/bin/phpunit
 php examples/basic-worker.php   # configure with MILVAION_* variables
+```
+
+The Kafka integration tests need `ext-rdkafka` and a broker. They run only when `MILVAION_KAFKA_BROKERS` is set; `tests/KafkaIntegrationTest.php` shows how to start a single-node broker:
+
+```bash
+MILVAION_KAFKA_BROKERS=localhost:29092 vendor/bin/phpunit --filter Kafka
 ```

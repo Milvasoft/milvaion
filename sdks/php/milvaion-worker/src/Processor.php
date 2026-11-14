@@ -26,6 +26,8 @@ final class Processor
     public \Closure $sleep;
     /** Run each job in a forked child process (needs ext-pcntl and ext-posix). */
     public bool $isolate = false;
+    /** Job processes end by SIGKILL even when the handler calls exit(), so no destructor runs (Kafka). */
+    public bool $noDestructorsInChild = false;
 
     private ?float $stopRequestedAt = null;
     private int $running = 0;
@@ -35,6 +37,8 @@ final class Processor
 
     /** @var array{run: JobRun, abort: Abort, deadline: ?float, nextBeat: ?float}|null */
     private ?array $current = null;
+    /** @var array<string, array{run: JobRun, due: float, next: float}> occurrences waiting for their next attempt */
+    private array $waiting = [];
 
     /** @param array<string, ResolvedJob> $jobs keyed by lowercase name */
     public function __construct(
@@ -81,7 +85,11 @@ final class Processor
         return $this->stopRequestedAt !== null;
     }
 
-    public function handle(Delivery $delivery, ResolvedJob $consumer): void
+    /**
+     * @param ResolvedJob|null $consumer The consumer the delivery came from (RabbitMQ). Kafka has
+     *        none: one topic carries every job type and retries go through Delivery::$scheduleRetry.
+     */
+    public function handle(Delivery $delivery, ?ResolvedJob $consumer = null): void
     {
         $this->running++;
 
@@ -89,19 +97,20 @@ final class Processor
             $this->process($delivery, $consumer);
         } catch (\Throwable $e) {
             $this->logger->error('Unexpected error while processing a job delivery: ' . $e->getMessage());
-            $this->settle(fn () => ($delivery->nack)(false));
+            $this->reject($delivery, 'unexpected error while processing the job: ' . $e->getMessage());
         } finally {
             $this->running--;
         }
     }
 
-    private function process(Delivery $delivery, ResolvedJob $consumer): void
+    private function process(Delivery $delivery, ?ResolvedJob $consumer): void
     {
         $job = self::parseJob($delivery->body);
 
         if ($job === null) {
-            $this->logger->error("Received a message on {$consumer->queue} that is not a valid job. Sending it to the dead letter queue.");
-            $this->settle(fn () => ($delivery->nack)(false));
+            $source = $delivery->source ?? $consumer?->queue ?? 'the job queue';
+            $this->logger->error("Received a message on {$source} that is not a valid job. Sending it to the dead letter queue.");
+            $this->reject($delivery, 'the message is not a valid job');
 
             return;
         }
@@ -110,12 +119,12 @@ final class Processor
 
         if ($occurrenceId === null) {
             $this->logger->error("Job {$job['id']} arrived without an occurrence id. Sending it to the dead letter queue.");
-            $this->settle(fn () => ($delivery->nack)(false));
+            $this->reject($delivery, 'the message has no occurrence id');
 
             return;
         }
 
-        $run = new JobRun($job, $occurrenceId, self::parseRetryCount($delivery->headers), $this->options, $this->publisher, $this->logs, $this->logger);
+        $run = $this->newRun($job, $occurrenceId, self::parseRetryCount($delivery->headers));
 
         if ($delivery->redelivered) {
             $this->logger->warning("Job {$run->jobId()} (occurrence {$occurrenceId}) was redelivered; the previous attempt may have crashed.");
@@ -134,7 +143,13 @@ final class Processor
         }
     }
 
-    private function execute(Delivery $delivery, ResolvedJob $consumer, JobRun $run, Abort $abort): void
+    /** @param array<string, mixed> $job */
+    public function newRun(array $job, string $occurrenceId, int $retryCount): JobRun
+    {
+        return new JobRun($job, $occurrenceId, $retryCount, $this->options, $this->publisher, $this->logs, $this->logger);
+    }
+
+    private function execute(Delivery $delivery, ?ResolvedJob $consumer, JobRun $run, Abort $abort): void
     {
         $start = microtime(true);
 
@@ -353,6 +368,17 @@ final class Processor
             }
         };
 
+        if ($this->noDestructorsInChild) {
+            // A handler that calls exit() must not run destructors either: librdkafka handles
+            // inherited from the worker process cannot be destroyed after fork(). Shutdown
+            // functions run before destructors.
+            register_shutdown_function(static function () use ($write, $socket): void {
+                $write(['error' => RemoteJobException::toArray(new \RuntimeException('The job process called exit() before reporting a result.'))]);
+                fflush($socket);
+                posix_kill(posix_getpid(), SIGKILL);
+            });
+        }
+
         $context = new JobContext(
             $run->occurrenceId,
             $run->job,
@@ -464,7 +490,7 @@ final class Processor
         $this->settle(fn () => ($delivery->ack)());
     }
 
-    private function finishFailed(Delivery $delivery, ResolvedJob $consumer, ResolvedJob $registered, JobRun $run, \Throwable $error, float $start, float $end): void
+    private function finishFailed(Delivery $delivery, ?ResolvedJob $consumer, ResolvedJob $registered, JobRun $run, \Throwable $error, float $start, float $end): void
     {
         $exception = Errors::format($error);
 
@@ -482,7 +508,7 @@ final class Processor
         $run->logError('Job execution failed: ' . $error->getMessage(), $error);
 
         if ($run->retryCount < $registered->maxRetries) {
-            $delay = $registered->baseRetryDelay * (2 ** $run->retryCount);
+            $delay = self::retryDelay($registered->baseRetryDelay, $run->retryCount);
             $attempt = $run->retryCount + 1;
 
             $run->log('Warning', "⚠️ Job failed (attempt {$attempt}/{$registered->maxRetries}). Retrying in " . self::seconds($delay) . 's...', [
@@ -508,10 +534,17 @@ final class Processor
 
     /**
      * Waits out the backoff, republishes the job with a higher retry count and acks the original.
-     * The original stays unacked meanwhile, so a crash during the wait gets it redelivered.
+     * The original stays unacked meanwhile, so a crash during the wait gets it redelivered. A broker
+     * that schedules retries itself (Kafka) gets the retry right away instead.
      */
-    private function retry(Delivery $delivery, ResolvedJob $consumer, JobRun $run, float $delay, int $maxRetries): void
+    private function retry(Delivery $delivery, ?ResolvedJob $consumer, JobRun $run, float $delay, int $maxRetries): void
     {
+        if ($delivery->scheduleRetry !== null || $consumer === null) {
+            $this->scheduleRetry($delivery, $run, $delay, $maxRetries);
+
+            return;
+        }
+
         $interval = $this->options->jobHeartbeatInterval;
         $remaining = $delay;
 
@@ -537,12 +570,81 @@ final class Processor
                 ['CorrelationId' => $run->occurrenceId, 'x-retry-count' => $run->retryCount + 1, 'MaxRetries' => $maxRetries]);
         } catch (\Throwable $e) {
             $this->logger->error("Failed to republish job {$run->jobId()} for retry. Dead-lettering the message: {$e->getMessage()}");
-            $this->settle(fn () => ($delivery->nack)(false));
+            $this->reject($delivery, 'the job could not be republished for retry: ' . $e->getMessage());
 
             return;
         }
 
         $this->settle(fn () => ($delivery->ack)());
+    }
+
+    /**
+     * Hands the next attempt to the broker, settles the original and keeps the occurrence's
+     * heartbeat going until the attempt is due, since the occurrence stays Running.
+     */
+    private function scheduleRetry(Delivery $delivery, JobRun $run, float $delay, int $maxRetries): void
+    {
+        $due = microtime(true) + $delay;
+
+        try {
+            if ($delivery->scheduleRetry === null) {
+                throw new \RuntimeException('The delivery cannot be retried.');
+            }
+
+            ($delivery->scheduleRetry)(new RetryRequest($run->jobId(), $run->occurrenceId, $run->retryCount + 1, $maxRetries, $due));
+        } catch (\Throwable $e) {
+            $this->logger->error("Failed to schedule job {$run->jobId()} for retry. Dead-lettering the message: {$e->getMessage()}");
+            $this->reject($delivery, 'the job could not be scheduled for retry: ' . $e->getMessage());
+
+            return;
+        }
+
+        $this->settle(fn () => ($delivery->ack)());
+        $this->heartbeatUntil($run, $due);
+    }
+
+    /**
+     * Sends Running statuses every jobHeartbeatInterval for an occurrence that waits for its next
+     * attempt, until $due. Driven by heartbeatWaiting(), which the worker calls regularly.
+     */
+    public function heartbeatUntil(JobRun $run, float $due): void
+    {
+        $interval = $this->options->jobHeartbeatInterval;
+
+        if ($interval > 0 && $due > microtime(true)) {
+            $this->waiting[$run->occurrenceId] = ['run' => $run, 'due' => $due, 'next' => microtime(true) + $interval];
+        }
+    }
+
+    public function stopHeartbeat(string $occurrenceId): void
+    {
+        unset($this->waiting[$occurrenceId]);
+    }
+
+    /** Sends the heartbeats of waiting occurrences that are due. */
+    public function heartbeatWaiting(): void
+    {
+        $now = microtime(true);
+
+        foreach ($this->waiting as $occurrenceId => $entry) {
+            if ($now >= $entry['due'] || $this->stopRequestedAt !== null) {
+                unset($this->waiting[$occurrenceId]);
+            } elseif ($now >= $entry['next']) {
+                $this->waiting[$occurrenceId]['next'] = $now + $this->options->jobHeartbeatInterval;
+                $entry['run']->status(JobStatus::Running, retry: false);
+            }
+        }
+    }
+
+    /** Dead-letters a message that cannot be processed, saying why when the broker can carry it. */
+    private function reject(Delivery $delivery, string $reason): void
+    {
+        $this->settle(fn () => $delivery->reject !== null ? ($delivery->reject)($reason) : ($delivery->nack)(false));
+    }
+
+    public static function retryDelay(float $baseRetryDelay, int $retryCount): float
+    {
+        return $baseRetryDelay * (2 ** $retryCount);
     }
 
     private function deadLetter(Delivery $delivery, JobRun $run, string $exception, int $retryCount, int $maxRetries): void
@@ -563,7 +665,7 @@ final class Processor
         } catch (\Throwable $e) {
             // The queue dead-letters a rejected message itself, just without the exception details.
             $this->logger->error("Failed to publish job {$run->jobId()} to the dead letter queue. Rejecting the message instead: {$e->getMessage()}");
-            $this->settle(fn () => ($delivery->nack)(false));
+            $this->reject($delivery, 'the dead letter could not be published: ' . $e->getMessage());
 
             return;
         }

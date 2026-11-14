@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Milvasoft\Milvaion\Worker;
 
+use Milvasoft\Milvaion\Worker\Kafka\KafkaPublisher;
+use Milvasoft\Milvaion\Worker\Kafka\KafkaTransport;
+use Milvasoft\Milvaion\Worker\Kafka\Topics;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Exception\AMQPTimeoutException;
@@ -21,6 +24,9 @@ use Psr\Log\LoggerInterface;
  * keeps heartbeats going and watches for cancellation while it runs, and stops it by killing the
  * child on cancel, timeout or shutdown. Without them, jobs run in the worker process and those only
  * take effect when the job calls into its JobContext.
+ *
+ * With WorkerOptions transport "kafka" (needs ext-rdkafka) the worker reads its jobs from Kafka
+ * instead of RabbitMQ. Only this process uses the Kafka client: job processes report back to it.
  */
 final class Worker
 {
@@ -32,7 +38,10 @@ final class Worker
     private array $jobs = [];
     private readonly CancellationRegistry $cancellations;
     private readonly ResourceSampler $sampler;
-    private readonly AmqpPublisher $publisher;
+    private readonly Publisher $publisher;
+    private readonly ?AmqpPublisher $amqp;
+    private readonly ?KafkaTransport $kafka;
+    private bool $heartbeatFailed = false;
     private readonly LogBuffer $logs;
     private readonly Processor $processor;
     private ?AMQPStreamConnection $connection = null;
@@ -47,9 +56,24 @@ final class Worker
         $this->logger = $options->logger ?? new StderrLogger();
         $this->cancellations = new CancellationRegistry();
         $this->sampler = new ResourceSampler();
-        $this->publisher = new AmqpPublisher();
+
+        if ($options->usesKafka()) {
+            if (!extension_loaded('rdkafka')) {
+                throw new \RuntimeException('The Kafka transport needs the rdkafka PHP extension (ext-rdkafka). Install it with "pecl install rdkafka" (it needs librdkafka), or use the RabbitMQ transport.');
+            }
+
+            $topics = new Topics($options->kafka->topicPrefix, $options->workerId);
+            $this->publisher = $kafkaPublisher = new KafkaPublisher($topics, $options->instanceId);
+            $this->amqp = null;
+        } else {
+            $this->publisher = $this->amqp = new AmqpPublisher();
+        }
+
         $this->logs = new LogBuffer(fn (string $batch) => $this->publisher->publish('', Protocol::QUEUE_WORKER_LOGS, $batch), $this->logger);
         $this->processor = new Processor($options, [], $this->publisher, $this->logs, $this->cancellations, $this->logger);
+        $this->kafka = isset($kafkaPublisher, $topics)
+            ? new KafkaTransport($options, $topics, $kafkaPublisher, $this->processor, $this->logger, fn (int $count) => $this->sendHeartbeat(false, $count))
+            : null;
         $this->signals = function_exists('pcntl_fork') && function_exists('pcntl_async_signals') && function_exists('posix_kill');
     }
 
@@ -122,6 +146,12 @@ final class Worker
             $this->logger->warning('Redis is disabled: jobs cannot be cancelled from the dashboard.');
         }
 
+        if ($this->kafka !== null) {
+            $this->runKafka($this->kafka);
+
+            return;
+        }
+
         $this->connect($this->options->startupTimeout);
 
         $this->installSignals();
@@ -146,11 +176,46 @@ final class Worker
         $this->shutdown();
     }
 
+    /** The worker loop on Kafka: one job at a time, taken from the job and retry topics. */
+    private function runKafka(KafkaTransport $kafka): void
+    {
+        try {
+            $kafka->start(fn () => $this->register());
+        } catch (\Throwable $e) {
+            $this->redis?->close();
+
+            throw $e;
+        }
+
+        $this->installSignals();
+        // Short enough to send the job heartbeats of occurrences that wait for a retry on time.
+        $interval = $this->options->jobHeartbeatInterval;
+        $wait = $interval > 0 ? max(0.05, min(1.0, $interval)) : 1.0;
+
+        while (!$this->processor->stopRequested()) {
+            try {
+                $kafka->step($wait);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Kafka worker loop error: ' . $e->getMessage());
+                usleep(500_000);
+            }
+
+            $this->periodic();
+        }
+
+        $kafka->stop();
+        $this->shutdown();
+        $kafka->close();
+    }
+
     private function configureProcessor(): void
     {
         $this->processor->setJobs($this->jobs);
         $this->processor->isolate = $this->signals;
+        $this->processor->noDestructorsInChild = $this->kafka !== null;
         $this->processor->housekeeping = function (): void {
+            $this->kafka?->service();
+            $this->processor->heartbeatWaiting();
             $this->pollCancellations();
 
             if (microtime(true) >= $this->nextHeartbeat) {
@@ -238,7 +303,7 @@ final class Worker
         $publish->queue_bind(Protocol::QUEUE_FAILED_OCCURRENCES, Protocol::EXCHANGE_DEAD_LETTER, Protocol::DEAD_LETTER_ROUTING_KEY);
 
         // Before consuming, so the first delivery can already report its status.
-        $this->publisher->attach($publish);
+        $this->amqp?->attach($publish);
 
         $consume = $this->connection->channel();
         // One job at a time across every job type this process handles.
@@ -288,6 +353,7 @@ final class Worker
     private function periodic(): void
     {
         $this->pollCancellations();
+        $this->processor->heartbeatWaiting();
 
         if (microtime(true) >= $this->nextHeartbeat) {
             $this->sendHeartbeat(false, 0);
@@ -327,7 +393,8 @@ final class Worker
     {
         $this->publisher->publish('', Protocol::QUEUE_WORKER_REGISTRATION, Protocol::json($this->buildRegistration()));
         $this->sendHeartbeat(false, $this->processor->hasRunningJob() ? 1 : 0);
-        $this->logger->info("Registered {$this->options->workerId} (instance {$this->options->instanceId}).");
+        $transport = $this->options->usesKafka() ? 'Kafka' : 'RabbitMQ';
+        $this->logger->info("Registered {$this->options->workerId} (instance {$this->options->instanceId}) on {$transport}.");
     }
 
     /**
@@ -397,7 +464,23 @@ final class Worker
                 'isStopping' => $stopping,
             ]), false);
         } catch (\Throwable $e) {
+            $this->heartbeatFailed = true;
             $this->logger->debug('Heartbeat failed; will retry on the next interval: ' . $e->getMessage());
+
+            return;
+        }
+
+        // On Kafka there is no reconnect to register again after: once heartbeats get through
+        // again, register, since the API may have dropped the instance meanwhile.
+        if ($this->heartbeatFailed && $this->kafka !== null && !$stopping) {
+            $this->heartbeatFailed = false;
+
+            try {
+                $this->register();
+            } catch (\Throwable $e) {
+                $this->heartbeatFailed = true;
+                $this->logger->warning('Could not register again after Kafka recovered: ' . $e->getMessage());
+            }
         }
     }
 
@@ -428,7 +511,7 @@ final class Worker
 
     private function closeConnection(): void
     {
-        $this->publisher->detach();
+        $this->amqp?->detach();
         $this->consumeChannel = null;
 
         if ($this->connection !== null) {
