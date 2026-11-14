@@ -1,4 +1,5 @@
 //! The worker: connections, consumers, registration, heartbeats and graceful shutdown.
+//! RabbitMQ is driven from here; the Kafka transport lives in `crate::kafka`.
 
 use crate::broker::amqp::{self, AmqpPublisher};
 use crate::broker::{PublishOptions, Publisher};
@@ -7,7 +8,7 @@ use crate::context::JobContext;
 use crate::error::{AbortReason, JobError, WorkerError};
 use crate::log_buffer::LogBuffer;
 use crate::metrics::{self, ResourceSampler};
-use crate::options::{self, JobOptions, ResolvedOptions, WorkerOptions};
+use crate::options::{self, JobOptions, ResolvedOptions, Transport, WorkerOptions};
 use crate::processor::{CancelRegistry, Handler, Processor, Registered};
 use crate::protocol::*;
 use futures_util::StreamExt;
@@ -144,7 +145,7 @@ impl Worker {
     /// Connects, registers this instance and processes jobs until `shutdown` completes. It then
     /// stops taking jobs, lets running ones finish for up to `shutdown_timeout`, returns the rest
     /// to the queue, tells the API the instance has left and returns `Ok`. It returns an error if
-    /// RabbitMQ or Redis cannot be reached within `startup_timeout`.
+    /// the broker (RabbitMQ or Kafka) or Redis cannot be reached within `startup_timeout`.
     pub async fn run(self, shutdown: impl Future<Output = ()> + Send) -> Result<(), WorkerError> {
         if self.jobs.is_empty() {
             return Err(WorkerError::Config("register at least one job before run".to_string()));
@@ -154,7 +155,16 @@ impl Worker {
         tracing::info!(worker = %opts.worker_id, instance = %opts.instance_id, jobs = self.jobs.len(), "starting worker");
 
         let amqp_publisher = Arc::new(AmqpPublisher::default());
-        let publisher: Arc<dyn Publisher> = amqp_publisher.clone();
+        #[cfg(feature = "kafka")]
+        let kafka = (opts.transport == Transport::Kafka).then(|| crate::kafka::KafkaTransport::new(opts.clone()));
+
+        let publisher: Arc<dyn Publisher> = match opts.transport {
+            Transport::RabbitMq => amqp_publisher.clone(),
+            #[cfg(feature = "kafka")]
+            Transport::Kafka => kafka.clone().expect("created above"),
+            #[cfg(not(feature = "kafka"))]
+            Transport::Kafka => unreachable!("resolve_options rejects Kafka without the kafka feature"),
+        };
         let logs = Arc::new(LogBuffer::new(publisher.clone()));
         let cancels = Arc::new(CancelRegistry::default());
         let heartbeats = Arc::new(Heartbeats::new(opts.clone(), publisher.clone()));
@@ -167,6 +177,11 @@ impl Worker {
         processor.on_count_changed = Some(Box::new(move || hb.request_immediate()));
         let processor = Arc::new(processor);
         let _ = heartbeats.processor.set(Arc::downgrade(&processor));
+
+        #[cfg(feature = "kafka")]
+        if let Some(kafka) = &kafka {
+            kafka.set_processor(&processor);
+        }
 
         let stop_background = CancellationToken::new();
         let _stop_background_on_exit = stop_background.clone().drop_guard();
@@ -209,79 +224,211 @@ impl Worker {
             tracing::warn!("Redis is disabled: jobs cannot be cancelled from the dashboard");
         }
 
-        // RabbitMQ
-        let link = Arc::new(Link {
-            opts: opts.clone(),
-            jobs: self.jobs.clone(),
-            publisher: amqp_publisher.clone(),
-            processor: processor.clone(),
-            heartbeats: heartbeats.clone(),
-            stopping: AtomicBool::new(false),
-            consumers: Mutex::new(Vec::new()),
-            last_error: Mutex::new(String::from("no attempt finished")),
-        });
+        let broker = match opts.transport {
+            Transport::RabbitMq => {
+                let link = Arc::new(Link {
+                    opts: opts.clone(),
+                    jobs: self.jobs.clone(),
+                    publisher: amqp_publisher.clone(),
+                    processor: processor.clone(),
+                    heartbeats: heartbeats.clone(),
+                    stopping: AtomicBool::new(false),
+                    consumers: Mutex::new(Vec::new()),
+                    last_error: Mutex::new(String::from("no attempt finished")),
+                });
 
-        let stop_connection = CancellationToken::new();
-        let (ready_tx, ready_rx) = oneshot::channel();
-        let connection_task = tokio::spawn(link.clone().connection_loop(stop_connection.clone(), ready_tx));
+                let stop_connection = CancellationToken::new();
+                let (ready_tx, ready_rx) = oneshot::channel();
+                let connection_task = tokio::spawn(link.clone().connection_loop(stop_connection.clone(), ready_tx));
 
-        let started = tokio::select! {
-            _ = &mut shutdown => false,
-            ready = tokio::time::timeout_at(deadline, ready_rx) => match ready {
-                Ok(_) => true,
-                Err(_) => {
+                let connected = tokio::select! {
+                    _ = &mut shutdown => None,
+                    ready = tokio::time::timeout_at(deadline, ready_rx) => Some(ready.is_ok()),
+                };
+
+                if connected != Some(true) {
                     stop_connection.cancel();
                     let _ = connection_task.await;
+
+                    // Asked to stop before the first connection.
+                    if connected.is_none() {
+                        return Ok(());
+                    }
+
                     let error = link.last_error.lock().unwrap().clone();
                     return Err(WorkerError::Connection(format!(
                         "could not connect to RabbitMQ within {:?}: {error}",
                         opts.startup_timeout
                     )));
                 }
-            },
+
+                Broker::RabbitMq { link, stop_connection, connection_task }
+            }
+            #[cfg(feature = "kafka")]
+            Transport::Kafka => {
+                let kafka = kafka.clone().expect("created above");
+
+                let started = tokio::select! {
+                    _ = &mut shutdown => None,
+                    started = start_kafka(&kafka, &opts, &self.jobs, &heartbeats, deadline) => Some(started),
+                };
+
+                match started {
+                    Some(Ok(())) => Broker::Kafka(kafka),
+                    Some(Err(error)) => {
+                        kafka.close().await;
+                        return Err(error);
+                    }
+                    None => {
+                        kafka.close().await;
+                        return Ok(());
+                    }
+                }
+            }
+            #[cfg(not(feature = "kafka"))]
+            Transport::Kafka => unreachable!("resolve_options rejects Kafka without the kafka feature"),
         };
 
-        if started {
-            heartbeats.enabled.store(true, Ordering::SeqCst);
+        heartbeats.enabled.store(true, Ordering::SeqCst);
 
-            let heartbeat_task = {
-                let heartbeats = heartbeats.clone();
-                let stop = stop_background.clone();
-                let interval = opts.heartbeat_interval;
+        let heartbeat_task = {
+            let heartbeats = heartbeats.clone();
+            let stop = stop_background.clone();
+            let interval = opts.heartbeat_interval;
 
-                tokio::spawn(async move {
-                    let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + interval, interval);
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + interval, interval);
 
-                    loop {
-                        tokio::select! {
-                            _ = stop.cancelled() => return,
-                            _ = ticker.tick() => heartbeats.send(false).await,
-                        }
+                loop {
+                    tokio::select! {
+                        _ = stop.cancelled() => return,
+                        _ = ticker.tick() => heartbeats.send(false).await,
                     }
-                })
-            };
+                }
+            })
+        };
 
-            shutdown.await;
+        shutdown.await;
 
-            link.shutdown().await;
-            heartbeat_task.abort();
-            heartbeats.enabled.store(false, Ordering::SeqCst);
-            heartbeats.send(true).await;
+        tracing::info!("stopping worker");
+        broker.stop_consuming().await;
+        drain(&processor, &opts).await;
+        broker.drained().await;
 
-            match tokio::time::timeout(Duration::from_secs(10), logs.flush()).await {
-                Ok(Ok(())) => {}
-                Ok(Err(error)) => tracing::warn!(%error, "some job logs could not be sent before shutdown"),
-                Err(_) => tracing::warn!("timed out sending job logs before shutdown"),
-            }
+        heartbeat_task.abort();
+        heartbeats.enabled.store(false, Ordering::SeqCst);
+        heartbeats.send(true).await;
+
+        match tokio::time::timeout(Duration::from_secs(10), logs.flush()).await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => tracing::warn!(%error, "some job logs could not be sent before shutdown"),
+            Err(_) => tracing::warn!("timed out sending job logs before shutdown"),
         }
 
         stop_background.cancel();
-        stop_connection.cancel();
-        let _ = connection_task.await;
+        broker.close().await;
 
         tracing::info!("worker stopped");
         Ok(())
     }
+}
+
+/// The broker side of a running worker.
+enum Broker {
+    RabbitMq {
+        link: Arc<Link>,
+        stop_connection: CancellationToken,
+        connection_task: tokio::task::JoinHandle<()>,
+    },
+    #[cfg(feature = "kafka")]
+    Kafka(Arc<crate::kafka::KafkaTransport>),
+}
+
+impl Broker {
+    /// Stops taking new jobs. Running jobs carry on and can still report their outcome.
+    async fn stop_consuming(&self) {
+        match self {
+            Broker::RabbitMq { link, .. } => link.stop_consuming().await,
+            #[cfg(feature = "kafka")]
+            Broker::Kafka(kafka) => kafka.stop_consuming().await,
+        }
+    }
+
+    /// Runs once running jobs have finished or have been returned to the broker.
+    async fn drained(&self) {
+        match self {
+            // Messages of interrupted jobs were already nacked with requeue.
+            Broker::RabbitMq { .. } => {}
+            #[cfg(feature = "kafka")]
+            Broker::Kafka(kafka) => kafka.drained().await,
+        }
+    }
+
+    /// Disconnects after the final heartbeat and logs have been sent.
+    async fn close(self) {
+        match self {
+            Broker::RabbitMq { stop_connection, connection_task, .. } => {
+                stop_connection.cancel();
+                let _ = connection_task.await;
+            }
+            #[cfg(feature = "kafka")]
+            Broker::Kafka(kafka) => kafka.close().await,
+        }
+    }
+}
+
+/// Connects to Kafka, creates the topics, registers the instance and joins the consumer group.
+#[cfg(feature = "kafka")]
+async fn start_kafka(
+    kafka: &Arc<crate::kafka::KafkaTransport>,
+    opts: &ResolvedOptions,
+    jobs: &[Arc<Registered>],
+    heartbeats: &Heartbeats,
+    deadline: tokio::time::Instant,
+) -> Result<(), WorkerError> {
+    kafka.connect(deadline).await?;
+
+    let registration = registration_body(opts, jobs);
+    kafka.set_registration(registration.clone());
+    register(kafka.as_ref(), opts, registration).await.map_err(WorkerError::Connection)?;
+
+    heartbeats.send(false).await;
+    tracing::info!(worker = %opts.worker_id, transport = "kafka", "registered");
+
+    kafka.consume()
+}
+
+/// Lets running jobs finish for up to `shutdown_timeout`, then stops the rest, which go back to
+/// the broker.
+async fn drain(processor: &Processor, opts: &ResolvedOptions) {
+    processor.shutdown.cancel();
+
+    if !processor.wait_for_idle(opts.shutdown_timeout).await {
+        tracing::warn!(
+            running = processor.running_jobs(),
+            timeout = ?opts.shutdown_timeout,
+            "jobs still running after the shutdown timeout; returning them to the queue"
+        );
+        processor.cancels.abort_all(AbortReason::WorkerStopping);
+        processor.wait_for_idle(Duration::from_secs(10)).await;
+    }
+}
+
+fn registration_body(opts: &ResolvedOptions, jobs: &[Arc<Registered>]) -> Vec<u8> {
+    serde_json::to_vec(&build_registration(opts, jobs)).expect("a registration always serializes")
+}
+
+/// Publishes this instance's registration.
+async fn register(publisher: &dyn Publisher, opts: &ResolvedOptions, registration: Vec<u8>) -> Result<(), String> {
+    let options = PublishOptions { persistent: true, key: Some(opts.instance_id.clone()), ..Default::default() };
+
+    tokio::time::timeout(
+        Duration::from_secs(30),
+        publisher.publish("", QUEUE_WORKER_REGISTRATION, registration, options),
+    )
+    .await
+    .map_err(|_| "registering: timed out".to_string())?
+    .map_err(|e| format!("registering: {e}"))
 }
 
 fn to_json<T: Serialize>(value: T) -> Result<serde_json::Value, JobError> {
@@ -504,7 +651,8 @@ impl Link {
                 while let Some(delivery) = consumer.next().await {
                     match delivery {
                         Ok(delivery) => {
-                            tokio::spawn(processor.clone().handle(amqp::delivery(delivery), registered.clone()));
+                            let queue = registered.job.queue.clone();
+                            tokio::spawn(processor.clone().handle(amqp::delivery(delivery), queue));
                         }
                         Err(error) => {
                             tracing::debug!(%error, "consumer stopped");
@@ -527,20 +675,7 @@ impl Link {
 
         *self.consumers.lock().unwrap() = consumers;
 
-        let registration = serde_json::to_vec(&build_registration(&self.opts, &self.jobs))?;
-
-        tokio::time::timeout(
-            Duration::from_secs(30),
-            self.publisher.publish(
-                "",
-                QUEUE_WORKER_REGISTRATION,
-                registration,
-                PublishOptions { persistent: true, ..Default::default() },
-            ),
-        )
-        .await
-        .map_err(|_| "registering: timed out".to_string())?
-        .map_err(|e| format!("registering: {e}"))?;
+        register(self.publisher.as_ref(), &self.opts, registration_body(&self.opts, &self.jobs)).await?;
 
         self.heartbeats.send(false).await;
         tracing::info!(worker = %self.opts.worker_id, "registered");
@@ -548,27 +683,14 @@ impl Link {
         Ok(channels)
     }
 
-    /// Stops taking jobs, lets running ones finish and returns the rest to the queue.
-    async fn shutdown(&self) {
+    /// Stops taking jobs. Running jobs carry on.
+    async fn stop_consuming(&self) {
         self.stopping.store(true, Ordering::SeqCst);
-        tracing::info!("stopping worker");
 
         let consumers = std::mem::take(&mut *self.consumers.lock().unwrap());
 
         for (channel, tag) in consumers {
             let _ = channel.basic_cancel(ShortString::from(tag), BasicCancelOptions::default()).await;
-        }
-
-        self.processor.shutdown.cancel();
-
-        if !self.processor.wait_for_idle(self.opts.shutdown_timeout).await {
-            tracing::warn!(
-                running = self.processor.running_jobs(),
-                timeout = ?self.opts.shutdown_timeout,
-                "jobs still running after the shutdown timeout; returning them to the queue"
-            );
-            self.processor.cancels.abort_all(AbortReason::WorkerStopping);
-            self.processor.wait_for_idle(Duration::from_secs(10)).await;
         }
     }
 }
@@ -617,7 +739,7 @@ pub(crate) fn build_registration(opts: &ResolvedOptions, jobs: &[Arc<Registered>
         instance_id: opts.instance_id.clone(),
         display_name: format!("{} ({})", opts.worker_id, opts.instance_id),
         host_name: metrics::host_name(),
-        ip_address: metrics::local_ip_address(options::rabbitmq_host_port(&opts.rabbitmq_url)),
+        ip_address: metrics::local_ip_address(options::broker_host_port(opts)),
         routing_patterns: routing,
         job_data_definitions: data_schemas,
         job_result_definitions: result_schemas,
@@ -675,7 +797,12 @@ impl Heartbeats {
 
         let sent = tokio::time::timeout(
             Duration::from_secs(10),
-            self.publisher.publish("", QUEUE_WORKER_HEARTBEAT, body, PublishOptions::default()),
+            self.publisher.publish(
+                "",
+                QUEUE_WORKER_HEARTBEAT,
+                body,
+                PublishOptions { key: Some(self.opts.instance_id.clone()), ..Default::default() },
+            ),
         )
         .await
         .unwrap_or_else(|_| Err("timed out".to_string()));

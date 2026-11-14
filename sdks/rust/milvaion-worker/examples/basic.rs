@@ -6,6 +6,9 @@
 //! MILVAION_REDIS_URL=redis://localhost:6379 \
 //! cargo run --example basic
 //! ```
+//!
+//! On Kafka, build with `--features kafka` and set `MILVAION_TRANSPORT=kafka` and
+//! `MILVAION_KAFKA_BOOTSTRAP_SERVERS=localhost:9092` instead of `MILVAION_RABBITMQ_URL`.
 
 use milvaion_worker::{Job, JobContext, JobError, JobOptions, LogLevel, Worker, WorkerOptions};
 use serde::{Deserialize, Serialize};

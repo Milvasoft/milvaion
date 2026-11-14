@@ -190,7 +190,7 @@ fn delivery(job_name: &str, data: Option<&str>, retry_count: Option<i64>, settle
 
 impl Harness {
     async fn run(&self, d: Delivery) {
-        self.processor.clone().handle(d, self.consumer.clone()).await;
+        self.processor.clone().handle(d, self.consumer.job.queue.clone()).await;
     }
 }
 
@@ -446,7 +446,7 @@ async fn cancels_running_job() {
     let settled = Settled::default();
     let processor = h.processor.clone();
     let run = tokio::spawn({
-        let consumer = h.consumer.clone();
+        let consumer = h.consumer.job.queue.clone();
         let d = delivery("LongJob", None, None, &settled);
         async move { processor.handle(d, consumer).await }
     });
@@ -481,7 +481,7 @@ async fn shutdown_returns_job_to_queue() {
     let settled = Settled::default();
     let processor = h.processor.clone();
     let run = tokio::spawn({
-        let consumer = h.consumer.clone();
+        let consumer = h.consumer.job.queue.clone();
         let d = delivery("LongJob", None, None, &settled);
         async move { processor.handle(d, consumer).await }
     });
@@ -509,7 +509,7 @@ async fn shutdown_during_retry_delay_requeues() {
     let settled = Settled::default();
     let processor = h.processor.clone();
     let run = tokio::spawn({
-        let consumer = h.consumer.clone();
+        let consumer = h.consumer.job.queue.clone();
         let d = delivery("FlakyJob", None, None, &settled);
         async move { processor.handle(d, consumer).await }
     });
@@ -632,7 +632,7 @@ async fn wait_for_idle_tracks_running_jobs() {
     assert!(h.processor.wait_for_idle(Duration::ZERO).await);
     let settled = Settled::default();
     let processor = h.processor.clone();
-    let consumer = h.consumer.clone();
+    let consumer = h.consumer.job.queue.clone();
     let d = delivery("AJob", None, None, &settled);
     let run = tokio::spawn(async move { processor.handle(d, consumer).await });
 
@@ -941,4 +941,364 @@ fn results_serialize_like_other_sdks() {
 fn status_serializes_as_number() {
     assert_eq!(serde_json::to_value(Status::TimedOut).unwrap(), json!(5));
     assert_eq!(serde_json::from_value::<Status>(json!(4)).unwrap(), Status::Cancelled);
+}
+
+// ---- Kafka ----
+// The Kafka transport plugs into the processor through Settler::schedule_retry and Settler::reject.
+
+const JOB_ID: &str = "0193a1b2-0000-7000-8000-000000000001";
+
+/// A settler like the Kafka transport's: it schedules retries itself and dead-letters with a reason.
+#[derive(Clone, Default)]
+struct BrokerSettler {
+    events: Arc<Mutex<Vec<String>>>,
+    retries: Arc<Mutex<Vec<crate::broker::RetryRequest>>>,
+    fail_retry: bool,
+}
+
+impl Settler for BrokerSettler {
+    fn ack(&self) -> BoxFuture<'_, Result<(), String>> {
+        self.events.lock().unwrap().push("ack".into());
+        Box::pin(async { Ok(()) })
+    }
+
+    fn nack(&self, requeue: bool) -> BoxFuture<'_, Result<(), String>> {
+        self.events.lock().unwrap().push(format!("nack({requeue})"));
+        Box::pin(async { Ok(()) })
+    }
+
+    fn reject(&self, reason: String) -> BoxFuture<'_, Result<(), String>> {
+        self.events.lock().unwrap().push(format!("reject: {reason}"));
+        Box::pin(async { Ok(()) })
+    }
+
+    fn schedule_retry(&self, retry: crate::broker::RetryRequest) -> Option<BoxFuture<'_, Result<(), String>>> {
+        self.retries.lock().unwrap().push(retry);
+        let fail = self.fail_retry;
+        Some(Box::pin(async move {
+            if fail {
+                Err("broker down".to_string())
+            } else {
+                Ok(())
+            }
+        }))
+    }
+}
+
+fn broker_delivery(job_name: &str, retry_count: Option<&str>, settler: &BrokerSettler) -> Delivery {
+    let mut d = delivery(job_name, None, None, &Settled::default());
+    d.headers.insert("OccurrenceId".to_string(), HeaderValue::Bytes(OCCURRENCE.as_bytes().to_vec()));
+
+    if let Some(n) = retry_count {
+        d.headers.insert("x-retry-count".to_string(), HeaderValue::Bytes(n.as_bytes().to_vec()));
+    }
+
+    d.settler = Box::new(settler.clone());
+    d
+}
+
+#[tokio::test]
+async fn scheduled_retry_is_handed_to_the_broker() {
+    let mut opts = worker_options();
+    opts.job_heartbeat_interval = Duration::from_millis(30);
+    let h = harness_with(
+        opts,
+        "FlakyJob",
+        JobOptions::new().max_retries(3).base_retry_delay(Duration::from_millis(100)),
+        handler(|_| async { Err(JobError::new("boom")) }),
+    );
+    let settler = BrokerSettler::default();
+    let before = chrono::Utc::now().timestamp_millis();
+    let started = std::time::Instant::now();
+
+    h.run(broker_delivery("FlakyJob", Some("1"), &settler)).await;
+
+    assert!(started.elapsed() < Duration::from_millis(150), "a broker-scheduled retry must not wait in process");
+    assert_eq!(*settler.events.lock().unwrap(), vec!["ack"]);
+    assert!(h.publisher.to(&h.consumer.job.queue).is_empty(), "nothing may be republished");
+    assert!(h.publisher.dead_letters().is_empty());
+    assert!(h.publisher.final_status().is_none(), "the occurrence stays Running while it is retried");
+
+    let retries = settler.retries.lock().unwrap().clone();
+    assert_eq!(retries.len(), 1);
+    let r = &retries[0];
+    assert_eq!((r.retry_count, r.max_retries), (2, 3));
+    assert_eq!(r.occurrence_id, OCCURRENCE);
+    assert_eq!(r.job_id, JOB_ID);
+    // base * 2^retry_count of the failed attempt: 100 ms * 2
+    let wait = r.not_before_ms - before;
+    assert!((200..400).contains(&wait), "due {wait} ms after the attempt");
+
+    // Job heartbeats continue during the backoff, then stop.
+    let running_before = h.publisher.statuses().len();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let running_after = h.publisher.statuses().len();
+    assert!(running_after >= running_before + 2, "expected job heartbeats during the backoff");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(h.publisher.statuses().len(), running_after, "heartbeats stop once the retry is due");
+}
+
+#[tokio::test]
+async fn failed_scheduled_retry_is_rejected() {
+    let h = harness("FlakyJob", JobOptions::default(), handler(|_| async { Err(JobError::new("boom")) }));
+    let settler = BrokerSettler { fail_retry: true, ..Default::default() };
+
+    h.run(broker_delivery("FlakyJob", None, &settler)).await;
+
+    let events = settler.events.lock().unwrap().clone();
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert!(events[0].starts_with("reject: ") && events[0].contains("broker down"), "{events:?}");
+}
+
+#[tokio::test]
+async fn reject_carries_the_reason() {
+    let h = harness("AJob", JobOptions::default(), handler(|_| async { Ok(Value::Null) }));
+    let settler = BrokerSettler::default();
+    let mut d = broker_delivery("AJob", None, &settler);
+    d.body = b"not json".to_vec();
+
+    h.run(d).await;
+
+    assert_eq!(*settler.events.lock().unwrap(), vec!["reject: the message is not a valid job"]);
+}
+
+#[tokio::test]
+async fn status_logs_and_dead_letter_carry_the_record_key() {
+    let h = harness(
+        "StrictJob",
+        JobOptions::default(),
+        handler(|ctx: JobContext| async move {
+            ctx.info("about to fail");
+            Err(JobError::permanent("bad"))
+        }),
+    );
+    let settled = Settled::default();
+
+    h.run(delivery("StrictJob", None, None, &settled)).await;
+
+    let statuses = h.publisher.to(QUEUE_STATUS_UPDATES);
+    assert!(!statuses.is_empty());
+    assert!(statuses.iter().all(|m| m.options.key.as_deref() == Some(OCCURRENCE)));
+
+    let logs = h.publisher.to(QUEUE_WORKER_LOGS);
+    assert!(!logs.is_empty());
+    assert!(logs.iter().all(|m| m.options.key.as_deref() == Some(OCCURRENCE)));
+
+    let dlq = h.publisher.dead_letters();
+    assert_eq!(dlq.len(), 1);
+    assert_eq!(dlq[0].options.key.as_deref(), Some(OCCURRENCE));
+}
+
+#[test]
+fn kafka_options_resolve() {
+    let k = resolve_kafka(KafkaOptions::default(), 8).unwrap();
+    assert_eq!(k.brokers, vec!["localhost:9092"]);
+    assert_eq!((k.num_partitions, k.replication_factor, k.max_in_flight_per_partition), (12, -1, 8));
+    assert!(k.auto_create_topics && !k.tls && k.sasl.is_none());
+    assert_eq!(k.topic_prefix, "");
+
+    let k = resolve_kafka(
+        KafkaOptions {
+            brokers: vec!["a:9092, b:9093".into(), "c:9094".into()],
+            topic_prefix: "prod.".into(),
+            num_partitions: 0,
+            replication_factor: 0,
+            max_in_flight_per_partition: 3,
+            tls_ca_file: Some("/ca.pem".into()),
+            sasl_mechanism: Some(KafkaSaslMechanism::ScramSha512),
+            sasl_username: "user".into(),
+            sasl_password: "secret".into(),
+            ..Default::default()
+        },
+        8,
+    )
+    .unwrap();
+    assert_eq!(k.brokers, vec!["a:9092", "b:9093", "c:9094"]);
+    assert_eq!((k.num_partitions, k.replication_factor, k.max_in_flight_per_partition), (12, -1, 3));
+    assert!(k.tls, "a CA file turns TLS on");
+
+    let settings: HashMap<&str, String> = k.client_settings("i-1").into_iter().collect();
+    assert_eq!(settings["bootstrap.servers"], "a:9092,b:9093,c:9094");
+    assert_eq!(settings["client.id"], "i-1");
+    assert_eq!(settings["security.protocol"], "sasl_ssl");
+    assert_eq!(settings["sasl.mechanism"], "SCRAM-SHA-512");
+    assert_eq!(settings["sasl.username"], "user");
+    assert_eq!(settings["sasl.password"], "secret");
+    assert_eq!(settings["ssl.ca.location"], "/ca.pem");
+
+    let plain: HashMap<&str, String> =
+        resolve_kafka(KafkaOptions::default(), 1).unwrap().client_settings("i").into_iter().collect();
+    assert_eq!(plain["security.protocol"], "plaintext");
+    assert!(!plain.contains_key("sasl.mechanism"));
+
+    let invalid = |o: KafkaOptions| resolve_kafka(o, 4).is_err();
+    assert!(invalid(KafkaOptions { topic_prefix: "prod/".into(), ..Default::default() }));
+    assert!(invalid(KafkaOptions { topic_prefix: "prød.".into(), ..Default::default() }));
+    assert!(invalid(KafkaOptions { num_partitions: -1, ..Default::default() }));
+    assert!(invalid(KafkaOptions { replication_factor: -2, ..Default::default() }));
+    assert!(invalid(KafkaOptions { tls_cert_file: Some("c.pem".into()), ..Default::default() }));
+    assert!(invalid(KafkaOptions { sasl_mechanism: Some(KafkaSaslMechanism::Plain), ..Default::default() }));
+    assert!(!invalid(KafkaOptions { topic_prefix: "Prod_1-a.".into(), ..Default::default() }));
+
+    assert_eq!(KafkaSaslMechanism::parse("SCRAM-SHA-256"), Some(KafkaSaslMechanism::ScramSha256));
+    assert_eq!(KafkaSaslMechanism::parse("scram_sha_512"), Some(KafkaSaslMechanism::ScramSha512));
+    assert_eq!(KafkaSaslMechanism::parse("Plain"), Some(KafkaSaslMechanism::Plain));
+    assert_eq!(KafkaSaslMechanism::parse("gssapi"), None);
+}
+
+#[test]
+fn kafka_options_from_env() {
+    let env: HashMap<&str, &str> = [
+        ("MILVAION_WORKER_ID", "env-worker"),
+        ("MILVAION_TRANSPORT", "Kafka"),
+        ("KAFKA_BOOTSTRAP_SERVERS", "ignored:9092"),
+        ("MILVAION_KAFKA_BOOTSTRAP_SERVERS", "k1:9092,k2:9092"),
+        ("MILVAION_KAFKA_TLS", "TRUE"),
+        ("MILVAION_KAFKA_TLS_CA_FILE", "/ca.pem"),
+        ("MILVAION_KAFKA_TLS_CERT_FILE", "/cert.pem"),
+        ("MILVAION_KAFKA_TLS_KEY_FILE", "/key.pem"),
+        ("MILVAION_KAFKA_SASL_MECHANISM", "scram-sha-256"),
+        ("MILVAION_KAFKA_SASL_USERNAME", "user"),
+        ("MILVAION_KAFKA_SASL_PASSWORD", "pa ss"),
+        ("MILVAION_KAFKA_TOPIC_PREFIX", "stage."),
+        ("MILVAION_KAFKA_AUTO_CREATE_TOPICS", "false"),
+        ("MILVAION_KAFKA_PARTITIONS", "6"),
+        ("MILVAION_KAFKA_REPLICATION_FACTOR", "3"),
+        ("MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION", "2"),
+    ]
+    .into_iter()
+    .collect();
+
+    let o = WorkerOptions::from_lookup(|k| env.get(k).map(|v| v.to_string())).unwrap();
+    assert_eq!(o.transport, Transport::Kafka);
+    let k = &o.kafka;
+    assert_eq!(k.brokers, vec!["k1:9092,k2:9092"]);
+    assert!(k.tls);
+    assert_eq!(k.tls_ca_file.as_deref(), Some("/ca.pem"));
+    assert_eq!(k.tls_cert_file.as_deref(), Some("/cert.pem"));
+    assert_eq!(k.tls_key_file.as_deref(), Some("/key.pem"));
+    assert_eq!(k.sasl_mechanism, Some(KafkaSaslMechanism::ScramSha256));
+    assert_eq!((k.sasl_username.as_str(), k.sasl_password.as_str()), ("user", "pa ss"));
+    assert_eq!(k.topic_prefix, "stage.");
+    assert!(!k.auto_create_topics);
+    assert_eq!((k.num_partitions, k.replication_factor, k.max_in_flight_per_partition), (6, 3, 2));
+
+    let fallback = WorkerOptions::from_lookup(|k| {
+        [("KAFKA_BOOTSTRAP_SERVERS", "fallback:9092"), ("MILVAION_KAFKA_NUM_PARTITIONS", "4")]
+            .into_iter()
+            .find(|(key, _)| *key == k)
+            .map(|(_, v)| v.to_string())
+    })
+    .unwrap();
+    assert_eq!(fallback.transport, Transport::RabbitMq);
+    assert_eq!(fallback.kafka.brokers, vec!["fallback:9092"]);
+    assert_eq!(fallback.kafka.num_partitions, 4);
+    assert!(fallback.kafka.auto_create_topics);
+
+    let one = |key: &'static str, value: &'static str| {
+        WorkerOptions::from_lookup(move |k| (k == key).then(|| value.to_string()))
+    };
+    assert!(one("MILVAION_TRANSPORT", "nats").is_err());
+    assert!(one("MILVAION_KAFKA_SASL_MECHANISM", "gssapi").is_err());
+    assert!(one("MILVAION_KAFKA_PARTITIONS", "many").is_err());
+}
+
+#[cfg(not(feature = "kafka"))]
+#[test]
+fn kafka_transport_needs_the_feature() {
+    let options = WorkerOptions { transport: Transport::Kafka, ..WorkerOptions::new("w") };
+    let error = Worker::new(options).err().expect("Kafka must be rejected without the kafka feature");
+    assert!(error.to_string().contains("\"kafka\" feature"), "{error}");
+}
+
+#[cfg(feature = "kafka")]
+mod kafka_wire {
+    use super::*;
+    use crate::kafka::*;
+
+    #[test]
+    fn worker_segment_is_sanitised() {
+        assert_eq!(worker_segment("Report-Worker"), "report-worker");
+        assert_eq!(worker_segment("mail worker/eu"), "mail_worker_eu");
+        assert_eq!(worker_segment("a.b_c-D9"), "a.b_c-d9");
+        assert_eq!(worker_segment("çalışan"), "_al__an");
+    }
+
+    #[test]
+    fn topic_names() {
+        let t = KafkaTopics::new("prod.", "Report Worker");
+        assert_eq!(t.jobs, "prod.milvaion.jobs.report_worker");
+        assert_eq!(t.retry, "prod.milvaion.jobs.report_worker.retry");
+        assert_eq!(t.status, "prod.milvaion.status");
+        assert_eq!(t.logs, "prod.milvaion.logs");
+        assert_eq!(t.heartbeats, "prod.milvaion.heartbeats");
+        assert_eq!(t.registrations, "prod.milvaion.registrations");
+        assert_eq!(t.dlq, "prod.milvaion.dlq");
+        assert_eq!(t.group, "prod.milvaion.worker.report_worker");
+
+        let t = KafkaTopics::new("", "w");
+        assert_eq!(t.jobs, "milvaion.jobs.w");
+        assert_eq!(t.group, "milvaion.worker.w");
+    }
+
+    #[test]
+    fn headers_are_strings() {
+        assert_eq!(header_bytes(&HeaderValue::Int(3)), Some(b"3".to_vec()));
+        assert_eq!(header_bytes(&HeaderValue::Int(-1)), Some(b"-1".to_vec()));
+        assert_eq!(header_bytes(&HeaderValue::Str("x".into())), Some(b"x".to_vec()));
+        assert_eq!(header_bytes(&HeaderValue::Bytes(b"y".to_vec())), Some(b"y".to_vec()));
+        assert_eq!(header_bytes(&HeaderValue::Other), None);
+
+        let sorted = sorted_headers(vec![
+            ("b".to_string(), b"1".to_vec()),
+            ("a".to_string(), b"2".to_vec()),
+            ("b".to_string(), b"3".to_vec()),
+        ]);
+        assert_eq!(sorted, vec![("a".to_string(), b"2".to_vec()), ("b".to_string(), b"3".to_vec())]);
+
+        let map = header_map(&[
+            ("x-retry-count".to_string(), b"2".to_vec()),
+            ("x-not-before".to_string(), b"1700000000123".to_vec()),
+            ("OccurrenceId".to_string(), OCCURRENCE.as_bytes().to_vec()),
+        ]);
+        assert_eq!(parse_retry_count(&map), 2);
+        assert_eq!(parse_occurrence_id(&map, None).as_deref(), Some(OCCURRENCE));
+        assert_eq!(not_before(&map), Some(1_700_000_000_123));
+
+        let bad = header_map(&[("x-not-before".to_string(), b"soon".to_vec())]);
+        assert_eq!(not_before(&bad), None);
+        assert_eq!(not_before(&HashMap::new()), None);
+    }
+
+    #[test]
+    fn offset_tracker_commits_the_contiguous_range() {
+        let mut t = OffsetTracker::default();
+        assert_eq!(t.commit_position(), None);
+
+        for offset in [10, 11, 12, 13] {
+            assert!(t.add(offset));
+        }
+
+        assert!(!t.add(12), "older offsets are ignored");
+        assert!(!t.add(13), "repeated offsets are ignored");
+
+        assert!(t.done(11));
+        assert_eq!(t.commit_position(), None, "10 is still running");
+
+        assert!(t.done(10));
+        assert_eq!(t.commit_position(), Some(12));
+        assert_eq!(t.outstanding(), 2);
+
+        assert!(!t.done(99), "unknown offset");
+        assert!(t.done(13));
+        assert_eq!(t.commit_position(), Some(12), "12 holds the position back");
+
+        assert!(t.done(12));
+        assert_eq!(t.commit_position(), Some(14));
+        assert_eq!(t.outstanding(), 0);
+
+        assert!(t.add(20), "gaps (compacted or transactional offsets) are fine");
+        assert!(t.done(20));
+        assert_eq!(t.commit_position(), Some(21));
+    }
 }
