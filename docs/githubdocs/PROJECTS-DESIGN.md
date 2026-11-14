@@ -1,6 +1,6 @@
 # Projects (Multi-Tenancy) Design
 
-**Status:** Accepted (November 2026). The maintainer accepted the design, and the questions it left open are settled in [Decisions](#decisions). Nothing is implemented yet. Implementation starts with phases 0 and 1.
+**Status:** Accepted (November 2026). The maintainer accepted the design, and the questions it left open are settled in [Decisions](#decisions). Phases 0 and 1 are implemented behind `MilvaionConfig:Projects:Enabled=false`. [Phase 1 as Built](#phase-1-as-built) lists where the code differs from this plan.
 
 This document describes how several teams can share one Milvaion installation while their jobs, workflows, workers, occurrences, alerts, reports and API keys stay apart. It is written against the code as of November 2026. File references point at the places that will change.
 
@@ -19,6 +19,7 @@ This document describes how several teams can share one Milvaion installation wh
 - [Limits and Quotas](#limits-and-quotas)
 - [Security Risks and Tests](#security-risks-and-tests)
 - [Rollout Plan](#rollout-plan)
+- [Phase 1 as Built](#phase-1-as-built)
 - [Alternatives Considered](#alternatives-considered)
 - [Decisions](#decisions)
 
@@ -518,20 +519,20 @@ The dashboard shows usage against each quota on the project settings page. Phase
 
 Sizes are rough, for one developer who knows the codebase. S is up to 2 days, M is 3 to 5 days, L is 1 to 2 weeks.
 
-**Phase 0: preparation, no behaviour change (S)**
+**Phase 0: preparation, no behaviour change (S) - done**
 
 - Add the user id claim to the JWT.
 - Add the occurrence ownership check to `SubscribeToOccurrence`.
 - Document the worker Redis ACL.
 - These are worth doing even if projects are never built.
 
-**Phase 1: data model and enforcement, Default only (L)**
+**Phase 1: data model and enforcement, Default only (L) - done, see [Phase 1 as Built](#phase-1-as-built)**
 
 - `Projects`, `ProjectMemberships`, role scope, permission scope attribute.
 - `ProjectId` columns, migration, indexes.
 - `IProjectContext`, EF named filter, save interceptor, raw SQL audit.
 - Claims transformation, header resolution, Default fallback.
-- Project-qualified worker and stats Redis keys.
+- Project-qualified worker and stats Redis keys (moved to phase 2, see below).
 - Cross-project test suite, run with two projects created directly in the test fixture.
 - Ships with project creation **disabled** behind `MilvaionConfig:Projects:Enabled=false`. Production installations run the new code on the Default project only. This is the riskiest phase, and it is shipped with no visible change.
 
@@ -546,6 +547,10 @@ Sizes are rough, for one developer who knows the codebase. S is up to 2 days, M 
 - OIDC and LDAP project mapping.
 - Dispatcher fairness.
 - Portal docs: concepts, setup, broker permissions, migration notes.
+- Project-qualified worker registry and per-project stats counters in Redis (moved here from phase 1).
+- Project-leading indexes on `JobOccurrences`, `JobOccurrenceLogs` and `WorkflowRuns` (moved here from phase 1).
+- Split mixed roles in the database and seed the three project roles (moved here from phase 1).
+- Secret references per project (see [Phase 1 as Built](#phase-1-as-built)).
 - Flip `Projects:Enabled` to `true` by default.
 
 **Phase 3: reports, quotas and polish (M)**
@@ -566,6 +571,28 @@ Sizes are rough, for one developer who knows the codebase. S is up to 2 days, M 
 Total: roughly 6 to 8 weeks of work, with phase 1 as the single biggest risk.
 
 **Ordering with parallel work:** this feature's migration must come **after** the scheduling session's migration (time zone, catch-up, priority, calendars), because both touch `ScheduledJobs`. Calendars, if they are stored as their own entity, will need a `ProjectId` too. Secret references should exist before phase 2, so project alert channels can use them. The Rust and Ruby SDKs should get the `project` option in the same pass as the others.
+
+## Phase 1 as Built
+
+Phases 0 and 1 follow the plan above, with these differences. Each one keeps an installation that has projects
+switched off exactly as it was, or avoids work that has no effect until projects can be created.
+
+| Plan | As built | Why |
+|---|---|---|
+| The migration splits roles that mix instance and project permissions, and seeds the Owner, Editor and Viewer project roles. | No data is changed. The same rule is applied at request time: with projects enabled, the project permissions of a user's global roles apply in the Default project only, and other projects use the role of the membership. `Role.Scope` exists, and every existing role is `Instance`. | Splitting the roles would change the Roles and Users pages, which have no project UI yet. The split and the seeded roles ship with the membership UI in phase 2. |
+| Project-qualified worker and stats keys in Redis. | Unchanged keys. Workers do not declare a project before phase 2, so every worker belongs to the Default project. Requests in any other project see no workers, and the dashboard and list counts for other projects are counted from the database instead of the instance-wide Redis counters. | No benefit before workers can declare a project, and it would conflict with the parallel transport work. |
+| Project-leading indexes on every project table. | Created on `ScheduledJobs`, `Workflows`, `FailedOccurrences`, `MetricReports`, `MilvaionApiKeys`, `ActivityLogs` and (unique with the name) `ExclusionCalendars`. Not created yet on `JobOccurrences`, `JobOccurrenceLogs` and `WorkflowRuns`. Their foreign keys are created in SQL and are not part of the EF model, because EF would otherwise add an index on `ProjectId` alone. | While projects are disabled the filter is bypassed (every row is in the Default project), so these indexes would only slow down writes on the busiest tables. |
+| The filter always applies. | While projects are disabled, a resolved request bypasses the filter. Unresolved requests still match nothing. | Every row is in the Default project, so the filter could only add cost to every query. |
+| `ActivityLogManagement` is both an instance and a project permission. | It is a project permission. Activity is recorded in the project of the request. | The instance-wide view of all projects' activity comes with the "All projects" view. |
+| The `DEFAULT 1` of the `ProjectId` columns is dropped in a follow-up release. | Still the plan. It is kept on the NOT NULL columns because the Reporter worker inserts `MetricReports` with raw SQL, and the column was already dropped from the two nullable columns. | Raw SQL writers would otherwise fail. |
+| SignalR groups per project. | Phase 2. Phase 0 added the check that a `SubscribeToOccurrence` call names an occurrence in the connection's project. | The occurrence events need the project on every published payload, which comes with the project switcher. |
+
+Things the plan did not mention:
+
+- **Exclusion calendars** are project data. Their names are unique per project, and a job can only reference calendars of its own project.
+- **Secret references** (`{{secret:name}}`) resolve against instance-wide providers. Inside one project that is fine. Before a second project is created, secret names need a per-project allow-list (for example a name prefix per project, or a Vault path per project), or one project could resolve another project's secrets into its job data. This is added to phase 2.
+- **Background services** run in a system scope that sees every project. When they create rows they copy `ProjectId` from the parent row. Bulk inserts bypass `SaveChanges`, so those call sites set it explicitly, and a missing value fails loudly: the save rules reject it, and the foreign key rejects `0`. Background code that calls a request handler (a cron workflow trigger, the external job tracker) wraps the call in `IProjectContext.EnterProjectScope(projectId)`.
+- **A context created outside dependency injection** (migrations, test setup) has no project context. It sees every project, and rows it creates without a project join the Default project.
 
 ## Alternatives Considered
 

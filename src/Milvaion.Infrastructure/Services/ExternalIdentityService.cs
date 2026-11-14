@@ -1,3 +1,5 @@
+using System.Globalization;
+using Milvaion.Application.Utils.Projects;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.PermissionManager;
 using Milvaion.Domain;
@@ -221,7 +223,7 @@ public class ExternalIdentityService(IMilvaionRepositoryBase<User> userRepositor
                                     .Distinct()
                                     .Select(permission => new Claim(ClaimTypes.Role, permission));
 
-        var claims = new List<Claim> { new(ClaimTypes.Name, user.UserName) };
+        var claims = new List<Claim> { new(ClaimTypes.Name, user.UserName), new(MilvaionClaimTypes.UserId, user.Id.ToString(CultureInfo.InvariantCulture)) };
         claims.AddRange(permissionClaims);
 
         return claims;

@@ -43,9 +43,11 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
         var correlationId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
+        // The run and its step occurrences copy the workflow's project, so a cron trigger from the engine lands there too.
         var workflowRun = new WorkflowRun
         {
             Id = Guid.CreateVersion7(),
+            ProjectId = workflow.ProjectId,
             WorkflowId = workflow.Id,
             WorkflowVersion = workflow.Version,
             CorrelationId = correlationId,
@@ -63,6 +65,7 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
             workflowRun.StepOccurrences.Add(new JobOccurrence
             {
                 Id = Guid.CreateVersion7(),
+                ProjectId = workflow.ProjectId,
                 WorkflowRunId = workflowRun.Id,
                 WorkflowStepId = step.Id,
                 JobId = step.JobId!.Value,

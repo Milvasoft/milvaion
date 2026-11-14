@@ -155,6 +155,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var projectContext = scope.ServiceProvider.GetRequiredService<IProjectContext>();
 
         var now = DateTime.UtcNow;
 
@@ -185,7 +186,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                         ShouldLogActivity = false,
                     };
 
-                    await mediator.Send(command, cancellationToken);
+                    // The trigger handler is a request handler: run it in the workflow's project so the run lands there.
+                    using (projectContext.EnterProjectScope(workflow.ProjectId))
+                        await mediator.Send(command, cancellationToken);
 
                     // The slot, not the clock: recording "now" shifts the base of the next calculation on short periods.
                     // The newest elapsed slot, so that catching up after downtime fires once rather than slot by slot.
@@ -875,6 +878,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             logs.Add(new JobOccurrenceLog
             {
                 Id = Guid.CreateVersion7(),
+                ProjectId = occ.ProjectId,
                 OccurrenceId = occ.Id,
                 Timestamp = now,
                 Level = "Information",

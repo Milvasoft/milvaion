@@ -30,6 +30,12 @@ public class Role : FullAuditableEntity<int>
     public ExternalProvider Provider { get; set; } = ExternalProvider.Local;
 
     /// <summary>
+    /// Where the role applies. Instance roles are assigned to users directly; project roles are assigned through
+    /// <see cref="ProjectMembership"/> and apply only in that project.
+    /// </summary>
+    public RoleScope Scope { get; set; } = RoleScope.Instance;
+
+    /// <summary>
     /// Navigation property of users relation.
     /// </summary>
     [CascadeOnDelete]

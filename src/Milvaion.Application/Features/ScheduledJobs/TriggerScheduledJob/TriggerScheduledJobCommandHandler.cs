@@ -67,9 +67,11 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
         // 3. Create a new occurrence for manual execution
         var occurrenceId = Guid.CreateVersion7();
 
+        // Children copy the project of their parent, so the handler works the same in a request and in a background scope.
         var occurrence = new JobOccurrence
         {
             Id = occurrenceId,
+            ProjectId = job.ProjectId,
             JobId = job.Id,
             JobName = job.JobNameInWorker,
             ZombieTimeoutMinutes = job.ZombieTimeoutMinutes,
@@ -82,6 +84,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
                 new JobOccurrenceLog
                 {
                     Id = Guid.CreateVersion7(),
+                    ProjectId = job.ProjectId,
                     Timestamp = DateTime.UtcNow,
                     Level = request.Force ? "Warning" : "Information",
                     Message = request.Force
@@ -167,6 +170,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
             await _occurrenceLogRepository.AddAsync(new JobOccurrenceLog
             {
                 Id = Guid.CreateVersion7(),
+                ProjectId = job.ProjectId,
                 OccurrenceId = occurrenceId,
                 Timestamp = now,
                 Level = "Error",

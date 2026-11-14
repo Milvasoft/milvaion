@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Milvaion.Application.Utils.Projects;
 using System.Collections.Concurrent;
 using System.Security.Claims;
 
@@ -9,8 +10,13 @@ namespace Milvaion.Api.Hubs;
 /// SignalR hub for real-time job updates to dashboard.
 /// </summary>
 [Authorize]
-public class JobsHub : Hub
+public class JobsHub(IMilvaionRepositoryBase<JobOccurrence> occurrenceRepository, IProjectContext projectContext) : Hub
 {
+    private const string _projectIdItemKey = "ProjectId";
+
+    private readonly IMilvaionRepositoryBase<JobOccurrence> _occurrenceRepository = occurrenceRepository;
+    private readonly IProjectContext _projectContext = projectContext;
+
     /// <summary>
     /// Route the hub is mapped to.
     /// </summary>
@@ -39,6 +45,11 @@ public class JobsHub : Hub
     /// </summary>
     public override async Task OnConnectedAsync()
     {
+        // The connection keeps the project it was opened in (the ?project= query parameter, or Default).
+        Context.Items[_projectIdItemKey] = Context.GetHttpContext()?.Items[ProjectResolution.ItemKey] is ProjectResolution { Succeeded: true } resolution
+            ? resolution.ProjectId
+            : ProjectDefaults.DefaultProjectId;
+
         if (CanReadOccurrences())
             await Groups.AddToGroupAsync(Context.ConnectionId, OccurrenceReadersGroup);
 
@@ -52,6 +63,11 @@ public class JobsHub : Hub
     public async Task SubscribeToOccurrence(string occurrenceId)
     {
         if (!CanReadOccurrences())
+            throw new HubException("Forbidden");
+
+        // Without this check any reader could follow the logs of an occurrence it guessed or saw in a link,
+        // including one of another project.
+        if (!await IsOccurrenceInConnectionProjectAsync(occurrenceId))
             throw new HubException("Forbidden");
 
         var groupName = $"occurrence_{occurrenceId}";
@@ -119,6 +135,19 @@ public class JobsHub : Hub
     /// Get count of active tracked groups (for monitoring).
     /// </summary>
     public static int GetActiveGroupCount() => _activeGroups.Count;
+
+    private async Task<bool> IsOccurrenceInConnectionProjectAsync(string occurrenceId)
+    {
+        if (!Guid.TryParse(occurrenceId, out var id))
+            return false;
+
+        var projectId = Context.Items.TryGetValue(_projectIdItemKey, out var value) && value is int connectionProjectId ? connectionProjectId : ProjectDefaults.DefaultProjectId;
+
+        // The project is matched explicitly, so the result does not depend on how this invocation's context resolves.
+        using var systemScope = _projectContext.EnterSystemScope();
+
+        return await _occurrenceRepository.AnyAsync(o => o.Id == id && o.ProjectId == projectId, cancellationToken: Context.ConnectionAborted);
+    }
 
     private bool CanReadOccurrences() => Context.User?.FindAll(ClaimTypes.Role).Any(claim => _occurrenceReadPermissions.Contains(claim.Value)) ?? false;
 }

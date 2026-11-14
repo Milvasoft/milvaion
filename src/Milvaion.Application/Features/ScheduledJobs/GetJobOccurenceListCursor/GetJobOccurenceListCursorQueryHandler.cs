@@ -13,7 +13,7 @@ namespace Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor;
 /// </summary>
 /// <param name="milvaionDbContextAccessor"></param>
 /// <param name="redisStatsService"></param>
-public class GetJobOccurenceListCursorQueryHandler(IMilvaionDbContextAccessor milvaionDbContextAccessor, IRedisStatsService redisStatsService) : IInterceptable, IQueryHandler<GetJobOccurenceListCursorQuery, CursorListResponse<JobOccurrenceListDto>>
+public class GetJobOccurenceListCursorQueryHandler(IMilvaionDbContextAccessor milvaionDbContextAccessor, IRedisStatsService redisStatsService, IProjectContext projectContext = null) : IInterceptable, IQueryHandler<GetJobOccurenceListCursorQuery, CursorListResponse<JobOccurrenceListDto>>
 {
     private readonly IMilvaionDbContextAccessor _milvaionDbContextAccessor = milvaionDbContextAccessor;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
@@ -21,7 +21,7 @@ public class GetJobOccurenceListCursorQueryHandler(IMilvaionDbContextAccessor mi
     /// <inheritdoc/>
     public async Task<Response<CursorListResponse<JobOccurrenceListDto>>> Handle(GetJobOccurenceListCursorQuery request, CancellationToken cancellationToken)
     {
-        var manualCount = await JobOccurrenceListSearch.GetCountFromStatsAsync(request.Filtering, request.SearchTerm, _redisStatsService, cancellationToken);
+        var manualCount = await JobOccurrenceListSearch.GetCountFromStatsAsync(request.Filtering, request.SearchTerm, _redisStatsService, cancellationToken, projectContext);
 
         var context = _milvaionDbContextAccessor.GetDbContext();
 

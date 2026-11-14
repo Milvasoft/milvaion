@@ -42,6 +42,11 @@ public static class MessageKey
     public const string PostgreBasedException = nameof(PostgreBasedException);
     public const string Unauthorized = nameof(Unauthorized);
     public const string Forbidden = nameof(Forbidden);
+    public const string ProjectNotFound = nameof(ProjectNotFound);
+    public const string ProjectNotMember = nameof(ProjectNotMember);
+    public const string ProjectApiKeyMismatch = nameof(ProjectApiKeyMismatch);
+    public const string ProjectRequired = nameof(ProjectRequired);
+    public const string ProjectArchived = nameof(ProjectArchived);
     public const string DefaultValueCannotModify = nameof(DefaultValueCannotModify);
     public const string PleaseSendCorrect = nameof(PleaseSendCorrect);
     public const string IdentityInvalidUsername = nameof(IdentityInvalidUsername);

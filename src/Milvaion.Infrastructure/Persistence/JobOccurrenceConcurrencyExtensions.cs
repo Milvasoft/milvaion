@@ -27,6 +27,9 @@ public static class JobOccurrenceConcurrencyExtensions
         /// <summary>Status currently stored in the database.</summary>
         public JobOccurrenceStatus Status { get; set; }
 
+        /// <summary>Project the occurrence belongs to.</summary>
+        public int ProjectId { get; set; }
+
         /// <summary>Heartbeat currently stored in the database.</summary>
         public DateTime? LastHeartbeat { get; set; }
     }
@@ -59,7 +62,7 @@ public static class JobOccurrenceConcurrencyExtensions
             await using var transaction = await dbContext.Database.BeginTransactionAsync(ct);
 
             var rows = await dbContext.Database
-                                      .SqlQueryRaw<LockedOccurrenceRow>($"""SELECT "Id", "Status", "LastHeartbeat" FROM "{TableNames.JobOccurrences}" WHERE "Id" = ANY(@ids) ORDER BY "Id" FOR UPDATE""",
+                                      .SqlQueryRaw<LockedOccurrenceRow>($"""SELECT "Id", "Status", "LastHeartbeat", "ProjectId" FROM "{TableNames.JobOccurrences}" WHERE "Id" = ANY(@ids) ORDER BY "Id" FOR UPDATE""",
                                                                         new NpgsqlParameter("ids", ids))
                                       .ToDictionaryAsync(r => r.Id, ct);
 
@@ -69,7 +72,12 @@ public static class JobOccurrenceConcurrencyExtensions
             foreach (var occurrence in ordered)
             {
                 if (rows.TryGetValue(occurrence.Id, out var row) && canWrite(occurrence, row))
+                {
+                    // The bulk update writes ProjectId with the other columns. A candidate built in memory or from a
+                    // projection may not carry it; never write anything but the stored value.
+                    occurrence.ProjectId = row.ProjectId;
                     toWrite.Add(occurrence);
+                }
                 else
                     rejected.Add(occurrence);
             }

@@ -13,8 +13,13 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// </summary>
 [Table(SchedulerTableNames.ScheduledJobs)]
 [DontIndexCreationDate]
-public class ScheduledJob : AuditableEntity<Guid>
+public class ScheduledJob : AuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. See <see cref="IProjectScoped"/>.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Time zone used when a job does not set one.
     /// </summary>
@@ -268,6 +273,7 @@ public class ScheduledJob : AuditableEntity<Guid>
         public static Expression<Func<ScheduledJob, ScheduledJob>> CacheJob { get; } = s => new ScheduledJob
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             DisplayName = s.DisplayName,
             Description = s.Description,
             Tags = s.Tags,
@@ -299,6 +305,7 @@ public class ScheduledJob : AuditableEntity<Guid>
         public static Expression<Func<ScheduledJob, ScheduledJob>> RetryFailedOccurrence { get; } = s => new ScheduledJob
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             ConcurrentExecutionPolicy = s.ConcurrentExecutionPolicy,
             WorkerId = s.WorkerId,
             Description = s.Description,
@@ -323,6 +330,7 @@ public class ScheduledJob : AuditableEntity<Guid>
         public static Expression<Func<ScheduledJob, ScheduledJob>> CircuitBreaker { get; } = s => new ScheduledJob
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             DisplayName = s.DisplayName,
             JobNameInWorker = s.JobNameInWorker,
             IsActive = s.IsActive,

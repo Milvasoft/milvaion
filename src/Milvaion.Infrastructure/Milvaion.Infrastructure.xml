@@ -567,6 +567,12 @@
             Process batch of logs - single DB transaction for all logs.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.GetOccurrenceProjectIdsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkerLogMessage},System.Threading.CancellationToken)">
+            <summary>
+            Workers do not send the project of a log line, so it is copied from the occurrence. A line whose occurrence does
+            not exist (yet) keeps the Default project; its insert then fails on the occurrence key exactly as before projects.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.IsolatePoisonLogsAsync(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.LogCollectorService.LogItem},System.Threading.CancellationToken)">
             <summary>
             Writes a rejected batch one log at a time, so a single bad log cannot hold back the rest of the queue.
@@ -1293,6 +1299,28 @@
                     This can affect performance little bit. But you want audit every record easily you must use this :( </para>
              </remarks>
         </member>
+        <member name="F:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.ProjectFilterName">
+            <summary>
+            Name of the query filter that restricts project data to the current project.
+            Use <c>IgnoreQueryFilters([MilvaionDbContext.ProjectFilterName])</c> only in code that deliberately works across projects.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.ProjectContext">
+            <summary>
+            The project context of the scope this instance was leased in. Set by <see cref="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextScopedFactory"/>.
+            A context created directly with <c>new</c> (migrations, test setup) has none and sees every project.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.ProjectFilterBypass">
+            <summary>
+            Read by the project query filter on every query. Must stay an instance member so EF evaluates it per query.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.ProjectFilterId">
+            <summary>
+            Read by the project query filter on every query. -1 matches no row.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.SaveChanges(System.Boolean)">
             <inheritdoc/>
             <remarks>
@@ -1312,6 +1340,18 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.ConfigureProjects(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <summary>
+            Project foreign keys, indexes and the project query filter. See docs/githubdocs/PROJECTS-DESIGN.md.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext.BuildProjectFilter(System.Type,System.Boolean)">
+            <summary>
+            Builds <c>e => ProjectFilterBypass || e.ProjectId == ProjectFilterId</c> for <paramref name="clrType"/>.
+            The context members are referenced through a constant of this instance, which is how EF recognises them as
+            per-query parameters rather than values baked into the cached model.
+            </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Persistence.Context.MilvaionDbContextAccessor">
             <summary>
@@ -1364,6 +1404,41 @@
             Db context creation implementation.
             </summary>
             <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.Context.ProjectScopeViolationException">
+            <summary>
+            Thrown when a save would put project data into the wrong project or move it between projects.
+            It signals a programming error, never a user error, so it is not translated into a friendly message.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.ProjectScopeViolationException.#ctor(System.String)">
+            <summary>
+            Thrown when a save would put project data into the wrong project or move it between projects.
+            It signals a programming error, never a user error, so it is not translated into a friendly message.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Persistence.Context.ProjectSaveRules">
+            <summary>
+            Project checks applied to every <c>SaveChanges</c>. Bulk operations bypass <c>SaveChanges</c>; their callers set
+            <c>ProjectId</c> themselves, copied from the parent row.
+            </summary>
+            <remarks>
+            <list type="bullet">
+            <item>Added rows get the current project when they have none, and are rejected when they name another project.</item>
+            <item>In a system scope added rows must already carry their project (copied from their parent).</item>
+            <item>A context without a project context (created outside dependency injection) puts rows without a project into the Default project.</item>
+            <item>Inside a request whose project is unresolved, project rows cannot be added at all.</item>
+            <item>An update never writes a missing project id (an entity loaded through a projection) and never moves a row.</item>
+            <item>Inside a request, rows of another project cannot be updated or deleted.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Persistence.Context.ProjectSaveRules.Apply(Microsoft.EntityFrameworkCore.ChangeTracking.ChangeTracker,Milvaion.Application.Interfaces.IProjectContext)">
+            <summary>
+            Applies the rules to the tracked changes.
+            </summary>
+            <param name="changeTracker">Change tracker of the context being saved.</param>
+            <param name="projectContext">Project context of the context, or null for a context created outside dependency injection.</param>
         </member>
         <member name="T:Milvaion.Infrastructure.Persistence.DatabaseMigrator">
             <summary>
@@ -1467,6 +1542,9 @@
         </member>
         <member name="P:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow.Status">
             <summary>Status currently stored in the database.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow.ProjectId">
+            <summary>Project the occurrence belongs to.</summary>
         </member>
         <member name="P:Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow.LastHeartbeat">
             <summary>Heartbeat currently stored in the database.</summary>
@@ -2456,6 +2534,81 @@
             </summary>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Infrastructure.Services.Projects.ProjectContext">
+            <summary>
+            Default <see cref="T:Milvaion.Application.Interfaces.IProjectContext"/>. Stateless apart from an async-local system scope counter, so it is registered
+            as a singleton and can be used from singletons such as the worker registry.
+            </summary>
+            <remarks>
+            The state is derived on every read:
+            <list type="number">
+            <item>Inside <see cref="M:Milvaion.Infrastructure.Services.Projects.ProjectContext.EnterSystemScope"/>: <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.System"/>.</item>
+            <item>No HTTP request (background services): <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.System"/>.</item>
+            <item>The request's <see cref="T:Milvaion.Application.Utils.Projects.ProjectResolution"/> succeeded: <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.Resolved"/>.</item>
+            <item>Otherwise: <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.Unresolved"/>, which matches no rows.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectContext.#ctor(Microsoft.AspNetCore.Http.IHttpContextAccessor,Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.ProjectsOptions})">
+            <summary>
+            Default <see cref="T:Milvaion.Application.Interfaces.IProjectContext"/>. Stateless apart from an async-local system scope counter, so it is registered
+            as a singleton and can be used from singletons such as the worker registry.
+            </summary>
+            <remarks>
+            The state is derived on every read:
+            <list type="number">
+            <item>Inside <see cref="M:Milvaion.Infrastructure.Services.Projects.ProjectContext.EnterSystemScope"/>: <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.System"/>.</item>
+            <item>No HTTP request (background services): <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.System"/>.</item>
+            <item>The request's <see cref="T:Milvaion.Application.Utils.Projects.ProjectResolution"/> succeeded: <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.Resolved"/>.</item>
+            <item>Otherwise: <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.Unresolved"/>, which matches no rows.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Projects.ProjectContext.Kind">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Projects.ProjectContext.ProjectId">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Projects.ProjectContext.ProjectSlug">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Projects.ProjectContext.BypassFilter">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectContext.EnterSystemScope">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectContext.EnterProjectScope(System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Projects.ProjectDirectory">
+            <summary>
+            Default <see cref="T:Milvaion.Application.Interfaces.IProjectDirectory"/>. Results are cached in memory for <see cref="P:Milvaion.Application.Utils.Models.Options.ProjectsOptions.CacheSeconds"/>,
+            so a membership change on another API instance takes effect within that time.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectDirectory.#ctor(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory,Microsoft.Extensions.Caching.Memory.IMemoryCache,Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.ProjectsOptions})">
+            <summary>
+            Default <see cref="T:Milvaion.Application.Interfaces.IProjectDirectory"/>. Results are cached in memory for <see cref="P:Milvaion.Application.Utils.Models.Options.ProjectsOptions.CacheSeconds"/>,
+            so a membership change on another API instance takes effect within that time.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectDirectory.FindBySlugAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectDirectory.FindByIdAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectDirectory.FindUserIdAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectDirectory.GetMembershipPermissionsAsync(System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Projects.ProjectDirectory.InvalidateUser(System.Int32)">
+            <inheritdoc/>
+        </member>
         <member name="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory">
              <summary>
              Manages RabbitMQ connection lifecycle.
@@ -2991,13 +3144,21 @@
             Uses Redis Hashes with TTL for automatic zombie detection.
             Returns CachedWorker models (not DB entities).
             </summary>
+            <remarks>
+            Workers do not declare a project yet, so every registered worker belongs to the Default project. Requests running
+            in any other project see no workers. Background services run in a system scope and see all of them.
+            </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RedisOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Interfaces.IProjectContext)">
             <summary>
             Redis-based worker tracking implementation.
             Uses Redis Hashes with TTL for automatic zombie detection.
             Returns CachedWorker models (not DB entities).
             </summary>
+            <remarks>
+            Workers do not declare a project yet, so every registered worker belongs to the Default project. Requests running
+            in any other project see no workers. Background services run in a system scope and see all of them.
+            </remarks>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.RegisterWorkerAsync(Milvasoft.Milvaion.Sdk.Models.WorkerDiscoveryRequest,System.Threading.CancellationToken)">
             <inheritdoc/>

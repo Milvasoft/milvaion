@@ -432,6 +432,30 @@ Milvaion can federate login to an external identity provider in addition to loca
 
 > Identity (name, email, group membership) is owned by the provider; the **permission set** of each mirrored role is assigned inside Milvaion. Full field reference for OIDC and LDAP is in the [Security guide](./12-security.md#external-identity-providers-sso).
 
+### Projects Configuration (Preview)
+
+Projects let several teams share one installation, with each team's jobs, workflows, occurrences and api keys kept
+apart. The groundwork is in place, but projects cannot be created or managed from the dashboard yet, so leave this
+switched off. Until then every installation has a single project, **Default**, which holds all data.
+
+```json
+{
+  "MilvaionConfig": {
+    "Projects": {
+      "Enabled": false,
+      "RequireExplicitProject": false,
+      "CacheSeconds": 30
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `Projects:Enabled` | `false` | When `false`, every request runs in the Default project and permissions work exactly as before. When `true`, the API reads the project of each request from the `X-Milvaion-Project` header (or the project of the api key) and applies permissions per project. |
+| `Projects:RequireExplicitProject` | `false` | When `true` and projects are enabled, users must name the project in every request. When `false`, a request without the header runs in the Default project. |
+| `Projects:CacheSeconds` | `30` | How long project and membership lookups are cached in memory by each API instance. |
+
 ---
 
 ## Worker Configuration

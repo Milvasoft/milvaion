@@ -523,6 +523,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             var occurrence = new JobOccurrence
             {
                 Id = correlationId,
+                ProjectId = job.ProjectId,
                 CorrelationId = correlationId,
                 JobId = job.Id,
                 JobName = job.JobNameInWorker,
@@ -552,6 +553,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 logsToInsert.Add(new()
                 {
                     Id = Guid.CreateVersion7(),
+                    ProjectId = job.ProjectId,
                     OccurrenceId = correlationId,
                     Timestamp = now,
                     Level = "Information",
@@ -573,6 +575,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             occurrencesAsEvents.Add(new JobOccurrence
             {
                 Id = correlationId,
+                ProjectId = job.ProjectId,
                 JobId = job.Id,
                 JobName = job.DisplayName,
                 JobDisplayName = job.DisplayName,
@@ -618,6 +621,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         return new JobOccurrenceLog
         {
             Id = Guid.CreateVersion7(),
+            ProjectId = job.ProjectId,
             OccurrenceId = occurrenceId,
             Timestamp = DateTime.UtcNow,
             Level = decision.Kind == RunDecisionKind.CatchUp ? "Warning" : "Information",
@@ -837,7 +841,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             occurrence.Status = JobOccurrenceStatus.Failed;
             occurrence.Exception = "The schedule could not be advanced in Redis, so this occurrence was not dispatched. The job stays due and will fire again.";
 
-            logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", occurrence.Exception));
+            logsToInsert.Add(NewDispatchLog(occurrence, "Warning", occurrence.Exception));
 
             abandoned.Add(occurrence);
 
@@ -859,7 +863,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             _logger.Error("Failed to publish job {JobId} to RabbitMQ", job.Id);
 
             occurrence.Exception = "Failed to publish to RabbitMQ";
-            logsToInsert.Add(NewDispatchLog(occurrence.Id, "Warning", "Failed to publish to RabbitMQ"));
+            logsToInsert.Add(NewDispatchLog(occurrence, "Warning", "Failed to publish to RabbitMQ"));
 
             retry.Add(occurrence);
         }
@@ -870,7 +874,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
             occurrence.Status = JobOccurrenceStatus.Failed;
             occurrence.Exception = ex.Message;
-            logsToInsert.Add(NewDispatchLog(occurrence.Id, "Error", ex.Message));
+            logsToInsert.Add(NewDispatchLog(occurrence, "Error", ex.Message));
 
             abandoned.Add(occurrence);
         }
@@ -881,16 +885,17 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         catch (Exception ex)
         {
             occurrence.Exception = $"Dispatch exception: {ex.Message}";
-            logsToInsert.Add(NewDispatchLog(occurrence.Id, "Error", $"Exception during dispatch: {ex.Message}"));
+            logsToInsert.Add(NewDispatchLog(occurrence, "Error", $"Exception during dispatch: {ex.Message}"));
 
             retry.Add(occurrence);
         }
     }
 
-    private static JobOccurrenceLog NewDispatchLog(Guid occurrenceId, string level, string message, Dictionary<string, object> data = null) => new()
+    private static JobOccurrenceLog NewDispatchLog(JobOccurrence occurrence, string level, string message, Dictionary<string, object> data = null) => new()
     {
         Id = Guid.CreateVersion7(),
-        OccurrenceId = occurrenceId,
+        ProjectId = occurrence.ProjectId,
+        OccurrenceId = occurrence.Id,
         Timestamp = DateTime.UtcNow,
         Level = level,
         Message = message,
@@ -920,7 +925,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             _logger.Debug("Occurrence {OccurrenceId} failed to dispatch (attempt {Attempt}). Next retry at {RetryTime} (in {Delay}s)",
                 failedOccurrence.Id, failedOccurrence.DispatchRetryCount, nextRetryTime, retryDelaySeconds);
 
-            logsToInsert.Add(NewDispatchLog(failedOccurrence.Id,
+            logsToInsert.Add(NewDispatchLog(failedOccurrence,
                                             "Warning",
                                             $"Dispatch failed (attempt {failedOccurrence.DispatchRetryCount}). Scheduled for retry at {nextRetryTime:HH:mm:ss}",
                                             new Dictionary<string, object>
@@ -1440,7 +1445,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             {
                 if (await _rabbitMQPublisher.PublishJobAsync(job, occurrence.CorrelationId, cancellationToken))
                 {
-                    retryLogs.Add(NewDispatchLog(occurrence.Id, "Information", $"Dispatch retry successful (attempt {occurrence.DispatchRetryCount})"));
+                    retryLogs.Add(NewDispatchLog(occurrence, "Information", $"Dispatch retry successful (attempt {occurrence.DispatchRetryCount})"));
                     successfulRetries.Add(occurrence);
 
                     _logger.Debug("Occurrence {OccurrenceId} successfully dispatched on retry attempt {Attempt}", occurrence.Id, occurrence.DispatchRetryCount);
@@ -1453,7 +1458,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             catch (SecretResolutionException ex)
             {
                 MarkDispatchFailed(occurrence, ex.Message);
-                retryLogs.Add(NewDispatchLog(occurrence.Id, "Error", ex.Message));
+                retryLogs.Add(NewDispatchLog(occurrence, "Error", ex.Message));
                 failedRetries.Add(occurrence);
 
                 continue;
@@ -1473,13 +1478,13 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             {
                 MarkDispatchFailed(occurrence, failureReason);
 
-                retryLogs.Add(NewDispatchLog(occurrence.Id, "Error", $"Max dispatch retry attempts reached ({_maxDispatchRetryAttempts}). Marking as failed."));
+                retryLogs.Add(NewDispatchLog(occurrence, "Error", $"Max dispatch retry attempts reached ({_maxDispatchRetryAttempts}). Marking as failed."));
             }
             else
             {
                 var (nextRetryAt, _) = ScheduleNextDispatchRetry(occurrence);
 
-                retryLogs.Add(NewDispatchLog(occurrence.Id, "Warning", $"Dispatch retry failed (attempt {occurrence.DispatchRetryCount}). Next retry at {nextRetryAt:HH:mm:ss}"));
+                retryLogs.Add(NewDispatchLog(occurrence, "Warning", $"Dispatch retry failed (attempt {occurrence.DispatchRetryCount}). Next retry at {nextRetryAt:HH:mm:ss}"));
             }
 
             failedRetries.Add(occurrence);

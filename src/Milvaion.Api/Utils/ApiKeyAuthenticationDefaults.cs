@@ -18,6 +18,11 @@ public static class ApiKeyAuthenticationDefaults
     public const string ApiKeyIdClaimName = "akid";
 
     /// <summary>
+    /// Claim carrying the id of the project the key belongs to.
+    /// </summary>
+    public const string ApiKeyProjectIdClaimName = "akpid";
+
+    /// <summary>
     /// Prefix of an api key principal's name. User names cannot contain ':', so it cannot collide with an account.
     /// </summary>
     public const string PrincipalNamePrefix = "apikey:";

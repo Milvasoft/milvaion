@@ -85,6 +85,10 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
 
         var dbContext = _serviceProvider.GetService<MilvaionDbContext>();
 
+        // Test setup seeds rows directly. Without a project context they join the Default project, the way rows
+        // written before projects existed did; tests that need another project set ProjectId themselves.
+        dbContext.ProjectContext = null;
+
         await dbContext.Database.ExecuteSqlRawAsync(CustomWebApplicationFactory.ResetAutoIncrementQuery);
 
         await _factory.CreateRespawner();
@@ -151,6 +155,8 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
         _contextScopes.Add(scope);
 
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+        dbContext.ProjectContext = null;
 
         return dbContext;
     }

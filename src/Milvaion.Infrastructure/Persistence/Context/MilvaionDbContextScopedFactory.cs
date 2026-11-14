@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Milvaion.Application.Interfaces;
 using Milvasoft.DataAccess.EfCore.Configuration;
 
 namespace Milvaion.Infrastructure.Persistence.Context;
@@ -27,6 +28,7 @@ public class MilvaionDbContextScopedFactory(IDbContextFactory<MilvaionDbContext>
 
         context.ServiceProvider = serviceProvider;
         context.SetDataAccessConfiguration(dataAccessConfiguration);
+        context.ProjectContext = serviceProvider.GetService(typeof(IProjectContext)) as IProjectContext;
 
         return context;
     }

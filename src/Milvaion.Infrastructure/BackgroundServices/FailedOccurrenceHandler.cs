@@ -211,6 +211,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
         var failedJob = new FailedOccurrence
         {
             Id = Guid.CreateVersion7(),
+            ProjectId = occurrence.ProjectId,
             JobId = message.Id,
             OccurrenceId = occurrence.Id,
             CorrelationId = correlationId,

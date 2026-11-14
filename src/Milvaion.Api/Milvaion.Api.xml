@@ -932,6 +932,56 @@
             </summary>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Api.Controllers.ExclusionCalendarsController">
+            <summary>
+            Exclusion calendar endpoints. A calendar holds days on which the jobs that reference it do not run.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExclusionCalendarsController.#ctor(MediatR.IMediator)">
+            <summary>
+            Exclusion calendar endpoints. A calendar holds days on which the jobs that reference it do not run.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExclusionCalendarsController.GetExclusionCalendarsAsync(Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarList.GetExclusionCalendarListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Lists exclusion calendars.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExclusionCalendarsController.GetExclusionCalendarAsync(Milvaion.Application.Features.ExclusionCalendars.GetExclusionCalendarDetail.GetExclusionCalendarDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets one exclusion calendar with the jobs that use it.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExclusionCalendarsController.AddExclusionCalendarAsync(Milvaion.Application.Features.ExclusionCalendars.CreateExclusionCalendar.CreateExclusionCalendarCommand,System.Threading.CancellationToken)">
+            <summary>
+            Creates an exclusion calendar.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExclusionCalendarsController.UpdateExclusionCalendarAsync(Milvaion.Application.Features.ExclusionCalendars.UpdateExclusionCalendar.UpdateExclusionCalendarCommand,System.Threading.CancellationToken)">
+            <summary>
+            Replaces an exclusion calendar. Every field is written, so send the full calendar.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.ExclusionCalendarsController.RemoveExclusionCalendarAsync(Milvaion.Application.Features.ExclusionCalendars.DeleteExclusionCalendar.DeleteExclusionCalendarCommand,System.Threading.CancellationToken)">
+            <summary>
+            Deletes an exclusion calendar. Refused while any job still references it.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
         <member name="T:Milvaion.Api.Controllers.ExportsController">
             <summary>
             Export endpoints.
@@ -1566,6 +1616,11 @@
             SignalR hub for real-time job updates to dashboard.
             </summary>
         </member>
+        <member name="M:Milvaion.Api.Hubs.JobsHub.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IProjectContext)">
+            <summary>
+            SignalR hub for real-time job updates to dashboard.
+            </summary>
+        </member>
         <member name="F:Milvaion.Api.Hubs.JobsHub.Route">
             <summary>
             Route the hub is mapped to.
@@ -1660,6 +1715,75 @@
             <summary>
             Name of the current caller, for logging and for stamping trigger reasons.
             </summary>
+        </member>
+        <member name="T:Milvaion.Api.Mcp.MilvaionCalendarTools">
+            <summary>
+            MCP tools covering exclusion calendars: named sets of days on which the jobs that reference them do not run.
+            </summary>
+            <remarks>
+            Like the job tools, every tool sends the same MediatR request the REST API uses.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionCalendarTools.#ctor(MediatR.IMediator,Milvaion.Api.Mcp.McpPermissionGuard)">
+            <summary>
+            MCP tools covering exclusion calendars: named sets of days on which the jobs that reference them do not run.
+            </summary>
+            <remarks>
+            Like the job tools, every tool sends the same MediatR request the REST API uses.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionCalendarTools.ListExclusionCalendarsAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Lists exclusion calendars.
+            </summary>
+            <param name="searchTerm">Free text search over calendar names.</param>
+            <param name="cancellationToken"></param>
+            <returns>The calendars with their entry counts.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionCalendarTools.GetExclusionCalendarAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Gets one exclusion calendar.
+            </summary>
+            <param name="calendarId">Calendar id.</param>
+            <param name="cancellationToken"></param>
+            <returns>The calendar and the jobs that use it.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the calendar does not exist.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionCalendarTools.CreateExclusionCalendarAsync(System.String,System.String,System.Collections.Generic.List{System.DateOnly},System.Collections.Generic.List{Milvaion.Domain.JsonModels.ExclusionDateRange},System.Collections.Generic.List{System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            Creates an exclusion calendar.
+            </summary>
+            <param name="name">Unique name.</param>
+            <param name="description">Description.</param>
+            <param name="dates">Single excluded dates.</param>
+            <param name="dateRanges">Excluded ranges.</param>
+            <param name="weekdays">Excluded weekdays.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the new calendar.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the calendar could not be created.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionCalendarTools.UpdateExclusionCalendarAsync(System.Guid,System.String,System.String,System.Collections.Generic.List{System.DateOnly},System.Collections.Generic.List{Milvaion.Domain.JsonModels.ExclusionDateRange},System.Collections.Generic.List{System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            Replaces an exclusion calendar.
+            </summary>
+            <param name="calendarId">Calendar id.</param>
+            <param name="name">Unique name.</param>
+            <param name="description">Description.</param>
+            <param name="dates">Single excluded dates.</param>
+            <param name="dateRanges">Excluded ranges.</param>
+            <param name="weekdays">Excluded weekdays.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the calendar.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the calendar could not be updated.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionCalendarTools.DeleteExclusionCalendarAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Deletes an exclusion calendar.
+            </summary>
+            <param name="calendarId">Calendar id.</param>
+            <param name="cancellationToken"></param>
+            <returns>Id of the deleted calendar.</returns>
+            <exception cref="T:ModelContextProtocol.McpException">Thrown when the calendar could not be deleted.</exception>
         </member>
         <member name="T:Milvaion.Api.Mcp.MilvaionDiagnosticsTools">
             <summary>
@@ -2068,7 +2192,7 @@
             <returns>Id of the updated job and the settings applied.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be updated.</exception>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.CreateJobAsync(System.String,System.String,System.String,System.String,System.Nullable{System.DateTime},System.String,System.String,System.String,System.Boolean,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.CreateJobAsync(System.String,System.String,System.String,System.String,System.Nullable{System.DateTime},System.String,System.String,System.String,System.Boolean,System.String,System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.MissedRunPolicy},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
             <summary>
             Creates a scheduled job.
             </summary>
@@ -2081,11 +2205,16 @@
             <param name="description">Description of the job.</param>
             <param name="tags">Comma separated tags.</param>
             <param name="isActive">Whether the job starts out scheduled.</param>
+            <param name="timeZoneId">IANA time zone for the cron expression.</param>
+            <param name="missedRunPolicy">Missed-run policy.</param>
+            <param name="maxCatchUpRuns">Maximum catch-up runs for RunAll.</param>
+            <param name="priority">Dispatch priority, 0 to 9.</param>
+            <param name="exclusionCalendarIds">Exclusion calendar ids.</param>
             <param name="cancellationToken"></param>
             <returns>Id of the created job.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be created.</exception>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.UpdateJobAsync(System.Guid,System.String,System.String,System.String,System.String,System.String,System.Nullable{System.Int32},System.Nullable{System.Int32},System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.ConcurrentExecutionPolicy},System.String,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionJobTools.UpdateJobAsync(System.Guid,System.String,System.String,System.String,System.String,System.String,System.Nullable{System.Int32},System.Nullable{System.Int32},System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.ConcurrentExecutionPolicy},System.String,System.String,System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.MissedRunPolicy},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
             <summary>
             Updates a scheduled job. Only the arguments that are supplied are changed.
             </summary>
@@ -2108,6 +2237,11 @@
             <param name="zombieTimeoutMinutes">New zombie timeout, or null to leave unchanged.</param>
             <param name="concurrentExecutionPolicy">New concurrency policy, or null to leave unchanged.</param>
             <param name="jobType">New job type on the worker, or null to leave unchanged.</param>
+            <param name="timeZoneId">IANA time zone for the cron expression.</param>
+            <param name="missedRunPolicy">Missed-run policy.</param>
+            <param name="maxCatchUpRuns">Maximum catch-up runs for RunAll.</param>
+            <param name="priority">Dispatch priority, 0 to 9.</param>
+            <param name="exclusionCalendarIds">Exclusion calendar ids.</param>
             <param name="cancellationToken"></param>
             <returns>Id of the updated job.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the job could not be updated.</exception>
@@ -2409,6 +2543,25 @@
             <param name="exceptionObject"></param>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Api.Middlewares.ProjectGuardMiddleware">
+            <summary>
+            Runs between authentication and authorization. Makes sure every request has a project resolution in
+            <c>HttpContext.Items</c> (the Default project for anonymous requests), answers requests whose project cannot be
+            used, and blocks writes to archived projects.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Middlewares.ProjectGuardMiddleware.#ctor(Microsoft.AspNetCore.Http.RequestDelegate)">
+            <summary>
+            Runs between authentication and authorization. Makes sure every request has a project resolution in
+            <c>HttpContext.Items</c> (the Default project for anonymous requests), answers requests whose project cannot be
+            used, and blocks writes to archived projects.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Middlewares.ProjectGuardMiddleware.InvokeAsync(Microsoft.AspNetCore.Http.HttpContext)">
+            <summary>
+            Invokes the middleware.
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Migrations.InitialCreate">
             <inheritdoc />
         </member>
@@ -2614,6 +2767,47 @@
         <member name="M:Milvaion.Api.Migrations.FixTurkishNormalization.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:Milvaion.Api.Migrations.AddSchedulingFeatures">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddSchedulingFeatures.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+            <remarks>
+            Existing jobs get the values that reproduce their behaviour from before these settings existed: UTC, the RunOnce
+            missed-run policy, priority 0 and no calendars. MaxCatchUpRuns gets its default of 10 so that switching a job
+            to RunAll later does not start from a zero limit.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddSchedulingFeatures.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddSchedulingFeatures.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations._20261113233320_AddProjects">
+            <inheritdoc />
+            <remarks>
+            Introduces projects (docs/githubdocs/PROJECTS-DESIGN.md, phase 1). Everything that exists joins the Default project.
+            <list type="bullet">
+            <item>Every ProjectId column is added with the constant default 1. PostgreSQL stores such a default in the catalog,
+            so even the largest tables are not rewritten. The NOT NULL columns keep the default for now, because the reporter
+            worker and other raw SQL writers insert rows without naming the column; it is dropped once they set it.</item>
+            <item>Foreign keys are added NOT VALID and validated after the transaction has committed. Validation only takes a
+            lock that lets writes continue, and the brief exclusive locks of the column changes are not held during the scan.</item>
+            <item>The occurrence, log and run tables get no index on ProjectId yet: every row has the same value until other
+            projects exist. Their foreign keys are created here in SQL and are not part of the EF model, for the same reason.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Migrations._20261113233320_AddProjects.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations._20261113233320_AddProjects.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations._20261113233320_AddProjects.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">
             <summary>
             Applies migrations when the application starts.
@@ -2682,7 +2876,7 @@
             <param name="IsRevoked">Whether the key has been revoked.</param>
             <param name="Permissions">Permission names granted to the key.</param>
         </member>
-        <member name="M:Milvaion.Api.Services.CachedApiKey.#ctor(System.Int32,System.String,System.Int32,System.Nullable{System.DateTime},System.Boolean,System.Collections.Generic.List{System.String})">
+        <member name="M:Milvaion.Api.Services.CachedApiKey.#ctor(System.Int32,System.String,System.Int32,System.Nullable{System.DateTime},System.Boolean,System.Collections.Generic.List{System.String},System.Nullable{System.Int32})">
             <summary>
             Authentication state of an api key, as cached.
             </summary>
@@ -2755,6 +2949,109 @@
             Returns true when a <c>LastUsedAt</c> write is due for this key, and claims the write window.
             </summary>
         </member>
+        <member name="T:Milvaion.Api.Services.Projects.ProjectClaimsTransformation">
+            <summary>
+            Puts the caller's permissions in the request's project into the principal, so <c>[Auth]</c> and the MCP permission
+            guard keep working unchanged. Runs after every successful authentication, including the ones the authorization
+            policy performs per scheme, so it is idempotent: it always starts from the principal the handler produced.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Services.Projects.ProjectClaimsTransformation.#ctor(Microsoft.AspNetCore.Http.IHttpContextAccessor,Milvaion.Api.Services.Projects.ProjectRequestResolver)">
+            <summary>
+            Puts the caller's permissions in the request's project into the principal, so <c>[Auth]</c> and the MCP permission
+            guard keep working unchanged. Runs after every successful authentication, including the ones the authorization
+            policy performs per scheme, so it is idempotent: it always starts from the principal the handler produced.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Services.Projects.ProjectClaimsTransformation.TransformAsync(System.Security.Claims.ClaimsPrincipal)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Api.Services.Projects.ProjectClaimsTransformation.Rebuild(System.Security.Claims.ClaimsPrincipal,System.Boolean,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            Copies <paramref name="principal"/>, dropping project permissions unless <paramref name="keepProjectPermissions"/>
+            and adding <paramref name="addedPermissions"/>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Api.Services.Projects.ProjectRequestOutcome">
+            <summary>
+            The project of a request and the project permissions its caller holds there.
+            </summary>
+            <param name="Resolution">Which project the request runs in, or why it cannot run.</param>
+            <param name="KeepTokenProjectPermissions">
+            True when the project permissions already in the principal apply: always for api keys (they belong to one project)
+            and super admins, and for users in the Default project, where the project permissions of their roles apply.
+            </param>
+            <param name="AddedPermissions">Permissions granted by the caller's membership in the project.</param>
+        </member>
+        <member name="M:Milvaion.Api.Services.Projects.ProjectRequestOutcome.#ctor(Milvaion.Application.Utils.Projects.ProjectResolution,System.Boolean,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            The project of a request and the project permissions its caller holds there.
+            </summary>
+            <param name="Resolution">Which project the request runs in, or why it cannot run.</param>
+            <param name="KeepTokenProjectPermissions">
+            True when the project permissions already in the principal apply: always for api keys (they belong to one project)
+            and super admins, and for users in the Default project, where the project permissions of their roles apply.
+            </param>
+            <param name="AddedPermissions">Permissions granted by the caller's membership in the project.</param>
+        </member>
+        <member name="P:Milvaion.Api.Services.Projects.ProjectRequestOutcome.Resolution">
+            <summary>Which project the request runs in, or why it cannot run.</summary>
+        </member>
+        <member name="P:Milvaion.Api.Services.Projects.ProjectRequestOutcome.KeepTokenProjectPermissions">
+            <summary>
+            True when the project permissions already in the principal apply: always for api keys (they belong to one project)
+            and super admins, and for users in the Default project, where the project permissions of their roles apply.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Api.Services.Projects.ProjectRequestOutcome.AddedPermissions">
+            <summary>Permissions granted by the caller's membership in the project.</summary>
+        </member>
+        <member name="T:Milvaion.Api.Services.Projects.ProjectRequestResolver">
+            <summary>
+            Decides which project a request runs in and what the caller may do there. See docs/githubdocs/PROJECTS-DESIGN.md.
+            </summary>
+            <remarks>
+            <list type="number">
+            <item>An api key runs in its own project. A project header naming another project is rejected.</item>
+            <item>A user names the project with the <c>X-Milvaion-Project</c> header (or <c>?project=</c> for SignalR). Without
+            one the request runs in the Default project unless <see cref="P:Milvaion.Application.Utils.Models.Options.ProjectsOptions.RequireExplicitProject"/> is on.</item>
+            <item>Super admins may enter every project. Other users need a membership, except in the Default project.</item>
+            <item>Instance permissions always apply. Project permissions of a user's roles apply in the Default project only;
+            in other projects only the membership's role counts. This is decision 1 of the design.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Api.Services.Projects.ProjectRequestResolver.#ctor(Milvaion.Application.Interfaces.IProjectDirectory,Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Application.Utils.Models.Options.ProjectsOptions})">
+            <summary>
+            Decides which project a request runs in and what the caller may do there. See docs/githubdocs/PROJECTS-DESIGN.md.
+            </summary>
+            <remarks>
+            <list type="number">
+            <item>An api key runs in its own project. A project header naming another project is rejected.</item>
+            <item>A user names the project with the <c>X-Milvaion-Project</c> header (or <c>?project=</c> for SignalR). Without
+            one the request runs in the Default project unless <see cref="P:Milvaion.Application.Utils.Models.Options.ProjectsOptions.RequireExplicitProject"/> is on.</item>
+            <item>Super admins may enter every project. Other users need a membership, except in the Default project.</item>
+            <item>Instance permissions always apply. Project permissions of a user's roles apply in the Default project only;
+            in other projects only the membership's role counts. This is decision 1 of the design.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Api.Services.Projects.ProjectRequestResolver.DefaultResolution">
+            <summary>
+            The Default project resolution, used while projects are disabled and for anonymous requests.
+            </summary>
+            <remarks>Declared before <see cref="P:Milvaion.Api.Services.Projects.ProjectRequestResolver.DisabledOutcome"/>, which reads it: static initializers run in order.</remarks>
+        </member>
+        <member name="P:Milvaion.Api.Services.Projects.ProjectRequestResolver.DisabledOutcome">
+            <summary>
+            The outcome while projects are disabled: every request runs in the Default project with its permissions unchanged.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Services.Projects.ProjectRequestResolver.ResolveAsync(Microsoft.AspNetCore.Http.HttpContext,System.Security.Claims.ClaimsPrincipal,System.Threading.CancellationToken)">
+            <summary>
+            Resolves the project of the request for <paramref name="principal"/>.
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Services.SignalRJobOccurrenceEventPublisher">
             <summary>
             SignalR implementation of job occurrence event publisher.
@@ -2801,6 +3098,11 @@
             Claim added to every api key principal so endpoints can tell a machine caller from an interactive user.
             </summary>
         </member>
+        <member name="F:Milvaion.Api.Utils.ApiKeyAuthenticationDefaults.ApiKeyProjectIdClaimName">
+            <summary>
+            Claim carrying the id of the project the key belongs to.
+            </summary>
+        </member>
         <member name="F:Milvaion.Api.Utils.ApiKeyAuthenticationDefaults.PrincipalNamePrefix">
             <summary>
             Prefix of an api key principal's name. User names cannot contain ':', so it cannot collide with an account.
@@ -2835,7 +3137,7 @@
             Had this stayed a filter, authorization would have had to be reimplemented separately for machine callers.
             </remarks>
         </member>
-        <member name="M:Milvaion.Api.Utils.ApiKeyAuthenticationHandler.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Api.Utils.ApiKeyAuthenticationOptions},Microsoft.Extensions.Logging.ILoggerFactory,System.Text.Encodings.Web.UrlEncoder,Milvaion.Application.Utils.Models.Options.MilvaionConfig,Milvaion.Api.Services.ApiKeyStore,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey})">
+        <member name="M:Milvaion.Api.Utils.ApiKeyAuthenticationHandler.#ctor(Microsoft.Extensions.Options.IOptionsMonitor{Milvaion.Api.Utils.ApiKeyAuthenticationOptions},Microsoft.Extensions.Logging.ILoggerFactory,System.Text.Encodings.Web.UrlEncoder,Milvaion.Application.Utils.Models.Options.MilvaionConfig,Milvaion.Api.Services.ApiKeyStore,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvaion.Domain.MilvaionApiKey},Milvaion.Application.Interfaces.IProjectContext)">
             <summary>
             Authenticates requests carrying an <c>X-ApiKey</c> header.
             </summary>

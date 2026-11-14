@@ -10,8 +10,13 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// </summary>
 [Table(SchedulerTableNames.JobOccurrenceLogs)]
 [DontIndexCreationDate]
-public class JobOccurrenceLog : CreationAuditableEntity<Guid>
+public class JobOccurrenceLog : CreationAuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. See <see cref="IProjectScoped"/>.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Occurrence ID this log entry is associated with.
     /// </summary>

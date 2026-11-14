@@ -10,8 +10,13 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// </summary>
 [Table(SchedulerTableNames.MetricReports)]
 [DontIndexCreationDate]
-public class MetricReport : CreationAuditableEntity<Guid>
+public class MetricReport : CreationAuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. See <see cref="IProjectScoped"/>.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Type of the metric (e.g., FailureRate, P50P95P99, TopSlowJobs, WorkerThroughput, etc.)
     /// </summary>

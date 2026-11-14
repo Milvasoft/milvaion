@@ -13,7 +13,7 @@ namespace Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList;
 /// </summary>
 /// <param name="milvaionDbContextAccessor"></param>
 /// <param name="redisStatsService"></param>
-public class GetJobOccurrenceListQueryHandler(IMilvaionDbContextAccessor milvaionDbContextAccessor, IRedisStatsService redisStatsService) : IInterceptable, IListQueryHandler<GetJobOccurrenceListQuery, JobOccurrenceListDto>
+public class GetJobOccurrenceListQueryHandler(IMilvaionDbContextAccessor milvaionDbContextAccessor, IRedisStatsService redisStatsService, IProjectContext projectContext = null) : IInterceptable, IListQueryHandler<GetJobOccurrenceListQuery, JobOccurrenceListDto>
 {
     private readonly IMilvaionDbContextAccessor _milvaionDbContextAccessor = milvaionDbContextAccessor;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
@@ -21,7 +21,7 @@ public class GetJobOccurrenceListQueryHandler(IMilvaionDbContextAccessor milvaio
     /// <inheritdoc/>
     public async Task<ListResponse<JobOccurrenceListDto>> Handle(GetJobOccurrenceListQuery request, CancellationToken cancellationToken)
     {
-        var manualCount = await JobOccurrenceListSearch.GetCountFromStatsAsync(request.Filtering, request.SearchTerm, _redisStatsService, cancellationToken);
+        var manualCount = await JobOccurrenceListSearch.GetCountFromStatsAsync(request.Filtering, request.SearchTerm, _redisStatsService, cancellationToken, projectContext);
 
         var context = _milvaionDbContextAccessor.GetDbContext();
 

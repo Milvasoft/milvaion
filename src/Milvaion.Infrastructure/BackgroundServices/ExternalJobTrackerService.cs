@@ -288,6 +288,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             await using var scope = _serviceProvider.CreateAsyncScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            var projectContext = scope.ServiceProvider.GetRequiredService<IProjectContext>();
 
             // Deduplicate by ExternalJobId (last message wins)
             var jobsByExternalId = batch.GroupBy(m => m.ExternalJobId).ToDictionary(g => g.Key, g => g.Last());
@@ -309,6 +310,10 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             {
                 var externalId = kvp.Key;
                 var message = kvp.Value;
+
+                // External schedulers do not declare a project yet, so their jobs live in the Default project. The create and
+                // update handlers are request handlers, so they run in that project's scope.
+                using var projectScope = projectContext.EnterProjectScope(existingJobDict.TryGetValue(externalId, out var owner) ? owner.ProjectId : ProjectDefaults.DefaultProjectId);
 
                 try
                 {
@@ -569,6 +574,16 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
             if (occurrencesToInsert.Count > 0)
             {
+                // Bulk inserts bypass SaveChanges, so the project is copied from the job here.
+                var jobIds = occurrencesToInsert.Select(o => o.JobId).Distinct().ToList();
+                var jobProjects = await dbContext.ScheduledJobs.AsNoTracking()
+                                                               .Where(j => jobIds.Contains(j.Id))
+                                                               .Select(j => new { j.Id, j.ProjectId })
+                                                               .ToDictionaryAsync(j => j.Id, j => j.ProjectId, cancellationToken);
+
+                foreach (var occurrence in occurrencesToInsert)
+                    occurrence.ProjectId = jobProjects.GetValueOrDefault(occurrence.JobId, ProjectDefaults.DefaultProjectId);
+
                 await dbContext.BulkInsertAsync(occurrencesToInsert, cancellationToken: cancellationToken);
 
                 _logger.Debug("Created {Count} external job occurrences", occurrencesToInsert.Count);

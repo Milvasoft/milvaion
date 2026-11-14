@@ -1,6 +1,8 @@
-﻿using Milvasoft.Attributes.Annotations;
+﻿using Microsoft.EntityFrameworkCore;
+using Milvasoft.Attributes.Annotations;
 using Milvasoft.Core.EntityBases.Concrete;
 using Milvasoft.Core.EntityBases.Concrete.Auditing;
+using Milvasoft.Milvaion.Sdk.Domain;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -17,9 +19,15 @@ namespace Milvaion.Domain;
 /// makes revocation, expiry and last-used tracking possible.
 /// </remarks>
 [Table(TableNames.MilvaionApiKeys)]
+[Index(nameof(ProjectId))]
 [DontIndexCreationDate]
-public class MilvaionApiKey : FullAuditableEntity<int>
+public class MilvaionApiKey : FullAuditableEntity<int>, IOptionalProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. Null for an instance-wide row. See <see cref="IOptionalProjectScoped"/>.
+    /// </summary>
+    public int? ProjectId { get; set; }
+
     /// <summary>
     /// Human readable name of the key. (e.g. "CI pipeline", "Claude Code - Bugra")
     /// </summary>

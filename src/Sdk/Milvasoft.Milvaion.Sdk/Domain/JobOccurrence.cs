@@ -18,8 +18,13 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// </remarks>
 [Table(SchedulerTableNames.JobOccurrences)]
 [DontIndexCreationDate]
-public class JobOccurrence : CreationAuditableEntity<Guid>
+public class JobOccurrence : CreationAuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. See <see cref="IProjectScoped"/>.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Type name of job.
     /// </summary>
@@ -183,6 +188,7 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
         public static Expression<Func<JobOccurrence, JobOccurrence>> AddFailedOccurrence { get; } = s => new JobOccurrence
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             Status = s.Status,
             WorkerId = s.WorkerId,
             CorrelationId = s.CorrelationId,
@@ -193,6 +199,7 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
         public static Expression<Func<JobOccurrence, JobOccurrence>> RetryFailed { get; } = s => new JobOccurrence
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             JobId = s.JobId,
             Status = s.Status,
             Exception = s.Exception,
@@ -204,6 +211,7 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
         public static Expression<Func<JobOccurrence, JobOccurrence>> UpdateStatus { get; } = s => new JobOccurrence
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             Status = s.Status,
             StatusChangeLogs = s.StatusChangeLogs,
             WorkerId = s.WorkerId,
@@ -223,6 +231,7 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
         public static Expression<Func<JobOccurrence, JobOccurrence>> RecoverLostJob { get; } = s => new JobOccurrence
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             Status = s.Status,
             StatusChangeLogs = s.StatusChangeLogs,
             WorkerId = s.WorkerId,
@@ -240,6 +249,7 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
         public static Expression<Func<JobOccurrence, JobOccurrence>> DetectZombie { get; } = s => new JobOccurrence
         {
             Id = s.Id,
+            ProjectId = s.ProjectId,
             CreatedAt = s.CreatedAt,
             Status = s.Status,
             StatusChangeLogs = s.StatusChangeLogs,

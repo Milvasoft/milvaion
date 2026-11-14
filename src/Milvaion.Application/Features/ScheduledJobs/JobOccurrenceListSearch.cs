@@ -32,9 +32,12 @@ internal static class JobOccurrenceListSearch
     /// Returns the total from the Redis counters when they answer exactly this query, or null when the database has
     /// to count. The counters only know the grand total and a total per status.
     /// </summary>
-    public static async Task<int?> GetCountFromStatsAsync(FilterRequest filtering, string searchTerm, IRedisStatsService statsService, CancellationToken cancellationToken)
+    /// <remarks>
+    /// The counters cover every project, so they are used only while the project filter is bypassed (projects disabled).
+    /// </remarks>
+    public static async Task<int?> GetCountFromStatsAsync(FilterRequest filtering, string searchTerm, IRedisStatsService statsService, CancellationToken cancellationToken, IProjectContext projectContext = null)
     {
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        if (!string.IsNullOrWhiteSpace(searchTerm) || projectContext?.BypassFilter == false)
             return null;
 
         var criterias = filtering?.Criterias ?? [];

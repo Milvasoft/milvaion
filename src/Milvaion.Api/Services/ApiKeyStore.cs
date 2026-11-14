@@ -14,7 +14,7 @@ namespace Milvaion.Api.Services;
 /// <param name="ExpiresAt">UTC expiry, if any.</param>
 /// <param name="IsRevoked">Whether the key has been revoked.</param>
 /// <param name="Permissions">Permission names granted to the key.</param>
-public record CachedApiKey(int Id, string Name, int KeyVersion, DateTime? ExpiresAt, bool IsRevoked, List<string> Permissions);
+public record CachedApiKey(int Id, string Name, int KeyVersion, DateTime? ExpiresAt, bool IsRevoked, List<string> Permissions, int? ProjectId = null);
 
 /// <summary>
 /// Reads api key records for authentication, cached in Redis.
@@ -54,7 +54,8 @@ public class ApiKeyStore(IConnectionMultiplexer redis,
                                                                                                               a.KeyVersion,
                                                                                                               a.ExpiresAt,
                                                                                                               a.RevokedAt != null,
-                                                                                                              a.ApiKeyPermissionRelations.Select(p => p.Permission.PermissionGroup + "." + p.Permission.Name).ToList());
+                                                                                                              a.ApiKeyPermissionRelations.Select(p => p.Permission.PermissionGroup + "." + p.Permission.Name).ToList(),
+                                                                                                              a.ProjectId);
 
     /// <summary>
     /// Gets the api key record, from cache when possible.

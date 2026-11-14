@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Milvaion.Domain.JsonModels;
 using Milvasoft.Core.EntityBases.Concrete.Auditing;
+using Milvasoft.Milvaion.Sdk.Domain;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -17,9 +18,14 @@ namespace Milvaion.Domain;
 /// different zones.
 /// </remarks>
 [Table(TableNames.ExclusionCalendars)]
-[Index(nameof(Name), IsUnique = true)]
-public class ExclusionCalendar : AuditableEntity<Guid>
+[Index(nameof(ProjectId), nameof(Name), IsUnique = true)]
+public class ExclusionCalendar : AuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. Calendar names are unique within a project.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Unique name of the calendar.
     /// </summary>

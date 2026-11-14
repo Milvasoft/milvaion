@@ -1082,4 +1082,34 @@ Maximum file size:
   <data name="Global.MilvaionApiKeyPermissionRelation" xml:space="preserve">
     <value>Api Key/Permission Relation</value>
   </data>
+  <data name="ProjectNotFound" xml:space="preserve">
+    <value>The project named in the request does not exist.</value>
+  </data>
+  <data name="ProjectNotMember" xml:space="preserve">
+    <value>You are not a member of this project.</value>
+  </data>
+  <data name="ProjectApiKeyMismatch" xml:space="preserve">
+    <value>This api key belongs to another project.</value>
+  </data>
+  <data name="ProjectRequired" xml:space="preserve">
+    <value>Name the project of the request in the X-Milvaion-Project header.</value>
+  </data>
+  <data name="ProjectArchived" xml:space="preserve">
+    <value>The project is archived and read-only.</value>
+  </data>
+  <data name="RoleScope" xml:space="preserve">
+    <value>Role Scope</value>
+  </data>
+  <data name="RoleScope.Instance" xml:space="preserve">
+    <value>Instance</value>
+  </data>
+  <data name="RoleScope.Project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Global.Project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Global.ProjectMembership" xml:space="preserve">
+    <value>Project Membership</value>
+  </data>
 </root>

@@ -1,5 +1,6 @@
 using Milvaion.Application.Dtos.DashboardDtos;
 using Milvaion.Application.Interfaces.Redis;
+using Microsoft.EntityFrameworkCore;
 using Milvasoft.Components.CQRS.Query;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
@@ -9,7 +10,10 @@ namespace Milvaion.Application.Features.Dashboard.GetDashboard;
 /// <summary>
 /// Handles the dashboard statistics query using Redis counters (real-time, no SQL!).
 /// </summary>
-public class GetDashboardQueryHandler(IRedisStatsService redisStatsService, IRedisWorkerService redisWorkerService) : IInterceptable, IQueryHandler<GetDashboardQuery, DashboardDto>
+public class GetDashboardQueryHandler(IRedisStatsService redisStatsService,
+                                      IRedisWorkerService redisWorkerService,
+                                      IProjectContext projectContext = null,
+                                      IMilvaionDbContextAccessor dbContextAccessor = null) : IInterceptable, IQueryHandler<GetDashboardQuery, DashboardDto>
 {
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
@@ -17,10 +21,14 @@ public class GetDashboardQueryHandler(IRedisStatsService redisStatsService, IRed
     /// <inheritdoc/>
     public async Task<Response<DashboardDto>> Handle(GetDashboardQuery request, CancellationToken cancellationToken)
     {
+        // The Redis counters cover every project. Once the project filter is active they would show other projects'
+        // runs, so the current project's counts come from the database instead (per-project counters are a later phase).
+        var countFromDatabase = projectContext?.BypassFilter == false && dbContextAccessor is not null;
+
         // Get all statistics from Redis in parallel (real-time, no SQL query!)
-        var statsTask = _redisStatsService.GetStatisticsAsync(cancellationToken);
+        var statsTask = countFromDatabase ? CountByStatusAsync(cancellationToken) : _redisStatsService.GetStatisticsAsync(cancellationToken);
         var workersTask = _redisWorkerService.GetAllWorkersAsync(cancellationToken);
-        var epmTask = _redisStatsService.GetExecutionsPerMinuteAsync(cancellationToken);
+        var epmTask = countFromDatabase ? Task.FromResult(0d) : _redisStatsService.GetExecutionsPerMinuteAsync(cancellationToken);
 
         await Task.WhenAll(statsTask, workersTask, epmTask);
 
@@ -73,5 +81,30 @@ public class GetDashboardQueryHandler(IRedisStatsService redisStatsService, IRed
         };
 
         return Response<DashboardDto>.Success(statistics);
+    }
+
+    /// <summary>
+    /// The counters <see cref="IRedisStatsService.GetStatisticsAsync"/> returns, counted for the current project.
+    /// </summary>
+    private async Task<Dictionary<string, long>> CountByStatusAsync(CancellationToken cancellationToken)
+    {
+        var occurrences = dbContextAccessor.GetDbContext().Set<JobOccurrence>();
+
+        var byStatus = await occurrences.GroupBy(o => o.Status)
+                                        .Select(g => new { Status = g.Key, Count = g.LongCount() })
+                                        .ToListAsync(cancellationToken);
+
+        var durations = await occurrences.Where(o => o.DurationMs != null)
+                                         .GroupBy(o => 1)
+                                         .Select(g => new { Sum = g.Sum(o => o.DurationMs ?? 0), Count = g.LongCount() })
+                                         .FirstOrDefaultAsync(cancellationToken);
+
+        var stats = byStatus.ToDictionary(s => s.Status.ToString(), s => s.Count);
+
+        stats["Total"] = byStatus.Sum(s => s.Count);
+        stats["DurationSum"] = durations?.Sum ?? 0;
+        stats["DurationCount"] = durations?.Count ?? 0;
+
+        return stats;
     }
 }

@@ -34,5 +34,7 @@ public static class TableNames
     public const string MilvaionApiKeyPermissionRelations = nameof(MilvaionApiKeyPermissionRelations);
     public const string AppSettings = nameof(AppSettings);
     public const string ExclusionCalendars = nameof(ExclusionCalendars);
+    public const string Projects = nameof(Projects);
+    public const string ProjectMemberships = nameof(ProjectMemberships);
 }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

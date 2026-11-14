@@ -3,7 +3,9 @@ using Milvaion.Api;
 using Milvaion.Api.AppStartup;
 using Milvaion.Api.Hubs;
 using Milvaion.Api.Middlewares;
+using Microsoft.AspNetCore.Authentication;
 using Milvaion.Api.Migrations;
+using Milvaion.Api.Services.Projects;
 using Milvaion.Application;
 using Milvaion.Application.Utils.LinkedWithFormatters;
 using Milvaion.Infrastructure;
@@ -55,6 +57,10 @@ try
     services.AddMilvaionMcp();
 
     services.AddHttpContextAccessor();
+
+    // Resolves the project of every request and the caller's permissions in it. See docs/githubdocs/PROJECTS-DESIGN.md.
+    services.AddSingleton<ProjectRequestResolver>();
+    services.AddTransient<IClaimsTransformation, ProjectClaimsTransformation>();
 
     services.AddMultiLanguageSupport(builder.Configuration);
 
@@ -156,6 +162,9 @@ try
     app.UseRateLimiter();
 
     app.UseAuthentication();
+
+    // Between the two: answers requests whose project cannot be used before authorization reports them as plain 403s.
+    app.UseMiddleware<ProjectGuardMiddleware>();
 
     app.UseAuthorization();
 

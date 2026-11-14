@@ -307,6 +307,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             zombieLogs.Add(new JobOccurrenceLog
             {
                 Id = Guid.CreateVersion7(),
+                ProjectId = occurrence.ProjectId,
                 OccurrenceId = occurrence.Id,
                 Timestamp = DateTime.UtcNow,
                 Level = "Error",
@@ -371,6 +372,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             lostLogs.Add(new JobOccurrenceLog
             {
                 Id = Guid.CreateVersion7(),
+                ProjectId = occurrence.ProjectId,
                 OccurrenceId = occurrence.Id,
                 Timestamp = DateTime.UtcNow,
                 Level = "Warning",
