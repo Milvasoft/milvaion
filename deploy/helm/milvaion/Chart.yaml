@@ -3,9 +3,9 @@ name: milvaion
 description: Milvaion distributed job scheduler - the API with its embedded dashboard, and optional built-in workers.
 type: application
 # Chart version. Bump it on every chart change and tag the release as helm-v<version>.
-version: 0.1.0
+version: 1.0.0
 # Default tag of the milvasoft/milvaion-api image. Matches src/Milvaion.Api/VERSION.
-appVersion: "1.4.8"
+appVersion: "1.5.0"
 kubeVersion: ">=1.25.0-0"
 home: https://github.com/Milvasoft/milvaion
 sources:
