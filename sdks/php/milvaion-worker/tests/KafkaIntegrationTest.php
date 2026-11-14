@@ -78,8 +78,8 @@ final class KafkaIntegrationTest extends TestCase
         @unlink($this->attempts);
 
         // The fixture reports its threads once Worker::run() has returned: only PHP's own should be left.
-        if (preg_match('/threads after run: (\d+)/', $this->workerOutput, $m)) {
-            $this->assertSame(1, (int) $m[1], 'the stopped worker left librdkafka threads running');
+        if (preg_match('/threads after run: (\d+) \(([^)]*)\)/', $this->workerOutput, $m)) {
+            $this->assertSame(1, (int) $m[1], "the stopped worker left threads running: {$m[2]}");
         }
     }
 

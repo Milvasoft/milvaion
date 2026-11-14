@@ -58,6 +58,16 @@ $worker->run();
 
 // Lets the test check that stopping destroyed every librdkafka handle: a handle left behind keeps its
 // threads running while PHP unloads the extension at exit, which crashes the process.
+// A thread that has just been joined can still be listed for a moment, so wait briefly: the threads of
+// a handle that was never destroyed stay until the process exits.
 if (is_dir('/proc/self/task')) {
-    fwrite(STDERR, 'threads after run: ' . (count(scandir('/proc/self/task')) - 2) . "\n");
+    $threads = static fn (): array => glob('/proc/self/task/*') ?: [];
+    $deadline = microtime(true) + 2;
+
+    while (count($threads()) > 1 && microtime(true) < $deadline) {
+        usleep(20_000);
+    }
+
+    $names = array_map(static fn (string $task): string => trim((string) @file_get_contents("{$task}/comm")), $threads());
+    fwrite(STDERR, 'threads after run: ' . count($names) . ' (' . implode(', ', $names) . ")\n");
 }
