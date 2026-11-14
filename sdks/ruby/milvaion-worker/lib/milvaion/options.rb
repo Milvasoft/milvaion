@@ -20,7 +20,9 @@ module Milvaion
       startup_timeout: 30,
       version: "1.0.0",
       instance_id: nil,
-      logger: nil
+      logger: nil,
+      transport: "rabbitmq",
+      kafka: nil
     }.freeze
 
     # worker_id:              identifies the worker application. Use the same value on every replica.
@@ -37,7 +39,9 @@ module Milvaion
     # version:                shown in the dashboard.
     # instance_id:            overrides the generated "{worker_id}-{8 hex}" id. Must be unique per process.
     # logger:                 a Logger. Defaults to one that writes to $stdout at INFO.
-    attr_reader :worker_id, :rabbitmq_url, :queue_type, :redis_url, :redis_key_prefix, :max_parallel_jobs,
+    # transport:              "rabbitmq" (default) or "kafka". The API and every worker of a deployment must use the same one.
+    # kafka:                  Kafka settings (a Hash, see Milvaion::Kafka::Settings::KEYS). Only used when transport is "kafka".
+    attr_reader :transport, :kafka, :worker_id, :rabbitmq_url, :queue_type, :redis_url, :redis_key_prefix, :max_parallel_jobs,
                 :execution_timeout, :heartbeat_interval, :job_heartbeat_interval, :shutdown_timeout,
                 :startup_timeout, :version, :instance_id, :logger
 
@@ -67,6 +71,17 @@ module Milvaion
       @version = values[:version]
       @instance_id = values[:instance_id].to_s.empty? ? "#{@worker_id}-#{SecureRandom.hex(4)}" : values[:instance_id]
       @logger = values[:logger] || Logger.new($stdout, progname: "milvaion", level: Logger::INFO)
+
+      @transport = (values[:transport] || "rabbitmq").to_s.strip.downcase
+      @transport = "rabbitmq" if @transport.empty?
+      raise ArgumentError, %(transport must be "rabbitmq" or "kafka", got #{values[:transport].inspect}) unless %w[rabbitmq kafka].include?(@transport)
+
+      # Validated here, so a bad setting fails before anything connects.
+      @kafka = kafka? ? Kafka::Settings.new(values[:kafka], @max_parallel_jobs) : nil
+    end
+
+    def kafka?
+      transport == "kafka"
     end
 
     def cancellation_channel
@@ -77,6 +92,7 @@ module Milvaion
       "MILVAION_WORKER_ID" => [:worker_id, :string],
       "MILVAION_RABBITMQ_URL" => [:rabbitmq_url, :string],
       "MILVAION_RABBITMQ_QUEUE_TYPE" => [:queue_type, :string],
+      "MILVAION_TRANSPORT" => [:transport, :string],
       "MILVAION_REDIS_KEY_PREFIX" => [:redis_key_prefix, :string],
       "MILVAION_MAX_PARALLEL_JOBS" => [:max_parallel_jobs, :integer],
       "MILVAION_EXECUTION_TIMEOUT_SECONDS" => [:execution_timeout, :float],
@@ -85,8 +101,9 @@ module Milvaion
 
     # Reads MILVAION_WORKER_ID, MILVAION_RABBITMQ_URL, MILVAION_RABBITMQ_QUEUE_TYPE, MILVAION_REDIS_URL
     # ("false" disables Redis), MILVAION_REDIS_KEY_PREFIX, MILVAION_MAX_PARALLEL_JOBS,
-    # MILVAION_EXECUTION_TIMEOUT_SECONDS and MILVAION_HEARTBEAT_INTERVAL_SECONDS.
-    # Keyword arguments win over the environment.
+    # MILVAION_EXECUTION_TIMEOUT_SECONDS and MILVAION_HEARTBEAT_INTERVAL_SECONDS, and the transport
+    # from MILVAION_TRANSPORT and the MILVAION_KAFKA_* variables (see Milvaion::Kafka.options_from_env).
+    # Keyword arguments win over the environment; a kafka: Hash wins key by key.
     def self.from_env(env = ENV, **overrides)
       values = {}
 
@@ -112,7 +129,11 @@ module Milvaion
         values[:redis_url] = redis_url
       end
 
-      values.merge!(overrides)
+      kafka = Kafka.options_from_env(env)
+      kafka = kafka.merge(overrides[:kafka].to_h.transform_keys(&:to_sym)) if overrides[:kafka]
+      values[:kafka] = kafka unless kafka.empty?
+
+      values.merge!(overrides.except(:kafka))
       values[:worker_id] ||= ""
 
       new(**values)

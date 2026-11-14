@@ -6,3 +6,9 @@ gemspec
 
 gem "rake", "~> 13.0"
 gem "rspec", "~> 3.13"
+
+# The Kafka transport is optional, so rdkafka is not a dependency of the gem. Applications that
+# run on Kafka add it to their own Gemfile; the specs and CI use it from here.
+group :development, :test do
+  gem "rdkafka", ">= 0.19", "< 1"
+end

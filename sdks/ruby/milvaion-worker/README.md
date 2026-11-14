@@ -12,7 +12,7 @@ Or add it to your Gemfile:
 gem "milvaion-worker", "~> 1.0"
 ```
 
-It requires Ruby 3.1 or later, and connects to the same RabbitMQ and Redis instances as your Milvaion API. It uses [bunny](https://github.com/ruby-amqp/bunny) for RabbitMQ and [redis-rb](https://github.com/redis/redis-rb) for Redis.
+It requires Ruby 3.1 or later, and connects to the same RabbitMQ and Redis instances as your Milvaion API. It uses [bunny](https://github.com/ruby-amqp/bunny) for RabbitMQ and [redis-rb](https://github.com/redis/redis-rb) for Redis. Apache Kafka can replace RabbitMQ; see [Kafka](#kafka).
 
 ## Quick start
 
@@ -146,6 +146,8 @@ Pass these to `Milvaion::Worker.new(...)` or `Milvaion::WorkerOptions.new(...)`:
 | `version` | `1.0.0` | Shown in the dashboard |
 | `instance_id` | `{worker_id}-{8 hex}` | Must be unique per process |
 | `logger` | a `Logger` on `$stdout` at INFO | |
+| `transport` | `rabbitmq` | `rabbitmq` or `kafka`, see [Kafka](#kafka) |
+| `kafka` | none | Kafka settings, a Hash, see [Kafka](#kafka) |
 
 For containers, `Milvaion::Worker.new(Milvaion::WorkerOptions.from_env)` reads the following variables. Keyword arguments to `from_env` take precedence.
 
@@ -157,6 +159,62 @@ For containers, `Milvaion::Worker.new(Milvaion::WorkerOptions.from_env)` reads t
 - `MILVAION_MAX_PARALLEL_JOBS`
 - `MILVAION_EXECUTION_TIMEOUT_SECONDS`
 - `MILVAION_HEARTBEAT_INTERVAL_SECONDS`
+- `MILVAION_TRANSPORT` and the `MILVAION_KAFKA_*` variables listed under [Kafka](#kafka)
+
+## Kafka
+
+RabbitMQ is the default broker. A deployment can use Apache Kafka instead. The API and every worker of a deployment must use the same broker, so switch the API to Kafka too (`MilvaionConfig:Transport:Type`). Redis still carries cancellation requests, as on RabbitMQ.
+
+The Kafka client is the [rdkafka](https://github.com/karafka/rdkafka-ruby) gem (librdkafka). It is not a dependency of `milvaion-worker`, so add it to your Gemfile next to the SDK. The worker loads it only when the transport is `kafka`, and `start` raises an error that says so if it is missing.
+
+```ruby
+gem "milvaion-worker", "~> 1.0"
+gem "rdkafka", ">= 0.19"
+```
+
+rdkafka ships precompiled builds for Linux (glibc and musl) and macOS; on other platforms it compiles librdkafka when installed, which needs a C toolchain. Ruby 3.1 gets rdkafka 0.22, newer Rubies get later releases.
+
+```ruby
+worker = Milvaion::Worker.new(
+  worker_id: "mail-worker",
+  transport: "kafka",
+  kafka: {
+    brokers: ["kafka-1:9092", "kafka-2:9092"],
+    topic_prefix: "prod." # must match the API's
+  },
+  redis_url: "redis://localhost:6379"
+)
+```
+
+Handlers do not change. Jobs, outcomes, retries, logs and cancellation behave as on RabbitMQ.
+
+| `kafka:` key | Default | Description |
+|---|---|---|
+| `brokers` | `localhost:9092` | Bootstrap servers, an Array or a comma separated String |
+| `tls` | `false` | Turns TLS on. Setting any of the three files below turns it on too. |
+| `tls_ca_file` | system roots | PEM bundle used to verify the brokers |
+| `tls_cert_file`, `tls_key_file` | none | PEM client certificate and key for mutual TLS |
+| `sasl_mechanism` | none | `plain`, `scram-sha-256` or `scram-sha-512`, with `sasl_username` and `sasl_password` |
+| `topic_prefix` | empty | Put in front of every topic and consumer group name. Only `a-z A-Z 0-9 . _ -`. Must match the API's. |
+| `auto_create_topics` | `true` | Create the worker's topics, and the shared topics it writes to, at startup |
+| `num_partitions` | 12 | Partitions of the topics the worker creates |
+| `replication_factor` | -1 | Replication of the topics the worker creates. -1 uses the broker's default. |
+| `max_in_flight_per_partition` | worker `max_parallel_jobs` | Jobs of one partition that may run at the same time |
+
+`WorkerOptions.from_env` reads them from `MILVAION_TRANSPORT` (`kafka`), `MILVAION_KAFKA_BOOTSTRAP_SERVERS` (or `KAFKA_BOOTSTRAP_SERVERS`), `MILVAION_KAFKA_TLS` (`true`), `MILVAION_KAFKA_TLS_CA_FILE`, `MILVAION_KAFKA_TLS_CERT_FILE`, `MILVAION_KAFKA_TLS_KEY_FILE`, `MILVAION_KAFKA_SASL_MECHANISM`, `MILVAION_KAFKA_SASL_USERNAME`, `MILVAION_KAFKA_SASL_PASSWORD`, `MILVAION_KAFKA_TOPIC_PREFIX`, `MILVAION_KAFKA_AUTO_CREATE_TOPICS` (`false` disables it), `MILVAION_KAFKA_NUM_PARTITIONS` (or `MILVAION_KAFKA_PARTITIONS`), `MILVAION_KAFKA_REPLICATION_FACTOR` and `MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION`. Keys of a `kafka:` Hash passed to `from_env` take precedence.
+
+How it works on Kafka:
+
+- **Topics.** The worker reads `milvaion.jobs.{worker}` and `milvaion.jobs.{worker}.retry`, where `{worker}` is the worker id in lower case with every character outside `a-z 0-9 . _ -` replaced by `_`. It writes to `milvaion.status`, `milvaion.logs`, `milvaion.heartbeats`, `milvaion.registrations` and `milvaion.dlq`. All names get the topic prefix. It picks the handler by the job name in the record, so routing patterns do not decide where a job goes.
+- **Instances.** Every instance of a worker joins the consumer group `milvaion.worker.{worker}`. Partitions are shared between the instances, so a topic with 12 partitions serves at most 12 instances. Raise `num_partitions` before you scale out further.
+- **Parallelism.** An instance runs up to `max_parallel_jobs` jobs at once, also several from one partition, up to `max_in_flight_per_partition`. The per job `max_parallel_jobs` applies to RabbitMQ only. When the instance is full, it pauses the partitions and keeps polling, so it stays in the group.
+- **Commits.** A job record is committed only after its outcome has been reported. Kafka commits a position, not a single record, so a partition is committed up to its oldest unfinished job. If an instance crashes, every record after that one runs again, including jobs that had already finished. Make handlers idempotent; `ctx.occurrence_id` helps with that.
+- **Retries.** A failed attempt with retries left is written to the retry topic with a time before which it must not run (`base × 2^n`). The instance slot is free during the wait. The instance that reads the retry holds it until it is due, and the occurrence keeps sending job heartbeats meanwhile.
+- **Dead letters.** A job that fails for good goes to `milvaion.dlq` as on RabbitMQ. A record that is not a valid job is forwarded there unchanged, with the headers `x-original-topic` and `x-dlq-reason`.
+- **Shutdown.** `stop` stops taking records, waits up to `shutdown_timeout`, writes the jobs that are still running back to their topic, commits and leaves the group.
+- **Priority** is best effort: records of a partition are read in the order the API wrote them.
+
+The full wire contract is in [KAFKA-TRANSPORT.md](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/KAFKA-TRANSPORT.md).
 
 ## Reliability
 
@@ -170,7 +228,7 @@ For containers, `Milvaion::Worker.new(Milvaion::WorkerOptions.from_env)` reads t
 
 ## How it works
 
-The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses.
+The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses. On Kafka it follows [KAFKA-TRANSPORT.md](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/KAFKA-TRANSPORT.md).
 
 ## Development
 
@@ -187,4 +245,11 @@ The integration specs run a worker against a real RabbitMQ and Redis. They are s
 docker run -d --name rabbit -p 5672:5672 rabbitmq:4
 docker run -d --name redis -p 6379:6379 redis:7
 MILVAION_TEST_RABBITMQ_URL=amqp://guest:guest@localhost:5672 MILVAION_TEST_REDIS_URL=redis://localhost:6379 bundle exec rspec
+```
+
+The Kafka integration specs run against a real broker and are skipped unless `MILVAION_KAFKA_BROKERS` is set. The Gemfile adds rdkafka for development and tests.
+
+```bash
+docker run -d --name kafka -p 9092:9092 apache/kafka:3.9.0
+MILVAION_KAFKA_BROKERS=localhost:9092 bundle exec rspec
 ```

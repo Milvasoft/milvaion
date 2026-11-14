@@ -3,8 +3,18 @@
 require "json"
 
 module Milvaion
-  # One message taken from a job queue. ack is called with no arguments, nack with the requeue flag.
-  Delivery = Struct.new(:body, :headers, :correlation_id, :redelivered, :ack, :nack, keyword_init: true)
+  # One message taken from a job queue or topic. ack is called with no arguments, nack with the
+  # requeue flag: nack(true) returns the message so it runs again, nack(false) dead-letters it.
+  #
+  # reject:         optional; dead-letters a message that cannot be processed, with the reason.
+  #                 Without it nack(false) is used.
+  # schedule_retry: optional; hands a failed job to the broker for a delayed retry instead of
+  #                 waiting in process (Kafka's retry topic). Called with a RetryRequest; returns once
+  #                 the broker has accepted the retry and raises otherwise.
+  Delivery = Struct.new(:body, :headers, :correlation_id, :redelivered, :ack, :nack, :reject, :schedule_retry, keyword_init: true)
+
+  # The next attempt of a failed job. retry_count is that of the next attempt; not_before a Time.
+  RetryRequest = Struct.new(:job_id, :occurrence_id, :retry_count, :max_retries, :not_before, keyword_init: true)
 
   # Abort signals of the jobs running on this instance, keyed by occurrence id.
   class CancellationRegistry
@@ -103,7 +113,7 @@ module Milvaion
         process(delivery, consumer)
       rescue StandardError => e
         logger.error("Unexpected error while processing a job delivery: #{e.class}: #{e.message}")
-        settle { delivery.nack.call(false) }
+        reject(delivery, "unexpected error while processing the job: #{e.class}: #{e.message}")
       ensure
         change_count(-1)
       end
@@ -192,7 +202,7 @@ module Milvaion
 
       if job.nil?
         logger.error("Received a message on #{consumer.queue} that is not a valid job. Sending it to the dead letter queue.")
-        settle { delivery.nack.call(false) }
+        reject(delivery, "the message is not a valid job")
         return
       end
 
@@ -200,7 +210,7 @@ module Milvaion
 
       if occurrence_id.nil?
         logger.error("Job #{job['id']} arrived without an occurrence id. Sending it to the dead letter queue.")
-        settle { delivery.nack.call(false) }
+        reject(delivery, "the message has no occurrence id")
         return
       end
 
@@ -421,8 +431,11 @@ module Milvaion
     end
 
     # Waits out the backoff, republishes the job with a higher retry count and acks the original.
-    # The original stays unacked meanwhile, so a crash during the wait gets it redelivered.
+    # The original stays unacked meanwhile, so a crash during the wait gets it redelivered. A broker
+    # that schedules retries itself (Kafka) gets the retry right away instead.
     def retry_later(delivery, consumer, run, delay, max_retries)
+      return schedule_retry(delivery, run, delay, max_retries) if delivery.schedule_retry
+
       interval = options.job_heartbeat_interval.to_f
       remaining = delay.to_f
 
@@ -444,11 +457,65 @@ module Milvaion
                                                              headers: { "CorrelationId" => run.occurrence_id, "x-retry-count" => run.retry_count + 1, "MaxRetries" => max_retries })
       rescue StandardError => e
         logger.error("Failed to republish job #{run.job['id']} for retry. Dead-lettering the message: #{e.message}")
-        settle { delivery.nack.call(false) }
+        reject(delivery, "the job could not be republished for retry: #{e.message}")
         return
       end
 
       settle { delivery.ack.call }
+    end
+
+    # Hands the next attempt to the broker, settles the original and keeps the occurrence's job
+    # heartbeat going until the attempt is due, since the occurrence stays Running.
+    def schedule_retry(delivery, run, delay, max_retries)
+      due = Time.now + delay
+
+      begin
+        delivery.schedule_retry.call(RetryRequest.new(job_id: run.job["id"], occurrence_id: run.occurrence_id, retry_count: run.retry_count + 1,
+                                                      max_retries: max_retries, not_before: due))
+      rescue StandardError => e
+        logger.error("Failed to schedule job #{run.job['id']} for retry. Dead-lettering the message: #{e.message}")
+        reject(delivery, "the job could not be scheduled for retry: #{e.message}")
+        return
+      end
+
+      settle { delivery.ack.call }
+
+      Thread.new do
+        Thread.current.name = "milvaion-retry-heartbeat"
+        heartbeat_while_waiting(run, due)
+      end
+    end
+
+    public
+
+    # Sends Running statuses every job_heartbeat_interval for an occurrence that waits for its next
+    # attempt, until due, until stop (an AbortSignal) is triggered or the worker stops.
+    def heartbeat_while_waiting(run, due, stop = nil)
+      interval = options.job_heartbeat_interval.to_f
+      return unless interval.positive?
+
+      loop do
+        remaining = due - Time.now
+        return if remaining <= 0 || stopping?
+
+        step = [remaining, interval].min
+        return if stop ? stop.wait(step) : @shutdown.wait(step)
+
+        run.status(Status::RUNNING, reliable: false) if due > Time.now && !stopping?
+      end
+    rescue StandardError => e
+      logger.debug("Job heartbeat while waiting for a retry failed: #{e.message}")
+    end
+
+    private
+
+    # Dead-letters a message that cannot be processed.
+    def reject(delivery, reason)
+      if delivery.reject
+        settle { delivery.reject.call(reason) }
+      else
+        settle { delivery.nack.call(false) }
+      end
     end
 
     def dead_letter(delivery, run, exception, retry_count, max_retries)
@@ -465,11 +532,11 @@ module Milvaion
 
       begin
         publisher.publish(Protocol::EXCHANGE_DEAD_LETTER, Protocol::DEAD_LETTER_ROUTING_KEY, body, persistent: true, correlation_id: run.occurrence_id,
-                                                                                                  headers: { "CorrelationId" => run.occurrence_id, "x-retry-count" => retry_count, "MaxRetries" => max_retries })
+                                                                                                  key: run.occurrence_id, headers: { "CorrelationId" => run.occurrence_id, "x-retry-count" => retry_count, "MaxRetries" => max_retries })
       rescue StandardError => e
         # The queue dead-letters a rejected message itself, just without the exception details.
         logger.error("Failed to publish job #{job['id']} to the dead letter queue. Rejecting the message instead: #{e.message}")
-        settle { delivery.nack.call(false) }
+        reject(delivery, "the dead letter message could not be published: #{e.message}")
         return
       end
 
@@ -542,7 +609,7 @@ module Milvaion
       attempt = 0
 
       begin
-        @p.publisher.publish("", Protocol::QUEUE_STATUS_UPDATES, body, persistent: true)
+        @p.publisher.publish("", Protocol::QUEUE_STATUS_UPDATES, body, persistent: true, key: occurrence_id)
       rescue StandardError => e
         if attempt >= delays.size
           @p.logger.warn("Failed to publish status #{Status.name_of(status)} for occurrence #{occurrence_id}: #{e.message}")

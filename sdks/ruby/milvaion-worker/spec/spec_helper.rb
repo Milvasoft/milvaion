@@ -22,7 +22,7 @@ class FakePublisher
     @mutex = Mutex.new
   end
 
-  def publish(exchange, routing_key, body, persistent: true, correlation_id: nil, headers: nil)
+  def publish(exchange, routing_key, body, persistent: true, correlation_id: nil, headers: nil, key: nil)
     @mutex.synchronize do
       if @fail_next.positive?
         @fail_next -= 1
@@ -30,7 +30,7 @@ class FakePublisher
       end
 
       @messages << { exchange: exchange, key: routing_key, body: JSON.parse(body), raw: body, persistent: persistent,
-                     correlation_id: correlation_id, headers: headers }
+                     correlation_id: correlation_id, headers: headers, record_key: key }
     end
   end
 
@@ -123,4 +123,5 @@ RSpec.configure do |config|
   config.disable_monkey_patching!
   config.order = :random
   config.filter_run_excluding(integration: true) unless ENV["MILVAION_TEST_RABBITMQ_URL"]
+  config.filter_run_excluding(kafka: true) if ENV["MILVAION_KAFKA_BROKERS"].to_s.strip.empty?
 end
