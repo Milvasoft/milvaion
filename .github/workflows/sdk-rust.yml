@@ -27,6 +27,30 @@ jobs:
         # 1.89 is the minimum supported version (rust-version in Cargo.toml).
         rust: [ '1.89', 'stable' ]
 
+    # Single-node KRaft broker for the Kafka integration tests (tests/kafka.rs, `kafka` feature).
+    services:
+      kafka:
+        image: apache/kafka:3.9.0
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 30
+
     defaults:
       run:
         working-directory: sdks/rust/milvaion-worker
@@ -35,6 +59,8 @@ jobs:
       CARGO_TERM_COLOR: always
       # The integration test starts RabbitMQ and Redis with Docker; fail instead of skipping it.
       MILVAION_TEST_REQUIRE_BROKERS: '1'
+      # The Kafka integration tests use the service above.
+      MILVAION_KAFKA_BROKERS: localhost:9092
 
     steps:
       - name: Checkout code
@@ -55,15 +81,23 @@ jobs:
         if: matrix.rust == 'stable'
         run: cargo fmt --check
 
+      # The kafka feature builds librdkafka with CMake (preinstalled on the runner).
       - name: Clippy
         if: matrix.rust == 'stable'
         run: cargo clippy --locked --all-targets -- -D warnings
 
+      - name: Clippy (kafka)
+        if: matrix.rust == 'stable'
+        run: cargo clippy --locked --all-targets --features kafka -- -D warnings
+
       - name: Test
         run: cargo test --locked
 
+      - name: Test (kafka)
+        run: cargo test --locked --features kafka
+
       - name: Build example
-        run: cargo build --locked --examples
+        run: cargo build --locked --examples --features kafka
 
       - name: Package
         if: matrix.rust == 'stable'

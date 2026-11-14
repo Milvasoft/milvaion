@@ -32,6 +32,8 @@ mod broker;
 mod cancellation;
 mod context;
 mod error;
+#[cfg(feature = "kafka")]
+mod kafka;
 mod log_buffer;
 mod metrics;
 mod options;
@@ -44,7 +46,10 @@ mod tests;
 
 pub use context::JobContext;
 pub use error::{AbortReason, JobError, Permanent, WorkerError};
-pub use options::{generate_routing_pattern, queue_name_for_pattern, JobOptions, QueueType, WorkerOptions};
+pub use options::{
+    generate_routing_pattern, queue_name_for_pattern, JobOptions, KafkaOptions, KafkaSaslMechanism, QueueType,
+    Transport, WorkerOptions,
+};
 pub use protocol::{LogLevel, ScheduledJob, Status, SDK_VERSION};
 pub use worker::{Job, Worker};
 

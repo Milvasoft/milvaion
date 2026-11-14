@@ -10,9 +10,9 @@ The API and every worker of a deployment must use the same transport. There is n
 | API | `MilvaionConfig:Kafka` | Kafka connection and topic settings |
 | .NET worker | `Worker:Transport:Type` | `RabbitMQ` (default) or `Kafka` |
 | .NET worker | `Worker:Kafka` | Kafka connection and topic settings |
-| Node, Go, Java workers | `transport: "kafka"` option, or `MILVAION_TRANSPORT=kafka` | see each SDK's README |
+| Node, Go, Java, Python, PHP, Rust and Ruby workers | `transport` option, or `MILVAION_TRANSPORT=kafka` | see each SDK's README |
 
-Python, PHP, Rust and Ruby workers support RabbitMQ only for now. The Hangfire and Quartz adapters of the .NET SDK (external schedulers) also publish over RabbitMQ only.
+Every worker SDK supports Kafka. The Hangfire and Quartz adapters of the .NET SDK (external schedulers) publish over RabbitMQ only.
 
 ## Settings
 
@@ -90,9 +90,9 @@ Dead letter records carry `OccurrenceId`, `CorrelationId`, `x-retry-count` and `
 | `milvaion.api` | every API replica | status, logs, heartbeats, registrations, dlq, external |
 | `milvaion.worker.{worker}` | every instance of one worker | `milvaion.jobs.{worker}` and `milvaion.jobs.{worker}.retry` |
 
-The group name gets the topic prefix too. Partitions are the unit of parallelism across instances: a worker topic with 12 partitions can be shared by at most 12 instances. Within an instance, jobs run in parallel up to `MaxParallelJobs`, also from the same partition. The .NET worker also applies each job type's own `MaxParallelJobs`; a record whose job type is at its limit waits while records of other types go ahead. The Node, Go and Java SDKs apply only the instance limit on Kafka.
+The group name gets the topic prefix too. Partitions are the unit of parallelism across instances: a worker topic with 12 partitions can be shared by at most 12 instances. Within an instance, jobs run in parallel up to `MaxParallelJobs`, also from the same partition. The .NET worker also applies each job type's own `MaxParallelJobs`; a record whose job type is at its limit waits while records of other types go ahead. The Node, Go, Java, Python, PHP, Rust and Ruby SDKs apply only the instance limit on Kafka.
 
-Consumers use `enable.auto.commit=false`, `auto.offset.reset=earliest` and the `cooperative-sticky` assignor. Delivery stays **at least once**:
+Consumers use `enable.auto.commit=false`, `auto.offset.reset=earliest` and the `cooperative-sticky` assignor. The Python SDK is the exception: its client (aiokafka) has no cooperative assignor, so it uses the eager `sticky` assignor and commits the finished range of every revoked partition. Because a consumer group needs one assignor that all members support, Python instances cannot share a worker id with instances written in another language. Delivery stays **at least once**:
 
 - A worker commits a job record only after the job's outcome has been reported: the final status published, or the retry record or dead letter record produced and acknowledged by the broker.
 - The API commits a status, log, heartbeat or dead letter record only after it has been written (for batched consumers, after the batch is in the database). This is the same point at which it acks on RabbitMQ.
@@ -140,9 +140,25 @@ The dashboard's queue statistics, the health check and the MCP tools are transpo
 - **Queue statistics:** for each topic the API reports the consumer lag of the group that reads it (sum over partitions of the high watermark minus the committed offset). "Messages ready" becomes lag. RabbitMQ-only figures such as unacknowledged messages and consumer counts are reported as not available.
 - **Skip policy:** the dispatcher's "is an occurrence still queued" check uses the lag of the worker's group on its job topic.
 
+## SDK notes
+
+| SDK | Kafka client | Optional through |
+|---|---|---|
+| .NET | Confluent.Kafka | built in |
+| Node.js | kafkajs | built in |
+| Go | franz-go | built in |
+| Java | kafka-clients | built in |
+| Python | aiokafka | the `kafka` extra |
+| PHP | the `rdkafka` extension | `ext-rdkafka` in Composer `suggest` |
+| Rust | rdkafka | the `kafka` Cargo feature |
+| Ruby | rdkafka | the gem is added to the application's Gemfile |
+
+- **Python:** aiokafka has no cooperative assignor, so the Python worker uses the eager `sticky` assignor (see [Consumer groups and commits](#consumer-groups-and-commits)).
+- **PHP:** only the worker process talks to librdkafka, which is not fork safe. A job's child process reports its logs and outcome to the worker process, which produces them and commits. A PHP process runs one job at a time, so `MaxInFlightPerPartition` only limits how many records are buffered. The rdkafka extension has no admin API, so the PHP SDK creates topics with its own small CreateTopics client.
+
 ## Limits
 
 - One transport per deployment. Switching moves no messages: drain the old broker first.
 - No wildcard routing (see [Routing patterns](#routing-patterns)).
 - Partitions cap the number of worker instances that share a topic. Increase `NumPartitions` before you scale out, or add partitions to the topic with Kafka's tools.
-- Python, PHP, Rust and Ruby workers, and the Hangfire and Quartz adapters, are RabbitMQ only for now.
+- The Hangfire and Quartz adapters are RabbitMQ only for now.

@@ -288,6 +288,23 @@ Every SDK takes its options in code, or reads them from the same environment var
 | `MILVAION_EXECUTION_TIMEOUT_SECONDS` | Default job timeout |
 | `MILVAION_HEARTBEAT_INTERVAL_SECONDS` | Heartbeat interval |
 
+### Kafka
+
+Every SDK on this page can also run on Apache Kafka instead of RabbitMQ, when the API is set up for Kafka. Set `MILVAION_TRANSPORT=kafka` and point the worker at your cluster:
+
+| Variable | Meaning |
+|---|---|
+| `MILVAION_TRANSPORT` | `rabbitmq` (default) or `kafka` |
+| `MILVAION_KAFKA_BOOTSTRAP_SERVERS` | Comma separated `host:port` list. Default `localhost:9092`. |
+| `MILVAION_KAFKA_TOPIC_PREFIX` | Must match the API's `MilvaionConfig:Kafka:TopicPrefix` |
+| `MILVAION_KAFKA_SASL_MECHANISM`, `MILVAION_KAFKA_SASL_USERNAME`, `MILVAION_KAFKA_SASL_PASSWORD` | SASL: `plain`, `scram-sha-256` or `scram-sha-512` |
+| `MILVAION_KAFKA_TLS`, `MILVAION_KAFKA_TLS_CA_FILE`, `MILVAION_KAFKA_TLS_CERT_FILE`, `MILVAION_KAFKA_TLS_KEY_FILE` | TLS and mutual TLS |
+| `MILVAION_KAFKA_AUTO_CREATE_TOPICS` | `false` stops the worker from creating its topics |
+| `MILVAION_KAFKA_PARTITIONS`, `MILVAION_KAFKA_REPLICATION_FACTOR` | Partitions and replication of the topics the worker creates. Default `12` and `-1` (the broker's default). |
+| `MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION` | Jobs of one partition that may run at the same time. Default: the instance's parallel job limit. |
+
+In Python, PHP, Rust and Ruby the Kafka client is optional, so add it first (see [Using Kafka](34-using-kafka.md)). Cancellation still goes through Redis. Everything else about Kafka is described in [Using Kafka](34-using-kafka.md).
+
 Per job, you can set:
 
 - the number of parallel executions

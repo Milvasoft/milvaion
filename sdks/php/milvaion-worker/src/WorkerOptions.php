@@ -13,7 +13,13 @@ use Psr\Log\LoggerInterface;
  */
 final class WorkerOptions
 {
+    public const TRANSPORT_RABBITMQ = 'rabbitmq';
+    public const TRANSPORT_KAFKA = 'kafka';
+
     public readonly string $instanceId;
+    /** "rabbitmq" or "kafka". */
+    public readonly string $transport;
+    public readonly KafkaOptions $kafka;
 
     /**
      * @param string $workerId Identifies the worker application. Use the same value on every replica.
@@ -25,6 +31,9 @@ final class WorkerOptions
      * @param float $shutdownTimeout How long a running job may finish after SIGTERM before it is returned to the queue.
      * @param float $startupTimeout How long run() waits for RabbitMQ and Redis.
      * @param LoggerInterface|null $logger Any PSR-3 logger. Default: messages go to STDERR.
+     * @param string $transport The message broker: "rabbitmq" (default) or "kafka". The API and every
+     *        worker of a deployment must use the same one. Kafka needs ext-rdkafka.
+     * @param KafkaOptions|null $kafka Kafka settings. Only used when $transport is "kafka".
      */
     public function __construct(
         public readonly string $workerId,
@@ -40,6 +49,8 @@ final class WorkerOptions
         public readonly string $version = '1.0.0',
         ?string $instanceId = null,
         public readonly ?LoggerInterface $logger = null,
+        string $transport = self::TRANSPORT_RABBITMQ,
+        ?KafkaOptions $kafka = null,
     ) {
         if (trim($workerId) === '') {
             throw new \InvalidArgumentException('workerId is required');
@@ -49,7 +60,19 @@ final class WorkerOptions
             throw new \InvalidArgumentException("queueType must be \"classic\" or \"quorum\", got '{$queueType}'");
         }
 
+        $this->transport = strtolower(trim($transport)) ?: self::TRANSPORT_RABBITMQ;
+
+        if (!in_array($this->transport, [self::TRANSPORT_RABBITMQ, self::TRANSPORT_KAFKA], true)) {
+            throw new \InvalidArgumentException("transport must be \"rabbitmq\" or \"kafka\", got '{$transport}'");
+        }
+
+        $this->kafka = $kafka ?? new KafkaOptions();
         $this->instanceId = $instanceId ?: trim($workerId) . '-' . bin2hex(random_bytes(4));
+    }
+
+    public function usesKafka(): bool
+    {
+        return $this->transport === self::TRANSPORT_KAFKA;
     }
 
     public function quorum(): bool
@@ -65,7 +88,8 @@ final class WorkerOptions
     /**
      * Reads MILVAION_WORKER_ID, MILVAION_RABBITMQ_URL, MILVAION_RABBITMQ_QUEUE_TYPE, MILVAION_REDIS_URL
      * ("false" disables Redis), MILVAION_REDIS_KEY_PREFIX, MILVAION_EXECUTION_TIMEOUT_SECONDS and
-     * MILVAION_HEARTBEAT_INTERVAL_SECONDS. Named arguments win over the environment.
+     * MILVAION_HEARTBEAT_INTERVAL_SECONDS, and the transport from MILVAION_TRANSPORT and the
+     * MILVAION_KAFKA_* variables (see KafkaOptions::fromEnv()). Named arguments win over the environment.
      *
      * @param array<string, string>|null $env Defaults to getenv().
      */
@@ -82,6 +106,7 @@ final class WorkerOptions
             'MILVAION_REDIS_KEY_PREFIX' => ['redisKeyPrefix', 'string'],
             'MILVAION_EXECUTION_TIMEOUT_SECONDS' => ['executionTimeout', 'float'],
             'MILVAION_HEARTBEAT_INTERVAL_SECONDS' => ['heartbeatInterval', 'float'],
+            'MILVAION_TRANSPORT' => ['transport', 'string'],
         ];
 
         foreach ($map as $key => [$name, $type]) {
@@ -108,6 +133,10 @@ final class WorkerOptions
 
         $args = array_merge($args, $overrides);
         $args['workerId'] ??= '';
+
+        if (!isset($args['kafka']) && strcasecmp(trim((string) ($args['transport'] ?? '')), self::TRANSPORT_KAFKA) === 0) {
+            $args['kafka'] = KafkaOptions::fromEnv($env);
+        }
 
         return new self(...$args);
     }

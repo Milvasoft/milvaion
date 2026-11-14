@@ -24,13 +24,13 @@ class FakePublisher:
         self.fail_next = 0
 
     async def publish(self, exchange: str, routing_key: str, body: bytes, *, persistent: bool = True,
-                      correlation_id: str | None = None, headers: dict[str, Any] | None = None) -> None:
+                      correlation_id: str | None = None, headers: dict[str, Any] | None = None, key: str | None = None) -> None:
         if self.fail_next > 0:
             self.fail_next -= 1
             raise ConnectionError("publish failed")
 
         self.messages.append({"exchange": exchange, "key": routing_key, "body": json.loads(body), "raw": body,
-                              "correlation_id": correlation_id, "headers": headers})
+                              "correlation_id": correlation_id, "headers": headers, "record_key": key})
 
     def to(self, queue: str) -> list[dict[str, Any]]:
         return [m for m in self.messages if m["exchange"] == "" and m["key"] == queue]

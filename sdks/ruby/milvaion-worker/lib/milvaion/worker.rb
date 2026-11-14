@@ -8,6 +8,7 @@ require "time"
 require_relative "worker/version"
 require_relative "protocol"
 require_relative "errors"
+require_relative "kafka"
 require_relative "options"
 require_relative "context"
 require_relative "log_buffer"
@@ -16,6 +17,7 @@ require_relative "thread_pool"
 require_relative "metrics"
 require_relative "job"
 require_relative "cancellation_listener"
+require_relative "kafka_transport"
 
 module Milvaion
   # A Milvaion worker. Register jobs with #job, then call #run (blocking) or #start / #stop.
@@ -130,9 +132,12 @@ module Milvaion
       end
     end
 
-    # Connects, registers this instance and starts consuming. Raises if RabbitMQ or Redis cannot be
+    # Connects, registers this instance and starts consuming. Raises if the broker or Redis cannot be
     # reached within startup_timeout.
     def start
+      # Before anything else, so a missing rdkafka gem fails with a clear message.
+      KafkaTransport.load_rdkafka! if options.kafka?
+
       @state_mutex.synchronize do
         raise Error, "Worker cannot be started from state #{@state}." unless @state == :idle
         raise Error, "Add at least one job before starting the worker." if @jobs.empty?
@@ -141,6 +146,11 @@ module Milvaion
       end
 
       logger.info("Starting worker #{worker_id} (instance #{instance_id}) with #{@jobs.size} job type(s).")
+
+      if options.kafka?
+        @kafka = KafkaTransport.new(options, -> { register })
+        @publisher = @kafka
+      end
 
       @logs = LogBuffer.new(->(batch) { send_logs(batch) }, logger).start
       @processor = Processor.new(options, @jobs, @publisher, @logs, @cancellations)
@@ -155,7 +165,11 @@ module Milvaion
           logger.warn("Redis is disabled: jobs cannot be cancelled from the dashboard.")
         end
 
-        connect
+        if @kafka
+          @kafka.start(@processor, @pool)
+        else
+          connect
+        end
       rescue Exception # rubocop:disable Lint/RescueException -- clean up on any failure, then re-raise
         set_state(:stopped)
         close
@@ -338,7 +352,7 @@ module Milvaion
     end
 
     def register
-      @publisher.publish("", Protocol::QUEUE_WORKER_REGISTRATION, JSON.generate(build_registration), persistent: true)
+      @publisher.publish("", Protocol::QUEUE_WORKER_REGISTRATION, JSON.generate(build_registration), persistent: true, key: instance_id)
       send_heartbeat(false)
       logger.info("Registered #{worker_id} (instance #{instance_id}).")
     end
@@ -395,13 +409,14 @@ module Milvaion
                              "isStopping" => stopping
                            })
 
-      @publisher.publish("", Protocol::QUEUE_WORKER_HEARTBEAT, body, persistent: false)
+      @publisher.publish("", Protocol::QUEUE_WORKER_HEARTBEAT, body, persistent: false, key: instance_id)
     rescue StandardError => e
       logger.debug("Heartbeat failed; will retry on the next interval: #{e.message}")
     end
 
     def send_logs(batch)
-      @publisher.publish("", Protocol::QUEUE_WORKER_LOGS, JSON.generate(batch), persistent: true)
+      first = batch.is_a?(Hash) ? Array(batch["logs"]).first : nil
+      @publisher.publish("", Protocol::QUEUE_WORKER_LOGS, JSON.generate(batch), persistent: true, key: first.is_a?(Hash) ? first["occurrenceId"] : nil)
     end
 
     def shutdown
@@ -414,6 +429,7 @@ module Milvaion
         nil
       end
       @consumers.clear
+      @kafka&.stop_consuming
 
       # Deliveries waiting for a pool thread have not started: give them straight back.
       @pool.close.each do |delivery|
@@ -429,6 +445,9 @@ module Milvaion
         @cancellations.abort_all(AbortReason::SHUTDOWN, "Worker is shutting down.")
         @processor.wait_for_idle(10)
       end
+
+      # Kafka: commit what has finished and leave the group.
+      @kafka&.drained
 
       @heartbeat_mutex.synchronize do
         @heartbeat_stopped = true
@@ -453,6 +472,7 @@ module Milvaion
       @listener&.stop
       @logs&.close
       @publisher.detach
+      @kafka&.close
       @pool&.close
       @pool&.join(5)
 
@@ -486,7 +506,8 @@ module Milvaion
       end
     end
 
-    def publish(exchange, routing_key, body, persistent: true, correlation_id: nil, headers: nil)
+    # key is the Kafka record key; RabbitMQ has no use for it.
+    def publish(exchange, routing_key, body, persistent: true, correlation_id: nil, headers: nil, key: nil) # rubocop:disable Lint/UnusedMethodArgument
       @mutex.synchronize do
         channel = @channel
         raise ConnectionError, "Not connected to RabbitMQ." if channel.nil? || !channel.open?

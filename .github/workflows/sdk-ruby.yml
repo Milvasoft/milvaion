@@ -26,7 +26,7 @@ jobs:
       matrix:
         ruby: [ '3.1', '3.2', '3.3', '3.4' ]
 
-    # The integration specs run a worker end to end against these.
+    # The integration specs run a worker end to end against these (RabbitMQ and Kafka transports).
     services:
       rabbitmq:
         image: rabbitmq:4
@@ -46,6 +46,28 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Single-node KRaft broker for the Kafka integration specs (spec/integration/kafka_integration_spec.rb).
+      kafka:
+        image: apache/kafka:3.9.0
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 30
 
     defaults:
       run:
@@ -54,6 +76,7 @@ jobs:
     env:
       MILVAION_TEST_RABBITMQ_URL: amqp://guest:guest@localhost:5672
       MILVAION_TEST_REDIS_URL: redis://localhost:6379
+      MILVAION_KAFKA_BROKERS: localhost:9092
 
     steps:
       - name: Checkout code

@@ -4,6 +4,9 @@
     MILVAION_RABBITMQ_URL=amqp://guest:guest@localhost:5672 \
     MILVAION_REDIS_URL=redis://localhost:6379 \
     python examples/basic_worker.py
+
+On Kafka, pip install "milvaion-worker[kafka]" and set MILVAION_TRANSPORT=kafka and
+MILVAION_KAFKA_BOOTSTRAP_SERVERS=localhost:9092 instead of MILVAION_RABBITMQ_URL.
 """
 
 from __future__ import annotations

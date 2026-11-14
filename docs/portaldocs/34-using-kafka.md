@@ -23,10 +23,8 @@ Use Kafka when you already run it and want one broker to look after. Stay on Rab
 | Retry backoff | The worker waits, holding a slot | A delay topic; the slot is free while waiting |
 | Priority | Best effort | Best effort |
 | Cancellation | Redis | Redis (unchanged) |
-| Worker SDKs | All | .NET, Node.js, Go and Java |
+| Worker SDKs | All | All |
 | Hangfire and Quartz adapters | Yes | Not yet |
-
-Python, PHP, Rust and Ruby workers support RabbitMQ only for now.
 
 ## Configure the API
 
@@ -107,7 +105,7 @@ Nothing changes in your job classes. A Kafka worker creates its own topics at st
 
 Each worker id gets one topic, `milvaion.jobs.{worker-id}`. All job types of that worker share it, and the worker picks the right job class from the message, as it does on RabbitMQ. Routing patterns are still sent to the API, but on Kafka they do not decide where a job goes: the job's worker id does.
 
-## Configure Node.js, Go and Java workers
+## Configure Node.js, Go, Java, Python, PHP, Rust and Ruby workers
 
 These SDKs take a transport option or read environment variables:
 
@@ -117,7 +115,16 @@ MILVAION_KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092
 MILVAION_KAFKA_TOPIC_PREFIX=prod.
 ```
 
-Each SDK's README lists the remaining options, such as SASL and TLS.
+Each SDK's README lists the remaining options, such as SASL and TLS. In some languages the Kafka client is an optional dependency, so RabbitMQ-only workers do not pull it in:
+
+| SDK | Add Kafka support |
+|---|---|
+| Python | `pip install "milvaion-worker[kafka]"` |
+| PHP | Install the `rdkafka` PHP extension (`pecl install rdkafka`, needs librdkafka) |
+| Rust | Enable the `kafka` Cargo feature |
+| Ruby | Add `gem "rdkafka"` to your Gemfile |
+
+Node.js, Go and Java include the Kafka client already.
 
 ## Topics
 

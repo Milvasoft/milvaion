@@ -17,6 +17,7 @@ use Milvasoft\Milvaion\Worker\Processor;
 use Milvasoft\Milvaion\Worker\Protocol;
 use Milvasoft\Milvaion\Worker\Publisher;
 use Milvasoft\Milvaion\Worker\ResolvedJob;
+use Milvasoft\Milvaion\Worker\RetryRequest;
 use Milvasoft\Milvaion\Worker\WorkerOptions;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -457,6 +458,92 @@ final class ProcessorTest extends TestCase
 
         $this->assertSame(self::codes(JobStatus::Running, JobStatus::Failed), $this->pub->statuses());
         $this->assertStringContainsString('The job process exited with code 3', $this->pub->lastStatus()['exception']);
+    }
+
+    /** A delivery as the Kafka transport makes it: retries and rejects go through the broker. */
+    private function kafkaDelivery(array $headers = [], ?string $body = null, bool $retryFails = false): Delivery
+    {
+        $plain = $this->delivery([], $headers, false, $body);
+
+        return new Delivery($plain->body, $plain->headers, null, false, $plain->ack, $plain->nack,
+            function (string $reason): void {
+                $this->settled[] = "reject: {$reason}";
+            },
+            function (RetryRequest $request) use ($retryFails): void {
+                if ($retryFails) {
+                    throw new \RuntimeException('broker down');
+                }
+
+                $this->settled[] = $request;
+            },
+            'milvaion.jobs.php-worker');
+    }
+
+    public function testKafkaRetryIsHandedToTheBrokerWithoutWaiting(): void
+    {
+        $this->setUpProcessor(['TestJob' => fn () => throw new \RuntimeException('boom')], new JobOptions(maxRetries: 3, baseRetryDelay: 5));
+        $before = microtime(true);
+
+        $this->processor->handle($this->kafkaDelivery(['x-retry-count' => '1']));
+
+        $this->assertSame([], $this->sleeps);
+        $this->assertCount(2, $this->settled);
+        [$request, $ack] = $this->settled;
+        $this->assertInstanceOf(RetryRequest::class, $request);
+        $this->assertSame('ack', $ack);
+        $this->assertSame([self::JOB_ID, self::OCCURRENCE_ID, 2, 3], [$request->jobId, $request->occurrenceId, $request->retryCount, $request->maxRetries]);
+        $this->assertEqualsWithDelta($before + 10, $request->notBefore, 1.0);
+        $this->assertSame(self::codes(JobStatus::Running), $this->pub->statuses());
+        $this->assertSame([], $this->pub->to($this->consumer->queue));
+    }
+
+    public function testKafkaRetryThatCannotBeProducedIsRejected(): void
+    {
+        $this->setUpProcessor(['TestJob' => fn () => throw new \RuntimeException('boom')], new JobOptions(maxRetries: 3));
+
+        $this->processor->handle($this->kafkaDelivery(retryFails: true));
+
+        $this->assertSame(['reject: the job could not be scheduled for retry: broker down'], $this->settled);
+    }
+
+    public function testKafkaInvalidRecordIsRejectedWithReason(): void
+    {
+        $this->setUpProcessor(['TestJob' => fn () => null]);
+
+        $this->processor->handle($this->kafkaDelivery([], 'not json'));
+        $this->assertSame(['reject: the message is not a valid job'], $this->settled);
+
+        $this->processor->handle($this->kafkaDelivery(['OccurrenceId' => 'nope']));
+        $this->assertSame(['reject: the message has no occurrence id'], $this->settled);
+    }
+
+    public function testHeartbeatsWhileWaitingForTheNextAttempt(): void
+    {
+        $options = new WorkerOptions(workerId: 'php-worker', redisUrl: null, jobHeartbeatInterval: 0.05, instanceId: 'php-worker-abcd1234');
+        $pub = new FakePublisher();
+        $logs = new LogBuffer(fn (string $batch) => $pub->publish('', Protocol::QUEUE_WORKER_LOGS, $batch), new NullLogger());
+        $processor = new Processor($options, [], $pub, $logs, new CancellationRegistry(), new NullLogger());
+        $run = $processor->newRun(['id' => self::JOB_ID, 'jobNameInWorker' => 'TestJob'], self::OCCURRENCE_ID, 1);
+
+        $processor->heartbeatUntil($run, microtime(true) + 0.3);
+
+        for ($i = 0; $i < 10; $i++) {
+            usleep(60_000);
+            $processor->heartbeatWaiting();
+        }
+
+        $beats = count($pub->to(Protocol::QUEUE_STATUS_UPDATES));
+        $this->assertGreaterThanOrEqual(2, $beats);
+        $this->assertLessThanOrEqual(6, $beats);
+        $this->assertSame(JobStatus::Running->value, $pub->lastStatus()['status']);
+
+        $processor->heartbeatWaiting();
+        $this->assertCount($beats, $pub->to(Protocol::QUEUE_STATUS_UPDATES), 'no heartbeats once the attempt is due');
+    }
+
+    public function testRetryDelayDoubles(): void
+    {
+        $this->assertSame([5.0, 10.0, 20.0, 40.0], array_map(fn (int $n) => Processor::retryDelay(5, $n), [0, 1, 2, 3]));
     }
 
     public function testIsolatedJobIsReturnedToTheQueueOnShutdown(): void

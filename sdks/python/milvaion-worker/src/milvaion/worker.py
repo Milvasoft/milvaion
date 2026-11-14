@@ -17,10 +17,11 @@ from aio_pika.abc import AbstractChannel, AbstractIncomingMessage, AbstractQueue
 
 from .cancellation import CancellationListener
 from .errors import AbortReason
+from .kafka import TRANSPORT_KAFKA
 from .log_buffer import LogBuffer
 from .metrics import ResourceSampler, local_ip_address
 from .options import JobOptions, ResolvedJob, WorkerOptions, resolve_job
-from .processor import CancellationRegistry, Delivery, Processor
+from .processor import CancellationRegistry, Delivery, Processor, Publisher
 from .protocol import (
     SDK_VERSION,
     DEAD_LETTER_ROUTING_KEY,
@@ -46,7 +47,10 @@ class Worker:
         self._jobs: dict[str, ResolvedJob] = {}
         self._cancellations = CancellationRegistry()
         self._sampler = ResourceSampler()
-        self._publisher = _AmqpPublisher()
+        self._amqp = _AmqpPublisher()
+        self._publisher: Publisher = self._amqp
+        self._kafka: Any = None
+        """The KafkaTransport when ``transport`` is "kafka"; it is the publisher too."""
         self._connection: AbstractRobustConnection | None = None
         self._consumers: list[tuple[AbstractQueue, str]] = []
         self._listener: CancellationListener | None = None
@@ -121,7 +125,7 @@ class Worker:
             await self.stop()
 
     async def start(self) -> None:
-        """Connects, registers this instance and starts consuming. Raises if RabbitMQ or Redis
+        """Connects, registers this instance and starts consuming. Raises if the broker or Redis
         cannot be reached within ``startup_timeout``."""
         if self._state != "idle":
             raise RuntimeError(f"Worker cannot be started from state {self._state!r}.")
@@ -129,8 +133,15 @@ class Worker:
         if not self._jobs:
             raise RuntimeError("Add at least one job before starting the worker.")
 
+        if self.options.transport == TRANSPORT_KAFKA and self._kafka is None:
+            from .kafka_transport import KafkaTransport  # imported lazily: aiokafka is an optional extra
+
+            self._kafka = KafkaTransport(self)
+            self._publisher = self._kafka
+
         self._state = "starting"
-        self.logger.info("Starting worker %s (instance %s) with %d job type(s).", self.worker_id, self.instance_id, len(self._jobs))
+        self.logger.info("Starting worker %s (instance %s) with %d job type(s) on %s.", self.worker_id, self.instance_id, len(self._jobs),
+                         self.options.transport)
 
         self._logs = LogBuffer(self._send_logs, self.logger)
         self._processor = Processor(self.options, self._jobs, self._publisher, self._logs, self._cancellations)
@@ -143,7 +154,10 @@ class Worker:
             else:
                 self.logger.warning("Redis is disabled: jobs cannot be cancelled from the dashboard.")
 
-            await self._connect()
+            if self._kafka is not None:
+                await self._kafka.start()
+            else:
+                await self._connect()
         except BaseException:
             self._state = "stopped"
             await self._close()
@@ -206,7 +220,7 @@ class Worker:
         await failed.bind(dead_letter, DEAD_LETTER_ROUTING_KEY)
 
         # Before consuming, so the first delivery can already report its status.
-        self._publisher.attach(channel, {EXCHANGE_DEAD_LETTER: dead_letter})
+        self._amqp.attach(channel, {EXCHANGE_DEAD_LETTER: dead_letter})
 
         for job in self._jobs.values():
             consumer_channel = await connection.channel()
@@ -269,7 +283,8 @@ class Worker:
             self.logger.warning("Lost the RabbitMQ connection (%s). Reconnecting...", reason)
 
     async def _register(self) -> None:
-        await self._publisher.publish("", QUEUE_WORKER_REGISTRATION, json.dumps(self._build_registration()).encode(), persistent=True)
+        await self._publisher.publish("", QUEUE_WORKER_REGISTRATION, json.dumps(self._build_registration()).encode(), persistent=True,
+                                      key=self.instance_id)
         await self._send_heartbeat(False)
         self.logger.info("Registered %s (instance %s).", self.worker_id, self.instance_id)
 
@@ -327,7 +342,7 @@ class Worker:
         }).encode()
 
         try:
-            await self._publisher.publish("", QUEUE_WORKER_HEARTBEAT, body, persistent=False)
+            await self._publisher.publish("", QUEUE_WORKER_HEARTBEAT, body, persistent=False, key=self.instance_id)
         except Exception as error:  # noqa: BLE001
             self.logger.debug("Heartbeat failed; will retry on the next interval: %s", error)
 
@@ -349,11 +364,16 @@ class Worker:
         self._pending_heartbeat = loop.call_later(wait, fire)
 
     async def _send_logs(self, batch: dict[str, Any]) -> None:
-        await self._publisher.publish("", QUEUE_WORKER_LOGS, json.dumps(batch, default=str).encode(), persistent=True)
+        logs = batch.get("logs") or []
+        key = logs[0].get("occurrenceId") if logs else None
+        await self._publisher.publish("", QUEUE_WORKER_LOGS, json.dumps(batch, default=str).encode(), persistent=True, key=key)
 
     async def _shutdown(self) -> None:
         self._state = "stopping"
         self.logger.info("Stopping worker instance %s...", self.instance_id)
+
+        if self._kafka is not None:
+            await self._kafka.stop_consuming()
 
         for queue, tag in self._consumers:
             with contextlib.suppress(Exception):
@@ -367,6 +387,10 @@ class Worker:
             self.logger.warning("%d job(s) still running after %ss. Returning them to the queue.", self._processor.running, self.options.shutdown_timeout)
             self._cancellations.abort_all(AbortReason.SHUTDOWN, "Worker is shutting down.")
             await self._processor.wait_for_idle(10)
+
+        if self._kafka is not None:
+            # Interrupted jobs were written back to their topic; commit and leave the group.
+            await self._kafka.drained()
 
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
@@ -395,7 +419,10 @@ class Worker:
         if self._listener is not None:
             await self._listener.stop()
 
-        self._publisher.detach()
+        self._amqp.detach()
+
+        if self._kafka is not None:
+            await self._kafka.close()
 
         if self._connection is not None:
             with contextlib.suppress(Exception):
@@ -416,7 +443,8 @@ class _AmqpPublisher:
         self._channel, self._exchanges = None, {}
 
     async def publish(self, exchange: str, routing_key: str, body: bytes, *, persistent: bool = True,
-                      correlation_id: str | None = None, headers: dict[str, Any] | None = None) -> None:
+                      correlation_id: str | None = None, headers: dict[str, Any] | None = None, key: str | None = None) -> None:
+        """``key`` is the Kafka record key; RabbitMQ ignores it."""
         channel = self._channel
 
         if channel is None:

@@ -17,6 +17,9 @@ include = ["src/**/*", "examples/**/*", "build.rs", "Cargo.toml", "README.md"]
 default = ["rustls"]
 # TLS for amqps:// URLs.
 rustls = ["lapin/rustls--ring", "lapin/rustls-native-certs"]
+# The optional Apache Kafka transport. Builds librdkafka from source (needs CMake and a C compiler),
+# with a vendored OpenSSL for TLS and SASL/SCRAM.
+kafka = ["dep:rdkafka"]
 
 [dependencies]
 lapin = { version = "4.12", default-features = false, features = ["tokio"] }
@@ -29,6 +32,13 @@ serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v4"] }
+rdkafka = { version = "0.39", optional = true, default-features = false, features = [
+    "tokio",
+    "cmake-build",
+    "ssl-vendored",
+    "libz-static",
+    "tracing",
+] }
 
 [dev-dependencies]
 tokio = { version = "1.40", features = ["full", "test-util"] }

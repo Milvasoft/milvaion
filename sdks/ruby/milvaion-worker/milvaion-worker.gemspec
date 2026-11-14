@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Ruby worker SDK for the Milvaion distributed job scheduler."
   spec.description = "Run Milvaion jobs in Ruby: registration, heartbeats, live logs, retries with " \
                      "exponential backoff, dead lettering, timeouts, cancellation and graceful shutdown " \
-                     "over RabbitMQ and Redis."
+                     "over RabbitMQ (or Apache Kafka with the rdkafka gem) and Redis."
   spec.homepage = "https://github.com/Milvasoft/milvaion"
   spec.license = "Apache-2.0"
   spec.required_ruby_version = ">= 3.1"

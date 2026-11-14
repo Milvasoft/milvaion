@@ -26,6 +26,30 @@ jobs:
       matrix:
         python: [ '3.10', '3.11', '3.12', '3.13' ]
 
+    # Single-node KRaft broker for the Kafka integration tests (tests/test_kafka_integration.py).
+    services:
+      kafka:
+        image: apache/kafka:3.9.0
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 30
+
     defaults:
       run:
         working-directory: sdks/python/milvaion-worker
@@ -46,7 +70,9 @@ jobs:
         run: ruff check src tests examples --select E,F,W,B --line-length 200
 
       - name: Test
-        run: pytest -q
+        env:
+          MILVAION_KAFKA_BROKERS: localhost:9092
+        run: pytest -q -rs
 
       - name: Build package
         run: python -m build

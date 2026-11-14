@@ -90,8 +90,11 @@ impl LogBuffer {
             let batch = WorkerLogBatchMessage { logs: unsent.clone(), batch_timestamp: now(), count: unsent.len() };
             let body = serde_json::to_vec(&batch).map_err(|e| e.to_string())?;
 
+            // On Kafka, the occurrence id of the first entry is the record key.
+            let key = unsent.first().map(|log| log.occurrence_id.clone());
+
             self.publisher
-                .publish("", QUEUE_WORKER_LOGS, body, PublishOptions { persistent: true, ..Default::default() })
+                .publish("", QUEUE_WORKER_LOGS, body, PublishOptions { persistent: true, key, ..Default::default() })
                 .await?;
 
             unsent.clear();

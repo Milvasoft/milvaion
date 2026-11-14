@@ -1,6 +1,6 @@
 //! Runs one job delivery: status reports, timeout, cancellation, retries and the dead letter queue.
 
-use crate::broker::{BoxFuture, Delivery, HeaderValue, PublishOptions, Publisher};
+use crate::broker::{BoxFuture, Delivery, HeaderValue, PublishOptions, Publisher, RetryRequest};
 use crate::context::{JobContext, RunControl};
 use crate::error::{AbortReason, JobError};
 use crate::log_buffer::LogBuffer;
@@ -130,13 +130,14 @@ impl Processor {
         }
     }
 
-    pub async fn handle(self: Arc<Self>, delivery: Delivery, consumer: Arc<Registered>) {
+    /// Runs one delivery taken from `queue` (a RabbitMQ queue or a Kafka topic).
+    pub async fn handle(self: Arc<Self>, delivery: Delivery, queue: String) {
         self.running.fetch_add(1, Ordering::SeqCst);
         self.count_changed();
 
         // A panic in the SDK itself must not leave the message unsettled or the count wrong.
         let this = self.clone();
-        let task = tokio::spawn(async move { this.process(delivery, &consumer).await });
+        let task = tokio::spawn(async move { this.process(delivery, &queue).await });
 
         if let Err(error) = task.await {
             tracing::error!(%error, "unexpected panic while processing a job delivery; the broker will redeliver it");
@@ -155,19 +156,19 @@ impl Processor {
         }
     }
 
-    async fn process(self: &Arc<Self>, d: Delivery, consumer: &Arc<Registered>) {
+    async fn process(self: &Arc<Self>, d: Delivery, queue: &str) {
         let job: ScheduledJob = match serde_json::from_slice::<ScheduledJob>(&d.body) {
             Ok(job) if !job.id.is_empty() && !job.job_name_in_worker.is_empty() => job,
             _ => {
-                tracing::error!(queue = %consumer.job.queue, "received a message that is not a valid job; sending it to the dead letter queue");
-                settle(d.settler.nack(false).await);
+                tracing::error!(queue = %queue, "received a message that is not a valid job; sending it to the dead letter queue");
+                settle(d.settler.reject("the message is not a valid job".to_string()).await);
                 return;
             }
         };
 
         let Some(occurrence_id) = parse_occurrence_id(&d.headers, d.correlation_id.as_deref()) else {
             tracing::error!(job = %job.id, "job arrived without an occurrence id; sending it to the dead letter queue");
-            settle(d.settler.nack(false).await);
+            settle(d.settler.reject("the message has no occurrence id".to_string()).await);
             return;
         };
 
@@ -188,12 +189,12 @@ impl Processor {
         let control = Arc::new(RunControl::new());
         self.cancels.register(&run.occurrence_id, control.clone());
 
-        self.execute(&d, consumer, &run, &control).await;
+        self.execute(&d, queue, &run, &control).await;
 
         self.cancels.unregister(&run.occurrence_id);
     }
 
-    async fn execute(&self, d: &Delivery, consumer: &Registered, run: &JobRun, control: &Arc<RunControl>) {
+    async fn execute(&self, d: &Delivery, queue: &str, run: &JobRun, control: &Arc<RunControl>) {
         let start = chrono::Utc::now();
         let started = Instant::now();
 
@@ -236,7 +237,7 @@ impl Processor {
 
         match outcome {
             Outcome::Aborted(reason) => self.finish_aborted(d, run, reason, timing, timeout).await,
-            Outcome::Failed(error) => self.finish_failed(d, consumer, &registered, run, error, timing).await,
+            Outcome::Failed(error) => self.finish_failed(d, queue, &registered, run, error, timing).await,
             Outcome::Completed(result) => {
                 run.flush_logs().await;
                 timing.result = Some(result);
@@ -378,7 +379,7 @@ impl Processor {
     async fn finish_failed(
         &self,
         d: &Delivery,
-        consumer: &Registered,
+        queue: &str,
         registered: &Registered,
         run: &JobRun,
         error: JobError,
@@ -427,7 +428,7 @@ impl Processor {
             );
             run.flush_logs().await;
 
-            self.retry(d, consumer, run, delay, max_retries).await;
+            self.retry(d, queue, run, delay, max_retries).await;
             return;
         }
 
@@ -448,8 +449,37 @@ impl Processor {
     }
 
     /// Waits out the backoff, republishes the job with a higher retry count and acks the original.
-    /// The original stays unacked meanwhile, so a crash during the wait gets it redelivered.
-    async fn retry(&self, d: &Delivery, consumer: &Registered, run: &JobRun, delay: Duration, max_retries: u32) {
+    /// The original stays unacked meanwhile, so a crash during the wait gets it redelivered. A broker
+    /// that schedules retries itself (Kafka) gets the retry right away instead.
+    async fn retry(&self, d: &Delivery, queue: &str, run: &JobRun, delay: Duration, max_retries: u32) {
+        let due = tokio::time::Instant::now() + delay;
+        let retry = RetryRequest {
+            job_id: run.job.id.clone(),
+            occurrence_id: run.occurrence_id.clone(),
+            retry_count: run.retry_count + 1,
+            max_retries,
+            not_before_ms: (chrono::Utc::now() + chrono::Duration::from_std(delay).unwrap_or_default())
+                .timestamp_millis(),
+        };
+
+        if let Some(scheduled) = d.settler.schedule_retry(retry) {
+            let scheduled = tokio::time::timeout(Duration::from_secs(30), scheduled)
+                .await
+                .unwrap_or_else(|_| Err("timed out".to_string()));
+
+            if let Err(error) = scheduled {
+                tracing::error!(job = %run.job.id, %error, "failed to schedule a job for retry; dead-lettering the message");
+                settle(d.settler.reject(format!("the job could not be scheduled for retry: {error}")).await);
+                return;
+            }
+
+            settle(d.settler.ack().await);
+
+            // The occurrence stays Running until the next attempt starts, so its heartbeat continues.
+            tokio::spawn(heartbeat_while_waiting(run.clone(), due, CancellationToken::new()));
+            return;
+        }
+
         let interval = self.opts.job_heartbeat_interval;
         let mut remaining = delay;
 
@@ -476,7 +506,7 @@ impl Processor {
             .publisher
             .publish(
                 "",
-                &consumer.job.queue,
+                queue,
                 d.body.clone(),
                 PublishOptions {
                     persistent: true,
@@ -486,13 +516,14 @@ impl Processor {
                         ("x-retry-count".into(), HeaderValue::Int(run.retry_count as i64 + 1)),
                         ("MaxRetries".into(), HeaderValue::Int(max_retries as i64)),
                     ],
+                    ..Default::default()
                 },
             )
             .await;
 
         if let Err(error) = published {
             tracing::error!(job = %run.job.id, %error, "failed to republish a job for retry; dead-lettering the message");
-            settle(d.settler.nack(false).await);
+            settle(d.settler.reject(format!("the job could not be republished for retry: {error}")).await);
             return;
         }
 
@@ -525,6 +556,7 @@ impl Processor {
                         ("x-retry-count".into(), HeaderValue::Int(retry_count as i64)),
                         ("MaxRetries".into(), HeaderValue::Int(max_retries as i64)),
                     ],
+                    key: Some(run.occurrence_id.clone()),
                 },
             )
             .await;
@@ -532,11 +564,71 @@ impl Processor {
         if let Err(error) = published {
             // The queue dead-letters a rejected message itself, just without the exception details.
             tracing::error!(job = %run.job.id, %error, "failed to publish to the dead letter queue; rejecting the message instead");
-            settle(d.settler.nack(false).await);
+            settle(d.settler.reject(format!("the dead letter message could not be published: {error}")).await);
             return;
         }
 
         settle(d.settler.ack().await);
+    }
+}
+
+impl Processor {
+    /// Keeps the occurrence of a job record that is not due yet alive: reports it Running and
+    /// sends its job heartbeats until `due` or until `stop` is cancelled. Kafka holds a retry
+    /// record in memory until its time comes.
+    #[cfg_attr(not(feature = "kafka"), allow(dead_code))]
+    pub(crate) fn hold(
+        self: &Arc<Self>,
+        body: &[u8],
+        headers: &HashMap<String, HeaderValue>,
+        due: tokio::time::Instant,
+        stop: CancellationToken,
+    ) {
+        let Ok(job) = serde_json::from_slice::<ScheduledJob>(body) else { return };
+        let Some(occurrence_id) = parse_occurrence_id(headers, None) else { return };
+
+        if job.id.is_empty() {
+            return;
+        }
+
+        let run = JobRun { p: self.clone(), job, occurrence_id, retry_count: parse_retry_count(headers) };
+
+        tokio::spawn(async move {
+            if stop.is_cancelled() {
+                return;
+            }
+
+            run.status(Status::Running, StatusFields::default(), false).await;
+            heartbeat_while_waiting(run, due, stop).await;
+        });
+    }
+}
+
+/// Sends Running statuses every job heartbeat interval for an occurrence that waits for its next
+/// attempt, until `due`, until `stop` is cancelled or until the worker stops.
+async fn heartbeat_while_waiting(run: JobRun, due: tokio::time::Instant, stop: CancellationToken) {
+    let interval = run.p.opts.job_heartbeat_interval;
+
+    if interval.is_zero() {
+        return;
+    }
+
+    loop {
+        let now = tokio::time::Instant::now();
+
+        if now >= due {
+            return;
+        }
+
+        tokio::select! {
+            _ = tokio::time::sleep((due - now).min(interval)) => {}
+            _ = stop.cancelled() => return,
+            _ = run.p.shutdown.cancelled() => return,
+        }
+
+        if tokio::time::Instant::now() < due {
+            run.status(Status::Running, StatusFields::default(), false).await;
+        }
     }
 }
 
@@ -624,7 +716,8 @@ impl JobRun {
         let mut attempt = 0;
 
         loop {
-            let options = PublishOptions { persistent: true, ..Default::default() };
+            let options =
+                PublishOptions { persistent: true, key: Some(self.occurrence_id.clone()), ..Default::default() };
 
             let result = tokio::time::timeout(
                 Duration::from_secs(30),

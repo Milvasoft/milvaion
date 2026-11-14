@@ -13,6 +13,99 @@ pub enum QueueType {
     Quorum,
 }
 
+/// The message broker. The API and every worker of a deployment must use the same one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Transport {
+    #[default]
+    RabbitMq,
+    /// Apache Kafka. Needs the `kafka` feature of this crate.
+    Kafka,
+}
+
+/// SASL mechanism of the Kafka transport.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KafkaSaslMechanism {
+    Plain,
+    ScramSha256,
+    ScramSha512,
+}
+
+impl KafkaSaslMechanism {
+    /// Parses `plain`, `scram-sha-256` or `scram-sha-512`, ignoring case, `-` and `_`.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().replace(['-', '_'], "").as_str() {
+            "plain" => Some(Self::Plain),
+            "scramsha256" => Some(Self::ScramSha256),
+            "scramsha512" => Some(Self::ScramSha512),
+            _ => None,
+        }
+    }
+
+    #[cfg_attr(not(feature = "kafka"), allow(dead_code))]
+    pub(crate) fn as_librdkafka(self) -> &'static str {
+        match self {
+            Self::Plain => "PLAIN",
+            Self::ScramSha256 => "SCRAM-SHA-256",
+            Self::ScramSha512 => "SCRAM-SHA-512",
+        }
+    }
+}
+
+/// Configures the Kafka transport, used when [`WorkerOptions::transport`] is [`Transport::Kafka`].
+/// The default connects to `localhost:9092` without TLS or SASL.
+#[derive(Debug, Clone)]
+pub struct KafkaOptions {
+    /// Bootstrap servers (`host:port`). An entry may itself be a comma separated list.
+    /// Default: `localhost:9092`.
+    pub brokers: Vec<String>,
+    /// Turns TLS on. Setting any of the three files below turns it on too.
+    pub tls: bool,
+    /// PEM bundle used to verify the brokers. Default: the system's CA certificates.
+    pub tls_ca_file: Option<String>,
+    /// PEM client certificate for mutual TLS, set together with `tls_key_file`.
+    pub tls_cert_file: Option<String>,
+    /// PEM private key of the client certificate.
+    pub tls_key_file: Option<String>,
+    /// SASL mechanism. `None` disables SASL.
+    pub sasl_mechanism: Option<KafkaSaslMechanism>,
+    /// SASL user name, required with `sasl_mechanism`.
+    pub sasl_username: String,
+    /// SASL password.
+    pub sasl_password: String,
+    /// Put in front of every topic and consumer group name, for example `prod.`. It must match the
+    /// API's. Only `a-z A-Z 0-9 . _ -` are allowed.
+    pub topic_prefix: String,
+    /// Creates the worker's topics at startup. Default: true.
+    pub auto_create_topics: bool,
+    /// Partitions of the topics the worker creates. Default: 12.
+    pub num_partitions: i32,
+    /// Replication of the topics the worker creates. -1 uses the broker's
+    /// `default.replication.factor`. Default: -1.
+    pub replication_factor: i32,
+    /// Jobs of one partition that may run at the same time. 0 means the worker's `max_parallel_jobs`.
+    pub max_in_flight_per_partition: usize,
+}
+
+impl Default for KafkaOptions {
+    fn default() -> Self {
+        Self {
+            brokers: vec!["localhost:9092".to_string()],
+            tls: false,
+            tls_ca_file: None,
+            tls_cert_file: None,
+            tls_key_file: None,
+            sasl_mechanism: None,
+            sasl_username: String::new(),
+            sasl_password: String::new(),
+            topic_prefix: String::new(),
+            auto_create_topics: true,
+            num_partitions: 12,
+            replication_factor: -1,
+            max_in_flight_per_partition: 0,
+        }
+    }
+}
+
 /// Configures a [`Worker`](crate::Worker). Only `worker_id` is required.
 ///
 /// A duration of zero disables the timeout or interval it sets, where the field says so.
@@ -20,6 +113,10 @@ pub enum QueueType {
 pub struct WorkerOptions {
     /// Identifies the worker application. Use the same value on every replica.
     pub worker_id: String,
+    /// The message broker: RabbitMQ (default) or Kafka. Must match the API's.
+    pub transport: Transport,
+    /// Kafka settings, used when `transport` is [`Transport::Kafka`].
+    pub kafka: KafkaOptions,
     /// For example `amqp://guest:guest@localhost:5672/`. Default: guest on localhost.
     pub rabbitmq_url: String,
     /// Must match the API's `MilvaionConfig:RabbitMQ:QueueType`. Default: classic.
@@ -40,7 +137,7 @@ pub struct WorkerOptions {
     pub job_heartbeat_interval: Duration,
     /// How long the worker lets running jobs finish when it is asked to stop. Default: 30 s.
     pub shutdown_timeout: Duration,
-    /// How long `run` waits for the first RabbitMQ and Redis connection. Default: 30 s.
+    /// How long `run` waits for the first broker and Redis connection. Default: 30 s.
     pub startup_timeout: Duration,
     /// Shown in the dashboard. Default: `1.0.0`.
     pub version: String,
@@ -52,6 +149,8 @@ impl Default for WorkerOptions {
     fn default() -> Self {
         Self {
             worker_id: String::new(),
+            transport: Transport::RabbitMq,
+            kafka: KafkaOptions::default(),
             rabbitmq_url: "amqp://guest:guest@localhost:5672/".to_string(),
             queue_type: QueueType::Classic,
             redis_url: Some("redis://localhost:6379".to_string()),
@@ -84,6 +183,16 @@ impl WorkerOptions {
     /// - `MILVAION_MAX_PARALLEL_JOBS`
     /// - `MILVAION_EXECUTION_TIMEOUT_SECONDS` (0 or less disables the timeout)
     /// - `MILVAION_HEARTBEAT_INTERVAL_SECONDS`
+    /// - `MILVAION_TRANSPORT` (`rabbitmq` or `kafka`)
+    /// - `MILVAION_KAFKA_BOOTSTRAP_SERVERS` (or `KAFKA_BOOTSTRAP_SERVERS`)
+    /// - `MILVAION_KAFKA_TLS` (`true`), `MILVAION_KAFKA_TLS_CA_FILE`, `MILVAION_KAFKA_TLS_CERT_FILE`,
+    ///   `MILVAION_KAFKA_TLS_KEY_FILE`
+    /// - `MILVAION_KAFKA_SASL_MECHANISM` (`plain`, `scram-sha-256` or `scram-sha-512`),
+    ///   `MILVAION_KAFKA_SASL_USERNAME`, `MILVAION_KAFKA_SASL_PASSWORD`
+    /// - `MILVAION_KAFKA_TOPIC_PREFIX`
+    /// - `MILVAION_KAFKA_AUTO_CREATE_TOPICS` (`false` disables it)
+    /// - `MILVAION_KAFKA_PARTITIONS` (or `MILVAION_KAFKA_NUM_PARTITIONS`), `MILVAION_KAFKA_REPLICATION_FACTOR`
+    /// - `MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION`
     ///
     /// Change fields afterwards to override them in code.
     pub fn from_env() -> Result<Self, WorkerError> {
@@ -140,7 +249,70 @@ impl WorkerOptions {
             }
         }
 
+        if let Some(v) = env("MILVAION_TRANSPORT") {
+            o.transport = parse_transport(&v)?;
+        }
+
+        let k = &mut o.kafka;
+
+        if let Some(v) = env("MILVAION_KAFKA_BOOTSTRAP_SERVERS").or_else(|| env("KAFKA_BOOTSTRAP_SERVERS")) {
+            k.brokers = vec![v];
+        }
+
+        if env("MILVAION_KAFKA_TLS").is_some_and(|v| v.eq_ignore_ascii_case("true")) {
+            k.tls = true;
+        }
+
+        k.tls_ca_file = env("MILVAION_KAFKA_TLS_CA_FILE");
+        k.tls_cert_file = env("MILVAION_KAFKA_TLS_CERT_FILE");
+        k.tls_key_file = env("MILVAION_KAFKA_TLS_KEY_FILE");
+
+        if let Some(v) = env("MILVAION_KAFKA_SASL_MECHANISM") {
+            k.sasl_mechanism = Some(KafkaSaslMechanism::parse(&v).ok_or_else(|| {
+                WorkerError::Config(format!(
+                    "MILVAION_KAFKA_SASL_MECHANISM must be \"plain\", \"scram-sha-256\" or \"scram-sha-512\", got {v:?}"
+                ))
+            })?);
+        }
+
+        if let Some(v) = env("MILVAION_KAFKA_SASL_USERNAME") {
+            k.sasl_username = v;
+        }
+
+        // A password may have meaningful spaces; it is taken as it is.
+        if let Some(v) = lookup("MILVAION_KAFKA_SASL_PASSWORD").filter(|v| !v.is_empty()) {
+            k.sasl_password = v;
+        }
+
+        if let Some(v) = env("MILVAION_KAFKA_TOPIC_PREFIX") {
+            k.topic_prefix = v;
+        }
+
+        if env("MILVAION_KAFKA_AUTO_CREATE_TOPICS").is_some_and(|v| v.eq_ignore_ascii_case("false")) {
+            k.auto_create_topics = false;
+        }
+
+        if let Some(v) = int("MILVAION_KAFKA_PARTITIONS")?.or(int("MILVAION_KAFKA_NUM_PARTITIONS")?) {
+            k.num_partitions = v.clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+        }
+
+        if let Some(v) = int("MILVAION_KAFKA_REPLICATION_FACTOR")? {
+            k.replication_factor = v.clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+        }
+
+        if let Some(v) = int("MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION")? {
+            k.max_in_flight_per_partition = v.max(0) as usize;
+        }
+
         Ok(o)
+    }
+}
+
+fn parse_transport(value: &str) -> Result<Transport, WorkerError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "" | "rabbitmq" => Ok(Transport::RabbitMq),
+        "kafka" => Ok(Transport::Kafka),
+        _ => Err(WorkerError::Config(format!("MILVAION_TRANSPORT must be \"rabbitmq\" or \"kafka\", got {value:?}"))),
     }
 }
 
@@ -236,6 +408,9 @@ impl JobOptions {
 pub(crate) struct ResolvedOptions {
     pub worker_id: String,
     pub instance_id: String,
+    pub transport: Transport,
+    /// Set when `transport` is Kafka.
+    pub kafka: Option<ResolvedKafka>,
     pub rabbitmq_url: String,
     pub quorum: bool,
     pub redis_url: Option<String>,
@@ -271,9 +446,21 @@ pub(crate) fn resolve_options(o: WorkerOptions) -> Result<ResolvedOptions, Worke
         .filter(|i| !i.is_empty())
         .unwrap_or_else(|| generate_instance_id(&worker_id));
 
+    let kafka = match o.transport {
+        Transport::RabbitMq => None,
+        Transport::Kafka if cfg!(feature = "kafka") => Some(resolve_kafka(o.kafka, max_parallel_jobs)?),
+        Transport::Kafka => {
+            return Err(WorkerError::Config(
+                "the Kafka transport needs the \"kafka\" feature of milvaion-worker".to_string(),
+            ))
+        }
+    };
+
     Ok(ResolvedOptions {
         worker_id,
         instance_id,
+        transport: o.transport,
+        kafka,
         rabbitmq_url,
         quorum: o.queue_type == QueueType::Quorum,
         redis_url,
@@ -286,6 +473,134 @@ pub(crate) fn resolve_options(o: WorkerOptions) -> Result<ResolvedOptions, Worke
         startup_timeout: positive_or(o.startup_timeout, Duration::from_secs(30)),
         version: if o.version.trim().is_empty() { "1.0.0".to_string() } else { o.version },
     })
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ResolvedKafka {
+    pub brokers: Vec<String>,
+    pub tls: bool,
+    pub tls_ca_file: Option<String>,
+    pub tls_cert_file: Option<String>,
+    pub tls_key_file: Option<String>,
+    pub sasl: Option<(KafkaSaslMechanism, String, String)>,
+    pub topic_prefix: String,
+    pub auto_create_topics: bool,
+    pub num_partitions: i32,
+    pub replication_factor: i32,
+    pub max_in_flight_per_partition: usize,
+}
+
+#[cfg_attr(not(feature = "kafka"), allow(dead_code))]
+impl ResolvedKafka {
+    /// The librdkafka settings shared by the producer, the consumer and the admin client.
+    pub fn client_settings(&self, client_id: &str) -> Vec<(&'static str, String)> {
+        let mut settings = vec![("bootstrap.servers", self.brokers.join(",")), ("client.id", client_id.to_string())];
+
+        let protocol = match (self.tls, self.sasl.is_some()) {
+            (false, false) => "plaintext",
+            (true, false) => "ssl",
+            (false, true) => "sasl_plaintext",
+            (true, true) => "sasl_ssl",
+        };
+        settings.push(("security.protocol", protocol.to_string()));
+
+        for (key, value) in [
+            ("ssl.ca.location", &self.tls_ca_file),
+            ("ssl.certificate.location", &self.tls_cert_file),
+            ("ssl.key.location", &self.tls_key_file),
+        ] {
+            if let Some(value) = value {
+                settings.push((key, value.clone()));
+            }
+        }
+
+        if let Some((mechanism, username, password)) = &self.sasl {
+            settings.push(("sasl.mechanism", mechanism.as_librdkafka().to_string()));
+            settings.push(("sasl.username", username.clone()));
+            settings.push(("sasl.password", password.clone()));
+        }
+
+        settings
+    }
+}
+
+pub(crate) fn resolve_kafka(o: KafkaOptions, max_parallel_jobs: usize) -> Result<ResolvedKafka, WorkerError> {
+    let brokers: Vec<String> = o
+        .brokers
+        .iter()
+        .flat_map(|entry| entry.split(','))
+        .map(|b| b.trim().to_string())
+        .filter(|b| !b.is_empty())
+        .collect();
+    let brokers = if brokers.is_empty() { vec!["localhost:9092".to_string()] } else { brokers };
+
+    if !o.topic_prefix.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')) {
+        return Err(WorkerError::Config(format!(
+            "kafka.topic_prefix may only contain a-z A-Z 0-9 . _ -, got {:?}",
+            o.topic_prefix
+        )));
+    }
+
+    let num_partitions = if o.num_partitions == 0 { 12 } else { o.num_partitions };
+
+    if num_partitions < 1 {
+        return Err(WorkerError::Config(format!("kafka.num_partitions must be positive, got {}", o.num_partitions)));
+    }
+
+    let replication_factor = if o.replication_factor == 0 { -1 } else { o.replication_factor };
+
+    if !(replication_factor == -1 || (1..=i16::MAX as i32).contains(&replication_factor)) {
+        return Err(WorkerError::Config(format!(
+            "kafka.replication_factor must be -1 or positive, got {}",
+            o.replication_factor
+        )));
+    }
+
+    let max_in_flight_per_partition =
+        if o.max_in_flight_per_partition == 0 { max_parallel_jobs } else { o.max_in_flight_per_partition };
+
+    let file = |f: Option<String>| f.map(|f| f.trim().to_string()).filter(|f| !f.is_empty());
+    let (tls_ca_file, tls_cert_file, tls_key_file) = (file(o.tls_ca_file), file(o.tls_cert_file), file(o.tls_key_file));
+
+    if tls_cert_file.is_some() != tls_key_file.is_some() {
+        return Err(WorkerError::Config("kafka.tls_cert_file and kafka.tls_key_file must be set together".to_string()));
+    }
+
+    let tls = o.tls || tls_ca_file.is_some() || tls_cert_file.is_some();
+
+    let sasl = match o.sasl_mechanism {
+        None => None,
+        Some(_) if o.sasl_username.trim().is_empty() => {
+            return Err(WorkerError::Config("kafka.sasl_username is required with kafka.sasl_mechanism".to_string()))
+        }
+        Some(mechanism) => Some((mechanism, o.sasl_username.trim().to_string(), o.sasl_password)),
+    };
+
+    Ok(ResolvedKafka {
+        brokers,
+        tls,
+        tls_ca_file,
+        tls_cert_file,
+        tls_key_file,
+        sasl,
+        topic_prefix: o.topic_prefix,
+        auto_create_topics: o.auto_create_topics,
+        num_partitions,
+        replication_factor,
+        max_in_flight_per_partition,
+    })
+}
+
+/// The address the worker reaches its broker at, used to pick the IP address it reports.
+pub(crate) fn broker_host_port(opts: &ResolvedOptions) -> Option<(String, u16)> {
+    match &opts.kafka {
+        Some(kafka) => {
+            let broker = kafka.brokers.first()?;
+            let (host, port) = broker.rsplit_once(':')?;
+            Some((host.trim_start_matches('[').trim_end_matches(']').to_string(), port.parse().ok()?))
+        }
+        None => rabbitmq_host_port(&opts.rabbitmq_url),
+    }
 }
 
 #[derive(Debug, Clone)]

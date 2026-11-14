@@ -3,7 +3,7 @@
     "description": "PHP worker SDK for the Milvaion job scheduler",
     "type": "library",
     "license": "Apache-2.0",
-    "keywords": ["milvaion", "job-scheduler", "worker", "rabbitmq", "cron"],
+    "keywords": ["milvaion", "job-scheduler", "worker", "rabbitmq", "kafka", "cron"],
     "homepage": "https://github.com/Milvasoft/milvaion",
     "require": {
         "php": ">=8.2",
@@ -15,7 +15,8 @@
         "phpunit/phpunit": "^11.5"
     },
     "suggest": {
-        "ext-pcntl": "Lets the worker time out and cancel running jobs, and keep heartbeats going while a job runs"
+        "ext-pcntl": "Lets the worker time out and cancel running jobs, and keep heartbeats going while a job runs",
+        "ext-rdkafka": "Needed for the optional Apache Kafka transport (transport \"kafka\"); version 6 or later, built on librdkafka"
     },
     "autoload": {
         "psr-4": {
