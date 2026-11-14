@@ -2,6 +2,7 @@
 
 from .context import JobContext
 from .errors import AbortReason, JobAborted, PermanentJobError
+from .kafka import KafkaOptions
 from .options import JobOptions, WorkerOptions, generate_routing_pattern, queue_name_for_pattern
 from .protocol import SDK_VERSION, Status
 from .worker import Worker
@@ -11,6 +12,7 @@ __all__ = [
     "JobAborted",
     "JobContext",
     "JobOptions",
+    "KafkaOptions",
     "PermanentJobError",
     "Status",
     "Worker",

@@ -7,6 +7,7 @@ import secrets
 from dataclasses import dataclass, field
 from typing import Any
 
+from .kafka import TRANSPORT_KAFKA, TRANSPORT_RABBITMQ, KafkaOptions, ResolvedKafka, kafka_options_from_env, resolve_kafka
 from .protocol import QUEUE_JOBS
 
 DEFAULT_KEY_PREFIX = "Milvaion:JobScheduler:"
@@ -35,11 +36,16 @@ class WorkerOptions:
     shutdown_timeout: float = 30
     """How long stop() lets running jobs finish before returning them to the queue."""
     startup_timeout: float = 30
-    """How long start() waits for RabbitMQ and Redis."""
+    """How long start() waits for the broker and Redis."""
     version: str = "1.0.0"
     instance_id: str | None = None
     """Overrides the generated "{worker_id}-{8 hex}" id. Must be unique per process."""
     logger: logging.Logger | None = None
+    transport: str = TRANSPORT_RABBITMQ
+    """The message broker: "rabbitmq" (default) or "kafka". The API and every worker of a deployment must use the same one."""
+    kafka: KafkaOptions | None = None
+    """Kafka settings, used when ``transport`` is "kafka". Needs ``pip install milvaion-worker[kafka]``."""
+    kafka_resolved: ResolvedKafka | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         self.worker_id = (self.worker_id or "").strip()
@@ -55,6 +61,14 @@ class WorkerOptions:
         if self.max_parallel_jobs <= 0:
             raise ValueError(f"max_parallel_jobs must be positive, got {self.max_parallel_jobs}")
 
+        self.transport = (self.transport or TRANSPORT_RABBITMQ).strip().lower()
+
+        if self.transport not in (TRANSPORT_RABBITMQ, TRANSPORT_KAFKA):
+            raise ValueError(f'transport must be "rabbitmq" or "kafka", got {self.transport!r}')
+
+        if self.transport == TRANSPORT_KAFKA:
+            self.kafka_resolved = resolve_kafka(self.kafka, self.max_parallel_jobs)
+
         if not self.instance_id:
             self.instance_id = f"{self.worker_id}-{secrets.token_hex(4)}"
 
@@ -69,13 +83,16 @@ class WorkerOptions:
     def from_env(cls, **overrides: Any) -> WorkerOptions:
         """Reads MILVAION_WORKER_ID, MILVAION_RABBITMQ_URL, MILVAION_RABBITMQ_QUEUE_TYPE,
         MILVAION_REDIS_URL ("false" disables Redis), MILVAION_REDIS_KEY_PREFIX,
-        MILVAION_MAX_PARALLEL_JOBS, MILVAION_EXECUTION_TIMEOUT_SECONDS and
-        MILVAION_HEARTBEAT_INTERVAL_SECONDS. Keyword arguments win over the environment."""
+        MILVAION_MAX_PARALLEL_JOBS, MILVAION_EXECUTION_TIMEOUT_SECONDS,
+        MILVAION_HEARTBEAT_INTERVAL_SECONDS, MILVAION_TRANSPORT and the MILVAION_KAFKA_* variables
+        (see the README). Keyword arguments win over the environment; a ``kafka`` argument replaces
+        the Kafka settings read from the environment as a whole."""
         env: dict[str, Any] = {}
         mapping = {
             "MILVAION_WORKER_ID": ("worker_id", str),
             "MILVAION_RABBITMQ_URL": ("rabbitmq_url", str),
             "MILVAION_RABBITMQ_QUEUE_TYPE": ("queue_type", str),
+            "MILVAION_TRANSPORT": ("transport", str),
             "MILVAION_REDIS_KEY_PREFIX": ("redis_key_prefix", str),
             "MILVAION_MAX_PARALLEL_JOBS": ("max_parallel_jobs", int),
             "MILVAION_EXECUTION_TIMEOUT_SECONDS": ("execution_timeout", float),
@@ -97,6 +114,9 @@ class WorkerOptions:
             env["redis_url"] = None
         elif redis_url:
             env["redis_url"] = redis_url
+
+        if "kafka" not in overrides and (overrides.get("transport") or env.get("transport") or "").strip().lower() == TRANSPORT_KAFKA:
+            env["kafka"] = kafka_options_from_env()
 
         env.update(overrides)
         env.setdefault("worker_id", "")
@@ -181,6 +201,7 @@ def _trim_job_suffix(name: str) -> str:
 
 __all__ = [
     "JobOptions",
+    "KafkaOptions",
     "WorkerOptions",
     "generate_routing_pattern",
     "queue_name_for_pattern",

@@ -6,7 +6,7 @@ Run [Milvaion](https://github.com/Milvasoft/milvaion) jobs in Python. A Python w
 pip install milvaion-worker
 ```
 
-It requires Python 3.10 or later, and connects to the same RabbitMQ and Redis instances as your Milvaion API.
+It requires Python 3.10 or later, and connects to the same broker (RabbitMQ, or [Kafka](#kafka)) and Redis instances as your Milvaion API.
 
 ## Quick start
 
@@ -83,7 +83,7 @@ When a job is aborted, an `async` handler is cancelled, so it gets `asyncio.Canc
 
 | Option | Default | Description |
 |---|---|---|
-| `max_parallel_jobs` | min(10, worker `max_parallel_jobs`) | Jobs of this type that may run at once on this instance |
+| `max_parallel_jobs` | min(10, worker `max_parallel_jobs`) | Jobs of this type that may run at once on this instance. RabbitMQ only. |
 | `execution_timeout` | worker default (3600 s) | Seconds. `0` disables the timeout. A timeout set on the job in the dashboard takes precedence. |
 | `max_retries` | 3 | Retries after the first failure |
 | `base_retry_delay` | 5 | Retry *n* waits `base × 2^(n-1)` seconds |
@@ -108,9 +108,11 @@ Pass these to `Worker(...)` or `WorkerOptions(...)`:
 | `heartbeat_interval` | 30 | |
 | `job_heartbeat_interval` | 60 | Keeps long jobs from being flagged as zombies |
 | `shutdown_timeout` | 30 | How long `stop()` lets running jobs finish |
-| `startup_timeout` | 30 | How long `start()` waits for RabbitMQ and Redis |
+| `startup_timeout` | 30 | How long `start()` waits for the broker and Redis |
 | `version` | `1.0.0` | Shown in the dashboard |
 | `logger` | `logging.getLogger("milvaion")` | |
+| `transport` | `rabbitmq` | `rabbitmq` or `kafka`. Must match the API. |
+| `kafka` | see [Kafka](#kafka) | `KafkaOptions`, used when `transport` is `kafka` |
 
 For containers, `Worker(WorkerOptions.from_env())` reads the following variables:
 
@@ -122,6 +124,62 @@ For containers, `Worker(WorkerOptions.from_env())` reads the following variables
 - `MILVAION_MAX_PARALLEL_JOBS`
 - `MILVAION_EXECUTION_TIMEOUT_SECONDS`
 - `MILVAION_HEARTBEAT_INTERVAL_SECONDS`
+- `MILVAION_TRANSPORT` and the Kafka variables listed under [Kafka](#kafka)
+
+## Kafka
+
+RabbitMQ is the default broker. A deployment can use Apache Kafka instead. The API and every worker of a deployment must use the same broker, so switch the API to Kafka too (`MilvaionConfig:Transport:Type`). Redis still carries cancellation requests, as on RabbitMQ.
+
+The Kafka client ([aiokafka](https://github.com/aio-libs/aiokafka)) is an optional extra, so RabbitMQ workers do not install it:
+
+```bash
+pip install "milvaion-worker[kafka]"
+```
+
+```python
+from milvaion import KafkaOptions, Worker
+
+worker = Worker(
+    worker_id="mail-worker",
+    transport="kafka",
+    kafka=KafkaOptions(
+        brokers=["kafka-1:9092", "kafka-2:9092"],
+        topic_prefix="prod.",  # must match the API's
+    ),
+    redis_url="redis://localhost:6379",
+)
+```
+
+Handlers do not change. Jobs, outcomes, retries, logs and cancellation behave as on RabbitMQ.
+
+| `KafkaOptions` field | Default | Description |
+|---|---|---|
+| `brokers` | `localhost:9092` | Bootstrap servers, as a list or a string. An entry may be a comma separated list. |
+| `tls` | `False` | Turns TLS on. Setting any of the three files below turns it on too. |
+| `tls_ca_file` | system roots | PEM bundle used to verify the brokers |
+| `tls_cert_file`, `tls_key_file` | none | PEM client certificate and key for mutual TLS |
+| `sasl_mechanism` | none | `plain`, `scram-sha-256` or `scram-sha-512`, with `sasl_username` and `sasl_password` |
+| `topic_prefix` | empty | Put in front of every topic and consumer group name. Only `a-z A-Z 0-9 . _ -`. Must match the API's. |
+| `auto_create_topics` | `True` | Create the worker's topics, and the shared topics it writes to, at startup |
+| `num_partitions` | 12 | Partitions of the topics the worker creates |
+| `replication_factor` | -1 | Replication of the topics the worker creates. -1 uses the broker's default. |
+| `max_in_flight_per_partition` | worker `max_parallel_jobs` | Jobs of one partition that may run at the same time |
+
+`WorkerOptions.from_env()` reads them from `MILVAION_TRANSPORT` (`kafka`), `MILVAION_KAFKA_BOOTSTRAP_SERVERS` (or `KAFKA_BOOTSTRAP_SERVERS`), `MILVAION_KAFKA_TLS` (`true`), `MILVAION_KAFKA_TLS_CA_FILE`, `MILVAION_KAFKA_TLS_CERT_FILE`, `MILVAION_KAFKA_TLS_KEY_FILE`, `MILVAION_KAFKA_SASL_MECHANISM`, `MILVAION_KAFKA_SASL_USERNAME`, `MILVAION_KAFKA_SASL_PASSWORD`, `MILVAION_KAFKA_TOPIC_PREFIX`, `MILVAION_KAFKA_AUTO_CREATE_TOPICS` (`false` disables it), `MILVAION_KAFKA_NUM_PARTITIONS` (or `MILVAION_KAFKA_PARTITIONS`), `MILVAION_KAFKA_REPLICATION_FACTOR` and `MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION`. A `kafka=` argument replaces the Kafka settings of the environment.
+
+How it works on Kafka:
+
+- **Topics.** The worker reads `milvaion.jobs.{worker}` and `milvaion.jobs.{worker}.retry`, where `{worker}` is the worker id in lower case with every character outside `a-z 0-9 . _ -` replaced by `_`. It writes to `milvaion.status`, `milvaion.logs`, `milvaion.heartbeats`, `milvaion.registrations` and `milvaion.dlq`. All names get the topic prefix.
+- **Instances.** Every instance of a worker joins the consumer group `milvaion.worker.{worker}`. Partitions are shared between the instances, so a topic with 12 partitions serves at most 12 instances. Raise `num_partitions` before you scale out further.
+- **Parallelism.** An instance runs up to `max_parallel_jobs` jobs at once, also several from one partition, up to `max_in_flight_per_partition`. The per job `max_parallel_jobs` of `JobOptions` applies to RabbitMQ only. When the instance is full, it pauses the partitions and keeps polling, so it stays in the group.
+- **Commits.** A job record is committed only after its outcome has been reported. Kafka commits a position, not a single record, so a partition is committed up to its oldest unfinished job. If an instance crashes, every record after that one runs again, including jobs that had already finished. Make handlers idempotent.
+- **Retries.** A failed attempt with retries left is written to the retry topic with a time before which it must not run (`base × 2^n`). The instance slot is free during the wait. The instance that reads the retry holds it until it is due, and the occurrence keeps sending job heartbeats meanwhile.
+- **Dead letters.** A job that fails for good goes to `milvaion.dlq` as on RabbitMQ. A record that is not a valid job is forwarded there unchanged, with the headers `x-original-topic` and `x-dlq-reason`.
+- **Rebalancing.** aiokafka has no `cooperative-sticky` assignor, so the Python worker uses the eager `sticky` assignor: on a rebalance it commits what has finished and gives up its partitions, and a partition that comes straight back keeps its running jobs and continues after the records it had already taken. Do not mix Python instances with Node, Go, Java or .NET instances of the same worker id, because their consumer group would have no assignor in common.
+- **Shutdown.** The worker stops taking records, waits up to `shutdown_timeout`, writes the jobs that are still running back to their topic, commits and leaves the group.
+- **Priority** is best effort: records of a partition are read in the order the API wrote them.
+
+The full wire contract is in [KAFKA-TRANSPORT.md](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/KAFKA-TRANSPORT.md).
 
 ## Reliability
 
@@ -135,7 +193,7 @@ For containers, `Worker(WorkerOptions.from_env())` reads the following variables
 
 ## How it works
 
-The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses.
+The SDK implements the language-neutral [worker protocol](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/WORKER-PROTOCOL.md): the RabbitMQ queues and message formats the .NET SDK uses, and on Kafka the [Kafka transport](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/KAFKA-TRANSPORT.md) contract.
 
 ## Development
 
@@ -145,3 +203,5 @@ pip install -e ".[test]"
 pytest
 python examples/basic_worker.py   # configure with MILVAION_* variables
 ```
+
+The Kafka integration tests run when `MILVAION_KAFKA_BROKERS` points at a broker, for example `MILVAION_KAFKA_BROKERS=localhost:9092 pytest tests/test_kafka_integration.py`; otherwise they are skipped. Each test uses its own topic prefix.

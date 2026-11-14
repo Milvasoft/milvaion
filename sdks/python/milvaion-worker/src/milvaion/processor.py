@@ -6,7 +6,8 @@ import inspect
 import json
 import logging
 import re
-from collections.abc import Awaitable, Callable
+import time
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
@@ -21,15 +22,30 @@ _GUID = re.compile(r"^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-
 
 
 class Publisher(Protocol):
-    """Publishing side of the broker, with publisher confirms."""
+    """Publishing side of the broker, with publisher confirms. Destinations are named the RabbitMQ
+    way (exchange and routing key); the Kafka transport maps them to its topics. ``key`` is the
+    Kafka record key and is ignored by RabbitMQ."""
 
     async def publish(self, exchange: str, routing_key: str, body: bytes, *, persistent: bool = True,
-                      correlation_id: str | None = None, headers: dict[str, Any] | None = None) -> None: ...
+                      correlation_id: str | None = None, headers: dict[str, Any] | None = None, key: str | None = None) -> None: ...
+
+
+@dataclass
+class RetryRequest:
+    """The next attempt of a failed job, handed to a broker that schedules retries itself (Kafka)."""
+
+    job_id: str
+    occurrence_id: str
+    retry_count: int
+    """Retry count of the next attempt."""
+    max_retries: int
+    not_before: float
+    """Unix time in seconds before which the attempt must not run."""
 
 
 @dataclass
 class Delivery:
-    """One message taken from a job queue."""
+    """One message taken from a job queue or topic."""
 
     body: bytes
     headers: dict[str, Any]
@@ -37,6 +53,12 @@ class Delivery:
     redelivered: bool
     ack: Callable[[], Awaitable[None]]
     nack: Callable[[bool], Awaitable[None]]
+    """nack(True) returns the message to its queue so it runs again; nack(False) dead-letters it."""
+    reject: Callable[[str], Awaitable[None]] | None = None
+    """When set, dead-letters a message that cannot be processed and says why. Otherwise nack(False) is used."""
+    schedule_retry: Callable[[RetryRequest], Awaitable[None]] | None = None
+    """When set, hands a failed job to the broker for a delayed retry instead of waiting in process
+    (Kafka's retry topic). It returns once the broker has accepted the retry."""
 
 
 class CancellationRegistry:
@@ -100,6 +122,7 @@ class Processor:
         self.on_count_changed: Callable[[], None] | None = None
         self.sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
         self._shutdown = asyncio.Event()
+        self._background: set[asyncio.Task[Any]] = set()
         self._running = 0
         self._idle = asyncio.Event()
         self._idle.set()
@@ -127,9 +150,9 @@ class Processor:
 
         try:
             await self._process(delivery, consumer)
-        except Exception:  # noqa: BLE001
+        except Exception as error:  # noqa: BLE001
             self.logger.exception("Unexpected error while processing a job delivery.")
-            await self._settle(delivery.nack(False))
+            await self._reject(delivery, f"unexpected error while processing the job: {error}")
         finally:
             self._running -= 1
 
@@ -147,14 +170,14 @@ class Processor:
 
         if job is None:
             self.logger.error("Received a message on %s that is not a valid job. Sending it to the dead letter queue.", consumer.queue)
-            await self._settle(delivery.nack(False))
+            await self._reject(delivery, "the message is not a valid job")
             return
 
         occurrence_id = parse_occurrence_id(delivery.headers, delivery.correlation_id)
 
         if occurrence_id is None:
             self.logger.error("Job %s arrived without an occurrence id. Sending it to the dead letter queue.", job["id"])
-            await self._settle(delivery.nack(False))
+            await self._reject(delivery, "the job has no occurrence id")
             return
 
         run = _JobRun(self, job, occurrence_id, parse_retry_count(delivery.headers))
@@ -331,7 +354,12 @@ class Processor:
     async def _retry(self, delivery: Delivery, consumer: ResolvedJob, run: _JobRun, delay: float, max_retries: int) -> None:
         """Waits out the backoff, republishes the job with a higher retry count and acks the original.
 
-        The original stays unacked meanwhile, so a crash during the wait gets it redelivered."""
+        The original stays unacked meanwhile, so a crash during the wait gets it redelivered. A broker
+        that schedules retries itself (Kafka) gets the retry right away instead."""
+        if delivery.schedule_retry is not None:
+            await self._schedule_retry(delivery, run, delay, max_retries)
+            return
+
         interval = self.options.job_heartbeat_interval
         remaining = delay
 
@@ -353,26 +381,84 @@ class Processor:
                                          headers={"CorrelationId": run.occurrence_id, "x-retry-count": run.retry_count + 1, "MaxRetries": max_retries})
         except Exception as error:  # noqa: BLE001
             self.logger.error("Failed to republish job %s for retry. Dead-lettering the message: %s", run.job["id"], error)
-            await self._settle(delivery.nack(False))
+            await self._reject(delivery, f"the job could not be republished for retry: {error}")
             return
 
         await self._settle(delivery.ack())
 
-    async def _wait_unless_stopping(self, seconds: float) -> bool:
-        """Sleeps; returns True if the worker started stopping meanwhile."""
-        if self._shutdown.is_set():
-            return True
-
-        sleeper = asyncio.ensure_future(self.sleep(seconds))
-        stopping = asyncio.ensure_future(self._shutdown.wait())
+    async def _schedule_retry(self, delivery: Delivery, run: _JobRun, delay: float, max_retries: int) -> None:
+        """Hands the next attempt to the broker, settles the original and keeps the occurrence's
+        heartbeat going until the attempt is due, since the occurrence stays Running."""
+        assert delivery.schedule_retry is not None
+        due = time.time() + delay
 
         try:
-            await asyncio.wait({sleeper, stopping}, return_when=asyncio.FIRST_COMPLETED)
-        finally:
-            sleeper.cancel()
-            stopping.cancel()
+            await asyncio.wait_for(delivery.schedule_retry(RetryRequest(
+                job_id=run.job["id"], occurrence_id=run.occurrence_id, retry_count=run.retry_count + 1, max_retries=max_retries, not_before=due,
+            )), 60)
+        except Exception as error:  # noqa: BLE001
+            self.logger.error("Failed to schedule job %s for retry. Dead-lettering the message: %s", run.job["id"], error)
+            await self._reject(delivery, f"the job could not be scheduled for retry: {error}")
+            return
 
-        return self._shutdown.is_set()
+        await self._settle(delivery.ack())
+        self._spawn(self._heartbeat_while_waiting(run, due, None))
+
+    async def hold_heartbeats(self, body: bytes, headers: dict[str, Any], due: float, stop: asyncio.Event) -> None:
+        """Reports a job that waits here for its retry as Running, then sends its job heartbeats
+        until ``due`` (Unix seconds) or until ``stop`` is set. Used for Kafka retry records that are
+        not due yet."""
+        job = parse_job(body)
+        occurrence_id = parse_occurrence_id(headers, None)
+
+        if job is None or occurrence_id is None or stop.is_set():
+            return
+
+        run = _JobRun(self, job, occurrence_id, parse_retry_count(headers))
+        await run.status(Status.RUNNING, retry=False)
+        await self._heartbeat_while_waiting(run, due, stop)
+
+    async def _heartbeat_while_waiting(self, run: _JobRun, due: float, stop: asyncio.Event | None) -> None:
+        interval = self.options.job_heartbeat_interval
+
+        if interval <= 0:
+            return
+
+        while True:
+            wait = due - time.time()
+
+            if wait <= 0 or await self._wait_unless_stopping(min(wait, interval), stop):
+                return
+
+            if due - time.time() > 0:
+                await run.status(Status.RUNNING, retry=False)
+
+    def _spawn(self, coroutine: Coroutine[Any, Any, Any]) -> None:
+        task = asyncio.get_running_loop().create_task(coroutine)
+        self._background.add(task)
+        task.add_done_callback(self._background.discard)
+
+    async def _wait_unless_stopping(self, seconds: float, stop: asyncio.Event | None = None) -> bool:
+        """Sleeps; returns True if the worker started stopping (or ``stop`` was set) meanwhile."""
+
+        def stopped() -> bool:
+            return self._shutdown.is_set() or (stop is not None and stop.is_set())
+
+        if stopped():
+            return True
+
+        waiters = {asyncio.ensure_future(self.sleep(seconds)), asyncio.ensure_future(self._shutdown.wait())}
+
+        if stop is not None:
+            waiters.add(asyncio.ensure_future(stop.wait()))
+
+        try:
+            await asyncio.wait(waiters, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for waiter in waiters:
+                waiter.cancel()
+
+        return stopped()
 
     async def _dead_letter(self, delivery: Delivery, run: _JobRun, exception: str, retry_count: int, max_retries: int) -> None:
         job = run.job
@@ -388,14 +474,21 @@ class Processor:
 
         try:
             await self.publisher.publish(EXCHANGE_DEAD_LETTER, DEAD_LETTER_ROUTING_KEY, body, persistent=True, correlation_id=run.occurrence_id,
-                                         headers={"CorrelationId": run.occurrence_id, "x-retry-count": retry_count, "MaxRetries": max_retries})
+                                         headers={"CorrelationId": run.occurrence_id, "x-retry-count": retry_count, "MaxRetries": max_retries},
+                                         key=run.occurrence_id)
         except Exception as error:  # noqa: BLE001
             # The queue dead-letters a rejected message itself, just without the exception details.
             self.logger.error("Failed to publish job %s to the dead letter queue. Rejecting the message instead: %s", job["id"], error)
-            await self._settle(delivery.nack(False))
+            await self._reject(delivery, f"the dead letter could not be published: {error}")
             return
 
         await self._settle(delivery.ack())
+
+    async def _reject(self, delivery: Delivery, reason: str) -> None:
+        if delivery.reject is not None:
+            await self._settle(delivery.reject(reason))
+        else:
+            await self._settle(delivery.nack(False))
 
     async def _settle(self, action: Awaitable[None]) -> None:
         try:
@@ -458,7 +551,7 @@ class _JobRun:
 
         for attempt in range(len(delays) + 1):
             try:
-                await self.p.publisher.publish("", QUEUE_STATUS_UPDATES, body, persistent=True)
+                await self.p.publisher.publish("", QUEUE_STATUS_UPDATES, body, persistent=True, key=self.occurrence_id)
                 return
             except Exception as error:  # noqa: BLE001
                 if attempt >= len(delays):

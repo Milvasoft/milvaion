@@ -9,7 +9,7 @@ description = "Python worker SDK for the Milvaion job scheduler"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-keywords = ["milvaion", "job-scheduler", "worker", "rabbitmq", "cron"]
+keywords = ["milvaion", "job-scheduler", "worker", "rabbitmq", "kafka", "cron"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Framework :: AsyncIO",
@@ -21,7 +21,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8", "pytest-asyncio>=0.23"]
+kafka = ["aiokafka>=0.12"]
+test = ["pytest>=8", "pytest-asyncio>=0.23", "aiokafka>=0.12"]
 
 [project.urls]
 Homepage = "https://github.com/Milvasoft/milvaion"
