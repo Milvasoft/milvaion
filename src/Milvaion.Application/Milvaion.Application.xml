@@ -5379,6 +5379,11 @@
             Trigger workflow response containing the created WorkflowRun Id. The frontend can use this Id to track the workflow run status and details.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.TriggerWorkflowResponse.ScheduledAt">
+            <summary>
+            Time (UTC) the run is scheduled to start at; null when it starts right away.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.TriggerWorkflowResponse.ShouldLogActivity">
             <summary>
             Determines whether this activity will be logged to database by the <see cref="T:Milvaion.Application.Utils.Aspects.UserActivityLogAspect.UserActivityLogInterceptor"/> or not. Default is true, so the activity will be logged.
@@ -5417,6 +5422,11 @@
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.MaxStepRetries">
             <summary>
             Maximum step retries.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.MaxRetryAfter">
+            <summary>
+            Maximum reruns of a step at the time its job asked for (retry-after), per step and run.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.TimeoutSeconds">
@@ -5618,6 +5628,11 @@
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.CronExpression">
             <summary>
             Cron expression for automatic recurring execution.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.MaxRetryAfter">
+            <summary>
+            Maximum reruns of a step at the time its job asked for (retry-after), per step and run.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.Projection">
@@ -5873,6 +5888,11 @@
             Trigger reason.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.ScheduledAt">
+            <summary>
+            Time (UTC) a run triggered for later starts at; null for a run that started right away.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.Error">
             <summary>
             Error message.
@@ -6036,6 +6056,11 @@
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.TriggerReason">
             <summary>
             Trigger reason.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.ScheduledAt">
+            <summary>
+            Time (UTC) a run triggered for later starts at; null for a run that started right away.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.CreatedAt">
@@ -10049,6 +10074,11 @@
             Maximum retries for failed steps.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.MaxRetryAfter">
+            <summary>
+            Maximum reruns of a step at the time its job asked for (retry-after), per step and run. Not counted against <see cref="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.MaxStepRetries"/>.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.TimeoutSeconds">
             <summary>
             Timeout in seconds for entire workflow.
@@ -10418,6 +10448,43 @@
         <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand">
+            <summary>
+            Moves a workflow run that was triggered for later (<see cref="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.ExecuteAt"/>) to another time.
+            Only a run that has not started yet can be moved.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand.WorkflowRunId">
+            <summary>
+            The workflow run to move.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand.ExecuteAt">
+            <summary>
+            New start time (UTC). A time that has already passed starts the run right away.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommandHandler">
+            <summary>
+            Handles <see cref="T:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun})">
+            <summary>
+            Handles <see cref="T:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommandHandler.Handle(Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommandValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommandValidator"/>
+        </member>
         <member name="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand">
             <summary>
             Command to trigger a workflow run. Creates a WorkflowRun and dispatches root steps.
@@ -10438,6 +10505,12 @@
             Per-step job data overrides for this run.
             Key is the step ID (<see cref="P:Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition.Id"/>), value is JSON job data.
             Takes highest priority — overrides base data, design-time step override, and global job data.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.ExecuteAt">
+            <summary>
+            Time (UTC) to start the run at. Null starts it right away. A scheduled run stays Pending until then,
+            and can be moved with the reschedule endpoint or cancelled like any other run.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.ShouldLogActivity">
@@ -10515,6 +10588,11 @@
         <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.MaxStepRetries">
             <summary>
             Maximum retries for failed steps.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.MaxRetryAfter">
+            <summary>
+            Maximum reruns of a step at the time its job asked for (retry-after), per step and run.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.TimeoutSeconds">

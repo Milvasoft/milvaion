@@ -51,6 +51,11 @@ public class WorkflowListDto : MilvaionBaseDto<Guid>
     public string CronExpression { get; set; }
 
     /// <summary>
+    /// Maximum reruns of a step at the time its job asked for (retry-after), per step and run.
+    /// </summary>
+    public int MaxRetryAfter { get; set; }
+
+    /// <summary>
     /// Projection expression.
     /// </summary>
     [JsonIgnore]
@@ -66,5 +71,6 @@ public class WorkflowListDto : MilvaionBaseDto<Guid>
         Version = w.Version,
         StepCount = w.Definition.Steps.Count,
         CronExpression = w.CronExpression,
+        MaxRetryAfter = w.MaxRetryAfter,
     };
 }

@@ -30,6 +30,11 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     private readonly IMediator _mediator = mediator;
     private readonly McpPermissionGuard _guard = guard;
 
+    /// <summary>
+    /// Shared by create_workflow and update_workflow so both tools explain the limit the same way.
+    /// </summary>
+    internal const string MaxRetryAfterDescription = "How many times each step may defer itself by throwing a retry-after error (RetryAfterException / RetryAfterError in the SDKs) within one run. Every deferral reruns the step at the time the job asked for; once a step has deferred this many times, its next deferral is treated as an ordinary step failure (maxStepRetries, then failureStrategy, decide whether the run fails). Counted per step and run, separately from maxStepRetries. Raise it for steps that wait on an external rate limit or a long delay. 0 or more; 0 means the first deferral fails the step.";
+
     private const int _maxPageSize = 100;
 
     /// <summary>
@@ -370,6 +375,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cronExpression">Six part cron expression for recurring execution, or null for manual only.</param>
     /// <param name="failureStrategy">What to do when a step fails.</param>
     /// <param name="maxStepRetries">Maximum retries per step.</param>
+    /// <param name="maxRetryAfter">Maximum retry-after deferrals per step and run.</param>
     /// <param name="timeoutSeconds">Timeout for the whole workflow.</param>
     /// <param name="isActive">Whether the workflow is scheduled straight away.</param>
     /// <param name="cancellationToken"></param>
@@ -386,7 +392,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         [Description("Six part cron expression (second minute hour day month dayOfWeek). Omit for manual only.")] string cronExpression = null,
         [Description("What to do when a step fails.")] WorkflowFailureStrategy failureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
         [Description("Maximum retries per step.")] int maxStepRetries = 0,
-        [Description("Maximum reruns per step at the time its job asked for with a retry-after error. Not counted against maxStepRetries.")] int maxRetryAfter = 10,
+        [Description(MaxRetryAfterDescription + " Defaults to 10.")] int maxRetryAfter = 10,
         [Description("Timeout for the whole workflow in seconds.")] int? timeoutSeconds = null,
         [Description("Whether the workflow is scheduled straight away. Pass false to create it paused.")] bool isActive = true,
         CancellationToken cancellationToken = default)
@@ -469,6 +475,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <param name="cronExpression">New cron expression, or null to leave unchanged.</param>
     /// <param name="failureStrategy">New failure strategy, or null to leave unchanged.</param>
     /// <param name="maxStepRetries">New retry count, or null to leave unchanged.</param>
+    /// <param name="maxRetryAfter">New retry-after deferral limit, or null to leave unchanged.</param>
     /// <param name="timeoutSeconds">New timeout, or null to leave unchanged.</param>
     /// <param name="steps">Replacement steps. Must be supplied together with <paramref name="edges"/>.</param>
     /// <param name="edges">Replacement edges. Must be supplied together with <paramref name="steps"/>.</param>
@@ -485,7 +492,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         [Description("New six part cron expression. Omit to leave unchanged.")] string cronExpression = null,
         [Description("New failure strategy. Omit to leave unchanged.")] WorkflowFailureStrategy? failureStrategy = null,
         [Description("New maximum retries per step. Omit to leave unchanged.")] int? maxStepRetries = null,
-        [Description("New maximum reruns per step at the time its job asked for (retry-after). Omit to leave unchanged.")] int? maxRetryAfter = null,
+        [Description(MaxRetryAfterDescription + " Omit to leave unchanged.")] int? maxRetryAfter = null,
         [Description("New workflow timeout in seconds. Omit to leave unchanged.")] int? timeoutSeconds = null,
         [Description("Replacement steps. Supply together with edges to rewire the graph.")] List<CreateWorkflowStepDto> steps = null,
         [Description("Replacement edges. Supply together with steps to rewire the graph.")] List<CreateWorkflowEdgeDto> edges = null,

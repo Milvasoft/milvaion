@@ -1601,6 +1601,11 @@
             Cancels a running workflow (cancels running steps, skips pending steps).
             </summary>
         </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.RescheduleWorkflowRunAsync(Milvaion.Application.Features.Workflows.RescheduleWorkflowRun.RescheduleWorkflowRunCommand,System.Threading.CancellationToken)">
+            <summary>
+            Moves a run that was triggered for later (executeAt) to another time. Only runs that have not started can be moved.
+            </summary>
+        </member>
         <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowRunsAsync(Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQuery,System.Threading.CancellationToken)">
             <summary>
             Gets workflow runs with optional workflow filter.
@@ -2284,6 +2289,11 @@
             MCP tools covering workers, workflows and the overall health of the installation.
             </summary>
         </member>
+        <member name="F:Milvaion.Api.Mcp.MilvaionOpsTools.MaxRetryAfterDescription">
+            <summary>
+            Shared by create_workflow and update_workflow so both tools explain the limit the same way.
+            </summary>
+        </member>
         <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetOverviewAsync(System.Threading.CancellationToken)">
             <summary>
             Gets dashboard statistics for the installation.
@@ -2318,7 +2328,7 @@
             <param name="cancellationToken"></param>
             <returns>Paged workflow run list with the total count.</returns>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.TriggerWorkflowAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.TriggerWorkflowAsync(System.Guid,System.String,System.Nullable{System.DateTime},System.Collections.Generic.Dictionary{System.Guid,System.String},System.Threading.CancellationToken)">
             <summary>
             Triggers a workflow run immediately.
             </summary>
@@ -2327,6 +2337,11 @@
             <param name="cancellationToken"></param>
             <returns>The created workflow run.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be triggered.</exception>
+        </member>
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.RescheduleWorkflowRunAsync(System.Guid,System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Moves a workflow run that was triggered for later to another time.
+            </summary>
         </member>
         <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.GetWorkerAsync(System.String,System.Threading.CancellationToken)">
             <summary>
@@ -2392,7 +2407,7 @@
             <returns>Id of the deleted workflow.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be deleted.</exception>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.CreateWorkflowAsync(System.String,System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto},System.String,System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy,System.Int32,System.Nullable{System.Int32},System.Boolean,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.CreateWorkflowAsync(System.String,System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto},System.String,System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy,System.Int32,System.Int32,System.Nullable{System.Int32},System.Boolean,System.Threading.CancellationToken)">
             <summary>
             Creates a workflow with its step graph.
             </summary>
@@ -2404,6 +2419,7 @@
             <param name="cronExpression">Six part cron expression for recurring execution, or null for manual only.</param>
             <param name="failureStrategy">What to do when a step fails.</param>
             <param name="maxStepRetries">Maximum retries per step.</param>
+            <param name="maxRetryAfter">Maximum retry-after deferrals per step and run.</param>
             <param name="timeoutSeconds">Timeout for the whole workflow.</param>
             <param name="isActive">Whether the workflow is scheduled straight away.</param>
             <param name="cancellationToken"></param>
@@ -2423,7 +2439,7 @@
             <returns>Id of the updated workflow.</returns>
             <exception cref="T:ModelContextProtocol.McpException">Thrown when the workflow could not be updated.</exception>
         </member>
-        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.UpdateWorkflowAsync(System.Guid,System.String,System.String,System.String,System.String,System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Api.Mcp.MilvaionOpsTools.UpdateWorkflowAsync(System.Guid,System.String,System.String,System.String,System.String,System.Nullable{Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto},System.Threading.CancellationToken)">
             <summary>
             Updates a workflow. Only the arguments that are supplied are changed.
             </summary>
@@ -2438,6 +2454,7 @@
             <param name="cronExpression">New cron expression, or null to leave unchanged.</param>
             <param name="failureStrategy">New failure strategy, or null to leave unchanged.</param>
             <param name="maxStepRetries">New retry count, or null to leave unchanged.</param>
+            <param name="maxRetryAfter">New retry-after deferral limit, or null to leave unchanged.</param>
             <param name="timeoutSeconds">New timeout, or null to leave unchanged.</param>
             <param name="steps">Replacement steps. Must be supplied together with <paramref name="edges"/>.</param>
             <param name="edges">Replacement edges. Must be supplied together with <paramref name="steps"/>.</param>
@@ -2806,6 +2823,18 @@
             <inheritdoc />
         </member>
         <member name="M:Milvaion.Api.Migrations._20261113233320_AddProjects.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations._20261114133847_AddScheduledRunsAndRetryAfter">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations._20261114133847_AddScheduledRunsAndRetryAfter.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations._20261114133847_AddScheduledRunsAndRetryAfter.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations._20261114133847_AddScheduledRunsAndRetryAfter.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">

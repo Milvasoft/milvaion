@@ -206,9 +206,9 @@ The tool takes nullable plain arguments instead and builds the wrappers in C#: n
 
 Pausing a job is the most common intervention during an incident and it should not require a partial update payload. A dedicated tool also gives the description room to steer the model towards pausing rather than deleting, which is what users almost always mean by "stop this job".
 
-### Why workflow authoring is absent
+### How workflow authoring is shaped
 
-There is no `create_workflow` or `update_workflow`. A workflow is a directed graph with conditions, merge nodes and data mappings between steps; expressing one as tool arguments would be a large nested payload with plenty of ways to produce a graph that is syntactically valid and semantically wrong. Reading, triggering, cancelling and deleting workflows are all available — authoring stays in the visual builder.
+`create_workflow` and `update_workflow` take the graph as steps plus edges joined by `tempId`, the same payload the visual builder sends. A graph can be syntactically valid and semantically wrong, so both descriptions tell the model to show the intended flow first, and `update_workflow` replaces steps and edges only as a pair. Settings follow the `update_job` pattern: nullable plain arguments, null means unchanged. That covers `failureStrategy`, `maxStepRetries`, `maxRetryAfter` (how many times a step may defer itself with a retry-after error per run before the deferral counts as an ordinary failure) and `timeoutSeconds`. `get_workflow` and `list_workflows` return `maxRetryAfter`, so a model can read the current limit before changing it.
 
 ### Why the write tools are shaped around intent
 
