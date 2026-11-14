@@ -32,6 +32,7 @@
 		<PackageReference Include="SSH.NET" Version="2026.0.0" />
 		<PackageReference Include="System.Drawing.Common" Version="11.0.0" />
 		<PackageReference Include="Testcontainers.PostgreSql" Version="4.13.0" />
+		<PackageReference Include="Testcontainers.Kafka" Version="4.13.0" />
 		<PackageReference Include="Testcontainers.RabbitMq" Version="4.13.0" />
 		<PackageReference Include="Testcontainers.Redis" Version="4.13.0" />
 		<PackageReference Include="WireMock.Net" Version="2.14.0" />

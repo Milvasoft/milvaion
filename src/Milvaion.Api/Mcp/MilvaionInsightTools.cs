@@ -179,7 +179,7 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
     /// <param name="cancellationToken"></param>
     /// <returns>Health of the scheduler and its dependencies.</returns>
     [McpServerTool(Name = "get_system_health", ReadOnly = true)]
-    [Description("Gets the health of Milvaion and its dependencies - database, Redis, RabbitMQ. When several unrelated jobs start failing at once, check this before investigating any of them individually: the cause is usually one dependency rather than the jobs.")]
+    [Description("Gets the health of Milvaion and its dependencies - database, Redis and the message broker (RabbitMQ or Kafka). When several unrelated jobs start failing at once, check this before investigating any of them individually: the cause is usually one dependency rather than the jobs.")]
     public async Task<object> GetSystemHealthAsync(CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.SystemAdministration.List);
@@ -190,12 +190,12 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
     }
 
     /// <summary>
-    /// Gets RabbitMQ queue statistics.
+    /// Gets queue (RabbitMQ) or topic (Kafka) statistics.
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns>Depth and consumer counts per queue.</returns>
     [McpServerTool(Name = "get_queue_stats", ReadOnly = true)]
-    [Description("Gets RabbitMQ queue depths and consumer counts. A queue that keeps growing means jobs are being dispatched faster than workers consume them - the jobs are not broken, there is simply not enough worker capacity. A queue with zero consumers means no worker is listening at all.")]
+    [Description("Gets the depth and consumer count of every queue (RabbitMQ), or the consumer lag and consumer count of every topic (Kafka). A queue that keeps growing means jobs are being dispatched faster than workers consume them - the jobs are not broken, there is simply not enough worker capacity. A queue with zero consumers means no worker is listening at all.")]
     public async Task<object> GetQueueStatsAsync(CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.SystemAdministration.List);
@@ -212,7 +212,7 @@ public class MilvaionInsightTools(IMediator mediator, IAdminService adminService
     /// <param name="cancellationToken"></param>
     /// <returns>Queue depth detail.</returns>
     [McpServerTool(Name = "get_queue_info", ReadOnly = true)]
-    [Description("Gets depth detail for a single RabbitMQ queue by name, as listed by get_queue_stats.")]
+    [Description("Gets depth detail for a single queue (RabbitMQ) or topic (Kafka) by name, as listed by get_queue_stats.")]
     public async Task<object> GetQueueInfoAsync(
         [Description("The queue name.")] string queueName,
         CancellationToken cancellationToken = default)

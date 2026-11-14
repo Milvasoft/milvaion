@@ -78,6 +78,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
         if (_rabbitMqContainer.State != TestcontainersStates.Running)
             startTasks.Add(_rabbitMqContainer.StartAsync());
 
+        startTasks.Add(StartAdditionalContainersAsync());
+
         await Task.WhenAll(startTasks);
 
         // Create isolated database if this collection uses a different DB name
@@ -130,6 +132,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
 
             // Trigger host build — this reads env vars during Program.cs execution
             _ = Services;
+
+            // Env vars are process-wide: another collection's host must not pick up this one's extras.
+            ResetAdditionalEnvironmentVariables();
         }
         finally
         {
@@ -142,6 +147,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     /// Called inside the host-build lock, after all base env vars are set.
     /// </summary>
     protected virtual void ConfigureAdditionalEnvironmentVariables() { }
+
+    /// <summary>
+    /// Override in subclasses to clear what <see cref="ConfigureAdditionalEnvironmentVariables"/> set, once the host is built.
+    /// </summary>
+    protected virtual void ResetAdditionalEnvironmentVariables() { }
+
+    /// <summary>
+    /// Override in subclasses to start extra containers alongside the shared ones.
+    /// </summary>
+    protected virtual Task StartAdditionalContainersAsync() => Task.CompletedTask;
 
     public async Task CreateRespawner() => _respawner ??= await Respawner.CreateAsync(_connection, new RespawnerOptions
     {

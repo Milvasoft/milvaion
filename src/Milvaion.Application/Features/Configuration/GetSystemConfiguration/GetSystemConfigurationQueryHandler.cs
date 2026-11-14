@@ -5,6 +5,7 @@ using Milvasoft.Components.CQRS.Query;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
+using Milvasoft.Milvaion.Sdk.Utils.Kafka;
 using System.Reflection;
 
 namespace Milvaion.Application.Features.Configuration.GetSystemConfiguration;
@@ -54,7 +55,9 @@ public class GetSystemConfigurationQueryHandler(IConfiguration configuration, Mi
                 KeyPrefix = _milvaionConfig.Redis.KeyPrefix,
                 SyncTimeout = _milvaionConfig.Redis.SyncTimeout
             },
-            RabbitMQ = new RabbitMQConfigDto
+            Transport = (_milvaionConfig.Transport?.Type ?? MessageTransportType.RabbitMQ).ToString(),
+            Kafka = _milvaionConfig.Transport?.Type == MessageTransportType.Kafka ? BuildKafkaConfig(_milvaionConfig.Kafka ?? new KafkaOptions()) : null,
+            RabbitMQ = _milvaionConfig.Transport?.Type == MessageTransportType.Kafka || _milvaionConfig.RabbitMQ == null ? null : new RabbitMQConfigDto
             {
                 Host = _milvaionConfig.RabbitMQ.Host,
                 Port = _milvaionConfig.RabbitMQ.Port,
@@ -92,6 +95,30 @@ public class GetSystemConfigurationQueryHandler(IConfiguration configuration, Mi
         };
 
         return Task.FromResult(Response<SystemConfigurationDto>.Success(config));
+    }
+
+    /// <summary>
+    /// Kafka settings without credentials.
+    /// </summary>
+    private static KafkaConfigDto BuildKafkaConfig(KafkaOptions kafka)
+    {
+        var prefix = kafka.TopicPrefix ?? string.Empty;
+
+        return new KafkaConfigDto
+        {
+            BootstrapServers = kafka.BootstrapServers,
+            SecurityProtocol = kafka.SecurityProtocol.ToString(),
+            SaslMechanism = kafka.SecurityProtocol is KafkaSecurityProtocol.SaslPlaintext or KafkaSecurityProtocol.SaslSsl ? kafka.SaslMechanism.ToString() : null,
+            TopicPrefix = prefix,
+            AutoCreateTopics = kafka.AutoCreateTopics,
+            NumPartitions = kafka.NumPartitions,
+            ReplicationFactor = kafka.ReplicationFactor,
+            LagWarningThreshold = kafka.LagWarningThreshold,
+            LagCriticalThreshold = kafka.LagCriticalThreshold,
+            ConsumerGroup = KafkaTopicNames.WithPrefix(prefix, KafkaTopicNames.ApiGroup),
+            Topics = [.. KafkaTopicNames.SharedTopics(prefix)],
+            JobTopicPattern = KafkaTopicNames.Jobs(prefix, "{worker}").Replace("_worker_", "{worker}")
+        };
     }
 
     /// <summary>

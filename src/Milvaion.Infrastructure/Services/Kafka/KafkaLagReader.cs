@@ -70,9 +70,20 @@ public sealed class KafkaLagReader(KafkaClientFactory clientFactory)
 
     private async Task<Dictionary<TopicPartition, long>> ListOffsetsAsync(List<TopicPartition> partitions, OffsetSpec spec)
     {
-        var result = await _clientFactory.Admin.ListOffsetsAsync(partitions.Select(p => new TopicPartitionOffsetSpec { TopicPartition = p, OffsetSpec = spec }));
+        // A topic created a moment ago may not have partition leaders yet; that clears up within a second or two.
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var result = await _clientFactory.Admin.ListOffsetsAsync(partitions.Select(p => new TopicPartitionOffsetSpec { TopicPartition = p, OffsetSpec = spec }));
 
-        return result.ResultInfos.ToDictionary(r => r.TopicPartitionOffsetError.TopicPartition, r => r.TopicPartitionOffsetError.Offset.Value);
+                return result.ResultInfos.ToDictionary(r => r.TopicPartitionOffsetError.TopicPartition, r => r.TopicPartitionOffsetError.Offset.Value);
+            }
+            catch (ListOffsetsException) when (attempt < 3)
+            {
+                await Task.Delay(500 * attempt);
+            }
+        }
     }
 
     private async Task<int?> CountConsumersAsync(string topic, string group)
