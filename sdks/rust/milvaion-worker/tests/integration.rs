@@ -242,7 +242,10 @@ async fn runs_jobs_end_to_end() {
         .handle("WaitJob", |ctx: JobContext| async move {
             ctx.info("waiting to be cancelled");
             ctx.cancelled().await;
-            Ok::<_, JobError>(())
+            // A handler that stops because it was cancelled returns an error. Returning Ok here races
+            // with the processor: if the handler finishes before the processor sees the cancellation,
+            // the job counts as completed (as in the other SDKs).
+            Err::<(), _>(JobError::new("cancelled"))
         })
         .unwrap()
         .handle_with(
