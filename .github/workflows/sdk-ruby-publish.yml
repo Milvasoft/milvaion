@@ -85,6 +85,7 @@ jobs:
         run: |
           if [ -z "$OIDC_ROLE" ]; then
             test -n "$RUBYGEMS_API_KEY" || { echo "Set the RUBYGEMS_OIDC_ROLE variable or the RUBYGEMS_API_KEY secret"; exit 1; }
-            export GEM_HOST_API_KEY="$RUBYGEMS_API_KEY"
+            # A key pasted into the secret often carries a trailing newline, which RubyGems rejects in the header.
+            export GEM_HOST_API_KEY="$(printf '%s' "$RUBYGEMS_API_KEY" | tr -d '[:space:]')"
           fi
           gem push "milvaion-worker-${GITHUB_REF_NAME#sdk-ruby-v}.gem"

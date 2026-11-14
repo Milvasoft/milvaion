@@ -1975,7 +1975,7 @@
         </member>
         <member name="M:Milvaion.Api.Mcp.MilvaionInsightTools.GetQueueStatsAsync(System.Threading.CancellationToken)">
             <summary>
-            Gets RabbitMQ queue statistics.
+            Gets queue (RabbitMQ) or topic (Kafka) statistics.
             </summary>
             <param name="cancellationToken"></param>
             <returns>Depth and consumer counts per queue.</returns>

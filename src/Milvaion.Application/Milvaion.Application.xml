@@ -1041,6 +1041,11 @@
             Health status message
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.QueueDepthInfo.Transport">
+            <summary>
+            Transport the figures come from ("Kafka"). Null on RabbitMQ.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.AdminDtos.QueueStats">
             <summary>
             Detailed queue statistics
@@ -1068,12 +1073,23 @@
         </member>
         <member name="P:Milvaion.Application.Dtos.AdminDtos.QueueStats.MessagesUnacknowledged">
             <summary>
-            Messages unacknowledged
+            Messages delivered but not acknowledged yet. Null when the transport cannot report it (Kafka).
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.AdminDtos.QueueStats.HealthStatus">
             <summary>
             Queue health status
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.QueueStats.Transport">
+            <summary>
+            Transport the figures come from ("Kafka"). Null on RabbitMQ. On Kafka the queue is a topic and the
+            message count is the consumer lag of the group that reads it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.QueueStats.Note">
+            <summary>
+            Explains the figures, or why they are not available.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.AdminDtos.QueueStats.Timestamp">
@@ -1729,6 +1745,71 @@
             Default: true.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto">
+            <summary>
+            Kafka configuration, without credentials.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.BootstrapServers">
+            <summary>
+            Bootstrap servers.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.SecurityProtocol">
+            <summary>
+            Security protocol.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.SaslMechanism">
+            <summary>
+            SASL mechanism, when SASL is used.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.TopicPrefix">
+            <summary>
+            Prefix of every topic and consumer group.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.AutoCreateTopics">
+            <summary>
+            Whether missing topics are created at startup.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.NumPartitions">
+            <summary>
+            Partitions of auto-created topics.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.ReplicationFactor">
+            <summary>
+            Replication factor of auto-created topics (-1 is the broker default).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.LagWarningThreshold">
+            <summary>
+            Consumer lag at which a topic is reported with a warning.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.LagCriticalThreshold">
+            <summary>
+            Consumer lag at which a topic is reported as critical.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.ConsumerGroup">
+            <summary>
+            Consumer group of the API.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.Topics">
+            <summary>
+            Shared topics the API consumes.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.KafkaConfigDto.JobTopicPattern">
+            <summary>
+            Name pattern of the per-worker job topics.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.ConfigurationDtos.ObservabilityConfigDto">
             <summary>
             Log ve metrik dışa aktarım ayarları.
@@ -1984,9 +2065,19 @@
             Redis configuration.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.Transport">
+            <summary>
+            Message transport in use: "RabbitMQ" or "Kafka".
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.RabbitMQ">
             <summary>
-            RabbitMQ configuration.
+            RabbitMQ configuration. Null when the transport is Kafka.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.Kafka">
+            <summary>
+            Kafka configuration. Null when the transport is RabbitMQ.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.ConfigurationDtos.SystemConfigurationDto.JobAutoDisable">
@@ -6488,6 +6579,11 @@
         <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.Handle(Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.BuildKafkaConfig(Milvaion.Application.Utils.Models.Options.KafkaOptions)">
+            <summary>
+            Kafka settings without credentials.
+            </summary>
+        </member>
         <member name="M:Milvaion.Application.Features.Configuration.GetSystemConfiguration.GetSystemConfigurationQueryHandler.ReadBackgroundServices">
              <summary>
              Reads the background service settings.
@@ -9261,7 +9357,7 @@
             Handles manual job triggering by creating occurrence and dispatching immediately.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,Milvasoft.Core.Abstractions.IMilvaLogger,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},Milvaion.Application.Interfaces.Messaging.IJobPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,Milvasoft.Core.Abstractions.IMilvaLogger,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
             <summary>
             Handles manual job triggering by creating occurrence and dispatching immediately.
             </summary>
@@ -11396,19 +11492,19 @@
             </summary>
             <returns></returns>
         </member>
-        <member name="T:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher">
+        <member name="T:Milvaion.Application.Interfaces.Messaging.IJobPublisher">
             <summary>
-            RabbitMQ publisher for dispatching jobs to workers.
+            Dispatches jobs to workers over the configured transport (RabbitMQ or Kafka).
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher.PublishJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Application.Interfaces.Messaging.IJobPublisher.PublishJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
             <summary>
-            Publishes a scheduled job to the RabbitMQ queue.
+            Publishes a scheduled job to its worker.
             </summary>
             <param name="job">The scheduled job to publish</param>
             <param name="occurrenceId">Unique identifier for the job occurrence (Occurrence.Id)</param>
             <param name="cancellationToken">Cancellation token</param>
-            <returns>True if published successfully</returns>
+            <returns>True if the broker accepted the message and a worker can receive it</returns>
             <remarks>
             <c>{{secret:name}}</c> references in the job data are resolved into the message only; the job object is
             not changed.
@@ -11418,7 +11514,7 @@
             exception message (it names the secrets, never their values) rather than retrying.
             </exception>
         </member>
-        <member name="M:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher.PublishBatchAsync(System.Collections.Generic.Dictionary{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Application.Interfaces.Messaging.IJobPublisher.PublishBatchAsync(System.Collections.Generic.Dictionary{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid},System.Threading.CancellationToken)">
             <summary>
             Publishes multiple jobs in a batch with occurrence IDs.
             </summary>
@@ -11426,14 +11522,129 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>Number of jobs published successfully</returns>
         </member>
-        <member name="M:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher.GetQueueMessageCountAsync(System.String,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Application.Interfaces.Messaging.IJobPublisher.GetQueueMessageCountAsync(System.String,System.Threading.CancellationToken)">
             <summary>
-            Gets the number of messages in a specific RabbitMQ queue for a job.
-            Used to check if there are queued occurrences before dispatching Skip policy jobs.
+            Gets the number of messages waiting for a job's worker. Used to check if there are queued occurrences before
+            dispatching Skip policy jobs. On RabbitMQ this is the depth of the job's queue; on Kafka the consumer lag of
+            the worker's group on its job topic.
             </summary>
-            <param name="routingPattern">Worker routing patterns (e.g., ["nonparallel.*"]). If null, uses default "all" queue.</param>
+            <param name="routingPattern">Worker routing pattern (e.g. "nonparallel.*"). If null, uses the default "all" queue.</param>
             <param name="cancellationToken">Cancellation token</param>
-            <returns>Number of messages in queue, or 0 if queue doesn't exist</returns>
+            <returns>Number of waiting messages, or 0 if the queue or topic doesn't exist</returns>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Messaging.IMessageDelivery">
+            <summary>
+            One message received from the broker. It must be settled exactly once with <see cref="M:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.AckAsync(System.Threading.CancellationToken)"/> or <see cref="M:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.NackAsync(System.Boolean,System.Threading.CancellationToken)"/>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.Body">
+            <summary>
+            Message body. On RabbitMQ it is only valid while the handler runs; copy it to keep it.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.MessageId">
+            <summary>
+            Message id, if the publisher set one.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.CorrelationId">
+            <summary>
+            Correlation id (the occurrence id on job traffic), if the publisher set one.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.Headers">
+            <summary>
+            Headers. Values may be numbers, strings or raw bytes; read them with <c>MessageHeaderValues</c>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.DeliveryTag">
+            <summary>
+            Identifies the delivery in logs: the RabbitMQ delivery tag, or the Kafka offset.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.AckAsync(System.Threading.CancellationToken)">
+            <summary>
+            Confirms the message was handled. On Kafka its offset becomes committable.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Messaging.IMessageDelivery.NackAsync(System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Rejects the message. With <paramref name="requeue"/> it is delivered again; without it, it is dropped
+            (or dead-lettered where the queue is configured to).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Messaging.ConsumerSubscription">
+            <summary>
+            What a consumer reads.
+            </summary>
+            <param name="Queue">RabbitMQ queue name (a <c>WorkerConstant.Queues</c> value); the Kafka transport maps it to its topic.</param>
+            <param name="Prefetch">Unsettled messages the consumer may hold at once.</param>
+            <param name="ServiceName">Owning service, for logs.</param>
+            <param name="DeclareQueue">RabbitMQ only: declare the queue before consuming. Off for queues the API declares at startup with special arguments.</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Messaging.ConsumerSubscription.#ctor(System.String,System.UInt16,System.String,System.Boolean)">
+            <summary>
+            What a consumer reads.
+            </summary>
+            <param name="Queue">RabbitMQ queue name (a <c>WorkerConstant.Queues</c> value); the Kafka transport maps it to its topic.</param>
+            <param name="Prefetch">Unsettled messages the consumer may hold at once.</param>
+            <param name="ServiceName">Owning service, for logs.</param>
+            <param name="DeclareQueue">RabbitMQ only: declare the queue before consuming. Off for queues the API declares at startup with special arguments.</param>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.ConsumerSubscription.Queue">
+            <summary>RabbitMQ queue name (a <c>WorkerConstant.Queues</c> value); the Kafka transport maps it to its topic.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.ConsumerSubscription.Prefetch">
+            <summary>Unsettled messages the consumer may hold at once.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.ConsumerSubscription.ServiceName">
+            <summary>Owning service, for logs.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.ConsumerSubscription.DeclareQueue">
+            <summary>RabbitMQ only: declare the queue before consuming. Off for queues the API declares at startup with special arguments.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Messaging.IMessageConsumer">
+            <summary>
+            A running consumer. Disposing it stops it and releases the broker resources.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.IMessageConsumer.Completion">
+            <summary>
+            Completes when the consumer has died (channel closed, fatal broker error), so the owner can reconnect.
+            It does not complete on cancellation: the consumer stays open so that pending messages can still be settled.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport">
+            <summary>
+            Starts consumers on the configured broker.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport.Name">
+            <summary>
+            Transport name for logs and alerts ("RabbitMQ" or "Kafka").
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport.StartConsumerAsync(Milvaion.Application.Interfaces.Messaging.ConsumerSubscription,System.Func{Milvaion.Application.Interfaces.Messaging.IMessageDelivery,System.Threading.Tasks.Task},System.Threading.CancellationToken)">
+            <summary>
+            Connects and starts delivering messages of <paramref name="subscription"/> to <paramref name="handler"/>, one at a time.
+            Throws when the broker cannot be reached.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Messaging.IMessageTransportInitializer">
+            <summary>
+            Prepares the broker at startup (RabbitMQ exchanges and queues, Kafka topics).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Messaging.IMessageTransportInitializer.InitializeAsync(System.Threading.CancellationToken)">
+            <summary>
+            Declares or creates what the API needs on the broker.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher">
+            <summary>
+            RabbitMQ publisher for dispatching jobs to workers. Registered only when the transport is RabbitMQ;
+            depend on <see cref="T:Milvaion.Application.Interfaces.Messaging.IJobPublisher"/> to work with either transport.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Interfaces.Redis.IJobCancellationService">
             <summary>
@@ -13616,6 +13827,16 @@
             Api key signing and versioning settings.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.Transport">
+            <summary>
+            Message broker selection. RabbitMQ when the section is missing.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.Kafka">
+            <summary>
+            Kafka settings, used when <see cref="P:Milvaion.Application.Utils.Models.Options.TransportOptions.Type"/> is Kafka.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.Authentication">
             <summary>
             External identity settings (OIDC and LDAP/AD). Off by default, so local username/password stays in effect until a provider is enabled.
@@ -14049,6 +14270,41 @@
         <member name="P:Milvaion.Application.Utils.Models.Options.StatusTrackerOptions.ExecutionLogMaxCount">
             <summary>
             Maximum number of execution log entries to keep per job occurrence.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.TransportOptions">
+            <summary>
+            Selects the message broker (<c>MilvaionConfig:Transport</c>).
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.TransportOptions.SectionKey">
+            <summary>
+            Configuration section key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.TransportOptions.Type">
+            <summary>
+            <see cref="F:Milvasoft.Milvaion.Sdk.Utils.Kafka.MessageTransportType.RabbitMQ"/> (default) or <see cref="F:Milvasoft.Milvaion.Sdk.Utils.Kafka.MessageTransportType.Kafka"/>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.KafkaOptions">
+            <summary>
+            Kafka settings of the API (<c>MilvaionConfig:Kafka</c>). Used when <see cref="P:Milvaion.Application.Utils.Models.Options.TransportOptions.Type"/> is Kafka.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.KafkaOptions.SectionKey">
+            <summary>
+            Configuration section key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.KafkaOptions.LagWarningThreshold">
+            <summary>
+            Consumer lag at which a topic is reported with a warning (default: 5000).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.KafkaOptions.LagCriticalThreshold">
+            <summary>
+            Consumer lag at which a topic is reported as critical (default: 10000).
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions">

@@ -185,13 +185,13 @@
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService">
             <summary>
-            Consumes external job registration and occurrence messages from RabbitMQ.
+            Consumes external job registration and occurrence messages from the message transport.
             Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
-            Consumes external job registration and occurrence messages from RabbitMQ.
+            Consumes external job registration and occurrence messages from the message transport.
             Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
             </summary>
         </member>
@@ -225,7 +225,7 @@
             Provides visibility and manual recovery capability for jobs that exceeded max retry attempts.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.FailedOccurrenceHandlerOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.FailedOccurrenceHandlerOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that consumes failed jobs from Dead Letter Queue and stores them in database.
             Provides visibility and manual recovery capability for jobs that exceeded max retry attempts.
@@ -237,7 +237,7 @@
         <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
             <inheritdoc />
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ProcessFailedOccurrenceAsync(RabbitMQ.Client.Events.BasicDeliverEventArgs,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ProcessFailedOccurrenceAsync(Milvaion.Application.Interfaces.Messaging.IMessageDelivery,System.Threading.CancellationToken)">
             <summary>
             Processes a failed job message and stores it in database.
             </summary>
@@ -254,19 +254,19 @@
             so empty becomes null and any other non-JSON text is stored as a JSON string.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractCorrelationId(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractCorrelationId(Milvaion.Application.Interfaces.Messaging.IMessageDelivery)">
             <summary>
-            Extracts OccurrenceId from RabbitMQ message headers.
+            Extracts OccurrenceId from the message headers.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractMaxRetries(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractMaxRetries(Milvaion.Application.Interfaces.Messaging.IMessageDelivery)">
             <summary>
-            Extracts MaxRetries from RabbitMQ message headers.
+            Extracts MaxRetries from the message headers.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractRetryCount(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractRetryCount(Milvaion.Application.Interfaces.Messaging.IMessageDelivery)">
             <summary>
-            Extracts retry count from RabbitMQ message headers.
+            Extracts retry count from the message headers.
             Returns the number of retry attempts that were made before moving to DLQ.
             </summary>
         </member>
@@ -318,7 +318,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisLockService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Application.Interfaces.IDispatcherControlService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisLockService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.Messaging.IJobPublisher,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Application.Interfaces.IDispatcherControlService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that dispatches scheduled jobs from Redis to RabbitMQ.
             </summary>
@@ -538,22 +538,22 @@
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.LogCollectorService">
             <summary>
-            Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
+            Consumes worker logs from the message transport and appends them to JobOccurrence.Logs.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
-            Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
+            Consumes worker logs from the message transport and appends them to JobOccurrence.Logs.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.Delivery">
             <summary>
-            One received RabbitMQ message. It may carry many logs and is acknowledged once the last of them is settled.
+            One received message. It may carry many logs and is acknowledged once the last of them is settled.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.Delivery.#ctor(RabbitMQ.Client.IChannel,System.UInt64,System.Int32)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.Delivery.#ctor(Milvaion.Application.Interfaces.Messaging.IMessageDelivery,System.Int32)">
             <summary>
-            One received RabbitMQ message. It may carry many logs and is acknowledged once the last of them is settled.
+            One received message. It may carry many logs and is acknowledged once the last of them is settled.
             </summary>
         </member>
         <member name="P:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.ServiceName">
@@ -592,12 +592,12 @@
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService">
             <summary>
-            Consumes job status updates from RabbitMQ and updates JobOccurrence records.
+            Consumes job status updates from the message transport and updates JobOccurrence records.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
-            Consumes job status updates from RabbitMQ and updates JobOccurrence records.
+            Consumes job status updates from the message transport and updates JobOccurrence records.
             </summary>
         </member>
         <member name="P:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ServiceName">
@@ -714,7 +714,7 @@
             A received message waiting to be persisted.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem.#ctor(Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage,System.UInt64,RabbitMQ.Client.IChannel)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.BatchItem.#ctor(Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage,Milvaion.Application.Interfaces.Messaging.IMessageDelivery)">
             <summary>
             A received message waiting to be persisted.
             </summary>
@@ -756,13 +756,13 @@
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService">
             <summary>
-            Consumes worker registration and heartbeat messages from RabbitMQ.
+            Consumes worker registration and heartbeat messages from the message transport.
             Stores runtime state in Redis for high performance.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Messaging.IMessageConsumerTransport,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
-            Consumes worker registration and heartbeat messages from RabbitMQ.
+            Consumes worker registration and heartbeat messages from the message transport.
             Stores runtime state in Redis for high performance.
             </summary>
         </member>
@@ -1053,6 +1053,19 @@
         <member name="M:Milvaion.Infrastructure.HealthChecks.DbContextHealthCheck.CheckHealthAsync(Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="T:Milvaion.Infrastructure.HealthChecks.KafkaHealthCheck">
+            <summary>
+            Health check for the Kafka cluster: healthy when at least one broker answers a metadata request.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.KafkaHealthCheck.#ctor(Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory)">
+            <summary>
+            Health check for the Kafka cluster: healthy when at least one broker answers a metadata request.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.HealthChecks.KafkaHealthCheck.CheckHealthAsync(Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="T:Milvaion.Infrastructure.HealthChecks.RabbitMQHealthCheck">
             <summary>
             Health check for RabbitMQ connection.
@@ -1196,6 +1209,27 @@
         <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddRedisStorage(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
             <summary>
             Registers Redis services for job scheduling.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.GetTransportType(Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            The configured message transport (<c>MilvaionConfig:Transport:Type</c>), RabbitMQ when unset.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddMessageTransport(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers the message transport selected by <c>MilvaionConfig:Transport:Type</c>: RabbitMQ (default) or Kafka.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddKafka(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers Kafka services for job dispatching and consuming.
             </summary>
             <param name="services">Service collection</param>
             <param name="configuration">Configuration</param>
@@ -2284,6 +2318,207 @@
         <member name="M:Milvaion.Infrastructure.Services.ExternalIdentityService.CachedClaim.#ctor(System.String,System.String)">
             <summary>Compact, serializable projection of a <see cref="T:System.Security.Claims.Claim"/> for the Redis claim cache.</summary>
         </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory">
+            <summary>
+            Owns the API's shared Kafka producer and admin client, and builds consumers. Thread-safe singleton.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.KafkaOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory"/> class.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.Options">
+            <summary>
+            The Kafka settings in effect.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.Prefix">
+            <summary>
+            Topic prefix.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.Producer">
+            <summary>
+            Shared idempotent producer (acks=all).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.Admin">
+            <summary>
+            Shared admin client.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.BuildClientConfig(Milvasoft.Milvaion.Sdk.Utils.Kafka.KafkaSettings)">
+            <summary>
+            Connection settings common to every client.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.BuildProducerConfig(Milvasoft.Milvaion.Sdk.Utils.Kafka.KafkaSettings)">
+            <summary>
+            Producer settings: idempotent, acknowledged by every in-sync replica.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.BuildConsumerConfig(Milvasoft.Milvaion.Sdk.Utils.Kafka.KafkaSettings,System.String,System.String)">
+            <summary>
+            Consumer settings: manual commits from the earliest offset, cooperative rebalancing.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.CreateConsumerBuilder(System.String)">
+            <summary>
+            Builds a consumer of the API's group.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.GetMetadata">
+            <summary>
+            Asks the cluster for its metadata. Throws when no broker answers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.EnsureTopicsAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Creates the topics that do not exist yet, with the configured partitions and replication. Does nothing when
+            auto-creation is off.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.TopicExists(System.String)">
+            <summary>
+            Whether <paramref name="topic"/> exists. Cached briefly; a miss refreshes the cache once.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.InvalidateTopicCache">
+            <summary>
+            Forgets the cached topic list.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaConsumerTransport">
+            <summary>
+            Consumes the API's Kafka topics in the <c>milvaion.api</c> group, with commits that never pass an unsettled record.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaConsumerTransport.#ctor(Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Consumes the API's Kafka topics in the <c>milvaion.api</c> group, with commits that never pass an unsettled record.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaConsumerTransport.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaConsumerTransport.StartConsumerAsync(Milvaion.Application.Interfaces.Messaging.ConsumerSubscription,System.Func{Milvaion.Application.Interfaces.Messaging.IMessageDelivery,System.Threading.Tasks.Task},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaMessageConsumer">
+            <summary>
+            One Kafka consumer on a dedicated thread. Records are handed to the handler one at a time, like a RabbitMQ channel
+            with a single dispatch slot; they are settled later, possibly from other threads. Every partition keeps a
+            <see cref="T:Milvasoft.Milvaion.Sdk.Utils.Kafka.PartitionOffsetTracker"/> and only the end of its contiguous settled range is committed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaMessageConsumer.Completion">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaMessageConsumer.ApplyBackpressure">
+            <summary>
+            Pauses fetching while the consumer holds as many unsettled records as it may, and keeps polling so the group
+            does not evict it.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaMessageConsumer.DisposeAsync">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaDelivery">
+            <summary>
+            A Kafka record. Ack makes its offset committable; nack with requeue writes it back to its topic first.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaJobPublisher">
+            <summary>
+            Dispatches jobs to <c>milvaion.jobs.{worker}</c>, keyed by job id.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaJobPublisher.#ctor(Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory,Milvaion.Infrastructure.Services.Kafka.KafkaLagReader,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Interfaces.Secrets.ISecretResolver,Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Kafka.KafkaJobPublisher"/> class.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaJobPublisher.PublishJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaJobPublisher.PublishBatchAsync(System.Collections.Generic.Dictionary{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaJobPublisher.GetQueueMessageCountAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaTopicLag">
+            <summary>
+            Consumer lag of one group on one topic.
+            </summary>
+            <param name="Topic">Topic name.</param>
+            <param name="Group">Consumer group that reads it.</param>
+            <param name="Lag">Records published but not committed by the group, summed over partitions.</param>
+            <param name="Consumers">Group members with at least one partition of the topic assigned, or null when unknown.</param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaTopicLag.#ctor(System.String,System.String,System.Int64,System.Nullable{System.Int32})">
+            <summary>
+            Consumer lag of one group on one topic.
+            </summary>
+            <param name="Topic">Topic name.</param>
+            <param name="Group">Consumer group that reads it.</param>
+            <param name="Lag">Records published but not committed by the group, summed over partitions.</param>
+            <param name="Consumers">Group members with at least one partition of the topic assigned, or null when unknown.</param>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaTopicLag.Topic">
+            <summary>Topic name.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaTopicLag.Group">
+            <summary>Consumer group that reads it.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaTopicLag.Lag">
+            <summary>Records published but not committed by the group, summed over partitions.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Kafka.KafkaTopicLag.Consumers">
+            <summary>Group members with at least one partition of the topic assigned, or null when unknown.</summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaLagReader">
+            <summary>
+            Reads consumer lag with the admin API.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaLagReader.#ctor(Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory)">
+            <summary>
+            Reads consumer lag with the admin API.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaLagReader.GetLagAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Lag of <paramref name="group"/> on <paramref name="topic"/>. A partition the group has never committed counts
+            from its earliest offset, since the group reads from the beginning. Returns null when the topic does not exist.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Kafka.KafkaQueueDepthMonitor">
+            <summary>
+            Queue statistics on Kafka: one entry per Milvaion topic, with the consumer lag of the group that reads it as the depth.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaQueueDepthMonitor.#ctor(Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory,Milvaion.Infrastructure.Services.Kafka.KafkaLagReader,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Queue statistics on Kafka: one entry per Milvaion topic, with the consumer lag of the group that reads it as the depth.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaQueueDepthMonitor.GetQueueDepthAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaQueueDepthMonitor.IsQueueHealthyAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaQueueDepthMonitor.GetDetailedStatsAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Kafka.KafkaQueueDepthMonitor.GetAllQueueStatsAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="T:Milvaion.Infrastructure.Services.LdapAuthenticator">
             <summary>
             Verifies credentials against LDAP/Active Directory by binding as the user, then reads the user's
@@ -2347,6 +2582,104 @@
             </summary>
             <param name="enumName"></param>
             <returns></returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Messaging.JobMessageBodyBuilder">
+            <summary>
+            Serializes a job for its worker, the same way for every transport.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.JobMessageBodyBuilder.#ctor(Milvaion.Application.Interfaces.Secrets.ISecretResolver,Milvaion.Application.Interfaces.Secrets.ISecretTemplateStore)">
+            <summary>
+            Serializes a job for its worker, the same way for every transport.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Messaging.JobMessageBodyBuilder.JsonOptions">
+            <summary>
+            Serializer settings of job messages.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.JobMessageBodyBuilder.BuildAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Serializes the job for the worker, with secret references in its job data resolved.
+            </summary>
+            <remarks>
+            The job object itself is never changed: it may be the cached or tracked instance, and anything written
+            to it could end up in Redis or the database. The resolved data exists only in the returned bytes.
+            </remarks>
+            <exception cref="T:Milvaion.Application.Interfaces.Secrets.SecretResolutionException">A referenced secret could not be resolved.</exception>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Messaging.RabbitMQConsumerTransport">
+            <summary>
+            Consumes RabbitMQ queues on channels of the shared connection.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.RabbitMQConsumerTransport.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Consumes RabbitMQ queues on channels of the shared connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Messaging.RabbitMQConsumerTransport.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.RabbitMQConsumerTransport.StartConsumerAsync(Milvaion.Application.Interfaces.Messaging.ConsumerSubscription,System.Func{Milvaion.Application.Interfaces.Messaging.IMessageDelivery,System.Threading.Tasks.Task},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery">
+            <summary>
+            A RabbitMQ delivery. Ack and nack go to the channel that delivered it, since a delivery tag is only valid there.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.#ctor(RabbitMQ.Client.IChannel,RabbitMQ.Client.Events.BasicDeliverEventArgs,System.Threading.SemaphoreSlim,Milvasoft.Core.Abstractions.IMilvaLogger)">
+            <summary>
+            A RabbitMQ delivery. Ack and nack go to the channel that delivered it, since a delivery tag is only valid there.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.Body">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.MessageId">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.CorrelationId">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.Headers">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.DeliveryTag">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.AckAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.RabbitMQDelivery.NackAsync(System.Boolean,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Messaging.RabbitMQTransportInitializer">
+            <summary>
+            Declares the RabbitMQ exchanges and queues the API needs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.RabbitMQTransportInitializer.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory)">
+            <summary>
+            Declares the RabbitMQ exchanges and queues the API needs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.RabbitMQTransportInitializer.InitializeAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Messaging.KafkaTransportInitializer">
+            <summary>
+            Creates the shared Kafka topics the API consumes. Worker job topics are created by the workers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.KafkaTransportInitializer.#ctor(Milvaion.Infrastructure.Services.Kafka.KafkaClientFactory)">
+            <summary>
+            Creates the shared Kafka topics the API consumes. Worker job topics are created by the workers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Messaging.KafkaTransportInitializer.InitializeAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor">
             <summary>

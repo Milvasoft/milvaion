@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # NuGet trusted publishing
 
 jobs:
   ci-gate:
@@ -44,6 +45,13 @@ jobs:
       - name: Pack Milvasoft.Templates.Milvaion
         run: dotnet pack src/Workers/Milvasoft.Templates.Milvaion/Milvasoft.Templates.Milvaion.csproj --no-build --configuration Release -o ./packages
 
+      - name: Log in to NuGet (trusted publishing)
+        id: nuget-login
+        if: github.event_name != 'pull_request'
+        uses: NuGet/login@v1
+        with:
+          user: bugrakosen
+
       - name: Publish Milvasoft.Templates.Milvaion to NuGet
         if: github.event_name != 'pull_request'
-        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate

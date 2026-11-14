@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # NuGet trusted publishing
 
 jobs:
   ci-gate:
@@ -44,9 +45,16 @@ jobs:
       - name: Pack Milvasoft.Milvaion.Sdk
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk/Milvasoft.Milvaion.Sdk.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
+      - name: Log in to NuGet (trusted publishing)
+        id: nuget-login
+        if: github.event_name != 'pull_request'
+        uses: NuGet/login@v1
+        with:
+          user: bugrakosen
+
       - name: Publish Milvasoft.Milvaion.Sdk to NuGet
         if: github.event_name != 'pull_request'
-        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
 
   publish-milvaion-sdk-worker:
     needs: ci-gate
@@ -70,9 +78,16 @@ jobs:
       - name: Pack Milvasoft.Milvaion.Sdk.Worker
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
+      - name: Log in to NuGet (trusted publishing)
+        id: nuget-login
+        if: github.event_name != 'pull_request'
+        uses: NuGet/login@v1
+        with:
+          user: bugrakosen
+
       - name: Publish Milvasoft.Milvaion.Sdk.Worker to NuGet
         if: github.event_name != 'pull_request'
-        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
 
   publish-milvaion-sdk-worker-quartz:
     needs: ci-gate
@@ -96,9 +111,16 @@ jobs:
       - name: Pack Milvasoft.Milvaion.Sdk.Worker.Quartz
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Quartz/Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
+      - name: Log in to NuGet (trusted publishing)
+        id: nuget-login
+        if: github.event_name != 'pull_request'
+        uses: NuGet/login@v1
+        with:
+          user: bugrakosen
+
       - name: Publish Milvasoft.Milvaion.Sdk.Worker.Quartz to NuGet
         if: github.event_name != 'pull_request'
-        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
 
   publish-milvaion-sdk-worker-hangfire:
     needs: ci-gate
@@ -122,6 +144,13 @@ jobs:
       - name: Pack Milvasoft.Milvaion.Sdk.Worker.Hangfire
         run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
 
+      - name: Log in to NuGet (trusted publishing)
+        id: nuget-login
+        if: github.event_name != 'pull_request'
+        uses: NuGet/login@v1
+        with:
+          user: bugrakosen
+
       - name: Publish Milvasoft.Milvaion.Sdk.Worker.Hangfire to NuGet
         if: github.event_name != 'pull_request'
-        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate

@@ -56,6 +56,8 @@ jobs:
         uses: rust-lang/crates-io-auth-action@v1
 
       - name: Publish
-        run: cargo publish --locked
+        run: |
+          # A token pasted into the secret often carries a trailing newline; strip it.
+          CARGO_REGISTRY_TOKEN="$(printf '%s' "$TOKEN" | tr -d '[:space:]')" cargo publish --locked
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
+          TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
