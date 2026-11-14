@@ -1,3 +1,4 @@
+using Milvaion.Application.Interfaces.Messaging;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -750,7 +751,7 @@ public class ExternalJobTrackerServiceTests(ServicesWebApplicationFactory factor
 
     private ExternalJobTrackerService CreateExternalJobTrackerService() => new(
             _serviceProvider,
-            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IMessageConsumerTransport>(),
             Options.Create(new ExternalJobTrackerOptions
             {
                 Enabled = true,
@@ -758,7 +759,6 @@ public class ExternalJobTrackerServiceTests(ServicesWebApplicationFactory factor
                 OccurrenceBatchSize = 1,
                 BatchIntervalMs = 200
             }),
-            _serviceProvider.GetRequiredService<IOptions<RabbitMQOptions>>(),
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),

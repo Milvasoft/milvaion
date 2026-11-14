@@ -41,6 +41,7 @@ public class ConnectionMonitor : IConnectionMonitor
     private readonly WorkerOptions _options;
     private readonly IConnectionMultiplexer _redis;
     private IConnection _rabbitConnection;
+    private Confluent.Kafka.IAdminClient _kafkaAdmin;
     private readonly Lock _lockObj = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _backgroundCheckTask;
@@ -198,6 +199,10 @@ public class ConnectionMonitor : IConnectionMonitor
     /// </summary>
     private async Task<bool> CheckRabbitMQHealthAsync()
     {
+        // On Kafka the "RabbitMQ" state tracks the Kafka cluster: it is the message broker either way.
+        if (_options.UsesKafka)
+            return await CheckKafkaHealthAsync();
+
         try
         {
             if (_rabbitConnection != null && _rabbitConnection.IsOpen)
@@ -223,6 +228,26 @@ public class ConnectionMonitor : IConnectionMonitor
         catch (Exception ex)
         {
             _logger?.Debug(ex, "RabbitMQ health check failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Kafka health: at least one broker answers a metadata request.
+    /// </summary>
+    private async Task<bool> CheckKafkaHealthAsync()
+    {
+        try
+        {
+            _kafkaAdmin ??= new Confluent.Kafka.AdminClientBuilder(Kafka.KafkaWorkerClients.BuildClientConfig(_options.Kafka)).Build();
+
+            var metadata = await Task.Run(() => _kafkaAdmin.GetMetadata(TimeSpan.FromSeconds(5)));
+
+            return metadata.Brokers.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug(ex, "Kafka health check failed");
             return false;
         }
     }
@@ -271,6 +296,9 @@ public class ConnectionMonitor : IConnectionMonitor
 
     private async Task DisposeConnectionAsync()
     {
+        _kafkaAdmin?.Dispose();
+        _kafkaAdmin = null;
+
         try
         {
             if (_rabbitConnection != null)

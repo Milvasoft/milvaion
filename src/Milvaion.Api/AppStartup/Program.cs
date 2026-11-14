@@ -9,7 +9,7 @@ using Milvaion.Api.Services.Projects;
 using Milvaion.Application;
 using Milvaion.Application.Utils.LinkedWithFormatters;
 using Milvaion.Infrastructure;
-using Milvaion.Infrastructure.Services.RabbitMQ;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvasoft.Components.Rest;
 using Milvasoft.Core.Utils.Converters;
 using Serilog;
@@ -202,10 +202,8 @@ try
 
     #endregion
 
-    // Initialize RabbitMQ queues and exchanges before starting the application
-    var rabbitMQFactory = app.Services.GetRequiredService<RabbitMQConnectionFactory>();
-
-    await rabbitMQFactory.InitializeAsync();
+    // Prepare the broker before starting the application: RabbitMQ exchanges and queues, or Kafka topics
+    await app.Services.GetRequiredService<IMessageTransportInitializer>().InitializeAsync();
 
     await app.RunAsync();
 }

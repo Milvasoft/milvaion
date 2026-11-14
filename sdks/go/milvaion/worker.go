@@ -23,7 +23,9 @@ type Worker struct {
 	cancels *cancelRegistry
 	logs    *logBuffer
 	proc    *processor
-	pub     *amqpPublisher
+	pub     publisher
+	amqp    *amqpPublisher // RabbitMQ transport only
+	broker  transport
 	sampler resourceSampler
 
 	started  atomic.Bool
@@ -53,7 +55,15 @@ func NewWorker(options Options) (*Worker, error) {
 		return nil, err
 	}
 
-	w := &Worker{opts: opts, jobs: map[string]*resolvedJob{}, cancels: newCancelRegistry(), pub: &amqpPublisher{}}
+	w := &Worker{opts: opts, jobs: map[string]*resolvedJob{}, cancels: newCancelRegistry()}
+
+	if opts.transport == transportKafka {
+		k := newKafkaTransport(w)
+		w.broker, w.pub = k, k
+	} else {
+		w.amqp = &amqpPublisher{}
+		w.broker, w.pub = &rabbitTransport{w: w}, w.amqp
+	}
 
 	w.logs = newLogBuffer(func(ctx context.Context, batch workerLogBatchMessage) error {
 		body, err := json.Marshal(batch)
@@ -62,7 +72,13 @@ func NewWorker(options Options) (*Worker, error) {
 			return err
 		}
 
-		return w.pub.publish(ctx, "", queueWorkerLogs, body, publishOptions{persistent: true})
+		key := ""
+
+		if len(batch.Logs) > 0 {
+			key = batch.Logs[0].OccurrenceID
+		}
+
+		return w.pub.publish(ctx, "", queueWorkerLogs, body, publishOptions{persistent: true, key: key})
 	}, opts.logger)
 
 	w.proc = newProcessor(opts, w.jobs, w.pub, w.logs, w.cancels)
@@ -119,8 +135,8 @@ func (w *Worker) Handle(name string, handler Handler, options ...JobOptions) err
 
 // Run connects, registers this instance and processes jobs until ctx is cancelled. It then stops
 // taking jobs, lets running ones finish for up to ShutdownTimeout, returns the rest to the queue,
-// tells the API the instance has left and returns nil. It returns an error if RabbitMQ or Redis
-// cannot be reached within StartupTimeout.
+// tells the API the instance has left and returns nil. It returns an error if the broker (RabbitMQ or
+// Kafka) or Redis cannot be reached within StartupTimeout.
 func (w *Worker) Run(ctx context.Context) error {
 	if !w.started.CompareAndSwap(false, true) {
 		return errors.New("milvaion: Run can only be called once")
@@ -149,33 +165,11 @@ func (w *Worker) Run(ctx context.Context) error {
 		w.opts.logger.Warn("Redis is disabled: jobs cannot be cancelled from the dashboard")
 	}
 
-	connCtx, stopConnection := context.WithCancel(context.Background())
-	ready := make(chan struct{})
-	loopDone := make(chan struct{})
-
-	go func() {
-		defer close(loopDone)
-		w.connectionLoop(connCtx, ready)
-	}()
-
-	defer func() {
-		stopConnection()
-		<-loopDone
-	}()
-
-	select {
-	case <-ready:
-	case <-startCtx.Done():
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		w.lastConnectErrMu.Lock()
-		last := w.lastConnectErr
-		w.lastConnectErrMu.Unlock()
-
-		return fmt.Errorf("milvaion: could not connect to RabbitMQ within %s: %w", w.opts.startupTimeout, last)
+	if err := w.broker.start(ctx, startCtx); err != nil {
+		return err
 	}
+
+	defer w.broker.close()
 
 	heartbeatCtx, stopHeartbeats := context.WithCancel(context.Background())
 	heartbeatsDone := make(chan struct{})
@@ -220,14 +214,7 @@ func (w *Worker) shutdown() {
 	w.stopping.Store(true)
 	w.opts.logger.Info("stopping worker")
 
-	w.consumersMu.Lock()
-
-	for _, c := range w.consumers {
-		_ = c.channel.Cancel(c.tag, false)
-	}
-
-	w.consumersMu.Unlock()
-
+	w.broker.stopConsuming()
 	w.proc.beginShutdown()
 
 	if !w.proc.waitForIdle(w.opts.shutdownTimeout) {
@@ -235,6 +222,18 @@ func (w *Worker) shutdown() {
 		w.cancels.abortAll(ErrWorkerStopping)
 		w.proc.waitForIdle(10 * time.Second)
 	}
+
+	w.broker.drained()
+}
+
+func (w *Worker) cancelConsumers() {
+	w.consumersMu.Lock()
+
+	for _, c := range w.consumers {
+		_ = c.channel.Cancel(c.tag, false)
+	}
+
+	w.consumersMu.Unlock()
 }
 
 // connectionLoop keeps a RabbitMQ connection up, rebuilding the topology, consumers and
@@ -282,11 +281,11 @@ func (w *Worker) connectionLoop(ctx context.Context, ready chan struct{}) {
 
 		select {
 		case reason := <-closed:
-			w.pub.detach()
+			w.amqp.detach()
 			w.clearConsumers()
 			w.opts.logger.Warn("lost the RabbitMQ connection; reconnecting", "reason", reason)
 		case <-ctx.Done():
-			w.pub.detach()
+			w.amqp.detach()
 			_ = conn.Close()
 			return
 		}
@@ -335,7 +334,7 @@ func (w *Worker) setup(conn *amqp.Connection) error {
 	w.watchChannel(conn, pubChannel, "publish")
 
 	// Before consuming, so the first delivery can already report its status.
-	w.pub.attach(pubChannel)
+	w.amqp.attach(pubChannel)
 
 	var consumers []consumer
 
@@ -389,17 +388,11 @@ func (w *Worker) setup(conn *amqp.Connection) error {
 	w.consumers = consumers
 	w.consumersMu.Unlock()
 
-	registration, err := json.Marshal(w.buildRegistration())
-
-	if err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := w.pub.publish(ctx, "", queueWorkerRegistration, registration, publishOptions{persistent: true}); err != nil {
-		return fmt.Errorf("registering: %w", err)
+	if err := w.register(ctx); err != nil {
+		return err
 	}
 
 	w.sendHeartbeat(false)
@@ -448,6 +441,21 @@ func (w *Worker) clearConsumers() {
 	w.consumersMu.Lock()
 	w.consumers = nil
 	w.consumersMu.Unlock()
+}
+
+// register publishes this instance's registration.
+func (w *Worker) register(ctx context.Context) error {
+	registration, err := json.Marshal(w.buildRegistration())
+
+	if err != nil {
+		return err
+	}
+
+	if err := w.pub.publish(ctx, "", queueWorkerRegistration, registration, publishOptions{persistent: true, key: w.opts.instanceID}); err != nil {
+		return fmt.Errorf("registering: %w", err)
+	}
+
+	return nil
 }
 
 func (w *Worker) buildRegistration() registrationMessage {
@@ -527,7 +535,7 @@ func (w *Worker) sendHeartbeat(stopping bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := w.pub.publish(ctx, "", queueWorkerHeartbeat, body, publishOptions{}); err != nil {
+	if err := w.pub.publish(ctx, "", queueWorkerHeartbeat, body, publishOptions{key: w.opts.instanceID}); err != nil {
 		w.opts.logger.Debug("heartbeat failed; will retry on the next interval", "error", err)
 	}
 }

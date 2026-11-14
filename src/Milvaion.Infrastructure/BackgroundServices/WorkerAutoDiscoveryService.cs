@@ -1,21 +1,19 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
-using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
@@ -23,13 +21,12 @@ using System.Text.Json;
 namespace Milvaion.Infrastructure.BackgroundServices;
 
 /// <summary>
-/// Consumes worker registration and heartbeat messages from RabbitMQ.
+/// Consumes worker registration and heartbeat messages from the message transport.
 /// Stores runtime state in Redis for high performance.
 /// </summary>
 public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
-                                        RabbitMQConnectionFactory rabbitMQFactory,
+                                        IMessageConsumerTransport transport,
                                         IOptions<WorkerAutoDiscoveryOptions> options,
-                                        IOptions<RabbitMQOptions> rabbitMQOptions,
                                         IAlertNotifier alertNotifier,
                                         ILoggerFactory loggerFactory,
                                         IServiceProvider serviceProvider,
@@ -37,27 +34,22 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                                         IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
-    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
+    private readonly IMessageConsumerTransport _transport = transport;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<WorkerAutoDiscoveryService>();
     private readonly WorkerAutoDiscoveryOptions _options = options.Value;
-    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly BackgroundServiceMetrics _metrics = metrics;
-    private IChannel _registrationChannel;
-    private IChannel _heartbeatChannel;
+    private IMessageConsumer _registrationConsumer;
+    private IMessageConsumer _heartbeatConsumer;
 
     // Heartbeat batch processing with per-instance deduplication
     private readonly SemaphoreSlim _batchLock = new(1, 1);
 
-    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
-    private readonly SemaphoreSlim _heartbeatChannelLock = new(1, 1);
-    private readonly SemaphoreSlim _registrationChannelLock = new(1, 1);
-
     // Per-instance deduplication: only keep latest heartbeat per instance
     // This dramatically reduces Redis load when workers send many heartbeats rapidly
-    // The channel travels with the tag: a delivery tag is only valid on the channel that delivered it.
-    private readonly ConcurrentDictionary<string, (WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag, IChannel Channel, DateTime ReceivedAt)> _latestHeartbeats = new();
+    // The delivery travels with the heartbeat so the superseded message can be acknowledged.
+    private readonly ConcurrentDictionary<string, (WorkerHeartbeatMessage Heartbeat, IMessageDelivery Delivery, DateTime ReceivedAt)> _latestHeartbeats = new();
 
     /// <inheritdoc/>
     protected override string ServiceName => "WorkerAutoDiscovery";
@@ -106,7 +98,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
             {
                 Title = "WorkerAutoDiscovery Service Degraded",
-                Message = $"WorkerAutoDiscoveryService failed to connect to RabbitMQ after {failures} attempts. Workers cannot register; the service keeps retrying.",
+                Message = $"WorkerAutoDiscoveryService failed to connect to {_transport.Name} after {failures} attempts. Workers cannot register; the service keeps retrying.",
                 Severity = AlertSeverity.Critical,
                 Source = nameof(WorkerAutoDiscoveryService),
                 ThreadKey = "service-degraded-workerautodiscovery"
@@ -116,57 +108,48 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        // Get channels from shared connection factory
-        var registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-        var heartbeatChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        // Prefetch limits in-flight messages and prevents queue buildup during Redis slowdowns
+        var registrationConsumer = await _transport.StartConsumerAsync(new ConsumerSubscription(WorkerConstant.Queues.WorkerRegistration, 10, ServiceName + ".Registration"),
+                                                                       async delivery =>
+                                                                       {
+                                                                           await ProcessRegistrationAsync(delivery, stoppingToken);
 
-        _registrationChannel = registrationChannel;
-        _heartbeatChannel = heartbeatChannel;
+                                                                           TrackMemoryAfterIteration();
+                                                                       },
+                                                                       stoppingToken);
 
-        // Declare queues
-        await _registrationChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, _rabbitMQOptions.BuildQueueArguments(), cancellationToken: stoppingToken);
-        await _heartbeatChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, _rabbitMQOptions.BuildQueueArguments(), cancellationToken: stoppingToken);
+        _registrationConsumer = registrationConsumer;
 
-        // Set QoS prefetch to limit in-flight messages and prevent queue buildup during Redis slowdowns
-        await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);
-        await _heartbeatChannel.BasicQosAsync(0, 500, false, stoppingToken); // High prefetch for high-frequency heartbeats
+        IMessageConsumer heartbeatConsumer;
 
-        _logger.Information("WorkerAutoDiscovery connected to RabbitMQ (shared connection). RegistrationChannel: {RegCh}, HeartbeatChannel: {HbCh}", _registrationChannel.ChannelNumber, _heartbeatChannel.ChannelNumber);
-
-        // Registration consumer
-        var registrationConsumer = new AsyncEventingBasicConsumer(_registrationChannel);
-
-        registrationConsumer.ReceivedAsync += async (model, ea) =>
+        try
         {
-            await ProcessRegistrationAsync(ea, registrationChannel, stoppingToken);
+            // High prefetch for high-frequency heartbeats
+            heartbeatConsumer = await _transport.StartConsumerAsync(new ConsumerSubscription(WorkerConstant.Queues.WorkerHeartbeat, 500, ServiceName + ".Heartbeat"),
+                                                                    async delivery =>
+                                                                    {
+                                                                        await ProcessHeartbeatAsync(delivery, stoppingToken);
 
-            TrackMemoryAfterIteration();
-        };
-
-        await _registrationChannel.BasicConsumeAsync(WorkerConstant.Queues.WorkerRegistration, false, registrationConsumer, stoppingToken);
-
-        // Heartbeat consumer
-        var heartbeatConsumer = new AsyncEventingBasicConsumer(_heartbeatChannel);
-
-        heartbeatConsumer.ReceivedAsync += async (model, ea) =>
+                                                                        TrackMemoryAfterIteration();
+                                                                    },
+                                                                    stoppingToken);
+        }
+        catch
         {
-            await ProcessHeartbeatAsync(ea, heartbeatChannel, stoppingToken);
+            await registrationConsumer.DisposeAsync();
+            throw;
+        }
 
-            TrackMemoryAfterIteration();
-        };
+        _heartbeatConsumer = heartbeatConsumer;
 
-        await _heartbeatChannel.BasicConsumeAsync(WorkerConstant.Queues.WorkerHeartbeat, false, heartbeatConsumer, stoppingToken);
+        // Keep running until cancellation or until either consumer dies
+        await Task.WhenAny(registrationConsumer.Completion, heartbeatConsumer.Completion).WaitAsync(stoppingToken);
 
-        // Keep running until cancellation or until either channel dies
-        await Task.WhenAny(registrationChannel.WaitForShutdownAsync(stoppingToken), heartbeatChannel.WaitForShutdownAsync(stoppingToken));
-
-        stoppingToken.ThrowIfCancellationRequested();
-
-        await registrationChannel.SafeCloseAsync(_logger, CancellationToken.None);
-        await heartbeatChannel.SafeCloseAsync(_logger, CancellationToken.None);
+        await registrationConsumer.DisposeAsync();
+        await heartbeatConsumer.DisposeAsync();
     }
 
-    private async Task ProcessRegistrationAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
+    private async Task ProcessRegistrationAsync(IMessageDelivery delivery, CancellationToken cancellationToken)
     {
         try
         {
@@ -177,13 +160,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
             }
 
-            var registration = JsonSerializer.Deserialize<WorkerDiscoveryRequest>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            var registration = JsonSerializer.Deserialize<WorkerDiscoveryRequest>(delivery.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
             if (registration == null)
             {
                 _logger.Debug("Failed to deserialize worker registration");
 
-                await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+                await delivery.NackAsync(requeue: false, cancellationToken);
 
                 return;
             }
@@ -208,13 +191,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 _logger.Error("Failed to register worker {WorkerId} in Redis", registration.WorkerId);
             }
 
-            await channel.SafeAckAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+            await delivery.AckAsync(cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process worker registration");
 
-            await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+            await delivery.NackAsync(requeue: false, cancellationToken);
         }
     }
 
@@ -282,7 +265,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         }
     }
 
-    private async Task ProcessHeartbeatAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
+    private async Task ProcessHeartbeatAsync(IMessageDelivery delivery, CancellationToken cancellationToken)
     {
         try
         {
@@ -292,11 +275,11 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
             }
 
-            var heartbeat = JsonSerializer.Deserialize<WorkerHeartbeatMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            var heartbeat = JsonSerializer.Deserialize<WorkerHeartbeatMessage>(delivery.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
             if (heartbeat == null)
             {
-                await channel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+                await delivery.NackAsync(requeue: false, cancellationToken);
                 return;
             }
 
@@ -310,7 +293,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 if (success)
                     _logger.Information("Worker instance {InstanceId} cleaned up successfully on graceful shutdown", heartbeat.InstanceId);
 
-                await channel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+                await delivery.AckAsync(cancellationToken);
                 return;
             }
 
@@ -323,7 +306,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             _latestHeartbeats.AddOrUpdate(
                 instanceKey,
                 // Add new entry
-                (heartbeat, ea.DeliveryTag, channel, now),
+                (heartbeat, delivery, now),
                 // Update existing: keep newer heartbeat, ACK older delivery tag immediately
                 (key, existing) =>
                 {
@@ -331,13 +314,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                     if (heartbeat.Timestamp >= existing.Heartbeat.Timestamp)
                     {
                         // New heartbeat is newer - ACK the old one
-                        _ = existing.Channel.SafeAckAsync(existing.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
-                        return (heartbeat, ea.DeliveryTag, channel, now);
+                        _ = existing.Delivery.AckAsync(cancellationToken);
+                        return (heartbeat, delivery, now);
                     }
                     else
                     {
                         // Existing heartbeat is newer - ACK the incoming one
-                        _ = channel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+                        _ = delivery.AckAsync(cancellationToken);
                         return existing;
                     }
                 });
@@ -347,7 +330,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process worker heartbeat");
-            await channel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+            await delivery.NackAsync(requeue: false, cancellationToken);
         }
     }
 
@@ -369,13 +352,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
 
             // Snapshot and clear the dictionary atomically
-            var snapshot = new List<(string InstanceId, WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag, IChannel Channel)>();
+            var snapshot = new List<(string InstanceId, WorkerHeartbeatMessage Heartbeat, IMessageDelivery Delivery)>();
 
             foreach (var kvp in _latestHeartbeats)
             {
                 if (_latestHeartbeats.TryRemove(kvp.Key, out var entry))
                 {
-                    snapshot.Add((kvp.Key, entry.Heartbeat, entry.DeliveryTag, entry.Channel));
+                    snapshot.Add((kvp.Key, entry.Heartbeat, entry.Delivery));
                 }
             }
 
@@ -388,8 +371,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
 
             // ACK each message individually (can't use bulk ACK with deduplication since delivery tags aren't sequential)
-            foreach (var (_, _, DeliveryTag, Channel) in snapshot)
-                await Channel.SafeAckAsync(DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
+            foreach (var (_, _, delivery) in snapshot)
+                await delivery.AckAsync(cancellationToken);
 
             // Record metrics
             _metrics.RecordWorkerHeartbeats(successCount);
@@ -430,14 +413,15 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             _logger.Warning(ex, "Failed to process remaining heartbeats during shutdown");
         }
 
-        // Close only channels (connection is managed by RabbitMQConnectionFactory)
-        await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
-        await _heartbeatChannel.SafeCloseAsync(_logger, cancellationToken);
+        // Stop the consumers only now: the heartbeats above still had to be acknowledged on them
+        if (_registrationConsumer != null)
+            await _registrationConsumer.DisposeAsync();
+
+        if (_heartbeatConsumer != null)
+            await _heartbeatConsumer.DisposeAsync();
 
         // Dispose semaphores last: the work above still needs them
         _batchLock?.Dispose();
-        _heartbeatChannelLock?.Dispose();
-        _registrationChannelLock?.Dispose();
 
         _logger.Information("Worker auto discovery stopped");
     }

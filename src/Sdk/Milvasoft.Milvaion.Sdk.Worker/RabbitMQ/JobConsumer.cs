@@ -43,18 +43,53 @@ internal enum MessageDisposition
 }
 
 /// <summary>
+/// One job message received from the broker, independent of the transport.
+/// </summary>
+internal abstract class JobDelivery
+{
+    /// <summary>The job JSON.</summary>
+    public abstract ReadOnlyMemory<byte> Body { get; }
+
+    /// <summary>The occurrence id, or <see cref="Guid.Empty"/> when the message carries none.</summary>
+    public abstract Guid CorrelationId { get; }
+
+    /// <summary>Retries already made for this occurrence.</summary>
+    public abstract int RetryCount { get; }
+
+    /// <summary>Whether the broker reports that this message was delivered before.</summary>
+    public abstract bool Redelivered { get; }
+}
+
+/// <summary>
+/// A job message delivered by RabbitMQ.
+/// </summary>
+internal sealed class RabbitMQJobDelivery(BasicDeliverEventArgs ea) : JobDelivery
+{
+    public ulong DeliveryTag { get; } = ea.DeliveryTag;
+
+    public override ReadOnlyMemory<byte> Body { get; } = ea.Body;
+
+    public override Guid CorrelationId { get; } = JobConsumer.ParseCorrelationId(ea.BasicProperties);
+
+    public override int RetryCount { get; } = JobConsumer.ParseRetryCount(ea.BasicProperties);
+
+    public override bool Redelivered { get; } = ea.Redelivered;
+}
+
+/// <summary>
 /// Background service that consumes jobs from RabbitMQ queue.
+/// The job handling is transport independent; <see cref="Kafka.KafkaJobConsumer"/> reuses it for Kafka.
 /// </summary>
 public class JobConsumer : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly IMilvaLogger _logger;
-    private readonly WorkerOptions _options;
-    private readonly Dictionary<string, JobConsumerConfig> _jobConfigs;
+    private protected readonly IServiceProvider _serviceProvider;
+    private protected readonly IMilvaLogger _logger;
+    private protected readonly WorkerOptions _options;
+    private protected readonly Dictionary<string, JobConsumerConfig> _jobConfigs;
     private IConnection _connection;
     private IChannel _channel;
     private string _consumerTag;
-    private readonly TimeSpan _shutdownTimeout;
+    private protected readonly TimeSpan _shutdownTimeout;
 
     // Concurrency control
     private SemaphoreSlim _concurrencySemaphore;
@@ -66,7 +101,7 @@ public class JobConsumer : BackgroundService
     private readonly SemaphoreSlim _channelLock = new(1, 1);
 
     // Offline resilience (optional - null if disabled)
-    private readonly OutboxService _outboxService;
+    private protected readonly OutboxService _outboxService;
 
     // Heartbeat debounce: prevent flooding RabbitMQ with immediate heartbeats
     private DateTime _lastImmediateHeartbeat = DateTime.MinValue;
@@ -358,7 +393,7 @@ public class JobConsumer : BackgroundService
 
         try
         {
-            await ProcessMessageAsync(ea, cancellationToken);
+            await ProcessMessageAsync(new RabbitMQJobDelivery(ea), cancellationToken);
         }
         finally
         {
@@ -367,7 +402,7 @@ public class JobConsumer : BackgroundService
         }
     }
 
-    private async Task ProcessMessageAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+    private protected async Task ProcessMessageAsync(JobDelivery delivery, CancellationToken cancellationToken)
     {
         var correlationId = Guid.Empty;
         IMilvaLogger logger = null;
@@ -376,7 +411,7 @@ public class JobConsumer : BackgroundService
         try
         {
             // Parse message
-            var job = JsonSerializer.Deserialize<ScheduledJob>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            var job = JsonSerializer.Deserialize<ScheduledJob>(delivery.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
             jobId = job.Id;
 
             // Create scope for DI services
@@ -385,10 +420,10 @@ public class JobConsumer : BackgroundService
             logger = scope.ServiceProvider.GetService<IMilvaLogger>();
 
             // Get CorrelationId from headers (safe parsing)
-            correlationId = ParseCorrelationId(ea.BasicProperties);
+            correlationId = delivery.CorrelationId;
 
             // Get retry count from headers (safe parsing)
-            var retryCount = ParseRetryCount(ea.BasicProperties);
+            var retryCount = delivery.RetryCount;
 
             logger?.Debug("Received job {JobId} (Type: {JobType}, CorrelationId: {CorrelationId}, RetryCount: {RetryCount})", job.Id, job.JobNameInWorker, correlationId, retryCount);
 
@@ -404,14 +439,14 @@ public class JobConsumer : BackgroundService
                     logger?.Debug("Job {JobId} (CorrelationId: {CorrelationId}) already finalized. Skipping redelivery and ACK-ing message.", job.Id, correlationId);
 
                     // ACK the message to prevent further redelivery (no cancellation)
-                    await SafeAckAsync(ea.DeliveryTag, logger, job.Id);
+                    await AckAsync(delivery, logger, job.Id);
 
                     return;
                 }
             }
 
             // REDELIVERY DETECTION: Log warning if message was redelivered (worker may have crashed)
-            if (ea.Redelivered)
+            if (delivery.Redelivered)
             {
                 logger?.Warning("Job {JobId} redelivered (CorrelationId: {CorrelationId}). Previous execution may have crashed or timed out. Job will be re-executed from the beginning.", job.Id, correlationId);
 
@@ -468,17 +503,17 @@ public class JobConsumer : BackgroundService
             }
 
             // Process the job and get disposition
-            var disposition = await ProcessJobAsync(job, correlationId, ea.DeliveryTag, scope.ServiceProvider, retryCount, logger, cancellationToken);
+            var disposition = await ProcessJobAsync(job, correlationId, delivery, scope.ServiceProvider, retryCount, logger, cancellationToken);
 
             // Handle message based on disposition (no cancellation for ACK/NACK)
             switch (disposition)
             {
                 case MessageDisposition.Ack:
-                    await SafeAckAsync(ea.DeliveryTag, logger, job.Id);
+                    await AckAsync(delivery, logger, job.Id);
                     break;
 
                 case MessageDisposition.Nack:
-                    await SafeNackAsync(ea.DeliveryTag, logger, correlationId);
+                    await NackAsync(delivery, logger, correlationId);
                     break;
 
                 case MessageDisposition.AlreadyHandled:
@@ -487,7 +522,7 @@ public class JobConsumer : BackgroundService
                     break;
 
                 case MessageDisposition.Requeue:
-                    await SafeNackAsync(ea.DeliveryTag, logger, correlationId, requeue: true);
+                    await NackAsync(delivery, logger, correlationId, requeue: true);
                     break;
             }
         }
@@ -495,20 +530,45 @@ public class JobConsumer : BackgroundService
         {
             // Bad message format - NACK without requeue (send to DLQ)
             _logger?.Error(jsonEx, "Failed to deserialize message. Sending to DLQ.");
-            await SafeNackAsync(ea.DeliveryTag, _logger, correlationId);
+            await NackAsync(delivery, _logger, correlationId);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // e.g. shutdown during a retry backoff: the message goes back to the queue, not to the DLQ
-            await SafeNackAsync(ea.DeliveryTag, logger ?? _logger, correlationId, requeue: true);
+            await NackAsync(delivery, logger ?? _logger, correlationId, requeue: true);
         }
         catch (Exception ex)
         {
             var loggerToUse = logger ?? _logger;
             loggerToUse?.Error(ex, "Failed to process job {JobId} (OccurrenceId: {OccurrenceId}). NACK-ing message.", jobId, correlationId);
-            await SafeNackAsync(ea.DeliveryTag, loggerToUse, correlationId);
+            await NackAsync(delivery, loggerToUse, correlationId);
         }
     }
+
+    /// <summary>
+    /// Settles a handled message. RabbitMQ: ACK.
+    /// </summary>
+    private protected virtual Task AckAsync(JobDelivery delivery, IMilvaLogger logger, Guid jobId)
+        => SafeAckAsync(((RabbitMQJobDelivery)delivery).DeliveryTag, logger, jobId);
+
+    /// <summary>
+    /// Rejects a message. RabbitMQ: NACK, which dead-letters it, or returns it to the queue with <paramref name="requeue"/>.
+    /// </summary>
+    private protected virtual Task NackAsync(JobDelivery delivery, IMilvaLogger logger, Guid correlationId, bool requeue = false)
+        => SafeNackAsync(((RabbitMQJobDelivery)delivery).DeliveryTag, logger, correlationId, requeue);
+
+    /// <summary>
+    /// Schedules the next attempt of a failed job. RabbitMQ: waits out the backoff, then republishes to the job's queue.
+    /// The original message is settled by the caller afterwards.
+    /// </summary>
+    private protected virtual Task RetryAsync(JobDelivery delivery, ScheduledJob job, Guid correlationId, int newRetryCount, int maxRetries, int delaySeconds, CancellationToken cancellationToken)
+        => RetryJobAsync(job, correlationId, newRetryCount, maxRetries, delaySeconds, cancellationToken);
+
+    /// <summary>
+    /// Sends a job that will not be retried to the dead letter queue.
+    /// </summary>
+    private protected virtual Task PublishToDeadLetterAsync(DlqJobMessage message, Guid correlationId, int retryCount, int maxRetries, CancellationToken cancellationToken)
+        => PublishToDLQAsync(message, correlationId, retryCount, maxRetries, cancellationToken);
 
     /// <summary>
     /// Safely parse OccurrenceId from message headers.
@@ -698,7 +758,7 @@ public class JobConsumer : BackgroundService
     /// </summary>
     private async Task<MessageDisposition> ProcessJobAsync(ScheduledJob job,
                                                            Guid correlationId,
-                                                           ulong deliveryTag,
+                                                           JobDelivery delivery,
                                                            IServiceProvider scopedProvider,
                                                            int retryCount,
                                                            IMilvaLogger logger,
@@ -797,7 +857,7 @@ public class JobConsumer : BackgroundService
                 }
 
                 // Sent as a DLQ message rather than NACK-ed: a dead-lettered raw job body would be read without its exception
-                await PublishToDLQAsync(new DlqJobMessage
+                await PublishToDeadLetterAsync(new DlqJobMessage
                 {
                     Id = job.Id,
                     JobNameInWorker = job.JobNameInWorker,
@@ -808,7 +868,7 @@ public class JobConsumer : BackgroundService
                     Status = JobOccurrenceStatus.Failed
                 }, correlationId, retryCount, 0, cancellationToken);
 
-                await SafeAckAsync(deliveryTag, logger, job.Id);
+                await AckAsync(delivery, logger, job.Id);
 
                 return MessageDisposition.AlreadyHandled;
             }
@@ -891,10 +951,10 @@ public class JobConsumer : BackgroundService
                         catch { /* Ignore log failure */ }
                     }
 
-                    await RetryJobAsync(job, correlationId, retryCount + 1, maxRetries, delaySeconds, cancellationToken);
+                    await RetryAsync(delivery, job, correlationId, retryCount + 1, maxRetries, delaySeconds, cancellationToken);
 
                     // ACK original message NOW (retry message published)
-                    await SafeAckAsync(deliveryTag, logger, job.Id);
+                    await AckAsync(delivery, logger, job.Id);
 
                     return MessageDisposition.AlreadyHandled;
                 }
@@ -937,7 +997,7 @@ public class JobConsumer : BackgroundService
                     }
 
                     // Publish to DLQ
-                    await PublishToDLQAsync(new DlqJobMessage
+                    await PublishToDeadLetterAsync(new DlqJobMessage
                     {
                         Id = job.Id,
                         JobNameInWorker = job.JobNameInWorker,
@@ -949,7 +1009,7 @@ public class JobConsumer : BackgroundService
                     }, correlationId, maxRetries, maxRetries, cancellationToken);
 
                     // ACK original message NOW (DLQ message published)
-                    await SafeAckAsync(deliveryTag, logger, job.Id);
+                    await AckAsync(delivery, logger, job.Id);
 
                     return MessageDisposition.AlreadyHandled;
                 }
@@ -984,7 +1044,7 @@ public class JobConsumer : BackgroundService
                 }
 
                 // Publish to DLQ
-                await PublishToDLQAsync(new DlqJobMessage
+                await PublishToDeadLetterAsync(new DlqJobMessage
                 {
                     Id = job.Id,
                     JobNameInWorker = job.JobNameInWorker,
@@ -996,7 +1056,7 @@ public class JobConsumer : BackgroundService
                 }, correlationId, retryCount, 0, cancellationToken); // maxRetries=0 indicates permanent failure
 
                 // ACK original message NOW (DLQ message published)
-                await SafeAckAsync(deliveryTag, logger, job.Id);
+                await AckAsync(delivery, logger, job.Id);
 
                 return MessageDisposition.AlreadyHandled;
             }

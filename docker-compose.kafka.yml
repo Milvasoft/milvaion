@@ -1,0 +1,66 @@
+# Runs the development stack on Kafka instead of RabbitMQ. Use it on top of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.kafka.yml up -d
+#
+# Kafka runs as a single node in KRaft mode (no ZooKeeper). Containers reach it at kafka:9092; a worker running on
+# the host uses localhost:29092. The RabbitMQ container still starts because docker-compose.yml depends on it, but
+# nothing uses it. See docs/portaldocs/34-using-kafka.md.
+
+services:
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: milvaion-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # Generate your own with: docker run --rm apache/kafka:3.8.0 /opt/kafka/bin/kafka-storage.sh random-uuid
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # Single node: internal topics cannot be replicated.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Milvaion creates its topics itself; a typo in a topic name should fail instead of creating a new topic.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "127.0.0.1:29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  milvaion-api:
+    environment:
+      - MilvaionConfig__Transport__Type=Kafka
+      - MilvaionConfig__Kafka__BootstrapServers=kafka:9092
+      # One node, so topics cannot have more than one replica.
+      - MilvaionConfig__Kafka__ReplicationFactor=1
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  test-worker:
+    environment:
+      - Worker__Transport__Type=Kafka
+      - Worker__Kafka__BootstrapServers=kafka:9092
+      - Worker__Kafka__ReplicationFactor=1
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+volumes:
+  kafka_data:

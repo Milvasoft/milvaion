@@ -31,4 +31,9 @@ public record QueueDepthInfo
     /// Health status message
     /// </summary>
     public string HealthMessage { get; init; }
+
+    /// <summary>
+    /// Transport the figures come from ("Kafka"). Null on RabbitMQ.
+    /// </summary>
+    public string Transport { get; init; }
 }

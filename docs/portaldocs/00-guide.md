@@ -46,6 +46,7 @@ Welcome to the official Milvaion documentation. This documentation will help you
 | [Scheduling Options](31-scheduling.md) | Time zones, missed runs after downtime, priority and exclusion calendars |
 | [Time Zones](32-time-zones.md) | Run jobs at local wall clock time, with daylight saving time handled |
 | [Exclusion Calendars](33-exclusion-calendars.md) | Skip holidays, maintenance days or weekends |
+| [Using Kafka](34-using-kafka.md) | Run Milvaion on Apache Kafka instead of RabbitMQ |
 | [Api Keys](24-api-keys.md) | Credentials for CI pipelines, scripts and MCP clients |
 | [MCP Server](25-mcp-server.md) | Connect Claude Code, Cursor or Copilot and ask about your jobs |
 

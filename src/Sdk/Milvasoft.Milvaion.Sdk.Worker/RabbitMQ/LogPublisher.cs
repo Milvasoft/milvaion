@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
+using Milvasoft.Milvaion.Sdk.Worker.Kafka;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Persistence;
 using System.Collections.Concurrent;
@@ -31,15 +32,15 @@ public interface ILogPublisher : IAsyncDisposable
 }
 
 /// <summary>
-/// Publishes worker logs to RabbitMQ with batching for high-throughput scenarios.
+/// Publishes worker logs over the configured transport with batching for high-throughput scenarios.
 /// Logs are buffered and sent in batches to reduce RabbitMQ overhead.
 /// A batch that cannot be published is moved to the local store when one is available;
 /// otherwise it is held in memory and retried first, so logs keep their order.
 /// </summary>
-public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory, ILocalStateStore localStore = null) : ILogPublisher
+public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory, ILocalStateStore localStore = null, KafkaWorkerClients kafkaClients = null) : ILogPublisher
 {
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogPublisher>();
-    private readonly ResilientPublisherChannel _channel = new(options, loggerFactory.CreateMilvaLogger<LogPublisher>(), WorkerConstant.Queues.WorkerLogs);
+    private readonly IQueuePublisher _channel = QueuePublisherFactory.Create(options, loggerFactory.CreateMilvaLogger<LogPublisher>(), kafkaClients, WorkerConstant.Queues.WorkerLogs);
     private readonly ILocalStateStore _localStore = localStore;
     private bool _disposed;
 
@@ -146,7 +147,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory, I
                 var json = JsonSerializer.Serialize(batchMessage);
                 var body = Encoding.UTF8.GetBytes(json);
 
-                await _channel.PublishAsync(WorkerConstant.Queues.WorkerLogs, body, persistent: true, cancellationToken);
+                await _channel.PublishAsync(WorkerConstant.Queues.WorkerLogs, body, persistent: true, key: batch[0].OccurrenceId.ToString(), cancellationToken);
 
                 _unpublishedBatch = null;
 

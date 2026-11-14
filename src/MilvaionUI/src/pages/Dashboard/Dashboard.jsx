@@ -76,7 +76,7 @@ function checkIcon(name = '', tags) {
 
   if (/postgres|database|sql/.test(haystack)) return 'database'
   if (/redis|cache/.test(haystack)) return 'bolt'
-  if (/rabbit|mq|messaging/.test(haystack)) return 'message'
+  if (/rabbit|kafka|mq|messaging/.test(haystack)) return 'message'
   if (/disk|storage/.test(haystack)) return 'save'
   if (/memory|ram/.test(haystack)) return 'memory'
   if (/http|api|url/.test(haystack)) return 'public'

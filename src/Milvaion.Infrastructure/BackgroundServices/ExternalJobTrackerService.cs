@@ -7,31 +7,28 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
-using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Types.Structs;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
 
 /// <summary>
-/// Consumes external job registration and occurrence messages from RabbitMQ.
+/// Consumes external job registration and occurrence messages from the message transport.
 /// Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
 /// </summary>
 public class ExternalJobTrackerService(IServiceProvider serviceProvider,
-                                       RabbitMQConnectionFactory rabbitMQFactory,
+                                       IMessageConsumerTransport transport,
                                        IOptions<ExternalJobTrackerOptions> options,
-                                       IOptions<RabbitMQOptions> rabbitMQOptions,
                                        IRedisSchedulerService redisSchedulerService,
                                        IRedisStatsService redisStatsService,
                                        ILoggerFactory loggerFactory,
@@ -39,32 +36,28 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                                        IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
-    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
+    private readonly IMessageConsumerTransport _transport = transport;
     private readonly IRedisSchedulerService _redisSchedulerService = redisSchedulerService;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ExternalJobTrackerService>();
     private readonly ExternalJobTrackerOptions _options = options.Value;
-    private readonly RabbitMQOptions _rabbitMQOptions = rabbitMQOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
 
-    private IChannel _registrationChannel;
-    private IChannel _occurrenceChannel;
+    private IMessageConsumer _registrationConsumer;
+    private IMessageConsumer _occurrenceConsumer;
 
     // Batch queues
-    // The channel travels with the tag: a delivery tag is only valid on the channel that delivered it.
+    // The delivery travels with the message so it can be acknowledged once the batch is written.
     private readonly ConcurrentQueue<Received<ExternalJobRegistrationMessage>> _registrationBatch = new();
     private readonly ConcurrentQueue<Received<ExternalJobOccurrenceMessage>> _occurrenceBatch = new();
 
     // How long a completion may wait for its Starting event, which another instance may still be writing.
     private static readonly TimeSpan _orphanCompletionMaxWait = TimeSpan.FromSeconds(30);
 
-    private readonly record struct Received<T>(T Message, ulong DeliveryTag, IChannel Channel, DateTime ReceivedAt);
+    private readonly record struct Received<T>(T Message, IMessageDelivery Delivery, DateTime ReceivedAt);
     private readonly SemaphoreSlim _registrationBatchLock = new(1, 1);
     private readonly SemaphoreSlim _occurrenceBatchLock = new(1, 1);
 
-    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
-    private readonly SemaphoreSlim _registrationChannelLock = new(1, 1);
-    private readonly SemaphoreSlim _occurrenceChannelLock = new(1, 1);
 
     /// <inheritdoc/>
     protected override string ServiceName => "ExternalJobTracker";
@@ -122,98 +115,55 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        // Get channels from shared connection factory
-        var registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-        var occurrenceChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
-
-        _registrationChannel = registrationChannel;
-        _occurrenceChannel = occurrenceChannel;
-
-        // Declare queues
-        await _registrationChannel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
-                                                     durable: true,
-                                                     exclusive: false,
-                                                     autoDelete: false,
-                                                     arguments: _rabbitMQOptions.BuildQueueArguments(),
-                                                     cancellationToken: stoppingToken);
-
-        await _occurrenceChannel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
-                                                   durable: true,
-                                                   exclusive: false,
-                                                   autoDelete: false,
-                                                   arguments: _rabbitMQOptions.BuildQueueArguments(),
-                                                   cancellationToken: stoppingToken);
-
-        // Set prefetch
         // Messages stay unacked until written, so the window has to cover at least a full batch.
-        await _registrationChannel.BasicQosAsync(0, (ushort)Math.Clamp(_options.RegistrationBatchSize * 2, 10, ushort.MaxValue), false, stoppingToken);
-        await _occurrenceChannel.BasicQosAsync(0, (ushort)Math.Clamp(_options.OccurrenceBatchSize * 2, 20, ushort.MaxValue), false, stoppingToken);
+        var registrationPrefetch = (ushort)Math.Clamp(_options.RegistrationBatchSize * 2, 10, ushort.MaxValue);
+        var occurrencePrefetch = (ushort)Math.Clamp(_options.OccurrenceBatchSize * 2, 20, ushort.MaxValue);
 
-        _logger.Information("ExternalJobTracker connected to RabbitMQ (shared connection). RegistrationChannel: {RegCh}, OccurrenceChannel: {OccCh}", _registrationChannel.ChannelNumber, _occurrenceChannel.ChannelNumber);
+        var registrationConsumer = await _transport.StartConsumerAsync(new ConsumerSubscription(WorkerConstant.Queues.ExternalJobRegistration, registrationPrefetch, ServiceName + ".Registration"),
+                                                                       delivery => ProcessRegistrationMessageAsync(delivery, stoppingToken),
+                                                                       stoppingToken);
 
-        // Setup registration consumer
-        var registrationConsumer = new AsyncEventingBasicConsumer(_registrationChannel);
-        registrationConsumer.ReceivedAsync += async (model, ea) =>
+        _registrationConsumer = registrationConsumer;
+
+        IMessageConsumer occurrenceConsumer;
+
+        try
         {
-            try
-            {
-                await ProcessRegistrationMessageAsync(ea, registrationChannel, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Error processing registration message");
-            }
-        };
-
-        // Setup occurrence consumer
-        var occurrenceConsumer = new AsyncEventingBasicConsumer(_occurrenceChannel);
-        occurrenceConsumer.ReceivedAsync += async (model, ea) =>
+            occurrenceConsumer = await _transport.StartConsumerAsync(new ConsumerSubscription(WorkerConstant.Queues.ExternalJobOccurrence, occurrencePrefetch, ServiceName + ".Occurrence"),
+                                                                     delivery => ProcessOccurrenceMessageAsync(delivery, stoppingToken),
+                                                                     stoppingToken);
+        }
+        catch
         {
-            try
-            {
-                await ProcessOccurrenceMessageAsync(ea, occurrenceChannel, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Error processing occurrence message");
-            }
-        };
+            await registrationConsumer.DisposeAsync();
+            throw;
+        }
 
-        await _registrationChannel.BasicConsumeAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
-                                                     autoAck: false,
-                                                     consumer: registrationConsumer,
-                                                     cancellationToken: stoppingToken);
-
-        await _occurrenceChannel.BasicConsumeAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
-                                                   autoAck: false,
-                                                   consumer: occurrenceConsumer,
-                                                   cancellationToken: stoppingToken);
+        _occurrenceConsumer = occurrenceConsumer;
 
         _logger.Information("ExternalJobTracker consuming from {Queue1} and {Queue2}", WorkerConstant.Queues.ExternalJobRegistration, WorkerConstant.Queues.ExternalJobOccurrence);
 
-        // Keep running until cancellation or until either channel dies
-        await Task.WhenAny(registrationChannel.WaitForShutdownAsync(stoppingToken), occurrenceChannel.WaitForShutdownAsync(stoppingToken));
+        // Keep running until cancellation or until either consumer dies
+        await Task.WhenAny(registrationConsumer.Completion, occurrenceConsumer.Completion).WaitAsync(stoppingToken);
 
-        stoppingToken.ThrowIfCancellationRequested();
-
-        await registrationChannel.SafeCloseAsync(_logger, CancellationToken.None);
-        await occurrenceChannel.SafeCloseAsync(_logger, CancellationToken.None);
+        await registrationConsumer.DisposeAsync();
+        await occurrenceConsumer.DisposeAsync();
     }
 
-    private async Task ProcessRegistrationMessageAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
+    private async Task ProcessRegistrationMessageAsync(IMessageDelivery delivery, CancellationToken cancellationToken)
     {
         try
         {
-            var message = JsonSerializer.Deserialize<ExternalJobRegistrationMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            var message = JsonSerializer.Deserialize<ExternalJobRegistrationMessage>(delivery.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
             if (message == null)
             {
-                await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+                await delivery.NackAsync(requeue: false, cancellationToken);
                 return;
             }
 
             // Acknowledged once the batch is written.
-            _registrationBatch.Enqueue(new(message, ea.DeliveryTag, channel, DateTime.UtcNow));
+            _registrationBatch.Enqueue(new(message, delivery, DateTime.UtcNow));
 
             if (_registrationBatch.Count >= _options.RegistrationBatchSize)
                 await ProcessRegistrationBatchAsync(cancellationToken);
@@ -222,24 +172,24 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         {
             _logger.Error(ex, "Failed to process registration message");
 
-            await channel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
+            await delivery.NackAsync(requeue: false, cancellationToken);
         }
     }
 
-    private async Task ProcessOccurrenceMessageAsync(BasicDeliverEventArgs ea, IChannel channel, CancellationToken cancellationToken)
+    private async Task ProcessOccurrenceMessageAsync(IMessageDelivery delivery, CancellationToken cancellationToken)
     {
         try
         {
-            var message = JsonSerializer.Deserialize<ExternalJobOccurrenceMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            var message = JsonSerializer.Deserialize<ExternalJobOccurrenceMessage>(delivery.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
             if (message == null)
             {
-                await channel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
+                await delivery.NackAsync(requeue: false, cancellationToken);
                 return;
             }
 
             // Acknowledged once the batch is written.
-            _occurrenceBatch.Enqueue(new(message, ea.DeliveryTag, channel, DateTime.UtcNow));
+            _occurrenceBatch.Enqueue(new(message, delivery, DateTime.UtcNow));
 
             if (_occurrenceBatch.Count >= _options.OccurrenceBatchSize)
                 await ProcessOccurrenceBatchAsync(cancellationToken);
@@ -248,14 +198,14 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         {
             _logger.Error(ex, "Failed to process occurrence message");
 
-            await channel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
+            await delivery.NackAsync(requeue: false, cancellationToken);
         }
     }
 
-    private async Task AckAsync<T>(IEnumerable<Received<T>> items, SemaphoreSlim channelLock, CancellationToken cancellationToken)
+    private static async Task AckAsync<T>(IEnumerable<Received<T>> items, CancellationToken cancellationToken)
     {
         foreach (var item in items)
-            await item.Channel.SafeAckAsync(item.DeliveryTag, channelLock, _logger, cancellationToken);
+            await item.Delivery.AckAsync(cancellationToken);
     }
 
     /// <summary>
@@ -408,7 +358,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             if (updatedCount > 0)
                 _logger.Information("Updated {Count} external jobs via handlers", updatedCount);
 
-            await AckAsync(received, _registrationChannelLock, cancellationToken);
+            await AckAsync(received, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -466,7 +416,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                     {
                         _logger.Error(itemEx, "Dropping external occurrence message the database rejects. CorrelationId: {CorrelationId}", item.Message.CorrelationId);
 
-                        await item.Channel.SafeNackAsync(item.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken, requeue: false);
+                        await item.Delivery.NackAsync(requeue: false, cancellationToken);
                     }
                     catch (Exception itemEx)
                     {
@@ -687,7 +637,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             }
         }
 
-        await AckAsync(settled, _occurrenceChannelLock, cancellationToken);
+        await AckAsync(settled, cancellationToken);
     }
 
     private static string BuildTags(ExternalJobRegistrationMessage message)
@@ -720,15 +670,16 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             _logger.Warning(ex, "Failed to process remaining batches during shutdown");
         }
 
-        // Close only channels (connection is managed by RabbitMQConnectionFactory)
-        await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
-        await _occurrenceChannel.SafeCloseAsync(_logger, cancellationToken);
+        // Stop the consumers only now: the batches above still had to be acknowledged on them
+        if (_registrationConsumer != null)
+            await _registrationConsumer.DisposeAsync();
+
+        if (_occurrenceConsumer != null)
+            await _occurrenceConsumer.DisposeAsync();
 
         // Dispose semaphores last: the work above still needs them
         _registrationBatchLock?.Dispose();
         _occurrenceBatchLock?.Dispose();
-        _registrationChannelLock?.Dispose();
-        _occurrenceChannelLock?.Dispose();
 
         _logger.Information("ExternalJobTracker stopped");
     }

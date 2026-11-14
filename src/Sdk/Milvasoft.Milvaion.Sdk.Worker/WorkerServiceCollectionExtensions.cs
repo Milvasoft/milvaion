@@ -12,6 +12,7 @@ using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
 using Milvasoft.Milvaion.Sdk.Worker.Core;
 using Milvasoft.Milvaion.Sdk.Worker.HealthChecks;
+using Milvasoft.Milvaion.Sdk.Worker.Kafka;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Persistence;
 using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
@@ -226,13 +227,20 @@ public static class WorkerServiceCollectionExtensions
         // Register interface for ConnectionMonitor
         services.AddSingleton<IConnectionMonitor>(sp => sp.GetRequiredService<ConnectionMonitor>());
 
+        // Kafka producer and admin client, shared by the publishers and the job consumer
+        if (workerOptions?.UsesKafka == true)
+        {
+            services.AddSingleton(sp => new KafkaWorkerClients(sp.GetRequiredService<IOptions<WorkerOptions>>().Value,
+                                                               sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<KafkaWorkerClients>()));
+        }
+
         // Register StatusUpdatePublisher as singleton (shared by all consumers)
         services.AddSingleton<StatusUpdatePublisher>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
-            return new StatusUpdatePublisher(options, loggerFactory);
+            return new StatusUpdatePublisher(options, loggerFactory, sp.GetService<KafkaWorkerClients>());
         });
 
         // Register interface for StatusUpdatePublisher
@@ -245,7 +253,7 @@ public static class WorkerServiceCollectionExtensions
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
             // Only a real store is passed: without one, failed batches stay in memory instead of being discarded.
-            return new LogPublisher(options, loggerFactory, sp.GetService<LocalStateStore>());
+            return new LogPublisher(options, loggerFactory, sp.GetService<LocalStateStore>(), sp.GetService<KafkaWorkerClients>());
         });
 
         // Register interface for LogPublisher
@@ -332,7 +340,10 @@ public static class WorkerServiceCollectionExtensions
         if (!string.IsNullOrEmpty(workerOptions.Redis?.ConnectionString))
             healthChecks.AddCheck<RedisHealthCheck>("Redis", tags: ["redis", "cache"]);
 
-        healthChecks.AddCheck<RabbitMQHealthCheck>("RabbitMQ", tags: ["rabbitmq", "messaging"]);
+        if (workerOptions.UsesKafka)
+            healthChecks.AddCheck<KafkaHealthCheck>("Kafka", tags: ["kafka", "messaging"]);
+        else
+            healthChecks.AddCheck<RabbitMQHealthCheck>("RabbitMQ", tags: ["rabbitmq", "messaging"]);
     }
 
     public static IApplicationBuilder UseHealthCheckEndpoints(this WebApplication app, IConfiguration configuration)
@@ -455,8 +466,22 @@ public static class WorkerServiceCollectionExtensions
         if (jobConfigs.IsNullOrEmpty())
             throw new InvalidOperationException($"No job consumer configurations found in '{JobConsumerOptions.SectionKey}' section");
 
-        // Register dedicated consumers for each job
-        foreach (var (jobName, config) in jobConfigs)
+        var transportOptions = configuration.GetSection(WorkerOptions.SectionKey).Get<WorkerOptions>();
+        var usesKafka = transportOptions?.UsesKafka == true;
+
+        // Kafka: one consumer for the worker's topic, which carries every job type of the worker
+        if (usesKafka)
+        {
+            services.AddSingleton<IHostedService>(sp => new KafkaJobConsumer(sp,
+                                                                             sp.GetRequiredService<IOptions<WorkerOptions>>(),
+                                                                             sp.GetRequiredService<IOptions<JobConsumerOptions>>(),
+                                                                             sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>(),
+                                                                             sp.GetRequiredService<KafkaWorkerClients>(),
+                                                                             sp.GetService<OutboxService>()));
+        }
+
+        // Register dedicated consumers for each job (RabbitMQ: one queue per job type)
+        foreach (var (jobName, config) in usesKafka ? [] : jobConfigs)
         {
             // Capture variables for closure
             var capturedJobName = jobName;

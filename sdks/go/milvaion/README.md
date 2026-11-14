@@ -6,7 +6,7 @@ Run [Milvaion](https://github.com/Milvasoft/milvaion) jobs in Go. A Go worker sh
 go get github.com/Milvasoft/milvaion/sdks/go/milvaion
 ```
 
-It requires Go 1.24 or later, and connects to the same RabbitMQ and Redis instances as your Milvaion API.
+It requires Go 1.24 or later, and connects to the same broker (RabbitMQ, or [Kafka](#kafka)) and Redis instances as your Milvaion API.
 
 ## Quick start
 
@@ -121,6 +121,8 @@ When a job is aborted, the occurrence settles right away, even if the handler ig
 | Field | Default | Description |
 |---|---|---|
 | `WorkerID` | required | Identifies the worker application. Use the same value on every replica. |
+| `Transport` | `rabbitmq` | `rabbitmq` or `kafka`. Must match the API. |
+| `Kafka` | see [Kafka](#kafka) | Kafka settings, used when `Transport` is `kafka` |
 | `RabbitMQURL` | `amqp://guest:guest@localhost:5672/` | |
 | `QueueType` | `classic` | Must match the API's `MilvaionConfig:RabbitMQ:QueueType` |
 | `RedisURL`, `DisableRedis` | `redis://localhost:6379` | Redis only carries cancellation requests |
@@ -130,7 +132,7 @@ When a job is aborted, the occurrence settles right away, even if the handler ig
 | `HeartbeatInterval` | 30s | |
 | `JobHeartbeatInterval` | 60s | Keeps long jobs from being flagged as zombies |
 | `ShutdownTimeout` | 30s | How long `Run` lets running jobs finish after its context is cancelled |
-| `StartupTimeout` | 30s | How long `Run` waits for RabbitMQ and Redis |
+| `StartupTimeout` | 30s | How long `Run` waits for the broker and Redis |
 | `Version` | `1.0.0` | Shown in the dashboard |
 | `Logger` | `slog.Default()` | |
 
@@ -144,6 +146,53 @@ For containers, `milvaion.OptionsFromEnv(base)` reads the following variables:
 - `MILVAION_MAX_PARALLEL_JOBS`
 - `MILVAION_EXECUTION_TIMEOUT_SECONDS`
 - `MILVAION_HEARTBEAT_INTERVAL_SECONDS`
+- `MILVAION_TRANSPORT` and the Kafka variables listed under [Kafka](#kafka)
+
+## Kafka
+
+RabbitMQ is the default broker. A deployment can use Apache Kafka instead. The API and every worker of a deployment must use the same broker, so switch the API to Kafka too (`MilvaionConfig:Transport:Type`). Redis still carries cancellation requests, as on RabbitMQ.
+
+```go
+worker, err := milvaion.NewWorker(milvaion.Options{
+	WorkerID:  "mail-worker",
+	Transport: "kafka",
+	Kafka: milvaion.KafkaOptions{
+		Brokers:     []string{"kafka-1:9092", "kafka-2:9092"},
+		TopicPrefix: "prod.", // must match the API's
+	},
+	RedisURL: "redis://localhost:6379",
+})
+```
+
+Handlers do not change. Jobs, outcomes, retries, logs and cancellation behave as on RabbitMQ.
+
+| `KafkaOptions` field | Default | Description |
+|---|---|---|
+| `Brokers` | `localhost:9092` | Bootstrap servers. An entry may be a comma separated list. |
+| `TLS` | off | Turns TLS on. Setting any of the three files below turns it on too. |
+| `TLSCAFile` | system roots | PEM bundle used to verify the brokers |
+| `TLSCertFile`, `TLSKeyFile` | none | PEM client certificate and key for mutual TLS |
+| `SASLMechanism` | none | `plain`, `scram-sha-256` or `scram-sha-512`, with `SASLUsername` and `SASLPassword` |
+| `TopicPrefix` | empty | Put in front of every topic and consumer group name. Only `a-z A-Z 0-9 . _ -`. Must match the API's. |
+| `DisableAutoCreateTopics` | `false` | By default the worker creates its topics at startup |
+| `NumPartitions` | 12 | Partitions of the topics the worker creates |
+| `ReplicationFactor` | -1 | Replication of the topics the worker creates. -1 uses the broker's default. |
+| `MaxInFlightPerPartition` | worker `MaxParallelJobs` | Jobs of one partition that may run at the same time |
+
+`OptionsFromEnv` reads them from `MILVAION_TRANSPORT` (`kafka`), `MILVAION_KAFKA_BOOTSTRAP_SERVERS` (or `KAFKA_BOOTSTRAP_SERVERS`), `MILVAION_KAFKA_TLS` (`true`), `MILVAION_KAFKA_TLS_CA_FILE`, `MILVAION_KAFKA_TLS_CERT_FILE`, `MILVAION_KAFKA_TLS_KEY_FILE`, `MILVAION_KAFKA_SASL_MECHANISM`, `MILVAION_KAFKA_SASL_USERNAME`, `MILVAION_KAFKA_SASL_PASSWORD`, `MILVAION_KAFKA_TOPIC_PREFIX`, `MILVAION_KAFKA_AUTO_CREATE_TOPICS` (`false` disables it), `MILVAION_KAFKA_NUM_PARTITIONS` (or `MILVAION_KAFKA_PARTITIONS`), `MILVAION_KAFKA_REPLICATION_FACTOR` and `MILVAION_KAFKA_MAX_IN_FLIGHT_PER_PARTITION`.
+
+How it works on Kafka:
+
+- **Topics.** The worker reads `milvaion.jobs.{worker}` and `milvaion.jobs.{worker}.retry`, where `{worker}` is the worker id in lower case with every character outside `a-z 0-9 . _ -` replaced by `_`. It writes to `milvaion.status`, `milvaion.logs`, `milvaion.heartbeats`, `milvaion.registrations` and `milvaion.dlq`. All names get the topic prefix.
+- **Instances.** Every instance of a worker joins the consumer group `milvaion.worker.{worker}`. Partitions are shared between the instances, so a topic with 12 partitions serves at most 12 instances. Raise `NumPartitions` before you scale out further.
+- **Parallelism.** An instance runs up to `MaxParallelJobs` jobs at once, also several from one partition, up to `MaxInFlightPerPartition`. The per job `MaxParallelJobs` of `JobOptions` applies to RabbitMQ only. When the instance is full, it pauses the partitions and keeps polling, so it stays in the group.
+- **Commits.** A job record is committed only after its outcome has been reported. Kafka commits a position, not a single record, so a partition is committed up to its oldest unfinished job. If an instance crashes, every record after that one runs again, including jobs that had already finished. Make handlers idempotent.
+- **Retries.** A failed attempt with retries left is written to the retry topic with a time before which it must not run (`base × 2^n`). The instance slot is free during the wait. The instance that reads the retry holds it until it is due, and the occurrence keeps sending job heartbeats meanwhile.
+- **Dead letters.** A job that fails for good goes to `milvaion.dlq` as on RabbitMQ. A record that is not a valid job is forwarded there unchanged, with the headers `x-original-topic` and `x-dlq-reason`.
+- **Shutdown.** The worker stops taking records, waits up to `ShutdownTimeout`, writes the jobs that are still running back to their topic, commits and leaves the group.
+- **Priority** is best effort: records of a partition are read in the order the API wrote them.
+
+The full wire contract is in [KAFKA-TRANSPORT.md](https://github.com/Milvasoft/milvaion/blob/master/docs/githubdocs/KAFKA-TRANSPORT.md).
 
 ## Reliability
 
@@ -164,4 +213,10 @@ The SDK implements the language-neutral [worker protocol](https://github.com/Mil
 ```bash
 go test ./...
 go run ./examples/basic   # configure with MILVAION_* variables
+```
+
+The Kafka integration tests run against a real broker and are skipped unless `MILVAION_KAFKA_BROKERS` is set. `kafka_integration_test.go` shows a `docker run` line for a single-node broker.
+
+```bash
+MILVAION_KAFKA_BROKERS=localhost:29092 go test -run Kafka ./...
 ```

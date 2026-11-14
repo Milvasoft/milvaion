@@ -109,17 +109,26 @@ generated values survive upgrades), else a new random string. Call with (dict "r
 {{- if and (not .Values.postgresql.enabled) (not .Values.externalDatabase.existingSecret) (not .Values.externalDatabase.password) -}}
 {{- $missing = append $missing "externalDatabase.existingSecret or externalDatabase.password" -}}
 {{- end -}}
+{{- if include "milvaion.usesKafka" . -}}
+{{- if not .Values.kafka.bootstrapServers -}}
+{{- $missing = append $missing "kafka.bootstrapServers" -}}
+{{- end -}}
+{{- if and (include "milvaion.kafka.sasl" .) (not .Values.kafka.existingSecret) (not .Values.kafka.password) -}}
+{{- $missing = append $missing "kafka.existingSecret or kafka.password (SASL is on)" -}}
+{{- end -}}
+{{- else -}}
 {{- if and (not .Values.rabbitmq.enabled) (not .Values.externalRabbitmq.host) -}}
 {{- $missing = append $missing "externalRabbitmq.host (or rabbitmq.enabled=true)" -}}
 {{- end -}}
 {{- if and (not .Values.rabbitmq.enabled) (not .Values.externalRabbitmq.existingSecret) (not .Values.externalRabbitmq.password) -}}
 {{- $missing = append $missing "externalRabbitmq.existingSecret or externalRabbitmq.password" -}}
 {{- end -}}
+{{- end -}}
 {{- if and (not .Values.redis.enabled) (not .Values.externalRedis.host) -}}
 {{- $missing = append $missing "externalRedis.host (or redis.enabled=true)" -}}
 {{- end -}}
 {{- if $missing -}}
-{{- fail (printf "\n\nMilvaion needs PostgreSQL, RabbitMQ and Redis. Set:\n  - %s\n\nFor a quick evaluation install, enable the bundled ones: --set postgresql.enabled=true,rabbitmq.enabled=true,redis.enabled=true\nThey are single pods without backups; see the chart README before using them in production.\n" (join "\n  - " $missing)) -}}
+{{- fail (printf "\n\nMilvaion needs PostgreSQL, a message broker (RabbitMQ or Kafka) and Redis. Set:\n  - %s\n\nFor a quick evaluation install, enable the bundled ones: --set postgresql.enabled=true,rabbitmq.enabled=true,redis.enabled=true\nThey are single pods without backups; see the chart README before using them in production.\n" (join "\n  - " $missing)) -}}
 {{- end -}}
 {{- end -}}
 
@@ -259,11 +268,21 @@ Call with (dict "root" $ "parameters" "Npgsql settings to append").
 
 {{/* Password variables that other variables expand with $(NAME). They must come first in the env list. */}}
 {{- define "milvaion.env.passwords" -}}
+{{- if include "milvaion.usesKafka" . }}
+{{- if include "milvaion.kafka.sasl" . }}
+- name: MILVAION_KAFKA_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ default (include "milvaion.secretName" .) .Values.kafka.existingSecret }}
+      key: {{ .Values.kafka.existingSecretPasswordKey }}
+{{- end }}
+{{- else }}
 - name: MILVAION_RABBITMQ_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ include "milvaion.rabbitmq.secretName" . }}
       key: {{ include "milvaion.rabbitmq.secretKey" . }}
+{{- end }}
 {{- if include "milvaion.redis.authEnabled" . }}
 - name: MILVAION_REDIS_PASSWORD
   valueFrom:
@@ -271,6 +290,78 @@ Call with (dict "root" $ "parameters" "Npgsql settings to append").
       name: {{ include "milvaion.redis.secretName" . }}
       key: {{ include "milvaion.redis.secretKey" . }}
 {{- end }}
+{{- end -}}
+
+{{/* ---------------------------------------------------------------------------------------------------------
+     Message transport
+     --------------------------------------------------------------------------------------------------------- */}}
+
+{{/* Non-empty when the release runs on Kafka. */}}
+{{- define "milvaion.usesKafka" -}}
+{{- if eq (lower (toString .Values.transport)) "kafka" -}}true{{- end -}}
+{{- end -}}
+
+{{/* Non-empty when the Kafka connection uses SASL. */}}
+{{- define "milvaion.kafka.sasl" -}}
+{{- if has (toString .Values.kafka.securityProtocol) (list "SaslPlaintext" "SaslSsl") -}}true{{- end -}}
+{{- end -}}
+
+{{/* Broker connection variables, for the API (prefix MilvaionConfig) or a worker (prefix Worker). */}}
+{{- define "milvaion.env.transport" -}}
+{{- $root := .root -}}
+{{- $p := .prefix -}}
+{{- if include "milvaion.usesKafka" $root }}
+- name: {{ $p }}__Transport__Type
+  value: "Kafka"
+- name: {{ $p }}__Kafka__BootstrapServers
+  value: {{ $root.Values.kafka.bootstrapServers | quote }}
+- name: {{ $p }}__Kafka__SecurityProtocol
+  value: {{ $root.Values.kafka.securityProtocol | quote }}
+{{- if include "milvaion.kafka.sasl" $root }}
+- name: {{ $p }}__Kafka__SaslMechanism
+  value: {{ $root.Values.kafka.saslMechanism | quote }}
+- name: {{ $p }}__Kafka__SaslUsername
+  value: {{ $root.Values.kafka.username | quote }}
+- name: {{ $p }}__Kafka__SaslPassword
+  value: "$(MILVAION_KAFKA_PASSWORD)"
+{{- end }}
+{{- with $root.Values.kafka.sslCaLocation }}
+- name: {{ $p }}__Kafka__SslCaLocation
+  value: {{ . | quote }}
+{{- end }}
+- name: {{ $p }}__Kafka__TopicPrefix
+  value: {{ $root.Values.kafka.topicPrefix | quote }}
+- name: {{ $p }}__Kafka__AutoCreateTopics
+  value: {{ $root.Values.kafka.autoCreateTopics | toString | quote }}
+- name: {{ $p }}__Kafka__NumPartitions
+  value: {{ $root.Values.kafka.numPartitions | toString | quote }}
+- name: {{ $p }}__Kafka__ReplicationFactor
+  value: {{ $root.Values.kafka.replicationFactor | toString | quote }}
+{{- if eq $p "Worker" }}
+- name: Worker__Kafka__MaxInFlightPerPartition
+  value: {{ $root.Values.kafka.maxInFlightPerPartition | toString | quote }}
+{{- end }}
+{{- else }}
+- name: {{ $p }}__RabbitMQ__Host
+  value: {{ include "milvaion.rabbitmq.host" $root | quote }}
+- name: {{ $p }}__RabbitMQ__Port
+  value: {{ include "milvaion.rabbitmq.port" $root | quote }}
+- name: {{ $p }}__RabbitMQ__Username
+  value: {{ include "milvaion.rabbitmq.username" $root | quote }}
+- name: {{ $p }}__RabbitMQ__Password
+  value: "$(MILVAION_RABBITMQ_PASSWORD)"
+- name: {{ $p }}__RabbitMQ__VirtualHost
+  value: {{ include "milvaion.rabbitmq.virtualHost" $root | quote }}
+{{- end }}
+{{- end -}}
+
+{{/* host:port of the broker the API waits for at startup: RabbitMQ, or the first Kafka bootstrap server. */}}
+{{- define "milvaion.broker.waitTarget" -}}
+{{- if include "milvaion.usesKafka" . -}}
+{{- trim (first (splitList "," .Values.kafka.bootstrapServers)) -}}
+{{- else -}}
+{{- include "milvaion.rabbitmq.host" . }}:{{ include "milvaion.rabbitmq.port" . -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "milvaion.env.dbPassword" -}}

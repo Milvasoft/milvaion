@@ -22,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /** Runs job deliveries and reports their progress to the API, following the worker protocol. */
@@ -36,7 +37,7 @@ final class JobProcessor implements AutoCloseable {
 
     private final WorkerOptions options;
     private final Map<String, ResolvedJob> jobs;
-    private final Publisher publisher;
+    private final JobTransport transport;
     private final LogBuffer logs;
     private final CancellationRegistry cancellations;
     private final ExecutorService handlers = Executors.newCachedThreadPool(r -> LogBuffer.daemon(r, "milvaion-job"));
@@ -48,9 +49,13 @@ final class JobProcessor implements AutoCloseable {
     Sleeper sleeper = (duration, latch) -> latch.await(duration.toMillis(), TimeUnit.MILLISECONDS);
 
     JobProcessor(WorkerOptions options, Map<String, ResolvedJob> jobs, Publisher publisher, LogBuffer logs, CancellationRegistry cancellations) {
+        this(options, jobs, JobTransport.rabbitMq(publisher), logs, cancellations);
+    }
+
+    JobProcessor(WorkerOptions options, Map<String, ResolvedJob> jobs, JobTransport transport, LogBuffer logs, CancellationRegistry cancellations) {
         this.options = options;
         this.jobs = jobs;
-        this.publisher = publisher;
+        this.transport = transport;
         this.logs = logs;
         this.cancellations = cancellations;
     }
@@ -94,7 +99,7 @@ final class JobProcessor implements AutoCloseable {
             process(delivery, consumer);
         } catch (Throwable error) {
             LOG.error("Unexpected error while processing a job delivery.", error);
-            settle(() -> delivery.settler().nack(false));
+            settle(() -> delivery.settler().reject("Unexpected error while processing the job: " + error));
         } finally {
             synchronized (idleLock) {
                 running--;
@@ -109,8 +114,8 @@ final class JobProcessor implements AutoCloseable {
         JsonNode job = parseJob(delivery.body());
 
         if (job == null) {
-            LOG.error("Received a message on {} that is not a valid job. Sending it to the dead letter queue.", consumer.queue());
-            settle(() -> delivery.settler().nack(false));
+            LOG.error("Received a message on {} that is not a valid job. Sending it to the dead letter queue.", consumer == null ? "the job topic" : consumer.queue());
+            settle(() -> delivery.settler().reject("The message is not a valid job."));
             return;
         }
 
@@ -118,7 +123,7 @@ final class JobProcessor implements AutoCloseable {
 
         if (occurrenceId == null) {
             LOG.error("Job {} arrived without an occurrence id. Sending it to the dead letter queue.", job.path("id").asText());
-            settle(() -> delivery.settler().nack(false));
+            settle(() -> delivery.settler().reject("The job has no occurrence id."));
             return;
         }
 
@@ -293,8 +298,14 @@ final class JobProcessor implements AutoCloseable {
     /**
      * Waits out the backoff, republishes the job with a higher retry count and acks the original.
      * The original stays unacked meanwhile, so a crash during the wait gets it redelivered.
+     * On Kafka the retry is published at once to the delay topic instead (see {@link #retryWithoutWaiting}).
      */
     private void retry(Delivery delivery, ResolvedJob consumer, Run run, Duration delay, int maxRetries) {
+        if (!transport.waitsForRetryDelay()) {
+            retryWithoutWaiting(delivery, consumer, run, delay, maxRetries);
+            return;
+        }
+
         Duration interval = options.jobHeartbeatInterval();
         boolean beat = interval != null && !interval.isZero() && !interval.isNegative();
         Duration remaining = delay;
@@ -320,15 +331,72 @@ final class JobProcessor implements AutoCloseable {
         }
 
         try {
-            publisher.publish("", consumer.queue(), delivery.body(), true, run.occurrenceId,
-                    headers(run.occurrenceId, run.retryCount + 1, maxRetries));
+            transport.publishRetry(delivery, consumer, run.jobId(), run.occurrenceId, run.retryCount + 1, maxRetries, delay);
         } catch (Exception e) {
             LOG.error("Failed to republish job {} for retry. Dead-lettering the message.", run.jobId(), e);
-            settle(() -> delivery.settler().nack(false));
+            settle(() -> delivery.settler().reject("Failed to republish the job for retry: " + e.getMessage()));
             return;
         }
 
         settle(() -> delivery.settler().ack());
+    }
+
+    /**
+     * Publishes the retry at once with the time it becomes due, then settles the original, freeing the slot.
+     * The occurrence stays Running during the backoff, so job heartbeats continue until the retry is due.
+     */
+    private void retryWithoutWaiting(Delivery delivery, ResolvedJob consumer, Run run, Duration delay, int maxRetries) {
+        try {
+            transport.publishRetry(delivery, consumer, run.jobId(), run.occurrenceId, run.retryCount + 1, maxRetries, delay);
+        } catch (Exception e) {
+            LOG.error("Failed to publish job {} for retry. Dead-lettering the message.", run.jobId(), e);
+            settle(() -> delivery.settler().reject("Failed to publish the job for retry: " + e.getMessage()));
+            return;
+        }
+
+        settle(() -> delivery.settler().ack());
+
+        Duration interval = options.jobHeartbeatInterval();
+
+        if (interval == null || interval.isZero() || interval.isNegative() || interval.compareTo(delay) >= 0 || shutdown.getCount() == 0) return;
+
+        long due = System.nanoTime() + delay.toNanos();
+        AtomicReference<ScheduledFuture<?>> beat = new AtomicReference<>();
+
+        try {
+            beat.set(timers.scheduleAtFixedRate(() -> {
+                if (shutdown.getCount() == 0 || System.nanoTime() >= due) {
+                    ScheduledFuture<?> self = beat.get();
+
+                    if (self != null) self.cancel(false);
+
+                    return;
+                }
+
+                handlers.execute(() -> run.status(JobStatus.RUNNING, null, null, null, false));
+            }, interval.toMillis(), interval.toMillis(), TimeUnit.MILLISECONDS));
+        } catch (RuntimeException e) {
+            // Shutting down
+        }
+    }
+
+    /**
+     * Sends a Running status for a job that waits on the broker side (a Kafka retry record that is not due yet),
+     * so the occurrence is not flagged as a zombie. Asynchronous; failures are only logged.
+     */
+    void sendWaitingHeartbeat(byte[] body, Map<String, Object> headers) {
+        JsonNode job = parseJob(body);
+        String occurrenceId = parseOccurrenceId(headers, null);
+
+        if (job == null || occurrenceId == null) return;
+
+        Run run = new Run(job, occurrenceId, parseRetryCount(headers));
+
+        try {
+            handlers.execute(() -> run.status(JobStatus.RUNNING, null, null, null, false));
+        } catch (RuntimeException e) {
+            // Shutting down
+        }
     }
 
     private void deadLetter(Delivery delivery, Run run, String exception, int retryCount, int maxRetries) {
@@ -342,24 +410,15 @@ final class JobProcessor implements AutoCloseable {
         message.put("exception", exception);
 
         try {
-            publisher.publish(Protocol.EXCHANGE_DEAD_LETTER, Protocol.DEAD_LETTER_ROUTING_KEY, Json.bytes(message), true, run.occurrenceId,
-                    headers(run.occurrenceId, retryCount, maxRetries));
+            transport.publishDeadLetter(run.jobId(), run.occurrenceId, Json.bytes(message), retryCount, maxRetries);
         } catch (Exception e) {
             // The queue dead-letters a rejected message itself, just without the exception details.
             LOG.error("Failed to publish job {} to the dead letter queue. Rejecting the message instead.", run.jobId(), e);
-            settle(() -> delivery.settler().nack(false));
+            settle(() -> delivery.settler().reject("Failed to publish the dead letter message: " + e.getMessage()));
             return;
         }
 
         settle(() -> delivery.settler().ack());
-    }
-
-    private static Map<String, Object> headers(String occurrenceId, int retryCount, int maxRetries) {
-        Map<String, Object> headers = new LinkedHashMap<>();
-        headers.put("CorrelationId", occurrenceId);
-        headers.put("x-retry-count", retryCount);
-        headers.put("MaxRetries", maxRetries);
-        return headers;
     }
 
     private interface Action {
@@ -462,7 +521,7 @@ final class JobProcessor implements AutoCloseable {
 
             for (int attempt = 0; ; attempt++) {
                 try {
-                    publisher.publish("", Protocol.QUEUE_STATUS_UPDATES, body, true);
+                    transport.publishStatus(occurrenceId, body);
                     return;
                 } catch (Exception e) {
                     if (attempt >= delays.length) {

@@ -78,6 +78,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
         if (_rabbitMqContainer.State != TestcontainersStates.Running)
             startTasks.Add(_rabbitMqContainer.StartAsync());
 
+        startTasks.Add(StartAdditionalContainersAsync());
+
         await Task.WhenAll(startTasks);
 
         // Create isolated database if this collection uses a different DB name
@@ -151,6 +153,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     /// Called inside the host-build lock.
     /// </summary>
     protected virtual void ClearAdditionalEnvironmentVariables() { }
+
+    /// <summary>
+    /// Override in subclasses to start extra containers alongside the shared ones.
+    /// </summary>
+    protected virtual Task StartAdditionalContainersAsync() => Task.CompletedTask;
 
     public async Task CreateRespawner() => _respawner ??= await Respawner.CreateAsync(_connection, new RespawnerOptions
     {

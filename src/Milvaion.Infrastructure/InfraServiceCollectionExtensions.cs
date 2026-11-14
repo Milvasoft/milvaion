@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Milvaion.Application;
 using Milvaion.Application.Interfaces;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Aspects.UserActivityLogAspect;
@@ -22,6 +23,8 @@ using Milvaion.Infrastructure.Services.Alerting;
 using Milvaion.Infrastructure.Services.Alerting.Channels;
 using Milvaion.Infrastructure.Services.Monitoring;
 using Milvaion.Infrastructure.Services.Projects;
+using Milvaion.Infrastructure.Services.Kafka;
+using Milvaion.Infrastructure.Services.Messaging;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Redis;
 using Milvaion.Infrastructure.Services.Secrets;
@@ -35,6 +38,7 @@ using Milvasoft.Interception.Decorator;
 using Milvasoft.Interception.Ef;
 using Milvasoft.JobScheduling;
 using Milvasoft.Milvaion.Sdk.Utils;
+using Milvasoft.Milvaion.Sdk.Utils.Kafka;
 using Npgsql;
 using StackExchange.Redis;
 
@@ -157,10 +161,14 @@ public static class InfraServiceCollectionExtensions
     public static IServiceCollection AddMilvaion(this IServiceCollection services, IConfiguration configuration)
     {
         // Add health checks
-        services.AddHealthChecks()
-                .AddCheck<DbContextHealthCheck>("PostgreSQL", tags: ["database", "sql"])
-                .AddCheck<RedisHealthCheck>("Redis", tags: ["redis", "cache"])
-                .AddCheck<RabbitMQHealthCheck>("RabbitMQ", tags: ["rabbitmq", "messaging"]);
+        var healthChecks = services.AddHealthChecks()
+                                   .AddCheck<DbContextHealthCheck>("PostgreSQL", tags: ["database", "sql"])
+                                   .AddCheck<RedisHealthCheck>("Redis", tags: ["redis", "cache"]);
+
+        if (GetTransportType(configuration) == MessageTransportType.Kafka)
+            healthChecks.AddCheck<KafkaHealthCheck>("Kafka", tags: ["kafka", "messaging"]);
+        else
+            healthChecks.AddCheck<RabbitMQHealthCheck>("RabbitMQ", tags: ["rabbitmq", "messaging"]);
 
         services.AddOptions<MilvaionConfig>().Bind(configuration.GetSection(nameof(MilvaionConfig))).ValidateDataAnnotations();
 
@@ -174,7 +182,7 @@ public static class InfraServiceCollectionExtensions
 
         services.AddSecretReferences(configuration)
                 .AddRedisStorage(configuration)
-                .AddRabbitMQ(configuration)
+                .AddMessageTransport(configuration)
                 .AddAlerting(configuration)
                 .AddJobDispatcher(configuration)
                 .AddWorkflowEngine(configuration)
@@ -410,6 +418,47 @@ public static class InfraServiceCollectionExtensions
     }
 
     /// <summary>
+    /// The configured message transport (<c>MilvaionConfig:Transport:Type</c>), RabbitMQ when unset.
+    /// </summary>
+    public static MessageTransportType GetTransportType(IConfiguration configuration)
+        => configuration.GetSection(TransportOptions.SectionKey).Get<TransportOptions>()?.Type ?? MessageTransportType.RabbitMQ;
+
+    /// <summary>
+    /// Registers the message transport selected by <c>MilvaionConfig:Transport:Type</c>: RabbitMQ (default) or Kafka.
+    /// </summary>
+    /// <param name="services">Service collection</param>
+    /// <param name="configuration">Configuration</param>
+    /// <returns>Service collection for chaining</returns>
+    public static IServiceCollection AddMessageTransport(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<TransportOptions>().Bind(configuration.GetSection(TransportOptions.SectionKey));
+
+        return GetTransportType(configuration) == MessageTransportType.Kafka
+            ? services.AddKafka(configuration)
+            : services.AddRabbitMQ(configuration);
+    }
+
+    /// <summary>
+    /// Registers Kafka services for job dispatching and consuming.
+    /// </summary>
+    /// <param name="services">Service collection</param>
+    /// <param name="configuration">Configuration</param>
+    /// <returns>Service collection for chaining</returns>
+    public static IServiceCollection AddKafka(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<KafkaOptions>().Bind(configuration.GetSection(KafkaOptions.SectionKey));
+
+        services.AddSingleton<KafkaClientFactory>();
+        services.AddSingleton<KafkaLagReader>();
+        services.AddSingleton<IJobPublisher, KafkaJobPublisher>();
+        services.AddSingleton<IMessageConsumerTransport, KafkaConsumerTransport>();
+        services.AddSingleton<IMessageTransportInitializer, KafkaTransportInitializer>();
+        services.AddSingleton<IQueueDepthMonitor, KafkaQueueDepthMonitor>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers RabbitMQ services for job dispatching.
     /// </summary>
     /// <param name="services">Service collection</param>
@@ -428,6 +477,9 @@ public static class InfraServiceCollectionExtensions
 
         // Register IRabbitMQPublisher as singleton (thread-safe)
         services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
+        services.AddSingleton<IJobPublisher>(sp => sp.GetRequiredService<IRabbitMQPublisher>());
+        services.AddSingleton<IMessageConsumerTransport, RabbitMQConsumerTransport>();
+        services.AddSingleton<IMessageTransportInitializer, RabbitMQTransportInitializer>();
 
         // Register Queue Monitoring Service
         services.AddHttpClient(RabbitMQManagementClient._httpClientName);

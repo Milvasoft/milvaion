@@ -54,9 +54,19 @@ public class SystemConfigurationDto
     public RedisConfigDto Redis { get; set; }
 
     /// <summary>
-    /// RabbitMQ configuration.
+    /// Message transport in use: "RabbitMQ" or "Kafka".
+    /// </summary>
+    public string Transport { get; set; }
+
+    /// <summary>
+    /// RabbitMQ configuration. Null when the transport is Kafka.
     /// </summary>
     public RabbitMQConfigDto RabbitMQ { get; set; }
+
+    /// <summary>
+    /// Kafka configuration. Null when the transport is RabbitMQ.
+    /// </summary>
+    public KafkaConfigDto Kafka { get; set; }
 
     /// <summary>
     /// Job auto-disable configuration.

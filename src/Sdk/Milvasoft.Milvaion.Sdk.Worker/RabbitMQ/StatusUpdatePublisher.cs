@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
+using Milvasoft.Milvaion.Sdk.Worker.Kafka;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using System.Text;
 using System.Text.Json;
@@ -36,13 +37,13 @@ public interface IStatusUpdatePublisher : IAsyncDisposable
 }
 
 /// <summary>
-/// Publishes job status updates to RabbitMQ for collection by producer.
+/// Publishes job status updates over the configured transport for collection by the API.
 /// </summary>
-public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerFactory) : IStatusUpdatePublisher
+public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerFactory, KafkaWorkerClients kafkaClients = null) : IStatusUpdatePublisher
 {
     private readonly WorkerOptions _options = options;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<StatusUpdatePublisher>();
-    private readonly ResilientPublisherChannel _channel = new(options, loggerFactory.CreateMilvaLogger<StatusUpdatePublisher>(), WorkerConstant.Queues.StatusUpdates);
+    private readonly IQueuePublisher _channel = QueuePublisherFactory.Create(options, loggerFactory.CreateMilvaLogger<StatusUpdatePublisher>(), kafkaClients, WorkerConstant.Queues.StatusUpdates);
 
     public async Task PublishStatusAsync(Guid occurrenceId,
                                          Guid jobId,
@@ -76,7 +77,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
             var json = JsonSerializer.Serialize(message);
             var body = Encoding.UTF8.GetBytes(json);
 
-            await _channel.PublishAsync(WorkerConstant.Queues.StatusUpdates, body, persistent: true, cancellationToken);
+            await _channel.PublishAsync(WorkerConstant.Queues.StatusUpdates, body, persistent: true, key: occurrenceId.ToString(), cancellationToken);
 
             _logger?.Debug("Published status update: {Status} for OccurrenceId: {OccurrenceId}", status, occurrenceId);
         }
@@ -103,7 +104,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
             var json = JsonSerializer.Serialize(heartbeat);
             var body = Encoding.UTF8.GetBytes(json);
 
-            await _channel.PublishAsync(WorkerConstant.Queues.WorkerHeartbeat, body, persistent: false, cancellationToken);
+            await _channel.PublishAsync(WorkerConstant.Queues.WorkerHeartbeat, body, persistent: false, key: _options.InstanceId, cancellationToken);
 
             _logger?.Information("Published shutdown heartbeat for {InstanceId}", _options.InstanceId);
         }

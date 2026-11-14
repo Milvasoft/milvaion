@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Features.Workflows.TriggerWorkflow;
 using Milvaion.Application.Interfaces;
-using Milvaion.Application.Interfaces.RabbitMQ;
+using Milvaion.Application.Interfaces.Messaging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Interfaces.Secrets;
 using Milvaion.Infrastructure.BackgroundServices.Base;
@@ -34,7 +34,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                                     IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
-    private readonly IRabbitMQPublisher _rabbitMQPublisher = serviceProvider.GetRequiredService<IRabbitMQPublisher>();
+    private readonly IJobPublisher _rabbitMQPublisher = serviceProvider.GetRequiredService<IJobPublisher>();
     private readonly IRedisSchedulerService _redisScheduler = serviceProvider.GetRequiredService<IRedisSchedulerService>();
     private readonly IRedisStatsService _redisStatsService = serviceProvider.GetRequiredService<IRedisStatsService>();
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<WorkflowEngineService>();

@@ -56,7 +56,11 @@ internal class ConnectionStartupValidator(IOptions<WorkerOptions> options,
 
         try
         {
-            await ValidateRabbitMQAsync(timeoutCts.Token);
+            if (_options.UsesKafka)
+                await ValidateKafkaAsync(timeoutCts.Token);
+            else
+                await ValidateRabbitMQAsync(timeoutCts.Token);
+
             await ValidateRedisAsync(timeoutCts.Token);
         }
         catch (InvalidOperationException ex) when (!cancellationToken.IsCancellationRequested)
@@ -132,6 +136,52 @@ internal class ConnectionStartupValidator(IOptions<WorkerOptions> options,
                 catch (OperationCanceledException)
                 {
                     throw new InvalidOperationException($"Failed to connect to RabbitMQ at {rabbitMQ.Host}:{rabbitMQ.Port} within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
+                }
+            }
+        }
+    }
+
+    private async Task ValidateKafkaAsync(CancellationToken cancellationToken)
+    {
+        var servers = _options.Kafka?.BootstrapServers;
+        var attempt = 0;
+
+        using var admin = new Confluent.Kafka.AdminClientBuilder(Kafka.KafkaWorkerClients.BuildClientConfig(_options.Kafka ?? new())).Build();
+
+        while (true)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var metadata = await Task.Run(() => admin.GetMetadata(TimeSpan.FromSeconds(5)), cancellationToken);
+
+                if (metadata.Brokers.Count == 0)
+                    throw new InvalidOperationException("No Kafka broker answered.");
+
+                _logger.Information("Kafka connection validated: {Servers} ({Brokers} broker(s))", servers, metadata.Brokers.Count);
+
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                throw new InvalidOperationException($"Failed to connect to Kafka at {servers} within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
+            }
+            catch (Exception ex)
+            {
+                attempt++;
+
+                var delay = Math.Min(2.0 * Math.Pow(2, attempt - 1), 10.0);
+
+                _logger.Warning("Kafka not ready ({Servers}): {Error}. Retry #{Attempt} in {Delay:F1}s...", servers, ex.Message, attempt, delay);
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(delay), cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw new InvalidOperationException($"Failed to connect to Kafka at {servers} within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
                 }
             }
         }

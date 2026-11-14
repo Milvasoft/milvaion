@@ -208,6 +208,37 @@ externalDatabase:
   # -- Npgsql settings appended to the connection string.
   connectionParameters: "Pooling=true;Minimum Pool Size=20;Maximum Pool Size=100;Connection Lifetime=900;Connection Idle Lifetime=180;Command Timeout=30"
 
+# -- Message broker: rabbitmq (default) or kafka. The API and every worker of the release use the same one. With
+# kafka, the RabbitMQ settings below are ignored and RabbitMQ is not needed; see the kafka section.
+transport: rabbitmq
+
+# -- Kafka connection and topics, used when transport is kafka. The chart does not install Kafka: point it at your
+# own cluster (Strimzi, a managed service, ...).
+kafka:
+  # -- Comma separated host:port list.
+  bootstrapServers: ""
+  # -- Plaintext, Ssl, SaslPlaintext or SaslSsl.
+  securityProtocol: Plaintext
+  # -- Plain, ScramSha256 or ScramSha512 (with SaslPlaintext and SaslSsl).
+  saslMechanism: Plain
+  username: ""
+  # -- Stored in the chart's Secret. Prefer existingSecret in production.
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: kafka-password
+  # -- Path of a CA bundle inside the pods (mount it with extraVolumes), for brokers with a private CA.
+  sslCaLocation: ""
+  # -- Prepended to every topic and consumer group, for example "prod.". Must be the same for the API and workers.
+  topicPrefix: ""
+  # -- Create missing topics at startup. Turn off when topics are managed elsewhere (for example KafkaTopic resources).
+  autoCreateTopics: true
+  # -- Partitions of auto-created topics. Caps how many worker pods can share a job topic.
+  numPartitions: 12
+  # -- Replication of auto-created topics. -1 uses the broker's default.replication.factor.
+  replicationFactor: -1
+  # -- Workers only: jobs of one partition that may run at once. 0 means the worker's MaxParallelJobs.
+  maxInFlightPerPartition: 0
+
 externalRabbitmq:
   host: ""
   port: 5672
