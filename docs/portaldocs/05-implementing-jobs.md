@@ -273,6 +273,19 @@ public async Task ExecuteAsync(IJobContext context)
 }
 ```
 
+### Retry at a Specific Time
+
+When a job can't run now but you know when it can (an API quota that resets at 11:00 UTC, say), throw `RetryAfterException` with that time instead of letting it retry with backoff:
+
+```csharp
+catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
+{
+    throw new RetryAfterException(DateTime.UtcNow.Date.AddHours(11), "YouTube upload quota used up", ex);
+}
+```
+
+The worker doesn't retry the job and doesn't send it to the dead letter queue; it reports the occurrence as Failed together with the time. In a workflow step Milvaion reruns the step at that time, without using up the workflow's Max Step Retries (see [Workflows — Retry at a Specific Time](20-workflows.md#retry-at-a-specific-time)). In a standalone job the occurrence simply ends as Failed.
+
 ## Returning Results
 
 Use `IAsyncJobWithResult` to return data:

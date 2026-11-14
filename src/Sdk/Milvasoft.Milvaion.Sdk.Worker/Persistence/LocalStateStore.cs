@@ -12,7 +12,7 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Persistence;
 public interface ILocalStateStore : IDisposable, IAsyncDisposable
 {
     Task InitializeAsync(CancellationToken cancellationToken = default);
-    Task StoreStatusUpdateAsync(Guid occurrenceId, Guid jobId, string workerId, string instanceId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, CancellationToken cancellationToken = default);
+    Task StoreStatusUpdateAsync(Guid occurrenceId, Guid jobId, string workerId, string instanceId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, DateTime? retryAfter = null, CancellationToken cancellationToken = default);
     Task<List<StoredStatusUpdate>> GetPendingStatusUpdatesAsync(int maxCount = 100, CancellationToken cancellationToken = default);
     Task MarkStatusUpdateAsSyncedAsync(long id, CancellationToken cancellationToken = default);
     Task IncrementStatusUpdateRetryAsync(long id, CancellationToken cancellationToken = default);
@@ -91,6 +91,19 @@ public class LocalStateStore : ILocalStateStore
             cmdStatus.CommandText = SqlQueries.CreateStatusUpdatesTable;
             await cmdStatus.ExecuteNonQueryAsync(cancellationToken);
 
+            // Stores created by an older SDK lack the RetryAfter column.
+            await using (var columnsCmd = connection.CreateCommand())
+            {
+                columnsCmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('StatusUpdates') WHERE name = 'RetryAfter';";
+
+                if (Convert.ToInt64(await columnsCmd.ExecuteScalarAsync(cancellationToken)) == 0)
+                {
+                    await using var alterCmd = connection.CreateCommand();
+                    alterCmd.CommandText = "ALTER TABLE StatusUpdates ADD COLUMN RetryAfter TEXT;";
+                    await alterCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+
             await using var cmdLogs = connection.CreateCommand();
             cmdLogs.CommandText = SqlQueries.CreateLogsTable;
             await cmdLogs.ExecuteNonQueryAsync(cancellationToken);
@@ -122,6 +135,7 @@ public class LocalStateStore : ILocalStateStore
                                              long? durationMs = null,
                                              string result = null,
                                              string exception = null,
+                                             DateTime? retryAfter = null,
                                              CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken);
@@ -144,6 +158,7 @@ public class LocalStateStore : ILocalStateStore
             cmd.Parameters.AddWithValue("@DurationMs", durationMs ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@Result", result ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@Exception", exception ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@RetryAfter", retryAfter?.ToUniversalTime().ToString("O") ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@CreatedAt", DateTime.UtcNow.ToString("O"));
 
             await cmd.ExecuteNonQueryAsync(cancellationToken);
@@ -194,7 +209,8 @@ public class LocalStateStore : ILocalStateStore
                 Result = reader.IsDBNull(9) ? null : reader.GetString(9),
                 Exception = reader.IsDBNull(10) ? null : reader.GetString(10),
                 CreatedAt = DateTime.Parse(reader.GetString(11)),
-                RetryCount = reader.GetInt32(12)
+                RetryCount = reader.GetInt32(12),
+                RetryAfter = reader.IsDBNull(13) ? null : DateTime.Parse(reader.GetString(13), null, System.Globalization.DateTimeStyles.RoundtripKind)
             });
         }
 
@@ -681,6 +697,7 @@ public class StoredStatusUpdate
     public string Exception { get; set; }
     public DateTime CreatedAt { get; set; }
     public int RetryCount { get; set; }
+    public DateTime? RetryAfter { get; set; }
 }
 
 /// <summary>
@@ -729,7 +746,8 @@ public static class SqlQueries
             RetryCount INTEGER DEFAULT 0,
             LastRetryAt TEXT,
             IsSynced INTEGER DEFAULT 0,
-            SyncedAt TEXT
+            SyncedAt TEXT,
+            RetryAfter TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_status_synced ON StatusUpdates(IsSynced, CreatedAt);
         CREATE INDEX IF NOT EXISTS idx_status_occurrence ON StatusUpdates(OccurrenceId);
@@ -774,17 +792,17 @@ public static class SqlQueries
     public const string InsertStatusUpdate = @"
         INSERT INTO StatusUpdates (
             OccurrenceId, JobId, WorkerId, InstanceId, Status, StartTime, EndTime, 
-            DurationMs, Result, Exception, CreatedAt
+            DurationMs, Result, Exception, CreatedAt, RetryAfter
         ) VALUES (
             @OccurrenceId, @JobId, @WorkerId, @InstanceId, @Status, @StartTime, @EndTime,
-            @DurationMs, @Result, @Exception, @CreatedAt
+            @DurationMs, @Result, @Exception, @CreatedAt, @RetryAfter
         );
     ";
 
     public const string GetNotSyncedStatusUpdates = @"
             SELECT 
                 s.Id, s.OccurrenceId, s.JobId, s.WorkerId, s.InstanceId, s.Status, s.StartTime, s.EndTime,
-                s.DurationMs, s.Result, s.Exception, s.CreatedAt, s.RetryCount
+                s.DurationMs, s.Result, s.Exception, s.CreatedAt, s.RetryCount, s.RetryAfter
             FROM StatusUpdates s
             WHERE s.IsSynced = 0
             ORDER BY s.CreatedAt ASC, s.Id ASC

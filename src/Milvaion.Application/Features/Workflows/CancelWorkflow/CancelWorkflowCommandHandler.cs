@@ -30,6 +30,7 @@ public record CancelWorkflowCommandHandler(IMilvaionRepositoryBase<WorkflowRun> 
         var run = await _workflowRunRepository.GetFirstOrDefaultAsync(condition: r => r.Id == request.WorkflowRunId, projection: q => new WorkflowRun
         {
             Id = q.Id,
+            ProjectId = q.ProjectId,
             Status = q.Status,
             EndTime = q.EndTime,
             Error = q.Error,
@@ -38,6 +39,8 @@ public record CancelWorkflowCommandHandler(IMilvaionRepositoryBase<WorkflowRun> 
             StepOccurrences = q.StepOccurrences.Select(so => new JobOccurrence
             {
                 Id = so.Id,
+                // The bulk update writes the row back with its project; without it the row would point at project 0.
+                ProjectId = so.ProjectId,
                 JobId = so.JobId,
                 StepStatus = so.StepStatus,
                 Status = so.Status,
@@ -98,13 +101,18 @@ public record CancelWorkflowCommandHandler(IMilvaionRepositoryBase<WorkflowRun> 
 
         if (occurrencesToUpdate.Count > 0)
         {
-            await _occurrenceRepository.BulkUpdateAsync(occurrencesToUpdate, bc => bc.PropertiesToIncludeOnUpdate =
+            // The occurrences above are partial projections. The repository's bulk update writes PropertiesToInclude, so it
+            // must be set too: with PropertiesToIncludeOnUpdate alone every other column (WorkflowRunId, CorrelationId,
+            // JobName...) was overwritten with defaults, detaching the steps from their run.
+            List<string> updatedProps =
             [
                 nameof(JobOccurrence.StepStatus),
                 nameof(JobOccurrence.Status),
                 nameof(JobOccurrence.EndTime),
                 nameof(JobOccurrence.Exception)
-            ], cancellationToken: cancellationToken);
+            ];
+
+            await _occurrenceRepository.BulkUpdateAsync(occurrencesToUpdate, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = updatedProps, cancellationToken: cancellationToken);
         }
 
         return Response<bool>.Success(true, $"Workflow run cancelled. {runningSteps.Count} running steps cancelled, {queuedSteps.Count} pending steps skipped.");

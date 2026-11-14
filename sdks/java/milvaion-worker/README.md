@@ -75,11 +75,31 @@ How the handler ends decides the outcome:
 | returns a value | `Completed`. A `String` is stored as-is; anything else is stored as JSON. |
 | throws | Retried with exponential backoff. After `maxRetries`, the occurrence is `Failed` and the job goes to the dead letter queue. |
 | throws `PermanentJobException` | `Failed` without retrying, and the job goes to the dead letter queue. |
+| throws `RetryAfterException` | `Failed` without retrying here and without the dead letter queue, with the requested retry time attached. See [Retry at a specific time](#retry-at-a-specific-time). |
 | runs past its timeout | `TimedOut` |
 | is cancelled from the dashboard | `Cancelled` |
 | is still running when the worker stops | The job goes back to the queue and runs again. |
 
 When a job is aborted, its thread is interrupted and the occurrence settles right away. Blocking calls such as `Thread.sleep` and most I/O react to the interrupt. CPU-bound loops should check `ctx.throwIfAborted()`.
+
+### Retry at a specific time
+
+When retrying now is pointless, for example because an API quota resets at a known time, throw `RetryAfterException` with the UTC time to run again:
+
+```java
+worker.job("UploadVideoJob", ctx -> {
+    try {
+        return youtube.upload(ctx.data(Video.class));
+    } catch (QuotaExceededException e) {
+        // The YouTube quota resets at 11:00 UTC.
+        Instant reset = LocalDate.now(ZoneOffset.UTC).atTime(11, 0).toInstant(ZoneOffset.UTC);
+        if (!reset.isAfter(Instant.now())) reset = reset.plus(Duration.ofDays(1));
+        throw new RetryAfterException(reset, "YouTube quota exhausted", e);
+    }
+});
+```
+
+The worker does not retry the job and does not send it to the dead letter queue. It reports the occurrence as `Failed` with the requested time, and `getRetryAt()` returns it. Milvaion honors it for workflow steps: it runs the step again at that time. The workflow's `MaxRetryAfter` setting caps how many times (default 10), and these retries don't count against `MaxStepRetries`. In a standalone job the occurrence ends as `Failed` with no retry. Only the exception the handler throws counts; one wrapped as the cause of another exception is an ordinary failure.
 
 ### Job options
 

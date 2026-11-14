@@ -172,7 +172,8 @@ See [Scheduling Options](docs/portaldocs/31-scheduling.md), [Time Zones](docs/po
 - **Merge nodes** - Wait for all parallel branches before continuing
 - **Data mappings** - Pass output fields from upstream steps into downstream job data
 - **Failure strategies** - Stop on first failure or continue on failure
-- **Cron & manual triggers** - Schedule workflows with cron or trigger on demand
+- **Cron, manual & one-time triggers** - Schedule workflows with cron, trigger on demand, or run once at a given time (reschedulable)
+- **Retry at a specific time** - A step can ask to be rerun at a given time (e.g. when a quota resets) instead of retrying with backoff
 - **Visual builder** - Drag-and-drop DAG editor in the dashboard
 
 ### Built-in Workers
@@ -532,6 +533,8 @@ Step 2 receives: { "amount": 99, "title": "Widget" }
 | **Continue on Failure** | Independent branches keep running; only dependent steps are skipped |
 
 Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-cancel if exceeded).
+
+A run can be triggered **once at a given time** (`executeAt`), then moved or cancelled before it starts. A step whose job throws a **retry-after** error (for example "the API quota resets at 11:00") waits until that time and is rerun, without using up its retries. See [Workflows](docs/portaldocs/20-workflows.md#retry-at-a-specific-time).
 
 📖 **[Full Workflows Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/workflows)**
 

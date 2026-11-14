@@ -55,6 +55,11 @@ public class WorkflowRunDetailDto : MilvaionBaseDto<Guid>
     public string TriggerReason { get; set; }
 
     /// <summary>
+    /// Time (UTC) a run triggered for later starts at; null for a run that started right away.
+    /// </summary>
+    public DateTime? ScheduledAt { get; set; }
+
+    /// <summary>
     /// Error message.
     /// </summary>
     public string Error { get; set; }

@@ -61,6 +61,24 @@ RSpec.describe "Milvaion units" do
     end
   end
 
+  describe Milvaion::RetryAfterError do
+    it "converts the time to UTC and defaults the message to the retry time" do
+      local = Time.new(2026, 11, 14, 14, 0, 0, "+03:00")
+      error = described_class.new(local)
+
+      expect(error.retry_at).to eq(Time.utc(2026, 11, 14, 11, 0, 0))
+      expect(error.retry_at).to be_utc
+      expect(local).not_to be_utc
+      expect(error.message).to eq("Job asked to be retried at 2026-11-14T11:00:00.000Z.")
+      expect(error).to be_a(Milvaion::Error)
+      expect(described_class.new(local, "quota").message).to eq("quota")
+    end
+
+    it "rejects a value that is not a time" do
+      expect { described_class.new(nil) }.to raise_error(ArgumentError)
+    end
+  end
+
   describe Milvaion::LogBuffer do
     it "keeps the order after a failed send" do
       sent = []

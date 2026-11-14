@@ -179,6 +179,18 @@ public class JobOccurrence : CreationAuditableEntity<Guid>, IProjectScoped
     public DateTime? StepScheduledAt { get; set; }
 
     /// <summary>
+    /// Time the step's job asked to be run again at (it threw a retry-after error). Set by the status tracker
+    /// and consumed by the workflow engine, which turns it into a delayed retry of the step.
+    /// </summary>
+    public DateTime? RetryAfter { get; set; }
+
+    /// <summary>
+    /// Number of retry-after reruns of this workflow step. Counted apart from <see cref="StepRetryCount"/>
+    /// and capped by <see cref="Workflow.MaxRetryAfter"/>.
+    /// </summary>
+    public int StepRetryAfterCount { get; set; } = 0;
+
+    /// <summary>
     /// Navigation to the parent workflow run (only set for workflow step occurrences).
     /// </summary>
     public virtual WorkflowRun WorkflowRun { get; set; }

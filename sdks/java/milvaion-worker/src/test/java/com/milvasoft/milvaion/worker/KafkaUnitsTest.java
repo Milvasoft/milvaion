@@ -238,4 +238,66 @@ class KafkaUnitsTest {
             logs.close();
         }
     }
+
+    /** A retry-after failure on a transport that does not wait for retries, as on Kafka: no retry record, no DLQ, committed. */
+    @Test
+    void retryAfterOnKafkaPublishesOneFailedStatusAndCommits() {
+        List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        JobTransport transport = new JobTransport() {
+            @Override
+            public void publishStatus(String occurrenceId, byte[] body) {
+                com.fasterxml.jackson.databind.JsonNode status = Json.parse(body);
+                calls.add("status " + status.get("status").asInt() + (status.has("retryAfter") ? " " + status.get("retryAfter").asText() : ""));
+            }
+
+            @Override
+            public boolean waitsForRetryDelay() {
+                return false;
+            }
+
+            @Override
+            public void publishRetry(Delivery delivery, ResolvedJob consumer, String jobId, String occurrenceId, int retryCount, int maxRetries, Duration delay) {
+                calls.add("retry");
+            }
+
+            @Override
+            public void publishDeadLetter(String jobId, String occurrenceId, byte[] body, int retryCount, int maxRetries) {
+                calls.add("dlq");
+            }
+        };
+
+        WorkerOptions options = new WorkerOptions().workerId("w").redisUri(null).jobHeartbeatInterval(Duration.ZERO).instanceId("w-1").resolve();
+        Map<String, ResolvedJob> jobs = Map.of("testjob", new JobOptions().maxRetries(2).resolve("TestJob",
+                ctx -> { throw new RetryAfterException(java.time.Instant.parse("2026-11-15T11:00:00Z"), "quota"); }, options));
+        LogBuffer logs = new LogBuffer(batch -> { }, 50, 5, 10_000);
+
+        try (JobProcessor processor = new JobProcessor(options, jobs, transport, logs, new CancellationRegistry())) {
+            processor.sleeper = (duration, latch) -> { throw new AssertionError("must not wait"); };
+
+            List<String> settled = new ArrayList<>();
+            byte[] body = Json.bytes(Map.of("id", JOB_ID, "jobNameInWorker", "TestJob"));
+            Delivery.Settler settler = new Delivery.Settler() {
+                @Override
+                public void ack() {
+                    settled.add("ack");
+                }
+
+                @Override
+                public void nack(boolean requeue) {
+                    settled.add(requeue ? "requeue" : "nack");
+                }
+
+                @Override
+                public void reject(String reason) {
+                    settled.add("reject");
+                }
+            };
+
+            processor.handle(new Delivery(body, Map.of("OccurrenceId", GUID), null, false, settler), null);
+            assertEquals(List.of("ack"), settled);
+            assertEquals(List.of("status 1", "status 3 2026-11-15T11:00:00Z"), calls);
+        } finally {
+            logs.close();
+        }
+    }
 }

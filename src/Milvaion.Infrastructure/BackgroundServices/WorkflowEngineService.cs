@@ -46,8 +46,8 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
     private static readonly List<string> _workflowUpdateProps = [nameof(Workflow.LastScheduledRunAt)];
     private static readonly List<string> _workflowRunUpdateProps = [nameof(WorkflowRun.Status), nameof(WorkflowRun.StartTime), nameof(WorkflowRun.EndTime), nameof(WorkflowRun.DurationMs), nameof(WorkflowRun.Error)];
-    private static readonly List<string> _stepOccurrenceUpdateProps = [nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.StepRetryCount), nameof(JobOccurrence.StepScheduledAt), nameof(JobOccurrence.Exception), nameof(JobOccurrence.Result), nameof(JobOccurrence.Status), nameof(JobOccurrence.EndTime), nameof(JobOccurrence.DurationMs), nameof(JobOccurrence.JobName)];
-    private static readonly List<string> _stepOccurrenceDispatchProps = [nameof(JobOccurrence.Status), nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.JobName), nameof(JobOccurrence.ZombieTimeoutMinutes), nameof(JobOccurrence.JobVersion), nameof(JobOccurrence.ExecutionTimeoutSeconds)];
+    private static readonly List<string> _stepOccurrenceUpdateProps = [nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.StepRetryCount), nameof(JobOccurrence.StepScheduledAt), nameof(JobOccurrence.RetryAfter), nameof(JobOccurrence.StepRetryAfterCount), nameof(JobOccurrence.Exception), nameof(JobOccurrence.Result), nameof(JobOccurrence.Status), nameof(JobOccurrence.EndTime), nameof(JobOccurrence.DurationMs), nameof(JobOccurrence.JobName)];
+    private static readonly List<string> _stepOccurrenceDispatchProps = [nameof(JobOccurrence.Status), nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.LastHeartbeat), nameof(JobOccurrence.JobName), nameof(JobOccurrence.ZombieTimeoutMinutes), nameof(JobOccurrence.JobVersion), nameof(JobOccurrence.ExecutionTimeoutSeconds)];
     private static readonly List<string> _stepOccurrenceFailProps = [nameof(JobOccurrence.Status), nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.Exception)];
 
     /// <inheritdoc/>
@@ -218,18 +218,19 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
+        var now = DateTime.UtcNow;
+
+        // A run triggered for later (ScheduledAt) stays Pending, and out of this pass, until its time comes.
         var activeRuns = await dbContext.WorkflowRuns.AsNoTracking()
                                         .Include(r => r.StepOccurrences)
                                         .Include(r => r.Workflow)
-                                        .Where(r => r.Status == WorkflowStatus.Pending || r.Status == WorkflowStatus.Running)
+                                        .Where(r => (r.Status == WorkflowStatus.Pending && (r.ScheduledAt == null || r.ScheduledAt <= now)) || r.Status == WorkflowStatus.Running)
                                         .ToListAsync(cancellationToken);
 
         if (activeRuns.IsNullOrEmpty())
             return 0;
 
         _logger.Debug("Processing {Count} active workflow runs", activeRuns.Count);
-
-        var now = DateTime.UtcNow;
 
         // Process all runs in memory — collect all changes without touching the DB
         var runsToUpdate = new List<WorkflowRun>();
@@ -375,6 +376,29 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
         // Track condition node results for port-based activation
         var conditionResults = new Dictionary<Guid, string>();
+
+        // A step whose job asked to be run again at a given time (retry-after) waits for that time instead of
+        // failing, until the workflow's MaxRetryAfter is used up. These reruns don't count against MaxStepRetries.
+        var maxRetryAfter = run.Workflow?.MaxRetryAfter ?? 0;
+
+        foreach (var occ in run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Failed && o.RetryAfter != null))
+        {
+            if (occ.StepRetryAfterCount < maxRetryAfter)
+            {
+                occ.StepStatus = WorkflowStepStatus.Delayed;
+                occ.StepScheduledAt = occ.RetryAfter;
+                occ.StepRetryAfterCount++;
+
+                _logger.Debug("Step occurrence {OccurrenceId} of run {RunId} will be rerun at {RetryAfter} ({Count}/{Max})", occ.Id, run.Id, occ.RetryAfter, occ.StepRetryAfterCount, maxRetryAfter);
+            }
+            else
+            {
+                occ.Exception = $"{occ.Exception}{Environment.NewLine}Retry-after limit reached ({maxRetryAfter}); the failure is handled normally.";
+            }
+
+            occ.RetryAfter = null;
+            occurrencesToUpdate.Add(occ);
+        }
 
         // Check for failures
         var failedOccs = run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Failed).ToList();
@@ -870,6 +894,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         {
             occ.Status = JobOccurrenceStatus.Queued;
             occ.StepStatus = WorkflowStepStatus.Running;
+            // The occurrence was created with the run, possibly long before (scheduled run, waiting dependencies, retry-after);
+            // the zombie detector counts a queued step's age from this instead of CreatedAt.
+            occ.LastHeartbeat = now;
             occ.JobName = job.JobNameInWorker;
             occ.ZombieTimeoutMinutes = job.ZombieTimeoutMinutes;
             occ.JobVersion = job.Version;

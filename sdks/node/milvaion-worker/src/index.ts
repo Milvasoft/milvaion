@@ -1,7 +1,7 @@
 export { MilvaionWorker } from './worker.ts';
 export type { JobContext } from './context.ts';
 export type { JobHandler } from './processor.ts';
-export { PermanentJobError, JobAbortedError, type AbortKind } from './errors.ts';
+export { PermanentJobError, RetryAfterError, JobAbortedError, type AbortKind } from './errors.ts';
 export {
   workerOptionsFromEnv,
   createConsoleLogger,

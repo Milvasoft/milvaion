@@ -81,9 +81,34 @@ How the handler ends decides the outcome:
 | returns a value | `Completed`. A string is stored as-is; anything else is stored as JSON. |
 | throws | Retried with exponential backoff. After `maxRetries`, the occurrence is `Failed` and the job goes to the dead letter queue. |
 | throws `PermanentJobException` | `Failed` without retrying, and the job goes to the dead letter queue. |
+| throws `RetryAfterException` | `Failed` without retrying and without the dead letter queue; Milvaion reruns a workflow step at the requested time. See [Retry at a specific time](#retry-at-a-specific-time). |
 | runs past its timeout | `TimedOut` |
 | is cancelled from the dashboard | `Cancelled` |
 | is still running when the worker stops | The job goes back to the queue and runs again. |
+
+### Retry at a specific time
+
+When a job knows when it can succeed again, such as an API quota that resets at a fixed time, throw `RetryAfterException` with that time instead of letting it retry now:
+
+```php
+use Milvasoft\Milvaion\Worker\RetryAfterException;
+
+$worker->job('UploadVideoJob', function (JobContext $ctx) {
+    if ($youtube->quotaExhausted()) {
+        // The YouTube Data API quota resets at 11:00 UTC.
+        throw new RetryAfterException(new DateTimeImmutable('tomorrow 11:00', new DateTimeZone('UTC')), 'YouTube quota exhausted');
+    }
+
+    // ...
+});
+```
+
+The worker does not retry the job and does not send it to the dead letter queue. It reports the occurrence as `Failed` with the requested time (converted to UTC) and logs it under the `Retry` category.
+
+- **In a workflow**, Milvaion reruns the step at that time. The workflow's `MaxRetryAfter` setting caps how many times a step may do this (default 10), and these reruns don't count against `MaxStepRetries`.
+- **In a standalone job**, the occurrence ends as `Failed` and is not retried.
+
+`getRetryAt()` returns the time as a UTC `DateTimeImmutable`. Only the exception the handler throws counts: a `RetryAfterException` wrapped as the previous exception of another one is an ordinary failure. Cancellation and timeouts take precedence as usual.
 
 ### Job options
 

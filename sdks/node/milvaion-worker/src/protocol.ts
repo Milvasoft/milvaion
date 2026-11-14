@@ -91,6 +91,8 @@ export interface JobStatusUpdateMessage {
   durationMs?: number | null;
   result?: string | null;
   exception?: string | null;
+  /** ISO-8601 UTC time the job asked to be run again at. Sent only with a RetryAfterError failure. */
+  retryAfter?: string | null;
   messageTimestamp: string;
 }
 

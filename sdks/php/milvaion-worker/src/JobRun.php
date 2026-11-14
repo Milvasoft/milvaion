@@ -59,9 +59,9 @@ final class JobRun
      * Publishes a status update. Final statuses are retried, because losing one leaves the
      * occurrence running until the zombie detector gives up on it.
      */
-    public function status(JobStatus $status, ?float $start = null, ?float $end = null, ?string $result = null, ?string $exception = null, bool $retry = true): void
+    public function status(JobStatus $status, ?float $start = null, ?float $end = null, ?string $result = null, ?string $exception = null, bool $retry = true, ?string $retryAfter = null): void
     {
-        $body = Protocol::json([
+        $message = [
             'occurrenceId' => $this->occurrenceId,
             'jobId' => $this->jobId(),
             'workerId' => $this->options->workerId,
@@ -73,7 +73,13 @@ final class JobRun
             'result' => $result,
             'exception' => $exception,
             'messageTimestamp' => Protocol::now(),
-        ]);
+        ];
+
+        if ($retryAfter !== null) {
+            $message['retryAfter'] = $retryAfter;
+        }
+
+        $body = Protocol::json($message);
 
         $delays = $retry ? [0.5, 2, 5] : [];
 

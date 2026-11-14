@@ -17,6 +17,7 @@ public sealed class CreateWorkflowCommandValidator : AbstractValidator<CreateWor
             .WithMessage("Each step must have a unique TempId.");
         RuleFor(x => x.TimeoutSeconds).GreaterThan(0).When(x => x.TimeoutSeconds.HasValue).WithMessage("TimeoutSeconds must be positive.");
         RuleFor(x => x.MaxStepRetries).GreaterThanOrEqualTo(0).WithMessage("MaxStepRetries cannot be negative.");
+        RuleFor(x => x.MaxRetryAfter).GreaterThanOrEqualTo(0).WithMessage("MaxRetryAfter cannot be negative.");
         RuleFor(x => x.CronExpression)
             .Must(BeValidCronExpression)
             .When(x => !string.IsNullOrWhiteSpace(x.CronExpression))

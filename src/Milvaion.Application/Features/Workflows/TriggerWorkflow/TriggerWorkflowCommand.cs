@@ -27,6 +27,12 @@ public record TriggerWorkflowCommand : ICommand<TriggerWorkflowResponse>
     public Dictionary<Guid, string> StepJobData { get; set; }
 
     /// <summary>
+    /// Time (UTC) to start the run at. Null starts it right away. A scheduled run stays Pending until then,
+    /// and can be moved with the reschedule endpoint or cancelled like any other run.
+    /// </summary>
+    public DateTime? ExecuteAt { get; set; }
+
+    /// <summary>
     /// Indicates whether this workflow trigger should be logged as a user activity by <see cref="Utils.Aspects.UserActivityLogAspect.UserActivityLogInterceptor"/>.
     /// </summary>
     [JsonIgnore]

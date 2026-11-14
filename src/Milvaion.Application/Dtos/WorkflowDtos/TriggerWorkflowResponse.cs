@@ -8,6 +8,11 @@ namespace Milvaion.Application.Dtos.WorkflowDtos;
 public class TriggerWorkflowResponse : MilvaionBaseDto<Guid>, IHasActiviyLogDecision
 {
     /// <summary>
+    /// Time (UTC) the run is scheduled to start at; null when it starts right away.
+    /// </summary>
+    public DateTime? ScheduledAt { get; set; }
+
+    /// <summary>
     /// Determines whether this activity will be logged to database by the <see cref="UserActivityLogInterceptor"/> or not. Default is true, so the activity will be logged.
     /// </summary>
     [JsonIgnore]

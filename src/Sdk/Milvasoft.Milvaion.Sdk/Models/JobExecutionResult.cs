@@ -24,4 +24,10 @@ public record JobExecutionResult
     /// When true, the job will be sent directly to the Dead Letter Queue (DLQ).
     /// </summary>
     public bool IsPermanentFailure { get; set; }
+
+    /// <summary>
+    /// Time (UTC) the job asked to be run again at (it threw a retry-after exception). When set, the worker neither
+    /// retries the job nor moves it to the DLQ; it reports this time with the Failed status.
+    /// </summary>
+    public DateTime? RetryAfter { get; set; }
 }

@@ -253,6 +253,49 @@ class JobProcessorTest {
     }
 
     @Test
+    void retryAfterEndsFailedWithoutRetryOrDeadLetter() {
+        java.time.Instant at = java.time.Instant.parse("2026-11-15T11:00:00Z");
+        Harness h = new Harness(ctx -> { throw new RetryAfterException(at, "YouTube quota exhausted"); });
+        FakeDelivery d = new FakeDelivery();
+
+        h.handle(d);
+
+        assertEquals(List.of("ack"), d.settled);
+        assertTrue(h.sleeps.isEmpty());
+        assertTrue(h.pub.deadLettered().isEmpty());
+        assertTrue(h.pub.messages.stream().allMatch(m -> m.exchange().isEmpty()
+                && (m.key().equals(Protocol.QUEUE_STATUS_UPDATES) || m.key().equals(Protocol.QUEUE_WORKER_LOGS))), "no republish");
+        assertEquals(codes(JobStatus.RUNNING, JobStatus.FAILED), h.pub.statuses());
+
+        JsonNode status = h.pub.lastStatus();
+        assertEquals("2026-11-15T11:00:00Z", status.get("retryAfter").asText());
+        assertTrue(status.get("exception").asText().startsWith("[RETRY AFTER 2026-11-15T11:00:00Z] Type: com.milvasoft.milvaion.worker.RetryAfterException"));
+        assertTrue(status.get("exception").asText().contains("YouTube quota exhausted"));
+        assertNotNull(status.get("durationMs"));
+
+        JsonNode warning = h.pub.logs().stream().filter(l -> "Retry".equals(l.path("category").asText())).findFirst().orElseThrow();
+        assertEquals("Warning", warning.get("level").asText());
+        assertTrue(warning.get("message").asText().startsWith("⏰ Job asked to be retried at 2026-11-15T11:00:00Z."));
+        assertEquals("2026-11-15T11:00:00Z", warning.get("data").get("RetryAfter").asText());
+    }
+
+    @Test
+    void retryAfterDefaultMessageMentionsTheTime() {
+        RetryAfterException e = new RetryAfterException(java.time.Instant.parse("2026-11-15T11:00:00Z"), null);
+        assertEquals("Job asked to be retried at 2026-11-15T11:00:00Z.", e.getMessage());
+        assertEquals(java.time.Instant.parse("2026-11-15T11:00:00Z"), e.getRetryAt());
+    }
+
+    @Test
+    void wrappedRetryAfterIsAnOrdinaryFailure() {
+        Harness h = new Harness(ctx -> { throw new IllegalStateException("outer", new RetryAfterException(java.time.Instant.now(), "inner")); });
+        h.handle(new FakeDelivery());
+
+        assertFalse(h.sleeps.isEmpty());
+        assertFalse(h.pub.lastStatus().has("retryAfter"));
+    }
+
+    @Test
     void invalidJobDataIsPermanent() {
         Harness h = new Harness(ctx -> ctx.data());
         h.handle(new FakeDelivery(Map.of("jobData", "{not json"), Map.of(), false));

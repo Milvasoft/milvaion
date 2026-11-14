@@ -94,6 +94,8 @@ type statusUpdateMessage struct {
 	Result           *string `json:"result"`
 	Exception        *string `json:"exception"`
 	MessageTimestamp string  `json:"messageTimestamp"`
+	// RetryAfter is set when the job asked to run again at a specific time (RetryAfterError).
+	RetryAfter *string `json:"retryAfter,omitempty"`
 }
 
 type heartbeatMessage struct {

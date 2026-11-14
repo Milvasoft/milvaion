@@ -73,11 +73,40 @@ How the handler ends decides the outcome:
 | returns a value | `Completed`. A string is stored as-is; anything else is stored as JSON. |
 | raises | Retried with exponential backoff. After `max_retries`, the occurrence is `Failed` and the job goes to the dead letter queue. |
 | raises `PermanentJobError` | `Failed` without retrying, and the job goes to the dead letter queue. |
+| raises `RetryAfterError` | `Failed` without retrying and without the dead letter queue. Milvaion reruns a workflow step at the requested time; see [Retry at a specific time](#retry-at-a-specific-time). |
 | runs past its timeout | `TimedOut` |
 | is cancelled from the dashboard | `Cancelled` |
 | is still running when the worker stops | The job goes back to the queue and runs again. |
 
 When a job is aborted, an `async` handler is cancelled, so it gets `asyncio.CancelledError` at its next `await`. A plain function cannot be stopped from outside. The occurrence still settles right away, but the thread keeps running until the function returns, so check `ctx.raise_if_aborted()` in long loops.
+
+### Retry at a specific time
+
+When a retry now would fail again, for example because an API quota resets at a known time, raise `RetryAfterError` with the UTC time to run again. A naive `datetime` is treated as UTC.
+
+```python
+from datetime import datetime, timedelta, timezone
+
+from milvaion import RetryAfterError
+
+
+@worker.job("UploadVideosJob")
+async def upload_videos(ctx: JobContext) -> None:
+    try:
+        await upload_next_batch()
+    except QuotaExceeded:
+        # The YouTube quota resets at 11:00 UTC.
+        now = datetime.now(timezone.utc)
+        reset = now.replace(hour=11, minute=0, second=0, microsecond=0)
+        raise RetryAfterError(reset if reset > now else reset + timedelta(days=1), "YouTube quota exhausted")
+```
+
+The worker does not retry the job and does not send it to the dead letter queue. The occurrence ends as `Failed`, and the status update carries the requested time (`retryAfter`).
+
+- In a workflow step, Milvaion reruns the step at that time. The workflow's `MaxRetryAfter` setting caps how many times a step can do this (default 10), and these reruns do not count against `MaxStepRetries`.
+- In a standalone job, the occurrence ends as `Failed` and is not retried.
+
+Only the raised error counts: a `RetryAfterError` wrapped in another exception (`raise ... from`) is an ordinary failure.
 
 ### Job options
 

@@ -227,6 +227,10 @@ function WorkflowDetail() {
             <span>{workflow.maxStepRetries}</span>
           </div>
           <div className="info-card">
+            <label>Max Retry-After</label>
+            <span>{workflow.maxRetryAfter ?? 10}</span>
+          </div>
+          <div className="info-card">
             <label>Timeout</label>
             <span>{workflow.timeoutSeconds ? `${workflow.timeoutSeconds}s` : 'No timeout'}</span>
           </div>
@@ -374,7 +378,9 @@ function WorkflowDetail() {
                       <td className="mv-col-tight">
                         {run.startTime
                           ? <span title={formatDate(run.startTime)}>{formatDate(run.startTime)}</span>
-                          : <span className="mv-table-dim">—</span>}
+                          : run.scheduledAt
+                            ? <span className="mv-table-muted" title="Scheduled run, not started yet">⏰ {formatDate(run.scheduledAt)}</span>
+                            : <span className="mv-table-dim">—</span>}
                       </td>
                       <td className="mv-col-tight">
                         {run.durationMs

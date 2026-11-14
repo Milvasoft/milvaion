@@ -54,6 +54,11 @@ public record UpdateWorkflowCommand : ICommand<Guid>
     public UpdateProperty<int> MaxStepRetries { get; set; }
 
     /// <summary>
+    /// Maximum reruns of a step at the time its job asked for (retry-after), per step and run.
+    /// </summary>
+    public UpdateProperty<int> MaxRetryAfter { get; set; }
+
+    /// <summary>
     /// Timeout in seconds for entire workflow.
     /// </summary>
     public UpdateProperty<int?> TimeoutSeconds { get; set; }

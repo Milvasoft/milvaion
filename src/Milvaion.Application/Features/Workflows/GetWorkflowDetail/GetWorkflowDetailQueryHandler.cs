@@ -42,6 +42,7 @@ public class GetWorkflowDetailQueryHandler(IMilvaionRepositoryBase<Workflow> wor
             IsActive = workflow.IsActive,
             FailureStrategy = workflow.FailureStrategy,
             MaxStepRetries = workflow.MaxStepRetries,
+            MaxRetryAfter = workflow.MaxRetryAfter,
             TimeoutSeconds = workflow.TimeoutSeconds,
             Version = workflow.Version,
             CronExpression = workflow.CronExpression,

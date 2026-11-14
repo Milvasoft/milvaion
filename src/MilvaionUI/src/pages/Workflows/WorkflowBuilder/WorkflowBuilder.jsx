@@ -108,6 +108,7 @@ function WorkflowBuilderInner() {
     isActive: true,
     failureStrategy: 0,
     maxStepRetries: 0,
+    maxRetryAfter: 10,
     timeoutSeconds: '',
     cronExpression: '',
   })
@@ -248,6 +249,7 @@ function WorkflowBuilderInner() {
           isActive: d.isActive,
           failureStrategy: d.failureStrategy ?? 0,
           maxStepRetries: d.maxStepRetries || 0,
+          maxRetryAfter: d.maxRetryAfter ?? 10,
           timeoutSeconds: d.timeoutSeconds || '',
           cronExpression: d.cronExpression || '',
         })
@@ -478,6 +480,7 @@ function WorkflowBuilderInner() {
         isActive: form.isActive,
         failureStrategy: Number(form.failureStrategy),
         maxStepRetries: Number(form.maxStepRetries) || 0,
+        maxRetryAfter: Number(form.maxRetryAfter) || 0,
         timeoutSeconds: form.timeoutSeconds ? Number(form.timeoutSeconds) : null,
         cronExpression: form.cronExpression || null,
         steps: steps.map((s, idx) => ({
@@ -675,6 +678,17 @@ function WorkflowBuilderInner() {
                 min={0}
                 value={form.maxStepRetries}
                 onChange={e => setForm(p => ({ ...p, maxStepRetries: Number(e.target.value) || 0 }))}
+              />
+            </div>
+
+            <div className="wfb-setting-field wfb-setting-field--xs">
+              <label title="How many times a step may be rerun at the time its job asked for (retry-after). Not counted against Max Retries.">Max Retry-After</label>
+              <input
+                className="wfb-input"
+                type="number"
+                min={0}
+                value={form.maxRetryAfter}
+                onChange={e => setForm(p => ({ ...p, maxRetryAfter: Number(e.target.value) || 0 }))}
               />
             </div>
 

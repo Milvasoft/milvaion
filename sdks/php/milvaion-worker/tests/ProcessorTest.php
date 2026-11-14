@@ -17,6 +17,7 @@ use Milvasoft\Milvaion\Worker\Processor;
 use Milvasoft\Milvaion\Worker\Protocol;
 use Milvasoft\Milvaion\Worker\Publisher;
 use Milvasoft\Milvaion\Worker\ResolvedJob;
+use Milvasoft\Milvaion\Worker\RetryAfterException;
 use Milvasoft\Milvaion\Worker\RetryRequest;
 use Milvasoft\Milvaion\Worker\WorkerOptions;
 use PHPUnit\Framework\TestCase;
@@ -235,6 +236,60 @@ final class ProcessorTest extends TestCase
         $this->assertSame(0, $dlq[0]['headers']['MaxRetries']);
     }
 
+    public function testRetryAfterEndsAsFailedWithoutRetryOrDeadLetter(): void
+    {
+        $at = new \DateTimeImmutable('2026-11-15T11:00:00+03:00');
+        $this->setUpProcessor(['TestJob' => fn () => throw new RetryAfterException($at, 'YouTube quota exhausted')], new JobOptions(maxRetries: 3));
+
+        $this->handle($this->delivery());
+
+        $this->assertSame(['ack'], $this->settled);
+        $this->assertSame([], $this->sleeps);
+        $this->assertSame([], $this->pub->to($this->consumer->queue));
+        $this->assertSame([], $this->pub->deadLettered());
+        $this->assertSame(self::codes(JobStatus::Running, JobStatus::Failed), $this->pub->statuses());
+
+        $final = $this->pub->lastStatus();
+        $this->assertSame('2026-11-15T08:00:00.000Z', $final['retryAfter']);
+        $this->assertStringStartsWith('[RETRY AFTER 2026-11-15T08:00:00.000Z] Type: Milvasoft\Milvaion\Worker\RetryAfterException', $final['exception']);
+        $this->assertStringContainsString('YouTube quota exhausted', $final['exception']);
+        $this->assertNotNull($final['startTime']);
+        $this->assertNotNull($final['endTime']);
+        $this->assertIsInt($final['durationMs']);
+
+        $log = array_values(array_filter($this->pub->logs(), fn ($l) => $l['category'] === 'Retry'));
+        $this->assertCount(1, $log);
+        $this->assertSame('Warning', $log[0]['level']);
+        $this->assertStringStartsWith('⏰ Job asked to be retried at 2026-11-15T08:00:00.000Z.', $log[0]['message']);
+        $this->assertSame(['RetryAfter' => '2026-11-15T08:00:00.000Z'], $log[0]['data']);
+    }
+
+    public function testOtherFailuresOmitRetryAfter(): void
+    {
+        $this->setUpProcessor(['TestJob' => fn () => throw new PermanentJobException('bad input')]);
+        $this->handle($this->delivery());
+
+        $this->assertArrayNotHasKey('retryAfter', $this->pub->lastStatus());
+    }
+
+    public function testWrappedRetryAfterIsAnOrdinaryFailure(): void
+    {
+        $this->setUpProcessor(['TestJob' => fn () => throw new \RuntimeException('outer', 0, new RetryAfterException(new \DateTimeImmutable('+1 hour')))], new JobOptions(maxRetries: 3));
+        $this->handle($this->delivery());
+
+        $this->assertSame([5.0], $this->sleeps);
+        $this->assertCount(1, $this->pub->to($this->consumer->queue));
+    }
+
+    public function testRetryAtIsConvertedToUtcAndHasADefaultMessage(): void
+    {
+        $e = new RetryAfterException(new \DateTime('2026-11-15 11:00:00', new \DateTimeZone('Europe/Istanbul')));
+
+        $this->assertSame('UTC', $e->getRetryAt()->getTimezone()->getName());
+        $this->assertSame('2026-11-15T08:00:00+00:00', $e->getRetryAt()->format(DATE_ATOM));
+        $this->assertSame('Job asked to be retried at 2026-11-15T08:00:00.000Z.', $e->getMessage());
+    }
+
     public function testInvalidJobDataIsPermanent(): void
     {
         $this->setUpProcessor(['TestJob' => fn (JobContext $ctx) => $ctx->data()]);
@@ -445,6 +500,21 @@ final class ProcessorTest extends TestCase
         $this->assertStringStartsWith('[PERMANENT FAILURE] Type: Milvasoft\Milvaion\Worker\PermanentJobException', $dlq[0]['body']['exception']);
         $this->assertStringContainsString('Inner Exception:', $dlq[0]['body']['exception']);
         $this->assertSame([], $this->sleeps);
+    }
+
+    public function testIsolatedRetryAfterKeepsItsTime(): void
+    {
+        $this->requirePcntl();
+        $this->setUpProcessor(['TestJob' => fn () => throw new RetryAfterException(new \DateTimeImmutable('2026-11-15T11:00:00Z'), 'quota')], isolate: true);
+
+        $this->handle($this->delivery());
+
+        $this->assertSame(['ack'], $this->settled);
+        $this->assertSame([], $this->pub->deadLettered());
+        $this->assertSame([], $this->sleeps);
+        $final = $this->pub->lastStatus();
+        $this->assertSame('2026-11-15T11:00:00.000Z', $final['retryAfter']);
+        $this->assertStringStartsWith('[RETRY AFTER 2026-11-15T11:00:00.000Z] Type: Milvasoft\Milvaion\Worker\RetryAfterException', $final['exception']);
     }
 
     public function testIsolatedJobThatExitsIsAFailure(): void

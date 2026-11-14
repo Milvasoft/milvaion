@@ -114,6 +114,51 @@ RSpec.describe Milvaion::Processor do
     expect(dlq[:headers]["MaxRetries"]).to eq(0)
   end
 
+  it "ends a retry-after failure as Failed with retryAfter, without retrying or dead-lettering" do
+    at = Time.utc(2026, 11, 14, 11, 0, 0)
+    h = Harness.new({ "TestJob" => ->(_ctx) { raise Milvaion::RetryAfterError.new(at, "quota exhausted") } }, max_retries: 3)
+    d = FakeDelivery.new
+    h.handle(d)
+
+    expect(d.settled).to eq(["ack"])
+    expect(h.sleeps).to be_empty
+    expect(h.pub.to(h.consumer.queue)).to be_empty
+    expect(h.pub.dead_lettered).to be_empty
+    expect(h.pub.statuses).to eq([s::RUNNING, s::FAILED])
+
+    final = h.pub.last_status
+    expect(final["retryAfter"]).to eq("2026-11-14T11:00:00.000Z")
+    expect(final["exception"]).to include("2026-11-14T11:00:00.000Z")
+    expect(final["exception"]).to include("Type: Milvaion::RetryAfterError
+Message: quota exhausted")
+    expect(final["endTime"]).not_to be_nil
+    expect(final["durationMs"]).to be_a(Integer)
+    expect(h.pub.logs).to include(a_hash_including("level" => "Warning", "category" => "Retry",
+                                                   "message" => a_string_starting_with("⏰ Job asked to be retried at 2026-11-14T11:00:00.000Z"),
+                                                   "data" => { "RetryAfter" => "2026-11-14T11:00:00.000Z" }))
+  end
+
+  it "does not send retryAfter in other statuses" do
+    h = Harness.new({ "TestJob" => ->(_ctx) { "ok" } })
+    h.handle(FakeDelivery.new)
+
+    expect(h.pub.to("job_status_updates_queue").map { |m| m[:body] }).to all(satisfy { |body| !body.key?("retryAfter") })
+  end
+
+  it "only honors a top-level retry-after error" do
+    h = Harness.new({ "TestJob" => lambda { |_ctx|
+      begin
+        raise Milvaion::RetryAfterError, Time.now + 60
+      rescue Milvaion::RetryAfterError
+        raise "wrapped"
+      end
+    } }, max_retries: 0)
+    h.handle(FakeDelivery.new)
+
+    expect(h.pub.last_status).not_to have_key("retryAfter")
+    expect(h.pub.dead_lettered.size).to eq(1)
+  end
+
   it "treats job data that is not JSON as a permanent failure" do
     h = Harness.new({ "TestJob" => ->(ctx) { ctx.data } })
     h.handle(FakeDelivery.new(job: { "jobData" => "{not json" }))

@@ -22,11 +22,12 @@ final class RemoteJobException extends \RuntimeException implements RemoteFailur
         return $this->formatted;
     }
 
-    /** @return array{permanent: bool, type: string, message: string, formatted: string, previous: ?string} */
+    /** @return array{permanent: bool, retryAt: ?string, type: string, message: string, formatted: string, previous: ?string} */
     public static function toArray(\Throwable $error): array
     {
         return [
             'permanent' => $error instanceof PermanentJobException,
+            'retryAt' => $error instanceof RetryAfterException ? $error->retryAtIso() : null,
             'type' => $error::class,
             'message' => $error->getMessage(),
             'formatted' => Errors::format($error),
@@ -38,6 +39,10 @@ final class RemoteJobException extends \RuntimeException implements RemoteFailur
     public static function fromArray(array $data): \Throwable
     {
         $args = [(string) ($data['message'] ?? ''), (string) ($data['type'] ?? 'Exception'), (string) ($data['formatted'] ?? ''), $data['previous'] ?? null];
+
+        if (!empty($data['retryAt'])) {
+            return new RemoteRetryAfterException(new \DateTimeImmutable((string) $data['retryAt']), ...$args);
+        }
 
         return !empty($data['permanent']) ? new RemotePermanentJobException(...$args) : new self(...$args);
     }

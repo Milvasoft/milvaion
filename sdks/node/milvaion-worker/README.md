@@ -67,11 +67,41 @@ How the handler ends decides the outcome:
 | returns a value | `Completed`. A string is stored as-is; anything else is stored as JSON. |
 | throws | Retried with exponential backoff. After `maxRetries`, the occurrence is `Failed` and the job goes to the dead letter queue. |
 | throws `PermanentJobError` | `Failed` without retrying, and the job goes to the dead letter queue. |
+| throws `RetryAfterError` | `Failed` without retrying or dead-lettering, with the requested retry time. See [Retry at a specific time](#retry-at-a-specific-time). |
 | runs past its timeout | `TimedOut` |
 | is cancelled from the dashboard | `Cancelled` |
 | is still running when the worker stops | The job goes back to the queue and runs again. |
 
 When a job is aborted, the occurrence settles right away, even if the handler ignores the signal. A handler that ignores it keeps running in the background, though. Pass `ctx.signal` on to `fetch`, streams and timers so the work actually stops.
+
+### Retry at a specific time
+
+When a job knows when it can succeed again, for example an API quota that resets at a fixed time, throw `RetryAfterError` with that time instead of letting it retry with backoff:
+
+```ts
+import { RetryAfterError } from '@milvasoft/milvaion-worker';
+
+worker.addJob('YouTubeUploadJob', async ctx => {
+  const res = await fetch(uploadUrl, { method: 'POST', body, signal: ctx.signal });
+
+  if (res.status === 403 && (await res.text()).includes('quotaExceeded')) {
+    const resetsAt = new Date();
+    resetsAt.setUTCHours(11, 0, 0, 0); // the quota resets at 11:00 UTC
+
+    if (resetsAt <= new Date())
+      resetsAt.setUTCDate(resetsAt.getUTCDate() + 1);
+
+    throw new RetryAfterError(resetsAt, 'YouTube quota exhausted');
+  }
+});
+```
+
+The worker does not retry the job and does not send it to the dead letter queue. The occurrence ends as `Failed` and reports the requested time to Milvaion.
+
+- In a **workflow step**, Milvaion runs the step again at that time. The workflow's `MaxRetryAfter` setting caps how many times (default 10), and these reruns don't count against `MaxStepRetries`.
+- In a **standalone job**, the occurrence ends as `Failed` with no retry.
+
+Only the error the handler throws counts: a `RetryAfterError` wrapped as the `cause` of another error is an ordinary failure. Cancellation and timeout take precedence.
 
 ### Job options
 

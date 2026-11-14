@@ -1037,6 +1037,9 @@ Maksimum dosya boyutu:
   <data name="TriggerScheduledJob" xml:space="preserve">
     <value>Job manuel tetikleme</value>
   </data>
+  <data name="RescheduleWorkflowRun" xml:space="preserve">
+    <value>İş akışı çalıştırmasını yeniden zamanlama</value>
+  </data>
   <data name="CancelWorkflowRun" xml:space="preserve">
     <value>Workflow execution iptali</value>
   </data>

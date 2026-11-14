@@ -40,6 +40,11 @@ public class WorkflowDetailDto : MilvaionBaseDto<Guid>
     public int MaxStepRetries { get; set; }
 
     /// <summary>
+    /// Maximum reruns of a step at the time its job asked for (retry-after), per step and run.
+    /// </summary>
+    public int MaxRetryAfter { get; set; }
+
+    /// <summary>
     /// Timeout in seconds for entire workflow.
     /// </summary>
     public int? TimeoutSeconds { get; set; }

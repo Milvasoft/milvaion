@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CancellationRegistry } from '../src/cancellation.ts';
+import { RetryAfterError } from '../src/errors.ts';
 import { decodeKafkaHeaders, encodeKafkaHeaders, kafkaNotBefore, kafkaOccurrenceId, kafkaRetryCount } from '../src/kafka/headers.ts';
 import { PartitionOffsetTracker } from '../src/kafka/offset-tracker.ts';
 import { kafkaTopicNames, kafkaWorkerSegment } from '../src/kafka/topics.ts';
@@ -267,6 +268,20 @@ describe('JobProcessor with broker-delayed retries', () => {
     assert.deepEqual(output.statuses.map(s => s.status), [S.Running, S.Failed]);
     assert.equal(output.deadLetters[0]?.maxRetries, 3);
     assert.equal(output.deadLetters[0]?.retryCount, 3);
+  });
+
+  it('settles a retry-after failure without handing a retry to the broker', async () => {
+    const { processor, output, sleeps } = setupBroker(() => { throw new RetryAfterError(new Date('2026-11-15T11:00:00Z')); });
+    const d = delivery({}, { 'x-retry-count': '1' });
+
+    await processor.handle(d, { queue: 'milvaion.jobs.node-worker' });
+
+    assert.deepEqual(sleeps, []);
+    assert.deepEqual(d.settled, ['ack']);
+    assert.deepEqual(output.retries, []);
+    assert.deepEqual(output.deadLetters, []);
+    assert.deepEqual(output.statuses.map(s => s.status), [S.Running, S.Failed]);
+    assert.equal(output.statuses.at(-1)?.retryAfter, '2026-11-15T11:00:00.000Z');
   });
 
   it('passes a reason when it rejects a record that is not a job', async () => {

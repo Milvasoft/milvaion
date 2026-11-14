@@ -258,6 +258,17 @@ final class JobProcessor implements AutoCloseable {
     private void finishFailed(Delivery delivery, ResolvedJob consumer, ResolvedJob registered, Run run, Throwable error, Timing timing) {
         String exception = Errors.format(error);
 
+        if (error instanceof RetryAfterException retryAfter && retryAfter.getRetryAt() != null) {
+            String at = Json.time(retryAfter.getRetryAt());
+            run.logError("Job asked to be retried at " + at + ": " + error.getMessage(), error);
+            run.log("Warning", "⏰ Job asked to be retried at " + at + ". Milvaion reruns workflow steps at that time; a standalone job ends here as Failed.",
+                    Map.of("RetryAfter", at), "Retry");
+            run.flushLogs();
+            run.status(JobStatus.FAILED, timing, null, "[RETRY AFTER " + at + "] " + exception, true, at);
+            settle(() -> delivery.settler().ack());
+            return;
+        }
+
         if (error instanceof PermanentJobException) {
             run.logError("Permanent job failure (will not retry): " + error.getMessage(), error);
             run.log("Error", "❌ Permanent failure - job will not be retried. Moving to Dead Letter Queue (DLQ).",
@@ -500,6 +511,10 @@ final class JobProcessor implements AutoCloseable {
          * occurrence running until the zombie detector gives up on it.
          */
         void status(JobStatus status, Timing timing, String result, String exception, boolean retry) {
+            status(status, timing, result, exception, retry, null);
+        }
+
+        void status(JobStatus status, Timing timing, String result, String exception, boolean retry, String retryAfter) {
             ObjectNode message = Json.object();
             message.put("occurrenceId", occurrenceId);
             message.put("jobId", jobId());
@@ -514,6 +529,7 @@ final class JobProcessor implements AutoCloseable {
 
             message.put("result", result);
             message.put("exception", exception);
+            if (retryAfter != null) message.put("retryAfter", retryAfter);
             message.put("messageTimestamp", Json.now());
 
             byte[] body = Json.bytes(message);

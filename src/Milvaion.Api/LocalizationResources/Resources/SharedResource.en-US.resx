@@ -1037,6 +1037,9 @@ Maximum file size:
   <data name="TriggerScheduledJob" xml:space="preserve">
     <value>Trigger scheduled job</value>
   </data>
+  <data name="RescheduleWorkflowRun" xml:space="preserve">
+    <value>Workflow run reschedule</value>
+  </data>
   <data name="CancelWorkflowRun" xml:space="preserve">
     <value>Workflow run cancel</value>
   </data>

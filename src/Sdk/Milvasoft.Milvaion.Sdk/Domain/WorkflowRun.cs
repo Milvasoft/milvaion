@@ -49,6 +49,12 @@ public class WorkflowRun : CreationAuditableEntity<Guid>, IProjectScoped
     public DateTime? StartTime { get; set; }
 
     /// <summary>
+    /// Time a run triggered for later starts at (UTC). Null means the run starts as soon as the engine picks it up.
+    /// Until then the run stays <see cref="WorkflowStatus.Pending"/>; it can be rescheduled or cancelled.
+    /// </summary>
+    public DateTime? ScheduledAt { get; set; }
+
+    /// <summary>
     /// Timestamp when the workflow run ended.
     /// </summary>
     public DateTime? EndTime { get; set; }
@@ -107,6 +113,7 @@ public class WorkflowRun : CreationAuditableEntity<Guid>, IProjectScoped
             CorrelationId = r.CorrelationId,
             Status = r.Status,
             StartTime = r.StartTime,
+            ScheduledAt = r.ScheduledAt,
             EndTime = r.EndTime,
             DurationMs = r.DurationMs,
             TriggerReason = r.TriggerReason,

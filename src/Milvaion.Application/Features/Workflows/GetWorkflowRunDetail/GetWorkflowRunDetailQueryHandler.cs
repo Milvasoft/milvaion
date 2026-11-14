@@ -109,6 +109,7 @@ public class GetWorkflowRunDetailQueryHandler(IMilvaionRepositoryBase<WorkflowRu
             EndTime = run.EndTime,
             DurationMs = run.DurationMs,
             TriggerReason = run.TriggerReason,
+            ScheduledAt = run.ScheduledAt,
             Error = run.Error,
             StepRuns = stepDtos,
             Steps = workflow?.Definition?.Steps?.Select(s => new WorkflowStepDto

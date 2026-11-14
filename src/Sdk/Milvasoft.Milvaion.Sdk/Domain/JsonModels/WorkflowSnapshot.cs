@@ -14,6 +14,7 @@ public class WorkflowSnapshot
     public bool IsActive { get; set; }
     public WorkflowFailureStrategy FailureStrategy { get; set; }
     public int MaxStepRetries { get; set; }
+    public int MaxRetryAfter { get; set; }
     public int? TimeoutSeconds { get; set; }
     public int Version { get; set; }
     public string CronExpression { get; set; }

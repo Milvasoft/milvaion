@@ -58,6 +58,12 @@ public class Workflow : AuditableEntity<Guid>, IProjectScoped
     public int MaxStepRetries { get; set; } = 0;
 
     /// <summary>
+    /// Maximum number of times a step may be rerun at the time its job asked for (a retry-after error), per step and run.
+    /// These reruns do not count against <see cref="MaxStepRetries"/>. Once used up, the step's failure is handled normally.
+    /// </summary>
+    public int MaxRetryAfter { get; set; } = 10;
+
+    /// <summary>
     /// Maximum allowed execution duration for the entire workflow in seconds.
     /// Null means no timeout.
     /// </summary>
@@ -130,6 +136,7 @@ public class Workflow : AuditableEntity<Guid>, IProjectScoped
             IsActive = w.IsActive,
             FailureStrategy = w.FailureStrategy,
             MaxStepRetries = w.MaxStepRetries,
+            MaxRetryAfter = w.MaxRetryAfter,
             TimeoutSeconds = w.TimeoutSeconds,
             Version = w.Version,
             CronExpression = w.CronExpression,
@@ -150,6 +157,7 @@ public class Workflow : AuditableEntity<Guid>, IProjectScoped
             IsActive = w.IsActive,
             FailureStrategy = w.FailureStrategy,
             MaxStepRetries = w.MaxStepRetries,
+            MaxRetryAfter = w.MaxRetryAfter,
             TimeoutSeconds = w.TimeoutSeconds,
             Version = w.Version,
             CronExpression = w.CronExpression,

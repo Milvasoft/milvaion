@@ -38,6 +38,11 @@ public record CreateWorkflowCommand : ICommand<Guid>
     public int MaxStepRetries { get; set; } = 0;
 
     /// <summary>
+    /// Maximum reruns of a step at the time its job asked for (retry-after), per step and run. Not counted against <see cref="MaxStepRetries"/>.
+    /// </summary>
+    public int MaxRetryAfter { get; set; } = 10;
+
+    /// <summary>
     /// Timeout in seconds for entire workflow.
     /// </summary>
     public int? TimeoutSeconds { get; set; }

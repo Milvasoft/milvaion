@@ -83,6 +83,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         nameof(JobOccurrence.LastHeartbeat),
         nameof(JobOccurrence.StatusChangeLogs),
         nameof(JobOccurrence.StepStatus),
+        nameof(JobOccurrence.RetryAfter),
     ];
 
     private readonly static List<string> _jobCircuitBreakerUpdateProps =
@@ -502,8 +503,11 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 }
             }
 
-            // Track for circuit breaker update
-            if (newStatus == JobOccurrenceStatus.Failed)
+            // Track for circuit breaker update. A workflow step that asked to be run again later (retry-after) is
+            // deferred, not failed: it neither counts towards auto-disable nor raises a failure alert.
+            var deferredByRetryAfter = occurrence.WorkflowRunId != null && message.RetryAfter.HasValue;
+
+            if (newStatus == JobOccurrenceStatus.Failed && !deferredByRetryAfter)
             {
                 result.CircuitBreakerUpdates[occurrence.JobId] = new CircuitBreakerUpdate(true, message.Exception ?? "Unknown error");
 
@@ -575,6 +579,11 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     JobOccurrenceStatus.Cancelled => WorkflowStepStatus.Cancelled,
                     _ => occurrence.StepStatus
                 };
+
+                // The job asked to be run again at a given time; the workflow engine turns this into a delayed rerun.
+                occurrence.RetryAfter = newStatus == JobOccurrenceStatus.Failed && message.RetryAfter.HasValue
+                    ? DateTime.SpecifyKind(message.RetryAfter.Value.ToUniversalTime(), DateTimeKind.Utc)
+                    : null;
             }
         }
 

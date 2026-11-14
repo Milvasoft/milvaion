@@ -53,6 +53,7 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             IsActive = workflow.IsActive,
             FailureStrategy = workflow.FailureStrategy,
             MaxStepRetries = workflow.MaxStepRetries,
+            MaxRetryAfter = workflow.MaxRetryAfter,
             TimeoutSeconds = workflow.TimeoutSeconds,
             Version = workflow.Version,
             CronExpression = workflow.CronExpression,
@@ -99,6 +100,12 @@ public record UpdateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
         {
             workflowDefinitionChanged |= workflow.MaxStepRetries != request.MaxStepRetries.Value;
             workflow.MaxStepRetries = request.MaxStepRetries.Value;
+        }
+
+        if (request.MaxRetryAfter.IsUpdated)
+        {
+            workflowDefinitionChanged |= workflow.MaxRetryAfter != request.MaxRetryAfter.Value;
+            workflow.MaxRetryAfter = request.MaxRetryAfter.Value;
         }
 
         if (request.TimeoutSeconds.IsUpdated)

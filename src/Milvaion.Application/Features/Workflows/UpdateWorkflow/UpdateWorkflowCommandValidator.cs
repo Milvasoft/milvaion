@@ -32,6 +32,11 @@ public sealed class UpdateWorkflowCommandValidator : AbstractValidator<UpdateWor
             .When(x => x.MaxStepRetries.IsUpdated)
             .WithMessage("MaxStepRetries cannot be negative.");
 
+        RuleFor(x => x.MaxRetryAfter.Value)
+            .GreaterThanOrEqualTo(0)
+            .When(x => x.MaxRetryAfter.IsUpdated)
+            .WithMessage("MaxRetryAfter cannot be negative.");
+
         RuleFor(x => x.CronExpression.Value)
             .MaximumLength(100)
             .Must(expr =>

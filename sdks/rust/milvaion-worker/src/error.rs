@@ -7,11 +7,13 @@ use std::fmt;
 /// Any `std::error::Error` converts into it with `?`, so handlers can use `?` freely. A plain
 /// failure is retried with exponential backoff. A [permanent](JobError::permanent) failure skips
 /// the retries and goes straight to the dead letter queue: use it for invalid data and rejected
-/// business rules.
+/// business rules. A [retry-after](JobError::retry_after) failure asks Milvaion to run the job
+/// again at a given time instead.
 pub struct JobError {
     message: String,
     type_name: String,
     permanent: bool,
+    retry_at: Option<chrono::DateTime<chrono::Utc>>,
     source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
     stack_trace: Option<String>,
 }
@@ -23,6 +25,7 @@ impl JobError {
             message: message.to_string(),
             type_name: "milvaion_worker::JobError".to_string(),
             permanent: false,
+            retry_at: None,
             source: None,
             stack_trace: None,
         }
@@ -33,12 +36,22 @@ impl JobError {
         Self::new(message).into_permanent()
     }
 
+    /// A failure that asks to be run again at `at` (UTC), e.g. when an API quota resets.
+    ///
+    /// The job is not retried by the worker and does not go to the dead letter queue. The
+    /// occurrence ends as `Failed` and the requested time is sent to Milvaion, which reruns
+    /// workflow steps at that time. A standalone job ends there.
+    pub fn retry_after(at: chrono::DateTime<chrono::Utc>, message: impl fmt::Display) -> Self {
+        Self::new(message).into_retry_after(at)
+    }
+
     /// Wraps an error, keeping it as the source so the dashboard shows its chain.
     pub fn from_error<E: std::error::Error + Send + Sync + 'static>(error: E) -> Self {
         Self {
             message: error.to_string(),
             type_name: std::any::type_name::<E>().to_string(),
             permanent: false,
+            retry_at: None,
             source: Some(Box::new(error)),
             stack_trace: None,
         }
@@ -47,6 +60,12 @@ impl JobError {
     /// Marks this failure as permanent.
     pub fn into_permanent(mut self) -> Self {
         self.permanent = true;
+        self
+    }
+
+    /// Asks Milvaion to run the job again at `at` (UTC) instead of retrying it now.
+    pub fn into_retry_after(mut self, at: chrono::DateTime<chrono::Utc>) -> Self {
+        self.retry_at = Some(at);
         self
     }
 
@@ -59,6 +78,11 @@ impl JobError {
     /// Whether the job will skip retries.
     pub fn is_permanent(&self) -> bool {
         self.permanent
+    }
+
+    /// The time this failure asked to be run again at, if it is a retry-after failure.
+    pub fn retry_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.retry_at
     }
 
     /// The error message.
@@ -74,6 +98,11 @@ impl JobError {
     /// The wrapped error, if any.
     pub fn source(&self) -> Option<&(dyn std::error::Error + Send + Sync + 'static)> {
         self.source.as_deref()
+    }
+
+    pub(crate) fn with_message_suffix(mut self, suffix: &str) -> Self {
+        self.message.push_str(suffix);
+        self
     }
 
     pub(crate) fn panic(message: String) -> Self {
@@ -122,6 +151,7 @@ impl fmt::Debug for JobError {
             .field("message", &self.message)
             .field("type_name", &self.type_name)
             .field("permanent", &self.permanent)
+            .field("retry_at", &self.retry_at)
             .finish()
     }
 }

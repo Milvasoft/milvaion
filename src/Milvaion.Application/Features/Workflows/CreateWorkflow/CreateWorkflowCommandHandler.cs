@@ -50,6 +50,7 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             IsActive = request.IsActive,
             FailureStrategy = request.FailureStrategy,
             MaxStepRetries = request.MaxStepRetries,
+            MaxRetryAfter = request.MaxRetryAfter,
             TimeoutSeconds = request.TimeoutSeconds,
             CronExpression = request.CronExpression,
             Version = 1,

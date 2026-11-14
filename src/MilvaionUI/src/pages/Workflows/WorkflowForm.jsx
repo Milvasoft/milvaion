@@ -45,6 +45,7 @@ function WorkflowForm() {
     isActive: true,
     failureStrategy: 0,
     maxStepRetries: 0,
+    maxRetryAfter: 10,
     timeoutSeconds: '',
     cronExpression: '',
   })
@@ -105,6 +106,7 @@ function WorkflowForm() {
         isActive: data.isActive,
         failureStrategy: data.failureStrategy ?? 0,
         maxStepRetries: data.maxStepRetries || 0,
+        maxRetryAfter: data.maxRetryAfter ?? 10,
         timeoutSeconds: data.timeoutSeconds || '',
         cronExpression: data.cronExpression || '',
       })
@@ -309,6 +311,7 @@ function WorkflowForm() {
         isActive: form.isActive,
         failureStrategy: form.failureStrategy,
         maxStepRetries: form.maxStepRetries,
+        maxRetryAfter: form.maxRetryAfter,
         timeoutSeconds: form.timeoutSeconds ? parseInt(form.timeoutSeconds) : null,
         cronExpression: form.cronExpression?.trim() || null,
         steps: steps.map(s => ({
@@ -491,6 +494,16 @@ function WorkflowForm() {
                   min="0"
                   value={form.maxStepRetries}
                   onChange={e => handleFormChange('maxStepRetries', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="wf-retry-after" title="How many times a step may be rerun at the time its job asked for (retry-after). Not counted against Max Step Retries.">Max Retry-After</label>
+                <input
+                  id="wf-retry-after"
+                  type="number"
+                  min="0"
+                  value={form.maxRetryAfter}
+                  onChange={e => handleFormChange('maxRetryAfter', parseInt(e.target.value) || 0)}
                 />
               </div>
               <div className="form-group">

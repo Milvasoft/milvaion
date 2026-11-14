@@ -110,6 +110,12 @@ public class JobStatusUpdateMessage
     public string Exception { get; set; }
 
     /// <summary>
+    /// Time (UTC) the job asked to be run again at, when it failed with a retry-after error.
+    /// Workflow steps are rerun at this time; standalone jobs ignore it.
+    /// </summary>
+    public DateTime? RetryAfter { get; set; }
+
+    /// <summary>
     /// Timestamp when this message was created (UTC).
     /// </summary>
     public DateTime MessageTimestamp { get; set; } = DateTime.UtcNow;

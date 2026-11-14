@@ -98,9 +98,37 @@ How the handler ends decides the outcome:
 | returns a value | `Completed`. A string is stored as-is; anything else is stored as JSON. `nil` stores `Job {name} completed successfully`. |
 | raises | Retried with exponential backoff. After `max_retries`, the occurrence is `Failed` and the job goes to the dead letter queue. |
 | raises `Milvaion::PermanentJobError` | `Failed` without retrying, and the job goes to the dead letter queue. |
+| raises `Milvaion::RetryAfterError` | `Failed` without retrying or dead-lettering; the status carries the requested retry time (see below). |
 | runs past its timeout | `TimedOut` |
 | is cancelled from the dashboard | `Cancelled` |
 | is still running when the worker stops | The job goes back to the queue and runs again. |
+
+### Retry at a specific time
+
+When a retry now cannot succeed but a retry later will, for example a YouTube API quota that resets at
+11:00 UTC, raise `Milvaion::RetryAfterError` with the time to run again. Any `Time` works; it is converted
+to UTC.
+
+```ruby
+worker.job("UploadVideo") do |ctx|
+  upload(ctx.data)
+rescue QuotaExceeded
+  now = Time.now.utc
+  reset = Time.utc(now.year, now.month, now.day, 11)
+  reset += 86_400 if reset <= now
+  raise Milvaion::RetryAfterError.new(reset, "YouTube quota exhausted until #{reset.iso8601}")
+end
+```
+
+The worker does not retry the job and does not send it to the dead letter queue. It reports the
+occurrence as `Failed` with `retryAfter` set and logs a warning with the requested time.
+
+- In a workflow step, Milvaion runs the step again at that time. The workflow's `MaxRetryAfter` setting
+  caps how many times this can happen (default 10), and these retries do not count against `MaxStepRetries`.
+- In a standalone job, the occurrence ends as `Failed` and is not retried.
+
+Only the error the handler raises counts: a `RetryAfterError` that is only the `cause` of another error is
+treated as an ordinary failure.
 
 ### Cancellation and timeouts in Ruby threads
 

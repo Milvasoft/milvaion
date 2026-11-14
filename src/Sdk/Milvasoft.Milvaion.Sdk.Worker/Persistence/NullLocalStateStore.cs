@@ -10,7 +10,7 @@ internal sealed class NullLocalStateStore : ILocalStateStore
 {
     public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public Task StoreStatusUpdateAsync(Guid occurrenceId, Guid jobId, string workerId, string instanceId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task StoreStatusUpdateAsync(Guid occurrenceId, Guid jobId, string workerId, string instanceId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, DateTime? retryAfter = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<List<StoredStatusUpdate>> GetPendingStatusUpdatesAsync(int maxCount = 100, CancellationToken cancellationToken = default) => Task.FromResult(new List<StoredStatusUpdate>());
 

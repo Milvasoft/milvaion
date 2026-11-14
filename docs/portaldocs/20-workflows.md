@@ -73,6 +73,7 @@ When creating or editing a workflow, the following settings are available:
 | **Cron Expression** | 6-field cron for automatic scheduling (e.g. `0 0 9 * * *` = daily at 9:00 AM). Leave empty for manual-only. |
 | **Failure Strategy** | How the engine handles step failures (see below) |
 | **Max Step Retries** | Number of times a failed step is retried before marking it as failed |
+| **Max Retry-After** | Number of times a step may be rerun at the time its job asked for (see [Retry at a Specific Time](#retry-at-a-specific-time)). Default 10. Not counted against Max Step Retries. |
 | **Timeout (seconds)** | Maximum total duration. The run is cancelled if exceeded. `null` = no timeout. |
 
 ### Failure Strategies
@@ -229,13 +230,14 @@ Every polling interval:
 Pending → (dependencies satisfied) → Delayed (if delay > 0)
                                     → Running (dispatched to worker)
                                     → Completed | Failed | Skipped | Cancelled
+Failed with retry-after → Delayed (until the requested time) → Running
 ```
 
 ### Run Status Transitions
 
 | Status | Meaning |
 |--------|---------|
-| `Pending` | Run created, engine has not processed it yet |
+| `Pending` | Run created, engine has not processed it yet. A run triggered for later stays here until its scheduled time. |
 | `Running` | At least one step is active |
 | `Completed` | All steps completed successfully |
 | `PartiallyCompleted` | Some steps failed or were skipped, but at least one succeeded |
@@ -244,7 +246,35 @@ Pending → (dependencies satisfied) → Delayed (if delay > 0)
 
 ### Zombie Detection
 
-Task steps that are `Running` and have not received a heartbeat within their `ZombieTimeoutMinutes` threshold are detected and marked as zombie/failed, preventing runs from getting stuck indefinitely.
+Task steps that are `Running` and have not received a heartbeat within their `ZombieTimeoutMinutes` threshold are detected and marked as zombie/failed, preventing runs from getting stuck indefinitely. A dispatched step that no worker has picked up is measured from its dispatch time, not from when the run was created, so long waits before dispatch (a scheduled run, slow upstream steps, a retry-after) don't count against it. `Pending` and `Delayed` steps are never treated as zombies.
+
+### Retry at a Specific Time
+
+Sometimes a step can't run now but you know when it can: an API quota resets at 11:00 UTC, a rate limit window ends, a partner system is down for planned maintenance. Retrying with backoff would just burn attempts. Instead the job throws a **retry-after** error carrying the time:
+
+```csharp
+// .NET
+throw new RetryAfterException(DateTime.UtcNow.Date.AddHours(11), "YouTube upload quota used up");
+```
+
+```ts
+// Node.js
+import { RetryAfterError } from '@milvasoft/milvaion-worker';
+
+throw new RetryAfterError(new Date('2026-11-15T11:00:00Z'), 'YouTube upload quota used up');
+```
+
+Every SDK has it (Python `RetryAfterError`, Go `milvaion.RetryAfter(...)`, Java and PHP `RetryAfterException`, Rust `JobError::retry_after(...)`, Ruby `Milvaion::RetryAfterError`); see [Workers in Other Languages](26-other-language-workers.md#how-a-job-ends).
+
+What happens:
+
+1. The worker doesn't retry the job itself and doesn't send it to the dead letter queue. It reports the occurrence as **Failed** with the requested time.
+2. The engine puts the step in **Delayed** until that time, then dispatches it again. A time that has already passed dispatches it right away. Other steps and the run carry on as usual; the run stays `Running`.
+3. These reruns are counted apart from **Max Step Retries**, and they don't count towards the job's auto-disable threshold or raise a failure alert. **Max Retry-After** (default 10) caps them per step and run; once it is used up, the step's failure is handled like any other failure.
+
+The workflow's **Timeout** still applies while a step waits, so leave room for the longest wait you expect.
+
+In a standalone job (not a workflow step) a retry-after error ends the occurrence as Failed with no retry.
 
 ---
 
@@ -255,8 +285,45 @@ Task steps that are `Running` and have not received a heartbeat within their `Zo
 Workflows can be triggered from the Milvaion Portal (the **Trigger** button on the Workflows list or detail page) or via the API:
 
 ```http
-POST /api/workflows/{workflowId}/trigger
+POST /api/v1/workflows/workflow/trigger
+Content-Type: application/json
+
+{
+  "workflowId": "0195f0c2-...",
+  "reason": "Publish post 42",
+  "stepJobData": { "<stepId>": "{\"postId\": 42}" }
+}
 ```
+
+`stepJobData` is optional: per-step job data for this run, merged on top of the job's and the step's own data.
+
+### Scheduled Run (Once, at a Given Time)
+
+Add `executeAt` (UTC) to start the run once at that time instead of right away. This is what you want for "publish this post at 18:00", with no extra one-time job in between:
+
+```http
+POST /api/v1/workflows/workflow/trigger
+
+{
+  "workflowId": "0195f0c2-...",
+  "reason": "Publish post 42",
+  "executeAt": "2026-11-15T18:00:00Z",
+  "stepJobData": { "<stepId>": "{\"postId\": 42}" }
+}
+```
+
+The response carries the run id and `scheduledAt`. Until its time the run stays `Pending`; the run list and run page show when it will start. Before it starts you can:
+
+- **Move it:**
+  ```http
+  PUT /api/v1/workflows/workflow/run/schedule
+
+  { "workflowRunId": "0195f0c3-...", "executeAt": "2026-11-15T20:00:00Z" }
+  ```
+  A run that has already started (or was never scheduled) can't be moved. A time in the past starts it right away.
+- **Cancel it:** `POST /api/v1/workflows/workflow/cancel` with `{ "workflowRunId": "..." }`, the same as cancelling a running run. Its steps are marked Skipped.
+
+`executeAt` more than 5 minutes in the past is rejected. Over MCP, `trigger_workflow` takes `executeAt` and `stepJobData`, and `reschedule_workflow_run` moves a scheduled run.
 
 ### Cron Schedule
 

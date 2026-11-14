@@ -99,12 +99,32 @@ How the handler ends decides the outcome:
 | returns `Ok(value)` | `Completed`. A string is stored as-is, `()` or `None` stores `Job {name} completed successfully`, and anything else that implements `Serialize` is stored as JSON. |
 | returns `Err(error)` | Retried with exponential backoff. After `max_retries`, the occurrence is `Failed` and the job goes to the dead letter queue. |
 | returns `Err(JobError::permanent(..))`, or `.permanent()?` on a result | `Failed` without retrying, and the job goes to the dead letter queue. |
+| returns `Err(JobError::retry_after(at, ..))` | `Failed` without retrying here and without the dead letter queue; Milvaion is asked to run it again at `at`. See [Retry at a specific time](#retry-at-a-specific-time). |
 | panics | Treated as a returned error. |
 | runs past its timeout | `TimedOut` |
 | is cancelled from the dashboard | `Cancelled` |
 | is still running when the worker stops | The job goes back to the queue and runs again. |
 
 Any `std::error::Error` converts into `JobError` with `?`. The dashboard shows its type and its chain of causes. Use `JobError::new(msg)` and `JobError::permanent(msg)` for your own failures, and `.context("...")` to add detail.
+
+### Retry at a specific time
+
+When retrying now is pointless, for example because an API quota resets at a known time, return `JobError::retry_after(at, message)` with the UTC time to run again:
+
+```rust
+use chrono::{Duration, Utc};
+use milvaion_worker::JobError;
+
+// The YouTube quota resets at 11:00 UTC.
+let now = Utc::now();
+let mut reset = now.date_naive().and_hms_opt(11, 0, 0).unwrap().and_utc();
+if reset <= now {
+    reset += Duration::days(1);
+}
+return Err(JobError::retry_after(reset, "YouTube quota exceeded"));
+```
+
+The worker does not retry it and does not send it to the dead letter queue. The occurrence ends as `Failed` and the requested time is sent to Milvaion with the status update. In a workflow step, Milvaion runs the step again at that time; the workflow's `MaxRetryAfter` setting caps how many times (default 10), and these reruns don't count against `MaxStepRetries`. A standalone job ends as `Failed` with no retry. `.into_retry_after(at)` does the same for an existing `JobError`.
 
 When a job is stopped, the occurrence settles right away and the handler's task is dropped at its next `.await`. Work that never awaits, such as a blocking loop or `spawn_blocking`, keeps running; check `ctx.is_cancelled()` in it.
 

@@ -95,7 +95,7 @@ public class EnumTests
         var values = Enum.GetValues<UserActivity>();
 
         // Assert
-        values.Should().HaveCount(37);
+        values.Should().HaveCount(38);
     }
 
     [Fact]

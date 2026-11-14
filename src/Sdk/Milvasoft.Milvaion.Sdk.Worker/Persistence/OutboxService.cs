@@ -46,6 +46,7 @@ public class OutboxService(ILocalStateStore localStore,
                                                long? durationMs = null,
                                                string result = null,
                                                string exception = null,
+                                               DateTime? retryAfter = null,
                                                CancellationToken cancellationToken = default)
     {
         // STEP 1: Try to publish immediately if connection is healthy
@@ -63,6 +64,7 @@ public class OutboxService(ILocalStateStore localStore,
                                                           durationMs,
                                                           result,
                                                           exception,
+                                                          retryAfter,
                                                           cancellationToken);
 
                 _logger?.Debug("Status update published successfully for OccurrenceId {OccurrenceId}, Status: {Status}", occurrenceId, status);
@@ -94,6 +96,7 @@ public class OutboxService(ILocalStateStore localStore,
                                                  durationMs,
                                                  result,
                                                  exception,
+                                                 retryAfter,
                                                  cancellationToken);
 
         _logger?.Warning("Status update stored locally for OccurrenceId {OccurrenceId} (RabbitMQ: {Status}). Will sync later.", occurrenceId, _connectionMonitor.IsRabbitMQHealthy ? "failed" : "unhealthy");
@@ -238,6 +241,7 @@ public class OutboxService(ILocalStateStore localStore,
                                                               update.DurationMs,
                                                               update.Result,
                                                               update.Exception,
+                                                              update.RetryAfter,
                                                               cancellationToken);
 
                     // Mark as synced

@@ -494,6 +494,17 @@ final class Processor
     {
         $exception = Errors::format($error);
 
+        if ($error instanceof RetryAfterException) {
+            $retryAt = $error->retryAtIso();
+            $run->log('Warning', "⏰ Job asked to be retried at {$retryAt}. Milvaion reruns workflow steps at that time; a standalone job ends here as Failed.",
+                ['RetryAfter' => $retryAt], 'Retry');
+            $run->flushLogs();
+            $run->status(JobStatus::Failed, start: $start, end: $end, exception: "[RETRY AFTER {$retryAt}] {$exception}", retryAfter: $retryAt);
+            $this->settle(fn () => ($delivery->ack)());
+
+            return;
+        }
+
         if ($error instanceof PermanentJobException) {
             $run->logError('Permanent job failure (will not retry): ' . $error->getMessage(), $error);
             $run->log('Error', '❌ Permanent failure - job will not be retried. Moving to Dead Letter Queue (DLQ).',

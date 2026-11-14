@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
 from .context import JobContext, _Abort, utc_now
-from .errors import AbortReason, JobAborted, PermanentJobError, _type_name, format_error
+from .errors import AbortReason, JobAborted, PermanentJobError, RetryAfterError, _type_name, format_error
 from .log_buffer import LogBuffer
 from .options import ResolvedJob, WorkerOptions
 from .protocol import DEAD_LETTER_ROUTING_KEY, EXCHANGE_DEAD_LETTER, QUEUE_STATUS_UPDATES, Status
@@ -328,6 +328,18 @@ class Processor:
             await self._dead_letter(delivery, run, f"[PERMANENT FAILURE] {exception}", run.retry_count, 0)
             return
 
+        if isinstance(error, RetryAfterError):
+            # Not retried here and not dead-lettered: Milvaion reruns a workflow step at retry_at.
+            retry_at = error.retry_at_iso
+            run.log_error(f"Job asked to be retried at {retry_at}: {error}", error)
+            run.log("Warning", f"⏰ Job asked to be retried at {retry_at}. Milvaion reruns workflow steps at that time; "
+                    "a standalone job ends here as Failed.", {"RetryAfter": retry_at}, "Retry")
+            await run.flush_logs()
+            await run.status(Status.FAILED, start=timing.start, end=timing.end, duration_ms=timing.duration_ms,
+                             exception=f"[RETRY AFTER {retry_at}] {exception}", retry_after=retry_at)
+            await self._settle(delivery.ack())
+            return
+
         run.log_error(f"Job execution failed: {error}", error)
 
         if run.retry_count < registered.max_retries:
@@ -530,10 +542,11 @@ class _JobRun:
             self.p.logger.warning("Failed to flush job logs; they stay buffered and will be retried: %s", error)
 
     async def status(self, status: Status, *, start: datetime | None = None, end: datetime | None = None, duration_ms: int | None = None,
-                     result: str | None = None, exception: str | None = None, retry: bool = True) -> None:
+                     result: str | None = None, exception: str | None = None, retry_after: str | None = None,
+                     retry: bool = True) -> None:
         """Publishes a status update. Final statuses are retried, because losing one leaves the
         occurrence running until the zombie detector gives up on it."""
-        body = json.dumps({
+        message: dict[str, Any] = {
             "occurrenceId": self.occurrence_id,
             "jobId": self.job["id"],
             "workerId": self.p.options.worker_id,
@@ -545,7 +558,12 @@ class _JobRun:
             "result": result,
             "exception": exception,
             "messageTimestamp": utc_now(),
-        }).encode()
+        }
+
+        if retry_after is not None:
+            message["retryAfter"] = retry_after
+
+        body = json.dumps(message).encode()
 
         delays = [0.5, 2, 5] if retry else []
 

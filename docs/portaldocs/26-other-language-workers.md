@@ -49,9 +49,12 @@ The rules are the same in every language:
 | returns a value | **Completed**. A string is stored as the result as-is; anything else is stored as JSON. |
 | fails | **Retried** with exponential backoff (3 retries, starting at 5 s, by default). After the last retry the occurrence is **Failed** and the job goes to the dead letter queue. |
 | fails with a permanent error | **Failed** without retrying, and the job goes to the dead letter queue. Use this for invalid data and rejected business rules. |
+| fails with a retry-after error | **Failed** without retrying and without the dead letter queue; the requested time is reported with it. In a workflow step Milvaion reruns the step at that time (see [Retry at a Specific Time](20-workflows.md#retry-at-a-specific-time)); a standalone job ends there. |
 | runs past its timeout | **TimedOut** |
 | is cancelled from the dashboard | **Cancelled** |
 | is still running when the worker stops | Goes **back to the queue** and runs again |
+
+The retry-after error in each SDK: Node.js `RetryAfterError(retryAt, message)`, Python `RetryAfterError(retry_at, message)`, Go `milvaion.RetryAfter(at, message)`, Java `RetryAfterException(Instant retryAt, String message)`, PHP `RetryAfterException(\DateTimeInterface $retryAt, string $message)`, Rust `JobError::retry_after(at, message)`, Ruby `Milvaion::RetryAfterError.new(retry_at, message)`. Each SDK's README has an example.
 
 Delivery is at least once. A job whose worker crashes runs again, so make handlers idempotent. Every SDK exposes the occurrence id, which stays the same across retries, as an idempotency key.
 

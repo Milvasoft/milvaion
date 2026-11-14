@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Milvaion.Application.Dtos.WorkflowDtos;
 using Milvaion.Application.Features.Workflows.CancelWorkflow;
+using Milvaion.Application.Features.Workflows.RescheduleWorkflowRun;
 using Milvaion.Application.Features.Workflows.CreateWorkflow;
 using Milvaion.Application.Features.Workflows.DeleteWorkflow;
 using Milvaion.Application.Features.Workflows.GetWorkflowDetail;
@@ -76,6 +77,13 @@ public class WorkflowsController(IMediator mediator) : ControllerBase
     [Auth(PermissionCatalog.WorkflowManagement.Update)]
     [HttpPost("workflow/cancel")]
     public Task<Response<bool>> CancelWorkflowAsync(CancelWorkflowCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
+
+    /// <summary>
+    /// Moves a run that was triggered for later (executeAt) to another time. Only runs that have not started can be moved.
+    /// </summary>
+    [Auth(PermissionCatalog.WorkflowManagement.Trigger)]
+    [HttpPut("workflow/run/schedule")]
+    public Task<Response<DateTime>> RescheduleWorkflowRunAsync(RescheduleWorkflowRunCommand request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
 
     /// <summary>
     /// Gets workflow runs with optional workflow filter.

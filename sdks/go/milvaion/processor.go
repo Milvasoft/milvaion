@@ -390,6 +390,23 @@ func (p *processor) finishFailed(d delivery, consumer, registered *resolvedJob, 
 		return
 	}
 
+	var retryAfter *RetryAfterError
+
+	if errors.As(err, &retryAfter) {
+		at := retryAfter.At.UTC()
+		iso := at.Format(time.RFC3339Nano)
+
+		run.log(LevelWarning, "⏰ Job asked to be retried at "+iso+". Milvaion reruns workflow steps at that time; a standalone job ends here as Failed.",
+			map[string]any{"RetryAfter": iso}, "Retry")
+		run.flushLogs()
+		timing.exception = exception
+		timing.retryAfter = &at
+		run.status(StatusFailed, timing, true)
+		p.settle(d.ack())
+
+		return
+	}
+
 	run.logError("Job execution failed: "+err.Error(), err)
 
 	if run.retryCount < registered.maxRetries {
@@ -588,6 +605,7 @@ type statusFields struct {
 	duration   time.Duration
 	result     string
 	exception  string
+	retryAfter *time.Time
 }
 
 // jobRun holds the state and reporting helpers of one execution.
@@ -650,6 +668,10 @@ func (r *jobRun) status(status Status, f statusFields, retry bool) {
 
 	if f.exception != "" {
 		message.Exception = &f.exception
+	}
+
+	if f.retryAfter != nil {
+		message.RetryAfter = timeString(*f.retryAfter)
 	}
 
 	body, _ := json.Marshal(message)

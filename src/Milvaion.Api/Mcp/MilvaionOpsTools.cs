@@ -4,6 +4,7 @@ using Milvaion.Application.Features.Workers.DeleteWorker;
 using Milvaion.Application.Features.Workers.GetWorkerDetail;
 using Milvaion.Application.Features.Workers.GetWorkerList;
 using Milvaion.Application.Features.Workflows.CancelWorkflow;
+using Milvaion.Application.Features.Workflows.RescheduleWorkflowRun;
 using Milvaion.Application.Features.Workflows.CreateWorkflow;
 using Milvaion.Application.Features.Workflows.DeleteWorkflow;
 using Milvaion.Application.Features.Workflows.GetWorkflowDetail;
@@ -141,10 +142,12 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
     /// <returns>The created workflow run.</returns>
     /// <exception cref="McpException">Thrown when the workflow could not be triggered.</exception>
     [McpServerTool(Name = "trigger_workflow")]
-    [Description("Starts a workflow run immediately. This has real side effects in production - confirm with the user before calling it. Requires the workflow trigger permission.")]
+    [Description("Starts a workflow run, right away or once at a given time (executeAt). This has real side effects in production - confirm with the user before calling it. Requires the workflow trigger permission.")]
     public async Task<object> TriggerWorkflowAsync(
         [Description("The workflow's GUID id.")] Guid workflowId,
         [Description("Why the workflow is being triggered. Recorded against the run.")] string reason = null,
+        [Description("UTC time to start the run at, ISO 8601. Omit to start it right away. A scheduled run can be moved with reschedule_workflow_run or cancelled with cancel_workflow_run until it starts.")] DateTime? executeAt = null,
+        [Description("Per-step job data for this run: step id (GUID) to a JSON object string. Overrides the step's and job's data.")] Dictionary<Guid, string> stepJobData = null,
         CancellationToken cancellationToken = default)
     {
         _guard.Require(PermissionCatalog.WorkflowManagement.Trigger);
@@ -152,6 +155,8 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         var response = await _mediator.Send(new TriggerWorkflowCommand
         {
             WorkflowId = workflowId,
+            ExecuteAt = executeAt,
+            StepJobData = stepJobData,
             // Attributing the trigger matters: someone reading the history later needs to know a machine did it.
             Reason = string.IsNullOrWhiteSpace(reason)
                 ? $"Triggered via MCP by {_guard.CallerName}"
@@ -164,8 +169,34 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         return new
         {
             run = response.Data,
-            message = "Workflow triggered. Use list_workflow_runs to follow its progress."
+            message = response.Data?.ScheduledAt is { } scheduledAt
+                ? $"Workflow run scheduled for {scheduledAt:O}. Use reschedule_workflow_run to move it or cancel_workflow_run to drop it."
+                : "Workflow triggered. Use list_workflow_runs to follow its progress."
         };
+    }
+
+    /// <summary>
+    /// Moves a workflow run that was triggered for later to another time.
+    /// </summary>
+    [McpServerTool(Name = "reschedule_workflow_run")]
+    [Description("Moves a workflow run that was triggered for later (trigger_workflow with executeAt) to another time. Only a run that has not started yet can be moved. Requires the workflow trigger permission.")]
+    public async Task<object> RescheduleWorkflowRunAsync(
+        [Description("The run's GUID id.")] Guid workflowRunId,
+        [Description("New UTC start time, ISO 8601. A time that has already passed starts the run right away.")] DateTime executeAt,
+        CancellationToken cancellationToken = default)
+    {
+        _guard.Require(PermissionCatalog.WorkflowManagement.Trigger);
+
+        var response = await _mediator.Send(new RescheduleWorkflowRunCommand
+        {
+            WorkflowRunId = workflowRunId,
+            ExecuteAt = executeAt
+        }, cancellationToken);
+
+        if (!response.IsSuccess)
+            throw new McpException(response.Messages?.FirstOrDefault()?.Message ?? "Failed to reschedule the workflow run.");
+
+        return new { workflowRunId, scheduledAt = response.Data, message = $"Workflow run rescheduled to {response.Data:O}." };
     }
 
     /// <summary>
@@ -355,6 +386,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         [Description("Six part cron expression (second minute hour day month dayOfWeek). Omit for manual only.")] string cronExpression = null,
         [Description("What to do when a step fails.")] WorkflowFailureStrategy failureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
         [Description("Maximum retries per step.")] int maxStepRetries = 0,
+        [Description("Maximum reruns per step at the time its job asked for with a retry-after error. Not counted against maxStepRetries.")] int maxRetryAfter = 10,
         [Description("Timeout for the whole workflow in seconds.")] int? timeoutSeconds = null,
         [Description("Whether the workflow is scheduled straight away. Pass false to create it paused.")] bool isActive = true,
         CancellationToken cancellationToken = default)
@@ -369,6 +401,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
             IsActive = isActive,
             FailureStrategy = failureStrategy,
             MaxStepRetries = maxStepRetries,
+            MaxRetryAfter = maxRetryAfter,
             TimeoutSeconds = timeoutSeconds,
             CronExpression = cronExpression,
             Steps = steps ?? [],
@@ -452,6 +485,7 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
         [Description("New six part cron expression. Omit to leave unchanged.")] string cronExpression = null,
         [Description("New failure strategy. Omit to leave unchanged.")] WorkflowFailureStrategy? failureStrategy = null,
         [Description("New maximum retries per step. Omit to leave unchanged.")] int? maxStepRetries = null,
+        [Description("New maximum reruns per step at the time its job asked for (retry-after). Omit to leave unchanged.")] int? maxRetryAfter = null,
         [Description("New workflow timeout in seconds. Omit to leave unchanged.")] int? timeoutSeconds = null,
         [Description("Replacement steps. Supply together with edges to rewire the graph.")] List<CreateWorkflowStepDto> steps = null,
         [Description("Replacement edges. Supply together with steps to rewire the graph.")] List<CreateWorkflowEdgeDto> edges = null,
@@ -481,6 +515,9 @@ public class MilvaionOpsTools(IMediator mediator, McpPermissionGuard guard)
 
         if (maxStepRetries is not null)
             command.MaxStepRetries = new UpdateProperty<int> { Value = maxStepRetries.Value, IsUpdated = true };
+
+        if (maxRetryAfter is not null)
+            command.MaxRetryAfter = new UpdateProperty<int> { Value = maxRetryAfter.Value, IsUpdated = true };
 
         if (timeoutSeconds is not null)
             command.TimeoutSeconds = new UpdateProperty<int?> { Value = timeoutSeconds, IsUpdated = true };

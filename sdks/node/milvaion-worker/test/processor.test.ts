@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { PermanentJobError } from '../src/errors.ts';
+import { PermanentJobError, RetryAfterError } from '../src/errors.ts';
 import { JobOccurrenceStatus as S } from '../src/protocol.ts';
 import { delivery, JobId, OccurrenceId, setup } from './helpers.ts';
 
@@ -105,6 +105,52 @@ describe('JobProcessor', () => {
     assert.ok(dlq);
     assert.match(dlq.body.exception, /^\[PERMANENT FAILURE\] Type: PermanentJobError/);
     assert.equal(dlq.options.headers?.MaxRetries, 0);
+  });
+
+  it('ends a retry-after failure as Failed with the requested time, without retrying or dead-lettering', async () => {
+    const at = new Date('2026-11-15T11:00:00+03:00');
+    const { processor, publisher, consumer, sleeps } = setup({ TestJob: () => { throw new RetryAfterError(at, 'quota exhausted'); } });
+    const d = delivery({});
+
+    await processor.handle(d, consumer);
+
+    assert.deepEqual(d.settled, ['ack']);
+    assert.deepEqual(sleeps, []);
+    assert.deepEqual(publisher.statuses(), [S.Running, S.Failed]);
+    assert.deepEqual(publisher.deadLettered(), []);
+    assert.equal(publisher.messages.filter(m => m.exchange !== '' && m.exchange !== undefined && m.exchange !== 'dlx_scheduled_jobs').length, 0);
+
+    const [running, final] = publisher.to('job_status_updates_queue').map(m => m.body);
+
+    assert.equal(running.retryAfter, undefined);
+    assert.equal(final.retryAfter, '2026-11-15T08:00:00.000Z');
+    assert.match(final.exception, /^\[RETRY AFTER 2026-11-15T08:00:00.000Z\] Type: RetryAfterError\nMessage: quota exhausted/);
+    assert.ok(final.startTime && final.endTime && typeof final.durationMs === 'number');
+
+    const log = publisher.logs().find(l => l.category === 'Retry') as any;
+
+    assert.equal(log.level, 'Warning');
+    assert.match(log.message, /^⏰ Job asked to be retried at 2026-11-15T08:00:00.000Z\./);
+    assert.deepEqual(log.data, { RetryAfter: '2026-11-15T08:00:00.000Z' });
+  });
+
+  it('retries a wrapped retry-after error like any other failure', async () => {
+    const { processor, publisher, consumer, sleeps } = setup({
+      TestJob: () => { throw new Error('outer', { cause: new RetryAfterError(new Date()) }); },
+    }, { maxRetries: 1 });
+
+    await processor.handle(delivery({}), consumer);
+
+    assert.equal(sleeps.length, 1);
+    assert.ok(publisher.to('job_status_updates_queue').every(m => m.body.retryAfter === undefined));
+  });
+
+  it('gives a retry-after error a default message', () => {
+    const error = new RetryAfterError(new Date('2026-11-15T11:00:00Z'));
+
+    assert.equal(error.name, 'RetryAfterError');
+    assert.equal(error.message, 'Job asked to be retried at 2026-11-15T11:00:00.000Z.');
+    assert.throws(() => new RetryAfterError(new Date('nope')), TypeError);
   });
 
   it('treats job data that is not JSON as a permanent failure', async () => {

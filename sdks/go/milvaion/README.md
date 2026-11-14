@@ -96,12 +96,36 @@ How the handler ends decides the outcome:
 | returns a value | `Completed`. A string is stored as-is; anything else is stored as JSON. |
 | returns an error | Retried with exponential backoff. After `MaxRetries`, the occurrence is `Failed` and the job goes to the dead letter queue. |
 | returns `milvaion.Permanent(err)` | `Failed` without retrying, and the job goes to the dead letter queue. |
+| returns `milvaion.RetryAfter(at, msg)` | `Failed` with the requested time, no local retry and no dead letter queue. See [Retry at a specific time](#retry-at-a-specific-time). |
 | panics | Treated as a returned error. |
 | runs past its timeout | `TimedOut` |
 | is cancelled from the dashboard | `Cancelled` |
 | is still running when the worker stops | The job goes back to the queue and runs again. |
 
 When a job is aborted, the occurrence settles right away, even if the handler ignores its context. A handler that ignores it keeps its goroutine running, though. Pass `ctx` on so the work actually stops.
+
+### Retry at a specific time
+
+When retrying soon cannot help but retrying later can, return `milvaion.RetryAfter` with the time the job should run again, for example when an API quota resets:
+
+```go
+if errors.Is(err, errQuotaExceeded) {
+	// The YouTube quota resets at 11:00 UTC.
+	now := time.Now().UTC()
+	resetAt := time.Date(now.Year(), now.Month(), now.Day(), 11, 0, 0, 0, time.UTC)
+
+	if !resetAt.After(now) {
+		resetAt = resetAt.AddDate(0, 0, 1)
+	}
+
+	return nil, milvaion.RetryAfter(resetAt, "YouTube quota exhausted")
+}
+```
+
+The worker does not retry the job and does not send it to the dead letter queue. It reports the occurrence as `Failed` with the requested time (`retryAfter`, UTC) and logs a warning. Detection uses `errors.As`, so a wrapped `*milvaion.RetryAfterError` counts too.
+
+- In a workflow step, Milvaion runs the step again at that time. The workflow's `MaxRetryAfter` setting caps how many times (default 10), and these reruns do not count against `MaxStepRetries`.
+- In a standalone job, the occurrence ends as `Failed` and is not retried.
 
 ### Job options
 

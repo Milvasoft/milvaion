@@ -51,6 +51,11 @@ public class WorkflowRunListDto : MilvaionBaseDto<Guid>
     public string TriggerReason { get; set; }
 
     /// <summary>
+    /// Time (UTC) a run triggered for later starts at; null for a run that started right away.
+    /// </summary>
+    public DateTime? ScheduledAt { get; set; }
+
+    /// <summary>
     /// Created at.
     /// </summary>
     public DateTime CreatedAt { get; set; }
@@ -71,6 +76,7 @@ public class WorkflowRunListDto : MilvaionBaseDto<Guid>
         EndTime = r.EndTime,
         DurationMs = r.DurationMs,
         TriggerReason = r.TriggerReason,
+        ScheduledAt = r.ScheduledAt,
         CreatedAt = r.CreatedAt,
     };
 }

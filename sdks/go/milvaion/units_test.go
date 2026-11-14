@@ -90,6 +90,26 @@ func TestFormatErrorIncludesInnerErrors(t *testing.T) {
 	}
 }
 
+func TestRetryAfterError(t *testing.T) {
+	at := time.Date(2026, 11, 14, 11, 0, 0, 0, time.UTC)
+
+	var target *RetryAfterError
+
+	if !errors.As(fmt.Errorf("wrapped: %w", RetryAfter(at, "quota")), &target) || !target.At.Equal(at) || target.Message != "quota" {
+		t.Fatalf("errors.As must find a wrapped RetryAfterError: %+v", target)
+	}
+
+	if got := RetryAfter(at, "").Error(); got != "job asked to be retried at 2026-11-14T11:00:00Z" {
+		t.Errorf("Error() = %q", got)
+	}
+
+	inner := errors.New("429")
+
+	if e := (&RetryAfterError{At: at, Err: inner}); e.Error() != "429 (retry at 2026-11-14T11:00:00Z)" || !errors.Is(e, inner) {
+		t.Errorf("Error() = %q", e.Error())
+	}
+}
+
 func TestLogBufferKeepsOrderAfterFailedSend(t *testing.T) {
 	var sent []string
 	fail := true

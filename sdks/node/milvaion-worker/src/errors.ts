@@ -9,6 +9,25 @@ export class PermanentJobError extends Error {
   }
 }
 
+/**
+ * Thrown by a job to say "do not retry now, run me again at this time", for example when an API
+ * quota resets at a known time. The worker does not retry it and does not dead-letter it: the
+ * occurrence ends as Failed and reports `retryAt` to Milvaion, which reruns workflow steps at that
+ * time. A standalone job ends here.
+ */
+export class RetryAfterError extends Error {
+  readonly retryAt: Date;
+
+  constructor(retryAt: Date, message?: string, options?: { cause?: unknown }) {
+    if (!(retryAt instanceof Date) || Number.isNaN(retryAt.getTime()))
+      throw new TypeError('RetryAfterError needs a valid Date.');
+
+    super(message ?? `Job asked to be retried at ${retryAt.toISOString()}.`, options);
+    this.name = 'RetryAfterError';
+    this.retryAt = new Date(retryAt.getTime());
+  }
+}
+
 export type AbortKind = 'cancelled' | 'timeout' | 'shutdown';
 
 /** Reason a running job's signal was aborted. Available as `ctx.signal.reason`. */

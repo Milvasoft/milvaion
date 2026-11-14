@@ -146,6 +146,29 @@ public class JobExecutor(ILoggerFactory loggerFactory)
                 Logs = context.GetLogs()
             };
         }
+        catch (RetryAfterException ex)
+        {
+            // Asked to run again at a given time - no local retry, no DLQ; the server reruns workflow steps then
+            stopwatch.Stop();
+
+            var endTime = DateTime.UtcNow;
+
+            context.LogWarning($"Job asked to be retried at {ex.RetryAt:O}: {ex.Message}");
+
+            return new JobExecutionResult
+            {
+                CorrelationId = correlationId,
+                JobId = scheduledJob.Id,
+                WorkerId = workerOptions.InstanceId,
+                Status = JobOccurrenceStatus.Failed,
+                StartTime = startTime,
+                EndTime = endTime,
+                DurationMs = stopwatch.ElapsedMilliseconds,
+                Exception = FormatException(ex),
+                RetryAfter = ex.RetryAt,
+                Logs = context.GetLogs()
+            };
+        }
         catch (PermanentJobException ex)
         {
             // Permanent failure - should NOT be retried, go directly to DLQ

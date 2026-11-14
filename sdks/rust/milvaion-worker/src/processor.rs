@@ -85,6 +85,7 @@ struct StatusFields {
     duration: Option<Duration>,
     result: Option<String>,
     exception: Option<String>,
+    retry_after: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl Processor {
@@ -385,6 +386,27 @@ impl Processor {
         error: JobError,
         mut timing: StatusFields,
     ) {
+        if let Some(retry_at) = error.retry_at() {
+            // Not retried here and not dead-lettered: Milvaion decides whether to run it again.
+            let at = time_string(retry_at);
+            let error = error.with_message_suffix(&format!(" (retry requested at {at})"));
+            tracing::warn!(job = %run.job.id, occurrence = %run.occurrence_id, retry_after = %at, "job asked to be retried later");
+            run.log(
+                LogLevel::Warning,
+                &format!(
+                    "⏰ Job asked to be retried at {at}. Milvaion reruns workflow steps at that time; a standalone job ends here as Failed."
+                ),
+                Some(json!({"RetryAfter": at})),
+                "Retry",
+            );
+            run.flush_logs().await;
+            timing.exception = Some(error.format());
+            timing.retry_after = Some(retry_at);
+            run.status(Status::Failed, timing, true).await;
+            settle(d.settler.ack().await);
+            return;
+        }
+
         let exception = error.format();
 
         if error.is_permanent() {
@@ -708,6 +730,7 @@ impl JobRun {
             duration_ms: f.end.map(|_| f.duration.unwrap_or_default().as_millis() as i64),
             result: f.result,
             exception: f.exception,
+            retry_after: f.retry_after.map(time_string),
             message_timestamp: now(),
         };
 

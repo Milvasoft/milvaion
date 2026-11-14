@@ -1045,6 +1045,119 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         drained.Should().BeTrue("stale status updates with no matching occurrence must be ACK'd and drained");
     }
 
+    [Fact]
+    public async Task ProcessStatusUpdate_WithRetryAfterOnWorkflowStep_ShouldRecordItWithoutCountingAFailure()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "RetryAfterStepJob",
+            JobNameInWorker = "RetryAfterStepJob",
+            JobData = "{}",
+            IsActive = true,
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser",
+            AutoDisableSettings = new JobAutoDisableSettings { Enabled = true, Threshold = 1 }
+        };
+
+        var stepId = Guid.CreateVersion7();
+        var workflow = new Workflow
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "RetryAfterTrackerWorkflow",
+            IsActive = true,
+            Definition = new WorkflowDefinition
+            {
+                Steps = [new WorkflowStepDefinition { Id = stepId, StepName = "Publish", NodeType = WorkflowNodeType.Task, JobId = job.Id, Order = 1 }],
+                Edges = []
+            }
+        };
+
+        var run = new WorkflowRun { Id = Guid.CreateVersion7(), WorkflowId = workflow.Id, Status = WorkflowStatus.Running, StartTime = DateTime.UtcNow };
+
+        var occurrence = new JobOccurrence
+        {
+            Id = Guid.CreateVersion7(),
+            JobId = job.Id,
+            JobName = job.JobNameInWorker,
+            CorrelationId = Guid.CreateVersion7(),
+            WorkflowRunId = run.Id,
+            WorkflowStepId = stepId,
+            Status = JobOccurrenceStatus.Running,
+            StepStatus = WorkflowStepStatus.Running,
+            StartTime = DateTime.UtcNow,
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.Workflows.AddAsync(workflow);
+        await dbContext.WorkflowRuns.AddAsync(run);
+        await dbContext.JobOccurrences.AddAsync(occurrence);
+        await dbContext.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var tracker = CreateStatusTrackerServiceWithAutoDisable(threshold: 1);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        var retryAt = DateTime.UtcNow.AddHours(3);
+
+        // Act
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            OccurrenceId = occurrence.Id,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Failed,
+            EndTime = DateTime.UtcNow,
+            Exception = "Quota used up",
+            RetryAfter = retryAt
+        }, cts.Token);
+
+        var recorded = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.RetryAfter != null;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(300),
+            cancellationToken: cts.Token);
+
+        // Give a circuit breaker update (which must not happen) time to land.
+        await Task.Delay(1500, cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        recorded.Should().BeTrue("the retry time should be stored for the workflow engine");
+
+        var updated = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updated.Status.Should().Be(JobOccurrenceStatus.Failed);
+        updated.StepStatus.Should().Be(WorkflowStepStatus.Failed);
+        updated.RetryAfter.Should().BeCloseTo(retryAt, TimeSpan.FromMilliseconds(1));
+
+        var updatedJob = await GetDbContext().ScheduledJobs.AsNoTracking().FirstAsync(j => j.Id == job.Id, cts.Token);
+        updatedJob.IsActive.Should().BeTrue("a retry-after deferral is not a failure for auto-disable");
+        updatedJob.AutoDisableSettings.ConsecutiveFailureCount.Should().Be(0);
+    }
+
     private async Task<uint> GetQueueReadyMessageCountAsync(string queueName, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory

@@ -395,6 +395,11 @@ module Milvaion
     def finish_failed(delivery, consumer, registered, run, error, timing)
       exception = Milvaion.format_error(error)
 
+      if error.is_a?(RetryAfterError)
+        finish_retry_after(delivery, run, error, exception, timing)
+        return
+      end
+
       if error.is_a?(PermanentJobError)
         run.log_error("Permanent job failure (will not retry): #{error.message}", error)
         run.log("Error", "❌ Permanent failure - job will not be retried. Moving to Dead Letter Queue (DLQ).",
@@ -428,6 +433,20 @@ module Milvaion
       run.flush_logs
       run.status(Status::FAILED, start: timing[:start], end_time: Time.now.utc, duration_ms: timing[:duration_ms], exception: final)
       dead_letter(delivery, run, final, registered.max_retries, registered.max_retries)
+    end
+
+    # The job asked to run again at a given time: no local retry and no dead letter. One Failed status
+    # carries retryAfter; Milvaion reruns workflow steps then, a standalone job ends here.
+    def finish_retry_after(delivery, run, error, exception, timing)
+      at = Milvaion.iso(error.retry_at)
+
+      run.log_error("Job execution failed: #{error.message}", error)
+      run.log("Warning", "⏰ Job asked to be retried at #{at}. Milvaion reruns workflow steps at that time; a standalone job ends here as Failed.",
+              { "RetryAfter" => at }, "Retry")
+      run.flush_logs
+      run.status(Status::FAILED, start: timing[:start], end_time: timing[:end], duration_ms: timing[:duration_ms],
+                                 exception: "[RETRY AFTER #{at}] #{exception}", retry_after: error.retry_at)
+      settle { delivery.ack.call }
     end
 
     # Waits out the backoff, republishes the job with a higher retry count and acks the original.
@@ -590,20 +609,22 @@ module Milvaion
 
     # Publishes a status update. Final statuses are retried, because losing one leaves the
     # occurrence running until the zombie detector gives up on it.
-    def status(status, start: nil, end_time: nil, duration_ms: nil, result: nil, exception: nil, reliable: true)
-      body = JSON.generate({
-                             "occurrenceId" => occurrence_id,
-                             "jobId" => job["id"],
-                             "workerId" => @p.options.worker_id,
-                             "instanceId" => @p.options.instance_id,
-                             "status" => status,
-                             "startTime" => Milvaion.iso(start),
-                             "endTime" => Milvaion.iso(end_time),
-                             "durationMs" => duration_ms,
-                             "result" => result,
-                             "exception" => exception,
-                             "messageTimestamp" => Milvaion.utc_now
-                           })
+    def status(status, start: nil, end_time: nil, duration_ms: nil, result: nil, exception: nil, retry_after: nil, reliable: true)
+      message = {
+        "occurrenceId" => occurrence_id,
+        "jobId" => job["id"],
+        "workerId" => @p.options.worker_id,
+        "instanceId" => @p.options.instance_id,
+        "status" => status,
+        "startTime" => Milvaion.iso(start),
+        "endTime" => Milvaion.iso(end_time),
+        "durationMs" => duration_ms,
+        "result" => result,
+        "exception" => exception,
+        "messageTimestamp" => Milvaion.utc_now
+      }
+      message["retryAfter"] = Milvaion.iso(retry_after.getutc) if retry_after
+      body = JSON.generate(message)
 
       delays = reliable ? Processor::STATUS_RETRY_DELAYS : []
       attempt = 0

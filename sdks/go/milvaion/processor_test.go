@@ -375,6 +375,61 @@ func TestPermanentFailureSkipsRetries(t *testing.T) {
 	}
 }
 
+func TestRetryAfterReportsFailedWithTheRequestedTime(t *testing.T) {
+	at := time.Date(2026, 11, 14, 11, 0, 0, 0, time.FixedZone("UTC+3", 3*3600))
+	h := newHarness(t, map[string]Handler{"TestJob": func(context.Context, *Job) (any, error) {
+		return nil, RetryAfter(at, "YouTube quota exhausted")
+	}}, JobOptions{MaxRetries: 3})
+	d, f := newDelivery(nil, nil, false)
+
+	h.proc.handle(d, h.consumer)
+
+	expectSettled(t, f, "ack")
+	expectStatuses(t, h, StatusRunning, StatusFailed)
+
+	if len(h.sleeps) != 0 {
+		t.Fatal("a retry-after failure must not wait for a local retry")
+	}
+
+	if len(h.pub.to(h.consumer.queue)) != 0 || len(h.pub.deadLettered()) != 0 {
+		t.Fatal("a retry-after failure must not be republished or dead-lettered")
+	}
+
+	last := h.pub.lastStatus()
+
+	if last["retryAfter"] != "2026-11-14T08:00:00Z" {
+		t.Fatalf("retryAfter = %v", last["retryAfter"])
+	}
+
+	if exception, _ := last["exception"].(string); !strings.HasPrefix(exception, "Type: ") || !strings.Contains(exception, "YouTube quota exhausted (retry at 2026-11-14T08:00:00Z)") {
+		t.Fatalf("exception = %q", exception)
+	}
+
+	if last["startTime"] == nil || last["endTime"] == nil || last["durationMs"] == nil {
+		t.Fatalf("timing missing: %v", last)
+	}
+
+	for _, l := range h.pub.logs() {
+		if l["category"] == "Retry" && l["level"] == string(LevelWarning) && l["data"].(map[string]any)["RetryAfter"] == "2026-11-14T08:00:00Z" &&
+			strings.HasPrefix(l["message"].(string), "⏰ Job asked to be retried at 2026-11-14T08:00:00Z.") {
+			return
+		}
+	}
+
+	t.Fatalf("retry-after log missing: %v", h.pub.logs())
+}
+
+func TestOtherFailuresOmitRetryAfter(t *testing.T) {
+	h := newHarness(t, map[string]Handler{"TestJob": func(context.Context, *Job) (any, error) { return nil, Permanentf("bad") }}, JobOptions{})
+	d, _ := newDelivery(nil, nil, false)
+
+	h.proc.handle(d, h.consumer)
+
+	if _, ok := h.pub.lastStatus()["retryAfter"]; ok {
+		t.Fatal("retryAfter must only be sent for RetryAfterError")
+	}
+}
+
 func TestInvalidJobDataIsPermanent(t *testing.T) {
 	h := newHarness(t, map[string]Handler{"TestJob": func(_ context.Context, job *Job) (any, error) {
 		var data struct{ Name string }

@@ -891,6 +891,38 @@ public class JobConsumer : BackgroundService
                 return MessageDisposition.Requeue;
             }
 
+            // The job asked to be run again at a given time: no local retry and no DLQ. The status carries the time;
+            // the server reruns workflow steps then, and a standalone job's occurrence simply ends as Failed.
+            if (result.Status == JobOccurrenceStatus.Failed && result.RetryAfter.HasValue)
+            {
+                logger?.Debug("Job {JobId} asked to be retried at {RetryAfter}. Reporting it without a local retry.", job.Id, result.RetryAfter);
+
+                if (_outboxService != null)
+                {
+                    try
+                    {
+                        var retryAfterLog = new OccurrenceLog
+                        {
+                            Timestamp = DateTime.UtcNow,
+                            Level = "Warning",
+                            Message = $"⏰ Job asked to be retried at {result.RetryAfter.Value:O}. Milvaion reruns workflow steps at that time; a standalone job ends here as Failed.",
+                            Data = new Dictionary<string, object>
+                            {
+                                ["RetryAfter"] = result.RetryAfter.Value
+                            },
+                            Category = "Retry"
+                        };
+
+                        await _outboxService.PublishLogAsync(correlationId, _options.InstanceId, retryAfterLog, CancellationToken.None);
+                    }
+                    catch { /* Ignore log failure */ }
+                }
+
+                await PublishFinalStatusAndFinalizeAsync(correlationId, job.Id, result, logger);
+
+                return MessageDisposition.Ack;
+            }
+
             // Retry logic: If failed and under max retries, republish with incremented retry count
             // Skip retry for permanent failures (e.g., invalid data, business rule violations)
             if (result.Status == JobOccurrenceStatus.Failed && !string.IsNullOrEmpty(result.Exception) && !result.IsPermanentFailure)
@@ -1272,6 +1304,7 @@ public class JobConsumer : BackgroundService
                                                               result.DurationMs,
                                                               result.Result,
                                                               result.Exception,
+                                                              result.RetryAfter,
                                                               CancellationToken.None);
 
                 await _outboxService.GetLocalStore().FinalizeJobAsync(correlationId, result.Status, CancellationToken.None);

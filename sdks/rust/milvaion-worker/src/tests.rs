@@ -338,6 +338,50 @@ async fn permanent_failure_skips_retries() {
 }
 
 #[tokio::test]
+async fn retry_after_skips_retries_and_dead_letter() {
+    let at = chrono::DateTime::parse_from_rfc3339("2026-11-14T11:00:00Z").unwrap().with_timezone(&chrono::Utc);
+    let h = harness(
+        "QuotaJob",
+        JobOptions::new().max_retries(3),
+        handler(move |_| async move { Err(JobError::retry_after(at, "quota exceeded")) }),
+    );
+    let settled = Settled::default();
+
+    h.run(delivery("QuotaJob", None, None, &settled)).await;
+
+    assert_eq!(settled.get(), vec!["ack"]);
+    assert!(h.publisher.to(&h.consumer.job.queue).is_empty());
+    assert!(h.publisher.dead_letters().is_empty());
+
+    let finals: Vec<_> = h.publisher.statuses().into_iter().filter(|s| s["status"] != 1).collect();
+    assert_eq!(finals.len(), 1);
+    let status = &finals[0];
+    assert_eq!(status["status"], 3);
+    assert_eq!(status["retryAfter"], "2026-11-14T11:00:00.000Z");
+    assert!(status["endTime"].is_string() && status["durationMs"].is_number());
+    let exception = status["exception"].as_str().unwrap();
+    assert!(
+        exception.starts_with(
+            "Type: milvaion_worker::JobError
+Message: quota exceeded"
+        ),
+        "{exception}"
+    );
+    assert!(exception.contains("2026-11-14T11:00:00.000Z"));
+
+    let log = h.publisher.logs().into_iter().find(|l| l["log"]["category"] == "Retry").unwrap();
+    assert_eq!(log["log"]["level"], "Warning");
+    assert!(log["log"]["message"]
+        .as_str()
+        .unwrap()
+        .starts_with("⏰ Job asked to be retried at 2026-11-14T11:00:00.000Z."));
+    assert_eq!(log["log"]["data"]["RetryAfter"], "2026-11-14T11:00:00.000Z");
+
+    // Other status updates leave the field out.
+    assert!(h.publisher.statuses().iter().filter(|s| s["status"] == 1).all(|s| s.get("retryAfter").is_none()));
+}
+
+#[tokio::test]
 async fn invalid_job_data_is_permanent() {
     let h = harness(
         "TypedJob",
@@ -734,6 +778,13 @@ fn format_error_includes_inner_errors() {
     let permanent: Result<u8, JobError> = "x".parse::<u8>().permanent();
     assert!(permanent.unwrap_err().is_permanent());
     assert_eq!(JobError::new("a").context("b").message(), "b: a");
+
+    let at = chrono::Utc::now();
+    let later = JobError::retry_after(at, "quota");
+    assert_eq!(later.retry_at(), Some(at));
+    assert!(!later.is_permanent());
+    assert_eq!(JobError::new("x").retry_at(), None);
+    assert_eq!(JobError::new("x").into_retry_after(at).retry_at(), Some(at));
 }
 
 #[tokio::test]
@@ -1048,6 +1099,24 @@ async fn failed_scheduled_retry_is_rejected() {
     let events = settler.events.lock().unwrap().clone();
     assert_eq!(events.len(), 1, "{events:?}");
     assert!(events[0].starts_with("reject: ") && events[0].contains("broker down"), "{events:?}");
+}
+
+#[tokio::test]
+async fn retry_after_is_acked_without_scheduling_a_retry() {
+    let at = chrono::Utc::now() + chrono::Duration::hours(1);
+    let h = harness(
+        "QuotaJob",
+        JobOptions::default(),
+        handler(move |_| async move { Err(JobError::retry_after(at, "later")) }),
+    );
+    let settler = BrokerSettler::default();
+
+    h.run(broker_delivery("QuotaJob", None, &settler)).await;
+
+    assert_eq!(*settler.events.lock().unwrap(), vec!["ack"]);
+    assert!(settler.retries.lock().unwrap().is_empty());
+    assert!(h.publisher.dead_letters().is_empty());
+    assert_eq!(h.publisher.final_status().unwrap()["retryAfter"], crate::protocol::time_string(at));
 }
 
 #[tokio::test]

@@ -141,6 +141,9 @@ pub(crate) struct StatusUpdateMessage {
     pub duration_ms: Option<i64>,
     pub result: Option<String>,
     pub exception: Option<String>,
+    /// When the job asked to be run again (ISO-8601 UTC); only set by a retry-after failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<String>,
     pub message_timestamp: String,
 }
 

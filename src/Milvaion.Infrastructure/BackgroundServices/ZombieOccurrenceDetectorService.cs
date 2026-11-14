@@ -272,8 +272,8 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         var queuedOccurrences = await dbContext.JobOccurrences.AsNoTracking()
                                                .Where(o => o.Status == JobOccurrenceStatus.Queued
                                                         && o.NextDispatchRetryAt == null
-                                                        && (o.WorkflowRunId == null || o.StepStatus != WorkflowStepStatus.Pending)
-                                                        && o.CreatedAt.AddMinutes(o.ZombieTimeoutMinutes ?? defaultTimeout) < now)
+                                                        && (o.WorkflowRunId == null || (o.StepStatus != WorkflowStepStatus.Pending && o.StepStatus != WorkflowStepStatus.Delayed))
+                                                        && (o.LastHeartbeat ?? o.CreatedAt).AddMinutes(o.ZombieTimeoutMinutes ?? defaultTimeout) < now)
                                                .OrderBy(o => o.CreatedAt)
                                                .Take(_maxOccurrencesPerPass)
                                                .Select(JobOccurrence.Projections.DetectZombie)

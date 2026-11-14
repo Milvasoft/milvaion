@@ -27,6 +27,7 @@ public interface IStatusUpdatePublisher : IAsyncDisposable
                             long? durationMs = null,
                             string result = null,
                             string exception = null,
+                            DateTime? retryAfter = null,
                             CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -55,6 +56,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
                                          long? durationMs = null,
                                          string result = null,
                                          string exception = null,
+                                         DateTime? retryAfter = null,
                                          CancellationToken cancellationToken = default)
     {
         try
@@ -71,6 +73,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
                 DurationMs = durationMs,
                 Result = result,
                 Exception = exception,
+                RetryAfter = retryAfter?.ToUniversalTime(),
                 MessageTimestamp = DateTime.UtcNow
             };
 

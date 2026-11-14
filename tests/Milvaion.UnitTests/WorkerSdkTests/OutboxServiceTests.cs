@@ -62,6 +62,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var outboxService = CreateOutboxService(isRabbitMQHealthy: true);
@@ -87,6 +88,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -113,6 +115,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var outboxService = CreateOutboxService(isRabbitMQHealthy: false);
@@ -138,6 +141,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -164,6 +168,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>())).ThrowsAsync(new Exception("RabbitMQ connection failed"));
 
         _localStoreMock.Setup(x => x.StoreStatusUpdateAsync(
@@ -177,6 +182,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var outboxService = CreateOutboxService(isRabbitMQHealthy: true);
@@ -202,6 +208,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -352,6 +359,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         _localStoreMock.Setup(x => x.MarkStatusUpdateAsSyncedAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()))
@@ -412,6 +420,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -523,6 +532,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var outboxService = CreateOutboxService(isRabbitMQHealthy: true);
@@ -542,6 +552,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -566,6 +577,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -586,6 +598,7 @@ public class OutboxServiceTests
             It.IsAny<long?>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<DateTime?>(),
             It.IsAny<CancellationToken>())).ThrowsAsync(new Exception("Connection lost"));
 
         var outboxService = CreateOutboxService(isRabbitMQHealthy: true);
@@ -619,7 +632,7 @@ public class OutboxServiceTests
         _statusPublisherMock.Setup(x => x.PublishStatusAsync(
             It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(),
-            It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 callCount++;
@@ -658,7 +671,7 @@ public class OutboxServiceTests
         _statusPublisherMock.Setup(x => x.PublishStatusAsync(
             It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(),
-            It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Connection lost"));
 
         _localStoreMock.Setup(x => x.IncrementStatusUpdateRetryAsync(It.IsAny<long>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
@@ -801,7 +814,7 @@ public class OutboxServiceTests
         await outboxService.PublishStatusUpdateAsync(occurrenceId, Guid.CreateVersion7(), "worker", "instance", JobOccurrenceStatus.Completed);
 
         // Assert
-        _statusPublisherMock.Verify(x => x.PublishStatusAsync(occurrenceId, It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), JobOccurrenceStatus.Completed, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _statusPublisherMock.Verify(x => x.PublishStatusAsync(occurrenceId, It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), JobOccurrenceStatus.Completed, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

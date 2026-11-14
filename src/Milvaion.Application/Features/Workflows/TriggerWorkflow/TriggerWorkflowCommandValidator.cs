@@ -11,5 +11,11 @@ public sealed class TriggerWorkflowCommandValidator : AbstractValidator<TriggerW
     public TriggerWorkflowCommandValidator()
     {
         RuleFor(x => x.WorkflowId).NotEmpty();
+
+        // A little slack for clock skew between the caller and the API; anything older is almost certainly a mistake.
+        RuleFor(x => x.ExecuteAt)
+            .Must(t => t.Value.ToUniversalTime() > DateTime.UtcNow.AddMinutes(-5))
+            .When(x => x.ExecuteAt.HasValue)
+            .WithMessage("ExecuteAt must not be in the past.");
     }
 }

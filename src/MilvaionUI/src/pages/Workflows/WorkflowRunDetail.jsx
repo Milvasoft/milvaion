@@ -306,6 +306,12 @@ function WorkflowRunDetail() {
           <label>Triggered by</label>
           <span>{run.triggerReason || 'not recorded'}</span>
         </div>
+        {run.scheduledAt && (
+          <div className="wfr-info-card">
+            <label>Scheduled for</label>
+            <span>{formatDate(run.scheduledAt)}</span>
+          </div>
+        )}
         <div className="wfr-info-card">
           <label>Started</label>
           <span>{run.startTime ? formatDate(run.startTime) : '—'}</span>

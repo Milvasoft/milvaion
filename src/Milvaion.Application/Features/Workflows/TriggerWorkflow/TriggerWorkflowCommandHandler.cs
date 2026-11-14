@@ -43,6 +43,9 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
         var correlationId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
+        // A time that has already passed (within the validator's slack) just means "now".
+        DateTime? scheduledAt = request.ExecuteAt.HasValue && request.ExecuteAt.Value.ToUniversalTime() > now ? request.ExecuteAt.Value.ToUniversalTime() : null;
+
         // The run and its step occurrences copy the workflow's project, so a cron trigger from the engine lands there too.
         var workflowRun = new WorkflowRun
         {
@@ -54,6 +57,7 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
             Status = WorkflowStatus.Pending,
             TriggerReason = request.Reason ?? "Manual trigger",
             StepJobData = request.StepJobData,
+            ScheduledAt = scheduledAt,
             CreatedAt = now,
         };
 
@@ -81,7 +85,10 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
         return Response<TriggerWorkflowResponse>.Success(new TriggerWorkflowResponse
         {
             Id = workflowRun.Id,
+            ScheduledAt = scheduledAt,
             ShouldLogActivity = request.ShouldLogActivity
-        }, "Workflow triggered successfully. The engine will start executing root steps.");
+        }, scheduledAt.HasValue
+            ? $"Workflow run scheduled for {scheduledAt.Value:O}."
+            : "Workflow triggered successfully. The engine will start executing root steps.");
     }
 }

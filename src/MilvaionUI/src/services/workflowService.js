@@ -17,6 +17,7 @@ const buildUpdatePayload = (workflowId, workflowData) => {
     'isActive',
     'failureStrategy',
     'maxStepRetries',
+    'maxRetryAfter',
     'timeoutSeconds',
     'cronExpression',
     'steps',

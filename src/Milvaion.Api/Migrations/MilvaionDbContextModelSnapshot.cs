@@ -19,7 +19,7 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261113233320_AddProjects";
+    public override string LastMigrationId => "20261114133847_AddScheduledRunsAndRetryAfter";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -1212,6 +1212,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<string>("Result")
                     .HasColumnType("text");
 
+                b.Property<DateTime?>("RetryAfter")
+                    .HasColumnType("timestamp with time zone");
+
                 b.Property<DateTime?>("StartTime")
                     .HasColumnType("timestamp with time zone");
 
@@ -1220,6 +1223,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
 
                 b.Property<List<OccurrenceStatusChangeLog>>("StatusChangeLogs")
                     .HasColumnType("jsonb");
+
+                b.Property<int>("StepRetryAfterCount")
+                    .HasColumnType("integer");
 
                 b.Property<int>("StepRetryCount")
                     .HasColumnType("integer");
@@ -1498,6 +1504,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<DateTime?>("LastScheduledRunAt")
                     .HasColumnType("timestamp with time zone");
 
+                b.Property<int>("MaxRetryAfter")
+                    .HasColumnType("integer");
+
                 b.Property<int>("MaxStepRetries")
                     .HasColumnType("integer");
 
@@ -1557,6 +1566,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
 
                 b.Property<int>("ProjectId")
                     .HasColumnType("integer");
+
+                b.Property<DateTime?>("ScheduledAt")
+                    .HasColumnType("timestamp with time zone");
 
                 b.Property<DateTime?>("StartTime")
                     .HasColumnType("timestamp with time zone");

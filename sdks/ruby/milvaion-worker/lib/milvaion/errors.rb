@@ -8,6 +8,24 @@ module Milvaion
   # A job that raises it is not retried and goes straight to the dead letter queue.
   class PermanentJobError < Error; end
 
+  # Asks Milvaion to run the job again at a given time instead of retrying now, for example when an
+  # API quota resets at 11:00 UTC. The worker does not retry it and does not dead-letter it: the
+  # occurrence ends as Failed with retryAfter set. Milvaion reruns workflow steps at that time; a
+  # standalone job ends there as Failed.
+  class RetryAfterError < Error
+    # The requested time, in UTC.
+    attr_reader :retry_at
+
+    # retry_at: a Time (or anything responding to to_time, such as a DateTime). It is converted to UTC.
+    def initialize(retry_at, message = nil)
+      time = retry_at.is_a?(Time) ? retry_at : retry_at&.to_time
+      raise ArgumentError, "retry_at must be a Time" unless time.is_a?(Time)
+
+      @retry_at = time.getutc
+      super(message || "Job asked to be retried at #{Milvaion.iso(@retry_at)}.")
+    end
+  end
+
   # RabbitMQ or Redis could not be reached, or a message was not confirmed by the broker.
   class ConnectionError < Error; end
 

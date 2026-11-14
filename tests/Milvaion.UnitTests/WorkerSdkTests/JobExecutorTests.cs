@@ -181,6 +181,27 @@ public class JobExecutorTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ShouldReportRetryAfter_WhenJobThrowsRetryAfterException()
+    {
+        // Arrange
+        var retryAt = DateTime.UtcNow.AddHours(2);
+        var mockJob = new Mock<IJobWithResult<string>>();
+        mockJob.Setup(x => x.Execute(It.IsAny<IJobContext>())).Throws(new Milvasoft.Milvaion.Sdk.Worker.Exceptions.RetryAfterException(retryAt, "quota"));
+
+        var workerOptions = new WorkerOptions { WorkerId = "test-worker" };
+        workerOptions.RegenerateInstanceId();
+
+        // Act
+        var result = await _jobExecutor.ExecuteAsync(mockJob.Object, CreateScheduledJob(Guid.CreateVersion7(), "SyncResult"), Guid.CreateVersion7(), null, workerOptions, new JobConsumerConfig { ExecutionTimeoutSeconds = 60 }, CancellationToken.None);
+
+        // Assert
+        result.Status.Should().Be(JobOccurrenceStatus.Failed);
+        result.RetryAfter.Should().Be(retryAt);
+        result.IsPermanentFailure.Should().BeFalse();
+        result.Exception.Should().Contain("quota");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ShouldReportCancelled_WhenSyncJobWithResultIsCancelled()
     {
         // Arrange

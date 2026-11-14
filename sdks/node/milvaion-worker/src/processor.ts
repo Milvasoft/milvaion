@@ -1,6 +1,6 @@
 import type { CancellationRegistry } from './cancellation.ts';
 import { createJobContext, type JobContext } from './context.ts';
-import { formatError, JobAbortedError, PermanentJobError, type AbortKind } from './errors.ts';
+import { formatError, JobAbortedError, PermanentJobError, RetryAfterError, type AbortKind } from './errors.ts';
 import type { LogBuffer } from './log-buffer.ts';
 import type { Logger, ResolvedJobOptions, ResolvedWorkerOptions } from './options.ts';
 import {
@@ -393,6 +393,18 @@ export class JobProcessor {
     const message = error instanceof Error ? error.message : String(error);
     const exception = formatError(error);
 
+    if (error instanceof RetryAfterError) {
+      const retryAfter = error.retryAt.toISOString();
+
+      run.logError(`Job asked to be retried at ${retryAfter}: ${message}`, error);
+      run.log('Warning', `⏰ Job asked to be retried at ${retryAfter}. Milvaion reruns workflow steps at that time; a standalone job ends here as Failed.`,
+        { RetryAfter: retryAfter }, 'Retry');
+      await run.flushLogs();
+      await run.status(JobOccurrenceStatus.Failed, { ...timing, exception: `[RETRY AFTER ${retryAfter}] ${exception}`, retryAfter });
+      await settle(() => delivery.ack(), this.logger);
+      return;
+    }
+
     if (permanent) {
       run.logError(`Permanent job failure (will not retry): ${message}`, error);
       run.log('Error', '❌ Permanent failure - job will not be retried. Moving to Dead Letter Queue (DLQ).',
@@ -577,7 +589,7 @@ class JobRun {
    * the occurrence running until the zombie detector gives up on it.
    */
   async status(status: JobOccurrenceStatus,
-    fields: { startTime?: Date; endTime?: Date; durationMs?: number; result?: string; exception?: string },
+    fields: { startTime?: Date; endTime?: Date; durationMs?: number; result?: string; exception?: string; retryAfter?: string },
     retry = true): Promise<void> {
     const { options } = this.deps;
     const message: JobStatusUpdateMessage = {
@@ -591,6 +603,7 @@ class JobRun {
       durationMs: fields.durationMs ?? null,
       result: fields.result ?? null,
       exception: fields.exception ?? null,
+      ...(fields.retryAfter ? { retryAfter: fields.retryAfter } : {}),
       messageTimestamp: new Date().toISOString(),
     };
 

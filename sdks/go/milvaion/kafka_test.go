@@ -288,6 +288,34 @@ func TestScheduledRetryIsHandedToTheBroker(t *testing.T) {
 	}
 }
 
+func TestRetryAfterIsNotHandedToTheBroker(t *testing.T) {
+	at := time.Now().Add(time.Hour)
+	h := newHarness(t, map[string]Handler{"TestJob": func(context.Context, *Job) (any, error) { return nil, RetryAfter(at, "quota") }},
+		JobOptions{MaxRetries: 3, BaseRetryDelay: 5 * time.Second})
+	d, f := newDelivery(nil, nil, false)
+
+	scheduled := 0
+	d.scheduleRetry = func(context.Context, retryRequest) error { scheduled++; return nil }
+	d.reject = func(string) error { t.Error("a retry-after failure must not be rejected"); return nil }
+
+	h.proc.handle(d, h.consumer)
+
+	expectSettled(t, f, "ack")
+	expectStatuses(t, h, StatusRunning, StatusFailed)
+
+	if scheduled != 0 || len(h.sleeps) != 0 {
+		t.Fatal("a retry-after failure must not be retried by the worker")
+	}
+
+	if len(h.pub.to(h.consumer.queue)) != 0 || len(h.pub.deadLettered()) != 0 {
+		t.Fatal("nothing may be republished or dead-lettered")
+	}
+
+	if h.pub.lastStatus()["retryAfter"] != at.UTC().Format(time.RFC3339Nano) {
+		t.Fatalf("retryAfter = %v", h.pub.lastStatus()["retryAfter"])
+	}
+}
+
 func TestFailedScheduledRetryIsRejected(t *testing.T) {
 	h := newHarness(t, map[string]Handler{"TestJob": func(context.Context, *Job) (any, error) { return nil, errors.New("boom") }}, JobOptions{})
 	d, f := newDelivery(nil, nil, false)

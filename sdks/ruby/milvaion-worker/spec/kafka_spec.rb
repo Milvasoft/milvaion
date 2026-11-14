@@ -276,6 +276,26 @@ RSpec.describe Milvaion::Processor, "with broker-scheduled retries" do
     expect(h.pub.statuses.size).to eq(count)
   end
 
+  it "settles a retry-after failure without scheduling a retry or dead-lettering" do
+    at = Time.now + 3600
+    h = Harness.new({ "TestJob" => ->(_ctx) { raise Milvaion::RetryAfterError, at } }, max_retries: 3)
+    d = FakeDelivery.new
+    requests = []
+    rejected = []
+    d.delivery.schedule_retry = ->(request) { requests << request }
+    d.delivery.reject = ->(reason) { rejected << reason }
+
+    h.handle(d)
+
+    expect(d.settled).to eq(["ack"])
+    expect(requests).to be_empty
+    expect(rejected).to be_empty
+    expect(h.pub.dead_lettered).to be_empty
+    expect(h.pub.statuses).to eq([s::RUNNING, s::FAILED])
+    expect(h.pub.last_status["retryAfter"]).to eq(Milvaion.iso(at.getutc))
+    expect(h.pub.to("job_status_updates_queue").map { |m| m[:record_key] }.uniq).to eq([OCCURRENCE_ID])
+  end
+
   it "dead-letters through reject when the retry cannot be scheduled" do
     h = Harness.new({ "TestJob" => ->(_ctx) { raise "boom" } })
     d = FakeDelivery.new

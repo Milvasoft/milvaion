@@ -4,11 +4,12 @@ import asyncio
 import json
 import logging
 import threading
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 
-from milvaion import JobOptions, PermanentJobError, Status, WorkerOptions
+from milvaion import JobOptions, PermanentJobError, RetryAfterError, Status, WorkerOptions
 from milvaion.errors import AbortReason
 from milvaion.log_buffer import LogBuffer
 from milvaion.options import resolve_job
@@ -193,6 +194,81 @@ async def test_permanent_failure_skips_retries() -> None:
     [dlq] = h.pub.dead_lettered()
     assert dlq["body"]["exception"].startswith("[PERMANENT FAILURE] Type: milvaion.errors.PermanentJobError")
     assert dlq["headers"]["MaxRetries"] == 0
+
+
+async def test_retry_after_reports_time_without_retrying_or_dead_lettering() -> None:
+    at = datetime(2026, 11, 14, 11, 0, tzinfo=timezone(timedelta(hours=3)))
+
+    async def handler(ctx):
+        raise RetryAfterError(at, "quota exhausted")
+
+    h = Harness({"TestJob": handler}, max_retries=3)
+    d = FakeDelivery()
+    await h.handle(d)
+
+    assert d.settled == ["ack"]
+    assert h.sleeps == []
+    assert h.pub.to("TestJob") == [] and all(m["key"] == "job_status_updates_queue" or m["key"] == "worker_logs_queue" for m in h.pub.messages)
+    assert h.pub.dead_lettered() == []
+    assert h.pub.statuses() == [S.RUNNING, S.FAILED]
+
+    final = h.pub.last_status()
+    assert final["retryAfter"] == "2026-11-14T08:00:00Z"
+    assert "2026-11-14T08:00:00Z" in final["exception"] and "Type: milvaion.errors.RetryAfterError\nMessage: quota exhausted" in final["exception"]
+    assert final["startTime"] and final["endTime"] and isinstance(final["durationMs"], int)
+    assert "retryAfter" not in h.pub.to("job_status_updates_queue")[0]["body"]
+    assert any(entry["level"] == "Warning" and entry["category"] == "Retry" and entry["data"] == {"RetryAfter": "2026-11-14T08:00:00Z"}
+               and entry["message"].startswith("⏰ Job asked to be retried at 2026-11-14T08:00:00Z.") for entry in h.pub.logs())
+
+
+async def test_retry_after_is_settled_without_scheduling_a_broker_retry() -> None:
+    """Kafka hands retries to the broker through schedule_retry; a RetryAfterError must not use it."""
+
+    def handler(ctx):
+        raise RetryAfterError(datetime(2026, 11, 14, 11, 0, tzinfo=timezone.utc))
+
+    h = Harness({"TestJob": handler}, max_retries=3)
+    d = FakeDelivery()
+    scheduled: list[Any] = []
+
+    async def schedule_retry(request: Any) -> None:
+        scheduled.append(request)
+
+    async def reject(reason: str) -> None:
+        d.settled.append("reject")
+
+    d.delivery.schedule_retry = schedule_retry
+    d.delivery.reject = reject
+    await h.handle(d)
+
+    assert scheduled == []
+    assert d.settled == ["ack"]
+    assert h.pub.dead_lettered() == []
+    assert h.pub.statuses() == [S.RUNNING, S.FAILED]
+    assert h.pub.last_status()["retryAfter"] == "2026-11-14T11:00:00Z"
+
+
+def test_retry_after_error_treats_naive_time_as_utc() -> None:
+    error = RetryAfterError(datetime(2026, 11, 14, 11, 0))
+
+    assert error.retry_at == datetime(2026, 11, 14, 11, 0, tzinfo=timezone.utc)
+    assert error.retry_at_iso == "2026-11-14T11:00:00Z"
+    assert "2026-11-14T11:00:00Z" in str(error)
+
+
+async def test_wrapped_retry_after_is_an_ordinary_failure() -> None:
+    async def handler(ctx):
+        try:
+            raise RetryAfterError(datetime(2026, 11, 14, 11, 0))
+        except RetryAfterError as inner:
+            raise RuntimeError("wrapped") from inner
+
+    h = Harness({"TestJob": handler}, max_retries=1)
+    d = FakeDelivery()
+    await h.handle(d)
+
+    assert h.sleeps != []
+    assert all("retryAfter" not in m["body"] for m in h.pub.to("job_status_updates_queue"))
 
 
 async def test_invalid_job_data_is_permanent() -> None:
