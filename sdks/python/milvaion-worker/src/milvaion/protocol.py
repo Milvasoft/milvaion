@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-SDK_VERSION = "1.1.0"
+SDK_VERSION = "1.2.0"
 """Version of this SDK, reported to the dashboard. Kept equal to pyproject.toml by a test."""
 
 EXCHANGE_JOBS = "jobs.topic"

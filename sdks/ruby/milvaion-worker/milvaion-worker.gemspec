@@ -3,7 +3,7 @@
 Gem::Specification.new do |spec|
   spec.name = "milvaion-worker"
   # Kept equal to Milvaion::Worker::VERSION by a spec; the publish workflow checks it against the tag.
-  spec.version = "1.1.0"
+  spec.version = "1.2.0"
   spec.authors = ["Milvasoft"]
   spec.summary = "Ruby worker SDK for the Milvaion distributed job scheduler."
   spec.description = "Run Milvaion jobs in Ruby: registration, heartbeats, live logs, retries with " \

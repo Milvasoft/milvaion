@@ -31,7 +31,7 @@ use Psr\Log\LoggerInterface;
 final class Worker
 {
     /** Version of this SDK, reported to the dashboard. */
-    public const SDK_VERSION = '1.1.0';
+    public const SDK_VERSION = '1.2.0';
 
     private readonly LoggerInterface $logger;
     /** @var array<string, ResolvedJob> */

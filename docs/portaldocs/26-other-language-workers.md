@@ -157,11 +157,11 @@ A handler can be `async def` or a plain function. Plain functions run in a threa
 <dependency>
   <groupId>com.milvasoft</groupId>
   <artifactId>milvaion-worker</artifactId>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
 </dependency>
 ```
 
-With Gradle: `implementation("com.milvasoft:milvaion-worker:1.1.0")`.
+With Gradle: `implementation("com.milvasoft:milvaion-worker:1.2.0")`.
 
 ```java
 MilvaionWorker worker = new MilvaionWorker(new WorkerOptions()

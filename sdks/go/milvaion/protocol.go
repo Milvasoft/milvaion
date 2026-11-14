@@ -4,7 +4,7 @@ package milvaion
 // See docs/githubdocs/WORKER-PROTOCOL.md in the repository for the full protocol.
 
 // SDKVersion is the version of this SDK, reported to the dashboard.
-const SDKVersion = "1.1.0"
+const SDKVersion = "1.2.0"
 
 const (
 	exchangeJobs         = "jobs.topic"

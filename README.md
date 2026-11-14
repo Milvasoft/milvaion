@@ -669,7 +669,7 @@ go get github.com/Milvasoft/milvaion/sdks/go/milvaion
 # Python
 pip install milvaion-worker
 
-# Java / Kotlin (Maven Central): com.milvasoft:milvaion-worker:1.1.0
+# Java / Kotlin (Maven Central): com.milvasoft:milvaion-worker:1.2.0
 
 # PHP
 composer require milvasoft/milvaion-worker
