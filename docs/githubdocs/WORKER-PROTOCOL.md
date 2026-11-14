@@ -17,12 +17,12 @@ RabbitMQ is the default transport and the one this document describes. A deploym
 | Node.js | yes | yes |
 | Go | yes | yes |
 | Java | yes | yes |
-| Python | yes | not yet |
-| PHP | yes | not yet |
-| Rust | yes | not yet |
-| Ruby | yes | not yet |
+| Python | yes | yes |
+| PHP | yes | yes |
+| Rust | yes | yes |
+| Ruby | yes | yes |
 
-Python, PHP, Rust and Ruby workers are RabbitMQ only for now, as are the .NET SDK's Hangfire and Quartz adapters.
+Every worker SDK supports both. The .NET SDK's Hangfire and Quartz adapters (external schedulers) are RabbitMQ only for now.
 
 ## Conventions
 
