@@ -133,6 +133,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
         }
         finally
         {
+            // Environment variables are process-wide: undo this collection's own ones before another host is built.
+            ClearAdditionalEnvironmentVariables();
+
             _hostBuildLock.Release();
         }
     }
@@ -142,6 +145,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     /// Called inside the host-build lock, after all base env vars are set.
     /// </summary>
     protected virtual void ConfigureAdditionalEnvironmentVariables() { }
+
+    /// <summary>
+    /// Override to remove what <see cref="ConfigureAdditionalEnvironmentVariables"/> set, once the host has read it.
+    /// Called inside the host-build lock.
+    /// </summary>
+    protected virtual void ClearAdditionalEnvironmentVariables() { }
 
     public async Task CreateRespawner() => _respawner ??= await Respawner.CreateAsync(_connection, new RespawnerOptions
     {
@@ -156,7 +165,26 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
         {
             await _respawner.ResetAsync(_connection);
             await _dbContainer.ExecScriptAsync(ResetAutoIncrementQuery);
+            await EnsureDefaultProjectAsync();
         }
+    }
+
+    /// <summary>
+    /// Respawn empties every table, including the Default project row that the migration inserts and every project
+    /// foreign key points at. Put it back.
+    /// </summary>
+    public async Task EnsureDefaultProjectAsync()
+    {
+        await using var command = _connection.CreateCommand();
+
+        command.CommandText = """
+            INSERT INTO "Projects" ("Id", "Slug", "Name", "IsDefault", "Settings", "CreationDate", "CreatorUserName")
+            OVERRIDING SYSTEM VALUE
+            VALUES (1, 'default', 'Default', TRUE, '{}', now() at time zone 'utc', 'System')
+            ON CONFLICT ("Id") DO NOTHING;
+            """;
+
+        await command.ExecuteNonQueryAsync();
     }
 
     public override async ValueTask DisposeAsync()

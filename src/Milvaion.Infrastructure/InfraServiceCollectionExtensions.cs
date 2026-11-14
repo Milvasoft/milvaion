@@ -21,6 +21,7 @@ using Milvaion.Infrastructure.Services;
 using Milvaion.Infrastructure.Services.Alerting;
 using Milvaion.Infrastructure.Services.Alerting.Channels;
 using Milvaion.Infrastructure.Services.Monitoring;
+using Milvaion.Infrastructure.Services.Projects;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Redis;
 using Milvaion.Infrastructure.Services.Secrets;
@@ -132,6 +133,11 @@ public static class InfraServiceCollectionExtensions
             options.UseNpgsql(dataSource, b => b.MigrationsHistoryTable(TableNames.EfMigrationHistory).MigrationsAssembly("Milvaion.Api").EnableRetryOnFailure())
                    .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTrackingWithIdentityResolution);
         });
+
+        services.AddMemoryCache();
+        services.Configure<ProjectsOptions>(configurationManager.GetSection(ProjectsOptions.SectionKey));
+        services.AddSingleton<IProjectContext, ProjectContext>();
+        services.AddSingleton<IProjectDirectory, ProjectDirectory>();
 
         services.AddScoped<MilvaionDbContextScopedFactory>();
         services.AddScoped(sp => sp.GetRequiredService<MilvaionDbContextScopedFactory>().CreateDbContext());

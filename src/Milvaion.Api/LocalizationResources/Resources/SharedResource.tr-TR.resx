@@ -1082,4 +1082,34 @@ Maksimum dosya boyutu:
   <data name="Global.MilvaionApiKeyPermissionRelation" xml:space="preserve">
     <value>Api Key/Yetki İlişkisi</value>
   </data>
+  <data name="ProjectNotFound" xml:space="preserve">
+    <value>İstekte belirtilen proje bulunamadı.</value>
+  </data>
+  <data name="ProjectNotMember" xml:space="preserve">
+    <value>Bu projenin üyesi değilsiniz.</value>
+  </data>
+  <data name="ProjectApiKeyMismatch" xml:space="preserve">
+    <value>Bu api anahtarı başka bir projeye ait.</value>
+  </data>
+  <data name="ProjectRequired" xml:space="preserve">
+    <value>İsteğin projesini X-Milvaion-Project başlığında belirtin.</value>
+  </data>
+  <data name="ProjectArchived" xml:space="preserve">
+    <value>Proje arşivlenmiş, yalnızca okunabilir.</value>
+  </data>
+  <data name="RoleScope" xml:space="preserve">
+    <value>Rol Kapsamı</value>
+  </data>
+  <data name="RoleScope.Instance" xml:space="preserve">
+    <value>Kurulum</value>
+  </data>
+  <data name="RoleScope.Project" xml:space="preserve">
+    <value>Proje</value>
+  </data>
+  <data name="Global.Project" xml:space="preserve">
+    <value>Proje</value>
+  </data>
+  <data name="Global.ProjectMembership" xml:space="preserve">
+    <value>Proje Üyeliği</value>
+  </data>
 </root>

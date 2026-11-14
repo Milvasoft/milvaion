@@ -14,8 +14,13 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// </summary>
 [Table(SchedulerTableNames.Workflows)]
 [DontIndexCreationDate]
-public class Workflow : AuditableEntity<Guid>
+public class Workflow : AuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. See <see cref="IProjectScoped"/>.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Display name of the workflow.
     /// </summary>
@@ -103,6 +108,7 @@ public class Workflow : AuditableEntity<Guid>
         public static Expression<Func<Workflow, Workflow>> List { get; } = w => new Workflow
         {
             Id = w.Id,
+            ProjectId = w.ProjectId,
             Name = w.Name,
             Description = w.Description,
             Tags = w.Tags,
@@ -117,6 +123,7 @@ public class Workflow : AuditableEntity<Guid>
         public static Expression<Func<Workflow, Workflow>> Detail { get; } = w => new Workflow
         {
             Id = w.Id,
+            ProjectId = w.ProjectId,
             Name = w.Name,
             Description = w.Description,
             Tags = w.Tags,
@@ -136,6 +143,7 @@ public class Workflow : AuditableEntity<Guid>
         public static Expression<Func<Workflow, Workflow>> Trigger { get; } = w => new Workflow
         {
             Id = w.Id,
+            ProjectId = w.ProjectId,
             Name = w.Name,
             Description = w.Description,
             Tags = w.Tags,
@@ -154,6 +162,7 @@ public class Workflow : AuditableEntity<Guid>
         public static Expression<Func<Workflow, Workflow>> CheckCron { get; } = w => new Workflow
         {
             Id = w.Id,
+            ProjectId = w.ProjectId,
             CronExpression = w.CronExpression,
             LastScheduledRunAt = w.LastScheduledRunAt,
         };

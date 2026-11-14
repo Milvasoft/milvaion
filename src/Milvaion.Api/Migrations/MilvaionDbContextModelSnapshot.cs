@@ -19,7 +19,7 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261113221012_AddSchedulingFeatures";
+    public override string LastMigrationId => "20261113233320_AddProjects";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -45,6 +45,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .HasMaxLength(255)
                     .HasColumnType("timestamp with time zone");
 
+                b.Property<int?>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<string>("UserName")
                     .IsRequired()
                     .HasMaxLength(100)
@@ -54,6 +57,10 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
 
                 b.HasIndex("ActivityDate")
                     .IsDescending();
+
+                b.HasIndex("ProjectId", "ActivityDate")
+                    .IsDescending(false, true)
+                    .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                 b.ToTable("ActivityLogs");
             });
@@ -289,12 +296,15 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .HasMaxLength(100)
                     .HasColumnType("character varying(100)");
 
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.PrimitiveCollection<List<int>>("Weekdays")
                     .HasColumnType("integer[]");
 
                 b.HasKey("Id");
 
-                b.HasIndex("Name")
+                b.HasIndex("ProjectId", "Name")
                     .IsUnique();
 
                 b.ToTable("ExclusionCalendars");
@@ -437,10 +447,15 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .HasMaxLength(100)
                     .HasColumnType("character varying(100)");
 
+                b.Property<int?>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<DateTime?>("RevokedAt")
                     .HasColumnType("timestamp with time zone");
 
                 b.HasKey("Id");
+
+                b.HasIndex("ProjectId");
 
                 b.ToTable("MilvaionApiKeys");
             });
@@ -506,6 +521,101 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.ToTable("Permissions");
             });
 
+        modelBuilder.Entity("Milvaion.Domain.Project", b =>
+            {
+                var id = b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("integer");
+
+                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(id);
+
+                b.Property<DateTime?>("ArchivedAt")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<DateTime?>("CreationDate")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("CreatorUserName")
+                    .HasColumnType("text");
+
+                b.Property<string>("Description")
+                    .HasMaxLength(500)
+                    .HasColumnType("character varying(500)");
+
+                b.Property<bool>("IsDefault")
+                    .HasColumnType("boolean");
+
+                b.Property<DateTime?>("LastModificationDate")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("LastModifierUserName")
+                    .HasColumnType("text");
+
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("character varying(100)");
+
+                b.Property<ProjectSettingsDocument>("Settings")
+                    .HasColumnType("jsonb");
+
+                b.Property<string>("Slug")
+                    .IsRequired()
+                    .HasMaxLength(40)
+                    .HasColumnType("character varying(40)");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Slug")
+                    .IsUnique();
+
+                b.ToTable("Projects");
+            });
+
+        modelBuilder.Entity("Milvaion.Domain.ProjectMembership", b =>
+            {
+                var id = b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("integer");
+
+                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(id);
+
+                b.Property<DateTime?>("CreationDate")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("CreatorUserName")
+                    .HasColumnType("text");
+
+                b.Property<DateTime?>("LastModificationDate")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("LastModifierUserName")
+                    .HasColumnType("text");
+
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
+                b.Property<int>("RoleId")
+                    .HasColumnType("integer");
+
+                b.Property<byte>("Source")
+                    .HasColumnType("smallint");
+
+                b.Property<int>("UserId")
+                    .HasColumnType("integer");
+
+                b.HasKey("Id");
+
+                b.HasIndex("RoleId");
+
+                b.HasIndex("UserId");
+
+                b.HasIndex("ProjectId", "UserId")
+                    .IsUnique();
+
+                b.ToTable("ProjectMemberships");
+            });
+
         modelBuilder.Entity("Milvaion.Domain.Role", b =>
             {
                 var id = b.Property<int>("Id")
@@ -541,6 +651,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .HasColumnType("character varying(100)");
 
                 b.Property<byte>("Provider")
+                    .HasColumnType("smallint");
+
+                b.Property<byte>("Scope")
                     .HasColumnType("smallint");
 
                 b.HasKey("Id");
@@ -994,6 +1107,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<DateTime?>("OriginalExecuteAt")
                     .HasColumnType("timestamp with time zone");
 
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<string>("ResolutionAction")
                     .HasMaxLength(200)
                     .HasColumnType("character varying(200)");
@@ -1028,6 +1144,10 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
 
                 b.HasIndex("Resolved", "FailedAt")
                     .IsDescending(false, true);
+
+                b.HasIndex("ProjectId", "Resolved", "FailedAt")
+                    .IsDescending(false, false, true)
+                    .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                 b.ToTable("FailedOccurrences");
             });
@@ -1085,6 +1205,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
 
                 b.Property<DateTime?>("NextDispatchRetryAt")
                     .HasColumnType("timestamp with time zone");
+
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
 
                 b.Property<string>("Result")
                     .HasColumnType("text");
@@ -1158,6 +1281,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<Guid>("OccurrenceId")
                     .HasColumnType("uuid");
 
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<DateTime>("Timestamp")
                     .HasColumnType("timestamp with time zone");
 
@@ -1213,11 +1339,17 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<DateTime>("PeriodStartTime")
                     .HasColumnType("timestamp with time zone");
 
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<string>("Tags")
                     .HasMaxLength(500)
                     .HasColumnType("character varying(500)");
 
                 b.HasKey("Id");
+
+                b.HasIndex("ProjectId", "MetricType", "GeneratedAt")
+                    .IsDescending(false, false, true);
 
                 b.ToTable("MetricReports");
             });
@@ -1297,6 +1429,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<int>("Priority")
                     .HasColumnType("integer");
 
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<string>("RoutingPattern")
                     .HasColumnType("text");
 
@@ -1319,6 +1454,8 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .HasColumnType("integer");
 
                 b.HasKey("Id");
+
+                b.HasIndex("ProjectId", "IsActive");
 
                 b.ToTable("ScheduledJobs");
             });
@@ -1369,6 +1506,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .HasMaxLength(200)
                     .HasColumnType("character varying(200)");
 
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<string>("Tags")
                     .HasMaxLength(500)
                     .HasColumnType("character varying(500)");
@@ -1383,6 +1523,8 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .HasColumnType("jsonb");
 
                 b.HasKey("Id");
+
+                b.HasIndex("ProjectId", "IsActive");
 
                 b.ToTable("Workflows");
             });
@@ -1413,6 +1555,9 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Property<string>("Error")
                     .HasColumnType("text");
 
+                b.Property<int>("ProjectId")
+                    .HasColumnType("integer");
+
                 b.Property<DateTime?>("StartTime")
                     .HasColumnType("timestamp with time zone");
 
@@ -1437,6 +1582,14 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.HasIndex("WorkflowId");
 
                 b.ToTable("WorkflowRuns");
+            });
+
+        modelBuilder.Entity("Milvaion.Domain.ActivityLog", b =>
+            {
+                b.HasOne("Milvaion.Domain.Project", null)
+                    .WithMany()
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
         modelBuilder.Entity("Milvaion.Domain.ContentManagement.Content", b =>
@@ -1480,6 +1633,23 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Navigation("Namespace");
             });
 
+        modelBuilder.Entity("Milvaion.Domain.ExclusionCalendar", b =>
+            {
+                b.HasOne("Milvaion.Domain.Project", null)
+                    .WithMany()
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
+            });
+
+        modelBuilder.Entity("Milvaion.Domain.MilvaionApiKey", b =>
+            {
+                b.HasOne("Milvaion.Domain.Project", null)
+                    .WithMany()
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
         modelBuilder.Entity("Milvaion.Domain.MilvaionApiKeyPermissionRelation", b =>
             {
                 b.HasOne("Milvaion.Domain.MilvaionApiKey", "MilvaionApiKey")
@@ -1497,6 +1667,33 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                 b.Navigation("MilvaionApiKey");
 
                 b.Navigation("Permission");
+            });
+
+        modelBuilder.Entity("Milvaion.Domain.ProjectMembership", b =>
+            {
+                b.HasOne("Milvaion.Domain.Project", "Project")
+                    .WithMany("Memberships")
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("Milvaion.Domain.Role", "Role")
+                    .WithMany()
+                    .HasForeignKey("RoleId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("Milvaion.Domain.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("Project");
+
+                b.Navigation("Role");
+
+                b.Navigation("User");
             });
 
         modelBuilder.Entity("Milvaion.Domain.RolePermissionRelation", b =>
@@ -1590,6 +1787,12 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .OnDelete(DeleteBehavior.Cascade)
                     .IsRequired();
 
+                b.HasOne("Milvaion.Domain.Project", null)
+                    .WithMany()
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
+
                 b.Navigation("Job");
 
                 b.Navigation("Occurrence");
@@ -1621,6 +1824,33 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
                     .IsRequired();
 
                 b.Navigation("Occurrence");
+            });
+
+        modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.MetricReport", b =>
+            {
+                b.HasOne("Milvaion.Domain.Project", null)
+                    .WithMany()
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
+            });
+
+        modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.ScheduledJob", b =>
+            {
+                b.HasOne("Milvaion.Domain.Project", null)
+                    .WithMany()
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
+            });
+
+        modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.Workflow", b =>
+            {
+                b.HasOne("Milvaion.Domain.Project", null)
+                    .WithMany()
+                    .HasForeignKey("ProjectId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
             });
 
         modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowRun", b =>
@@ -1659,6 +1889,11 @@ partial class MilvaionDbContextModelSnapshot : ModelSnapshot
         modelBuilder.Entity("Milvaion.Domain.Permission", b =>
             {
                 b.Navigation("RolePermissionRelations");
+            });
+
+        modelBuilder.Entity("Milvaion.Domain.Project", b =>
+            {
+                b.Navigation("Memberships");
             });
 
         modelBuilder.Entity("Milvaion.Domain.Role", b =>

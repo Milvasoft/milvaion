@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
+using System.Globalization;
+using Milvaion.Application.Utils.Projects;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Extensions;
 using Milvaion.Domain;
@@ -38,7 +40,7 @@ public class AccountManager(IMilvaionRepositoryBase<UserSession> userSessionRepo
     {
         var permissions = user.RoleRelations.SelectMany(i => i.Role.RolePermissionRelations.Select(i => i.Permission));
 
-        List<Claim> claims = [new(ClaimTypes.Name, user.UserName)];
+        List<Claim> claims = [new(ClaimTypes.Name, user.UserName), new(MilvaionClaimTypes.UserId, user.Id.ToString(CultureInfo.InvariantCulture))];
 
         claims.AddRange(BuildRoleClaims(permissions));
 

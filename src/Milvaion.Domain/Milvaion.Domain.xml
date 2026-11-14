@@ -9,6 +9,11 @@
             Entity of the ActivityLogs table.
             </summary>
         </member>
+        <member name="P:Milvaion.Domain.ActivityLog.ProjectId">
+            <summary>
+            Id of the owning project. Null for activity outside any project. See <see cref="T:Milvasoft.Milvaion.Sdk.Domain.IOptionalProjectScoped"/>.
+            </summary>
+        </member>
         <member name="P:Milvaion.Domain.ActivityLog.UserName">
             <summary>
             Username of the user performing the activity.
@@ -315,9 +320,76 @@
             Notication related entity types.
             </summary>
         </member>
+        <member name="T:Milvaion.Domain.Enums.RoleScope">
+            <summary>
+            Where a role applies.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.RoleScope.Instance">
+            <summary>
+            Assigned to users directly. Its project permissions apply in the Default project only once projects are enabled.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.RoleScope.Project">
+            <summary>
+            Assigned through a project membership and applies in that project only.
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.Enums.UserActivity">
             <summary>
             User activity types.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.ExclusionCalendar">
+            <summary>
+            A named set of days on which jobs that reference it do not run - public holidays, maintenance windows,
+            company shutdowns.
+            </summary>
+            <remarks>
+            A calendar holds three kinds of rule and a day is excluded when any of them matches: single dates, inclusive
+            date ranges, and days of the week. Dates are calendar dates without a time or a zone; each job compares them
+            with the local date of its run in its own time zone, so one "public holidays" calendar works for jobs in
+            different zones.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Domain.ExclusionCalendar.ProjectId">
+            <summary>
+            Id of the owning project. Calendar names are unique within a project.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ExclusionCalendar.Name">
+            <summary>
+            Unique name of the calendar.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ExclusionCalendar.Description">
+            <summary>
+            What the calendar is for.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ExclusionCalendar.Dates">
+            <summary>
+            Single excluded dates.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ExclusionCalendar.DateRanges">
+            <summary>
+            Excluded date ranges, both ends inclusive.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ExclusionCalendar.Weekdays">
+            <summary>
+            Excluded days of the week, as <see cref="T:System.DayOfWeek"/> values (0 = Sunday ... 6 = Saturday).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.ExclusionCalendar.Excludes(System.DateOnly)">
+            <summary>
+            Returns true when <paramref name="date"/> is excluded by this calendar.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.ExclusionCalendar.FindExcluding(System.Collections.Generic.IEnumerable{Milvaion.Domain.ExclusionCalendar},System.DateOnly)">
+            <summary>
+            Returns the first calendar that excludes <paramref name="date"/>, or null when none does.
             </summary>
         </member>
         <member name="T:Milvaion.Domain.InternalNotification">
@@ -445,6 +517,31 @@
             the shipped default when empty.
             </summary>
         </member>
+        <member name="T:Milvaion.Domain.JsonModels.ExclusionDateRange">
+            <summary>
+            An inclusive range of calendar dates.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ExclusionDateRange.Start">
+            <summary>
+            First excluded date.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ExclusionDateRange.End">
+            <summary>
+            Last excluded date. Equal to <see cref="P:Milvaion.Domain.JsonModels.ExclusionDateRange.Start"/> for a single day.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.JsonModels.ExclusionDateRange.Label">
+            <summary>
+            Optional label, e.g. "Christmas shutdown".
+            </summary>
+        </member>
+        <member name="M:Milvaion.Domain.JsonModels.ExclusionDateRange.Contains(System.DateOnly)">
+            <summary>
+            Returns true when <paramref name="date"/> falls inside the range.
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.JsonModels.MenuGroupTranslation">
             <summary>
             Json model for menu group translations.
@@ -518,6 +615,12 @@
         <member name="P:Milvaion.Domain.JsonModels.PageActionTranslation.Entity">
             <summary>
             Unused property. Because of jsonb.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.JsonModels.ProjectSettingsDocument">
+            <summary>
+            Project level settings stored as jsonb on <see cref="P:Milvaion.Domain.Project.Settings"/>.
+            Empty for now: notification rules, quotas and retention overrides are added here as those features ship.
             </summary>
         </member>
         <member name="T:Milvaion.Domain.JsonModels.RequestInfo">
@@ -613,6 +716,11 @@
             entity's id, so authentication is a signature check followed by a lookup of this record. That lookup is what
             makes revocation, expiry and last-used tracking possible.
             </remarks>
+        </member>
+        <member name="P:Milvaion.Domain.MilvaionApiKey.ProjectId">
+            <summary>
+            Id of the owning project. Null for an instance-wide row. See <see cref="T:Milvasoft.Milvaion.Sdk.Domain.IOptionalProjectScoped"/>.
+            </summary>
         </member>
         <member name="P:Milvaion.Domain.MilvaionApiKey.Name">
             <summary>
@@ -737,6 +845,88 @@
             </summary>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Domain.Project">
+            <summary>
+            A project is the unit of isolation: it owns jobs, workflows, occurrences, failures, reports, calendars and api keys.
+            Every installation has the Default project (<see cref="F:Milvasoft.Milvaion.Sdk.Domain.ProjectDefaults.DefaultProjectId"/>). See docs/githubdocs/PROJECTS-DESIGN.md.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Project.Slug">
+            <summary>
+            Lowercase identifier used in the <c>X-Milvaion-Project</c> header, in URLs and later in routing keys.
+            Unique and never changed after creation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Project.Name">
+            <summary>
+            Display name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Project.Description">
+            <summary>
+            Optional description.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Project.IsDefault">
+            <summary>
+            True only for the Default project, which cannot be deleted or archived.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Project.ArchivedAt">
+            <summary>
+            When set, the project is read-only: requests other than reads are rejected.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Project.Settings">
+            <summary>
+            Project level settings (notification rules, quotas, retention). Empty until those features ship.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Project.Memberships">
+            <summary>
+            Members of the project.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Domain.ProjectMembership">
+            <summary>
+            Gives a user a project role inside one project.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ProjectMembership.ProjectId">
+            <summary>
+            Id of the project.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ProjectMembership.UserId">
+            <summary>
+            Id of the user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ProjectMembership.RoleId">
+            <summary>
+            Id of the role. Must be a role with <see cref="F:Milvaion.Domain.Enums.RoleScope.Project"/>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ProjectMembership.Source">
+            <summary>
+            Where the membership comes from. External memberships are replaced at every sign-in, local ones are kept.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ProjectMembership.Project">
+            <summary>
+            Navigation property of the project.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ProjectMembership.User">
+            <summary>
+            Navigation property of the user.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.ProjectMembership.Role">
+            <summary>
+            Navigation property of the role.
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.Role">
             <summary>
             Entity of the Roles table.
@@ -752,6 +942,12 @@
             Where this role is owned. <see cref="F:Milvaion.Domain.Enums.ExternalProvider.Local"/> roles are managed entirely in
             Milvaion. Roles provisioned from an identity provider are owned there: their name mirrors the
             external group and cannot be renamed here, but their permission set is assigned in Milvaion.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Domain.Role.Scope">
+            <summary>
+            Where the role applies. Instance roles are assigned to users directly; project roles are assigned through
+            <see cref="T:Milvaion.Domain.ProjectMembership"/> and apply only in that project.
             </summary>
         </member>
         <member name="P:Milvaion.Domain.Role.UserRoleRelations">

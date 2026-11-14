@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning;
+using Milvaion.Application.Utils.Projects;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -315,6 +316,10 @@ public static partial class StartupExtensions
                     // otherwise be read as one, so only what was resolved above may remain.
                     foreach (var providerRoleClaim in identity.FindAll(ClaimTypes.Role).ToList())
                         identity.TryRemoveClaim(providerRoleClaim);
+
+                    // The same goes for the user id that project resolution trusts.
+                    foreach (var providerUserIdClaim in identity.FindAll(MilvaionClaimTypes.UserId).ToList())
+                        identity.TryRemoveClaim(providerUserIdClaim);
 
                     identity.AddClaims(claims);
                 }

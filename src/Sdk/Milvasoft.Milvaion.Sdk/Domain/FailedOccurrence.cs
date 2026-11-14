@@ -16,8 +16,13 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 [Index(nameof(Resolved), nameof(FailedAt), IsDescending = [false, true])] // For filtering resolved/unresolved jobs and ordering by FailedAt
 [Index(nameof(FailureType), nameof(Resolved))] // For filtering by failure type and resolution status
 [DontIndexCreationDate]
-public class FailedOccurrence : CreationAuditableEntity<Guid>
+public class FailedOccurrence : CreationAuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. See <see cref="IProjectScoped"/>.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Reference to the original scheduled job.
     /// </summary>

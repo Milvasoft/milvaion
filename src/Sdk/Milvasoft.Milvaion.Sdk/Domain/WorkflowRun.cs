@@ -13,8 +13,13 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// </summary>
 [Table(SchedulerTableNames.WorkflowRuns)]
 [DontIndexCreationDate]
-public class WorkflowRun : CreationAuditableEntity<Guid>
+public class WorkflowRun : CreationAuditableEntity<Guid>, IProjectScoped
 {
+    /// <summary>
+    /// Id of the owning project. See <see cref="IProjectScoped"/>.
+    /// </summary>
+    public int ProjectId { get; set; }
+
     /// <summary>
     /// Parent workflow definition ID.
     /// </summary>
@@ -96,6 +101,7 @@ public class WorkflowRun : CreationAuditableEntity<Guid>
         public static Expression<Func<WorkflowRun, WorkflowRun>> List { get; } = r => new WorkflowRun
         {
             Id = r.Id,
+            ProjectId = r.ProjectId,
             WorkflowId = r.WorkflowId,
             WorkflowVersion = r.WorkflowVersion,
             CorrelationId = r.CorrelationId,

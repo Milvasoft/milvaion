@@ -465,6 +465,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                     var hashEntries = new HashEntry[]
                     {
                         new("Id", job.Id.ToString()),
+                        new("ProjectId", job.ProjectId.ToString(CultureInfo.InvariantCulture)),
                         new("DisplayName", job.DisplayName ?? string.Empty),
                         new("Description", job.Description ?? string.Empty),
                         new("Tags", job.Tags ?? string.Empty),
@@ -868,6 +869,10 @@ public class RedisSchedulerService : IRedisSchedulerService
             return new ScheduledJob
             {
                 Id = Guid.Parse(dict["Id"]),
+                // Entries cached before projects existed belong to the Default project, like every row of that time.
+                ProjectId = dict.TryGetValue("ProjectId", out var projectIdStr) && int.TryParse(projectIdStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var projectId) && projectId > 0
+                    ? projectId
+                    : ProjectDefaults.DefaultProjectId,
                 DisplayName = dict.GetValueOrDefault("DisplayName"),
                 Description = dict.GetValueOrDefault("Description"),
                 Tags = dict.GetValueOrDefault("Tags"),

@@ -120,6 +120,7 @@ public static partial class PermissionCatalog
     }
 
     [Description("Activity Log Management")]
+    [PermissionScope(PermissionScopeKind.Project)]
     public static class ActivityLogManagement
     {
         [Description("Activity Log list permission.")]
@@ -156,6 +157,7 @@ public static partial class PermissionCatalog
     }
 
     [Description("Scheduled Job Management")]
+    [PermissionScope(PermissionScopeKind.Project)]
     public static class ScheduledJobManagement
     {
         [Description("Scheduled Job list permission.")]
@@ -181,6 +183,7 @@ public static partial class PermissionCatalog
     }
 
     [Description("Exclusion Calendar Management")]
+    [PermissionScope(PermissionScopeKind.Project)]
     public static class ExclusionCalendarManagement
     {
         [Description("Exclusion calendar list permission.")]
@@ -200,6 +203,7 @@ public static partial class PermissionCatalog
     }
 
     [Description("Worker Management")]
+    [PermissionScope(PermissionScopeKind.Project)]
     public static class WorkerManagement
     {
         [Description("Worker list permission.")]
@@ -229,6 +233,7 @@ public static partial class PermissionCatalog
     }
 
     [Description("Failed Job Management")]
+    [PermissionScope(PermissionScopeKind.Project)]
     public static class FailedOccurrenceManagement
     {
         [Description("Failed Job list permission.")]
@@ -248,6 +253,7 @@ public static partial class PermissionCatalog
     }
 
     [Description("Workflow Management")]
+    [PermissionScope(PermissionScopeKind.Project)]
     public static class WorkflowManagement
     {
         [Description("Workflow list permission.")]
@@ -270,6 +276,7 @@ public static partial class PermissionCatalog
     }
 
     [Description("Api Key Management")]
+    [PermissionScope(PermissionScopeKind.Project)]
     public static class ApiKeyManagement
     {
         [Description("Api key list permission.")]

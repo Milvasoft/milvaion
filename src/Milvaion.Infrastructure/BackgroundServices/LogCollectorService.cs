@@ -310,10 +310,16 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-        var logsToInsert = batch.Where(i => i.Message?.Log != null).Select(i => ToEntity(i.Message)).ToList();
+        var messages = batch.Where(i => i.Message?.Log != null).Select(i => i.Message).ToList();
 
-        if (logsToInsert.Count > 0)
+        if (messages.Count > 0)
+        {
+            var projectIds = await GetOccurrenceProjectIdsAsync(dbContext, messages, cancellationToken);
+
+            var logsToInsert = messages.Select(m => ToEntity(m, projectIds)).ToList();
+
             await dbContext.BulkInsertAsync(logsToInsert, cancellationToken: cancellationToken);
+        }
 
         // Trigger SignalR events after DB update
         var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
@@ -333,9 +339,24 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         }
     }
 
-    private static JobOccurrenceLog ToEntity(WorkerLogMessage message) => new()
+    /// <summary>
+    /// Workers do not send the project of a log line, so it is copied from the occurrence. A line whose occurrence does
+    /// not exist (yet) keeps the Default project; its insert then fails on the occurrence key exactly as before projects.
+    /// </summary>
+    private static async Task<Dictionary<Guid, int>> GetOccurrenceProjectIdsAsync(MilvaionDbContext dbContext, List<WorkerLogMessage> messages, CancellationToken cancellationToken)
+    {
+        var occurrenceIds = messages.Select(m => m.OccurrenceId).Distinct().ToList();
+
+        return await dbContext.JobOccurrences.AsNoTracking()
+                                             .Where(o => occurrenceIds.Contains(o.Id))
+                                             .Select(o => new { o.Id, o.ProjectId })
+                                             .ToDictionaryAsync(o => o.Id, o => o.ProjectId, cancellationToken);
+    }
+
+    private static JobOccurrenceLog ToEntity(WorkerLogMessage message, Dictionary<Guid, int> projectIds) => new()
     {
         Id = Guid.CreateVersion7(),
+        ProjectId = projectIds.GetValueOrDefault(message.OccurrenceId, ProjectDefaults.DefaultProjectId),
         OccurrenceId = message.OccurrenceId,
         Level = message.Log.Level,
         Category = message.Log.Category,
@@ -436,10 +457,10 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
             var existingOccurrences = await dbContext.JobOccurrences.AsNoTracking()
                                                                     .Where(o => occurrenceIds.Contains(o.Id))
-                                                                    .Select(o => o.Id)
-                                                                    .ToListAsync(cancellationToken);
+                                                                    .Select(o => new { o.Id, o.ProjectId })
+                                                                    .ToDictionaryAsync(o => o.Id, o => o.ProjectId, cancellationToken);
 
-            var existingSet = existingOccurrences.ToHashSet();
+            var existingSet = existingOccurrences.Keys.ToHashSet();
 
             var logsWithOccurrence = new List<WorkerLogMessage>();
             var logsWithoutOccurrence = new List<(WorkerLogMessage Log, int RetryCount, DateTime AddedAt)>();
@@ -462,7 +483,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             // Insert logs that now have occurrence
             if (logsWithOccurrence.Count > 0)
             {
-                var logsToInsert = logsWithOccurrence.Where(l => l.Log != null).Select(ToEntity).ToList();
+                var logsToInsert = logsWithOccurrence.Where(l => l.Log != null).Select(l => ToEntity(l, existingOccurrences)).ToList();
 
                 await dbContext.BulkInsertAsync(logsToInsert, cancellationToken: cancellationToken);
 

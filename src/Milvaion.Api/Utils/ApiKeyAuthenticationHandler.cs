@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using Milvaion.Api.Services;
+using System.Globalization;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
@@ -20,7 +21,8 @@ public class ApiKeyAuthenticationHandler(IOptionsMonitor<ApiKeyAuthenticationOpt
                                          UrlEncoder encoder,
                                          MilvaionConfig milvaionConfig,
                                          ApiKeyStore apiKeyStore,
-                                         IMilvaionRepositoryBase<MilvaionApiKey> apiKeyRepository)
+                                         IMilvaionRepositoryBase<MilvaionApiKey> apiKeyRepository,
+                                         IProjectContext projectContext)
     : AuthenticationHandler<ApiKeyAuthenticationOptions>(options, loggerFactory, encoder)
 {
     private readonly MilvaionConfig _milvaionConfig = milvaionConfig;
@@ -30,6 +32,9 @@ public class ApiKeyAuthenticationHandler(IOptionsMonitor<ApiKeyAuthenticationOpt
     /// <inheritdoc/>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // The request's project is resolved from the key, so the key itself is read before any project is known.
+        using var systemScope = projectContext.EnterSystemScope();
+
         if (!Request.Headers.TryGetValue(MessageConstant.ApiKey, out var headerValues))
             return AuthenticateResult.NoResult();
 
@@ -67,7 +72,9 @@ public class ApiKeyAuthenticationHandler(IOptionsMonitor<ApiKeyAuthenticationOpt
             // Prefixed so a key can never be mistaken for the user account of the same name.
             new(ClaimTypes.Name, $"{ApiKeyAuthenticationDefaults.PrincipalNamePrefix}{apiKey.Name}"),
             new(ClaimTypes.NameIdentifier, apiKey.Id.ToString()),
-            new(ApiKeyAuthenticationDefaults.ApiKeyIdClaimName, apiKey.Id.ToString())
+            new(ApiKeyAuthenticationDefaults.ApiKeyIdClaimName, apiKey.Id.ToString()),
+            // Keys created before projects existed are cached without a project: they belong to the Default project.
+            new(ApiKeyAuthenticationDefaults.ApiKeyProjectIdClaimName, (apiKey.ProjectId ?? ProjectDefaults.DefaultProjectId).ToString(CultureInfo.InvariantCulture))
         };
 
         // Permissions travel as role claims because AuthAttribute derives from AuthorizeAttribute and matches

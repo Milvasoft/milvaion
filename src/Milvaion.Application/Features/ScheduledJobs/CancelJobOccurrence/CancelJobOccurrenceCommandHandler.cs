@@ -76,6 +76,7 @@ public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccur
         await _occurenceLogRepository.AddAsync(new JobOccurrenceLog
         {
             Id = Guid.CreateVersion7(),
+            ProjectId = occurrence.ProjectId,
             OccurrenceId = occurrence.Id,
             Timestamp = now,
             Level = LogLevel.Warning.ToString(),

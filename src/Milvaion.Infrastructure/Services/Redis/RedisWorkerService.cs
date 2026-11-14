@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -16,11 +17,20 @@ namespace Milvaion.Infrastructure.Services.Redis;
 /// Uses Redis Hashes with TTL for automatic zombie detection.
 /// Returns CachedWorker models (not DB entities).
 /// </summary>
+/// <remarks>
+/// Workers do not declare a project yet, so every registered worker belongs to the Default project. Requests running
+/// in any other project see no workers. Background services run in a system scope and see all of them.
+/// </remarks>
 public class RedisWorkerService(IConnectionMultiplexer redis,
                                 IRedisCircuitBreaker circuitBreaker,
                                 IOptions<RedisOptions> options,
-                                ILoggerFactory loggerFactory) : IRedisWorkerService
+                                ILoggerFactory loggerFactory,
+                                IProjectContext projectContext = null) : IRedisWorkerService
 {
+    private readonly IProjectContext _projectContext = projectContext;
+
+    private bool CanSeeWorkers => _projectContext?.CanSeeDefaultProjectResources ?? true;
+
     private readonly IRedisCircuitBreaker _circuitBreaker = circuitBreaker;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<RedisWorkerService>();
     private readonly IDatabase _db = redis.GetDatabase();
@@ -225,6 +235,9 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task<CachedWorker> GetWorkerAsync(string workerId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
+                if (!CanSeeWorkers)
+                    return null;
+
                 var workerKey = $"{_options.KeyPrefix}workers:{workerId}";
                 var instanceSetKey = $"{_options.KeyPrefix}workers:{workerId}:instances";
 
@@ -338,6 +351,9 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task<List<CachedWorker>> GetAllWorkersAsync(CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
+                if (!CanSeeWorkers)
+                    return [];
+
                 // O(1) fetch from index set
                 var workerIds = await _db.SetMembersAsync(WorkersIndexKey);
                 if (workerIds.IsNullOrEmpty())
@@ -705,6 +721,9 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task<bool> RemoveWorkerAsync(string workerId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
+                if (!CanSeeWorkers)
+                    return false;
+
                 try
                 {
                     var workerKey = $"{_options.KeyPrefix}workers:{workerId}";

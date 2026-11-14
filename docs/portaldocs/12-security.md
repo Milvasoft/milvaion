@@ -345,6 +345,25 @@ GRANT CREATE ON SCHEMA public TO milvaion_admin;
 }
 ```
 
+#### A Separate Redis User for Workers
+
+Workers use Redis for one thing: they subscribe to the cancellation channel. They never read or write keys. The API's
+password, on the other hand, can read everything under the key prefix, including the job schedule and the api key
+cache. Do not give workers that password. Give them their own Redis user (Redis 6 or later) that can only ping and
+subscribe:
+
+```bash
+# redis.conf, or ACL SETUSER at runtime
+user milvaion-api on >API_PASSWORD ~Milvaion:JobScheduler:* &Milvaion:JobScheduler:* +@all
+user milvaion-worker on >WORKER_PASSWORD resetkeys resetchannels &Milvaion:JobScheduler:*cancellation_channel -@all +ping +subscribe +psubscribe +unsubscribe +punsubscribe +hello +auth +client|setname +client|setinfo
+```
+
+Replace `Milvaion:JobScheduler:` with your `KeyPrefix`, and point the workers at the new user, for example
+`"ConnectionString": "redis:6379,user=milvaion-worker,password=WORKER_PASSWORD"`.
+
+A worker that holds only this user cannot read schedules or api keys, even if the worker host is compromised. This
+does not need any change in Milvaion or in the worker SDKs.
+
 #### Redis Server Hardening
 
 ```bash

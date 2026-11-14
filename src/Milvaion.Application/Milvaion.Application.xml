@@ -7274,13 +7274,18 @@
             Handles the dashboard statistics query using Redis counters (real-time, no SQL!).
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler.#ctor(Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
+        <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler.#ctor(Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.IProjectContext,Milvaion.Application.Interfaces.IMilvaionDbContextAccessor)">
             <summary>
             Handles the dashboard statistics query using Redis counters (real-time, no SQL!).
             </summary>
         </member>
         <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler.Handle(Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler.CountByStatusAsync(System.Threading.CancellationToken)">
+            <summary>
+            The counters <see cref="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.GetStatisticsAsync(System.Threading.CancellationToken)"/> returns, counted for the current project.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryValidator">
             <summary>
@@ -8745,7 +8750,7 @@
             <param name="milvaionDbContextAccessor"></param>
             <param name="redisStatsService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IProjectContext)">
             <summary>
             Handles the job occurrence list operation.
             </summary>
@@ -8772,7 +8777,7 @@
             <param name="milvaionDbContextAccessor"></param>
             <param name="redisStatsService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IProjectContext)">
             <summary>
             Handles the job occurrence list operation.
             </summary>
@@ -9216,11 +9221,14 @@
             Builds the search predicate: an exact id match for a guid, otherwise a job name search.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.JobOccurrenceListSearch.GetCountFromStatsAsync(Milvasoft.Components.Rest.Request.FilterRequest,System.String,Milvaion.Application.Interfaces.Redis.IRedisStatsService,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.JobOccurrenceListSearch.GetCountFromStatsAsync(Milvasoft.Components.Rest.Request.FilterRequest,System.String,Milvaion.Application.Interfaces.Redis.IRedisStatsService,System.Threading.CancellationToken,Milvaion.Application.Interfaces.IProjectContext)">
             <summary>
             Returns the total from the Redis counters when they answer exactly this query, or null when the database has
             to count. The counters only know the grand total and a total per status.
             </summary>
+            <remarks>
+            The counters cover every project, so they are used only while the project filter is bypassed (projects disabled).
+            </remarks>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommand">
             <summary>
@@ -11162,6 +11170,131 @@
             <summary>
             Checks that the caller may put these permissions on an api key, new when <paramref name="apiKeyId"/> is null.
             The super admin permission can never be put on a key, whoever asks.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.ProjectScopeKind">
+            <summary>
+            The state of the current project context.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Interfaces.ProjectScopeKind.Unresolved">
+            <summary>
+            Inside an HTTP request whose project has not been resolved (yet). Queries over project data return nothing
+            and writes of project data are rejected: forgetting to resolve a project fails closed.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Interfaces.ProjectScopeKind.Resolved">
+            <summary>
+            The request runs in one project.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Interfaces.ProjectScopeKind.System">
+            <summary>
+            Background services and explicitly entered system scopes. Sees every project.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.IProjectContext">
+            <summary>
+            The project the current code runs in. Read by the EF query filter, the save checks and project-aware services.
+            </summary>
+            <remarks>
+            Outside an HTTP request (background services) the context is <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.System"/>. Inside a request
+            it is <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.Unresolved"/> until the project has been resolved for that request.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IProjectContext.Kind">
+            <summary>
+            Current state.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IProjectContext.ProjectId">
+            <summary>
+            Id of the resolved project. -1 when <see cref="P:Milvaion.Application.Interfaces.IProjectContext.Kind"/> is not <see cref="F:Milvaion.Application.Interfaces.ProjectScopeKind.Resolved"/>, a value that matches no row.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IProjectContext.ProjectSlug">
+            <summary>
+            Slug of the resolved project, or null.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IProjectContext.BypassFilter">
+            <summary>
+            True when the query filter must not restrict rows: in a system scope, and in a resolved request while projects
+            are disabled (every row then belongs to the Default project, so the filter would only cost query time).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IProjectContext.CanSeeDefaultProjectResources">
+            <summary>
+            True for system scopes and for requests in the Default project. Resources that are not yet split by project -
+            the worker registry and the instance-wide counters - are visible only then.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IProjectContext.EnterSystemScope">
+            <summary>
+            Enters a scope that sees every project until the returned value is disposed. Use only for code that must work
+            across projects or before the request's project is known, such as authenticating an api key.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IProjectContext.EnterProjectScope(System.Int32)">
+            <summary>
+            Runs the following code as if it were a request in <paramref name="projectId"/> until the returned value is
+            disposed. Background services use it before calling request handlers (for example a cron workflow trigger), so
+            the handler stamps and filters by the right project.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.ProjectInfo">
+            <summary>
+            A project as seen by request resolution.
+            </summary>
+            <param name="Id">Project id.</param>
+            <param name="Slug">Project slug.</param>
+            <param name="IsArchived">True when the project is read-only.</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.ProjectInfo.#ctor(System.Int32,System.String,System.Boolean)">
+            <summary>
+            A project as seen by request resolution.
+            </summary>
+            <param name="Id">Project id.</param>
+            <param name="Slug">Project slug.</param>
+            <param name="IsArchived">True when the project is read-only.</param>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ProjectInfo.Id">
+            <summary>Project id.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ProjectInfo.Slug">
+            <summary>Project slug.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.ProjectInfo.IsArchived">
+            <summary>True when the project is read-only.</summary>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.IProjectDirectory">
+            <summary>
+            Cached lookups used to resolve the project of a request and the caller's permissions in it.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IProjectDirectory.FindBySlugAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Finds a project by slug (case-insensitive), or returns null.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IProjectDirectory.FindByIdAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Finds a project by id, or returns null.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IProjectDirectory.FindUserIdAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Returns the id of the user with <paramref name="userName"/>, or null. Used for tokens issued before the user id claim existed.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IProjectDirectory.GetMembershipPermissionsAsync(System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Returns the permissions the user holds in the project through a membership, or null when the user is not a member.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IProjectDirectory.InvalidateUser(System.Int32)">
+            <summary>
+            Forgets cached memberships of a user, after a membership or role change.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Interfaces.IQueueDepthMonitor">
@@ -13528,6 +13661,34 @@
             Gets or sets whether internal notifications are also put in the recipients' Notifike in-app boxes.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.ProjectsOptions">
+            <summary>
+            Project (multi-tenancy) settings. Bound from <c>MilvaionConfig:Projects</c>. See docs/githubdocs/PROJECTS-DESIGN.md.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.ProjectsOptions.SectionKey">
+            <summary>
+            Section key in configuration files.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ProjectsOptions.Enabled">
+            <summary>
+            When false (the default) every request runs in the Default project, the project header is ignored and
+            permissions come from roles exactly as before projects existed. When true the API resolves the project of each
+            request and evaluates project permissions per project.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ProjectsOptions.RequireExplicitProject">
+            <summary>
+            When true and projects are enabled, a request authenticated as a user must name its project in the
+            <c>X-Milvaion-Project</c> header instead of falling back to the Default project. Default false.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ProjectsOptions.CacheSeconds">
+            <summary>
+            How long project and membership lookups are cached in memory, in seconds. Default 30.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RabbitMQOptions">
             <summary>
             RabbitMQ configuration options for job dispatcher.
@@ -13944,6 +14105,56 @@
             </summary>
             <returns> Permission group and group's permissions pair. </returns>
         </member>
+        <member name="T:Milvaion.Application.Utils.PermissionManager.PermissionScopeKind">
+            <summary>
+            Where a permission applies.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.PermissionManager.PermissionScopeKind.Instance">
+            <summary>
+            Applies to the whole installation: users, roles, system administration, content.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.PermissionManager.PermissionScopeKind.Project">
+            <summary>
+            Applies inside one project: jobs, workflows, failures, workers, calendars, api keys, activity.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.PermissionManager.PermissionScopeAttribute">
+            <summary>
+            Marks a permission group in <see cref="T:Milvaion.Application.Utils.PermissionManager.PermissionCatalog"/> with its scope. Groups without it are instance groups.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PermissionScopeAttribute.#ctor(Milvaion.Application.Utils.PermissionManager.PermissionScopeKind)">
+            <summary>
+            Marks a permission group in <see cref="T:Milvaion.Application.Utils.PermissionManager.PermissionCatalog"/> with its scope. Groups without it are instance groups.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.PermissionManager.PermissionScopeAttribute.Scope">
+            <summary>
+            The scope of every permission in the group.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.PermissionManager.PermissionScopes">
+            <summary>
+            Looks up the scope of a permission string such as <c>ScheduledJobManagement.List</c>.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.PermissionManager.PermissionScopes.ProjectGroups">
+            <summary>
+            Names of the permission groups that apply inside a project.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PermissionScopes.GetScope(System.String)">
+            <summary>
+            Returns the scope of <paramref name="permission"/>. Unknown permissions are treated as instance permissions.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.PermissionManager.PermissionScopes.IsProjectPermission(System.String)">
+            <summary>
+            True when <paramref name="permission"/> applies inside a project.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard">
             <inheritdoc cref="T:Milvaion.Application.Interfaces.IPrivilegeGuard"/>
         </member>
@@ -13973,6 +14184,102 @@
         </member>
         <member name="M:Milvaion.Application.Utils.PermissionManager.PrivilegeGuard.EnsureCanGrantApiKeyPermissionsAsync(System.Nullable{System.Int32},System.Collections.Generic.IEnumerable{System.Int32},System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Projects.MilvaionClaimTypes">
+            <summary>
+            Claim types Milvaion adds to the principals it builds.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.MilvaionClaimTypes.UserId">
+            <summary>
+            Id of the Milvaion user account. Set in local tokens and on OIDC principals after provisioning; a value the
+            identity provider puts in its own token under this type is removed before Milvaion's is added.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Projects.ProjectResolution">
+            <summary>
+            Outcome of resolving the project of an HTTP request. Stored in <c>HttpContext.Items</c> under <see cref="F:Milvaion.Application.Utils.Projects.ProjectResolution.ItemKey"/>.
+            </summary>
+            <param name="ProjectId">Resolved project id, or 0 when <paramref name="Error"/> is set.</param>
+            <param name="ProjectSlug">Resolved project slug.</param>
+            <param name="IsArchived">True when the project is archived and only reads are allowed.</param>
+            <param name="Error">Why the request cannot run in a project, or null.</param>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Projects.ProjectResolution.#ctor(System.Int32,System.String,System.Boolean,System.Nullable{Milvaion.Application.Utils.Projects.ProjectResolutionError})">
+            <summary>
+            Outcome of resolving the project of an HTTP request. Stored in <c>HttpContext.Items</c> under <see cref="F:Milvaion.Application.Utils.Projects.ProjectResolution.ItemKey"/>.
+            </summary>
+            <param name="ProjectId">Resolved project id, or 0 when <paramref name="Error"/> is set.</param>
+            <param name="ProjectSlug">Resolved project slug.</param>
+            <param name="IsArchived">True when the project is archived and only reads are allowed.</param>
+            <param name="Error">Why the request cannot run in a project, or null.</param>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Projects.ProjectResolution.ProjectId">
+            <summary>Resolved project id, or 0 when <paramref name="Error"/> is set.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Projects.ProjectResolution.ProjectSlug">
+            <summary>Resolved project slug.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Projects.ProjectResolution.IsArchived">
+            <summary>True when the project is archived and only reads are allowed.</summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Projects.ProjectResolution.Error">
+            <summary>Why the request cannot run in a project, or null.</summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolution.ItemKey">
+            <summary>
+            Key of the resolution in <c>HttpContext.Items</c>.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolution.HeaderName">
+            <summary>
+            Header that names the project of a request.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolution.QueryName">
+            <summary>
+            Query string parameter that names the project, for the SignalR handshake where browsers cannot set headers.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Projects.ProjectResolution.Succeeded">
+            <summary>
+            True when the request may run.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Projects.ProjectResolution.Failed(Milvaion.Application.Utils.Projects.ProjectResolutionError)">
+            <summary>
+            A failed resolution.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Projects.ProjectResolutionError">
+            <summary>
+            Reasons a request cannot run in the project it asked for.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolutionError.ProjectNotFound">
+            <summary>
+            No project with the given slug exists. Answered with 404.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolutionError.NotMember">
+            <summary>
+            The caller is not a member of the project. Answered with 403.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolutionError.ApiKeyProjectMismatch">
+            <summary>
+            An api key bound to one project was used with a header naming another. Answered with 403.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolutionError.ProjectRequired">
+            <summary>
+            The project was not named while <c>RequireExplicitProject</c> is on. Answered with 400.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Projects.ProjectResolutionError.ProjectArchived">
+            <summary>
+            A write was attempted in an archived project. Answered with 403.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Scheduling.ExclusionCalendarReferences">
             <summary>
