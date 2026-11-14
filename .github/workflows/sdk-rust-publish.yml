@@ -50,6 +50,12 @@ jobs:
         env:
           MILVAION_TEST_REQUIRE_BROKERS: '1'
 
+      # The optional kafka feature builds librdkafka (and curl) from source; make sure it still
+      # builds on a plain runner before publishing. The Kafka integration tests are skipped here
+      # (no MILVAION_KAFKA_BROKERS); the Build & Test workflow runs them.
+      - name: Test (kafka)
+        run: cargo test --locked --features kafka --lib
+
       - name: Authenticate with crates.io
         id: auth
         if: env.HAS_TOKEN != 'true'

@@ -181,7 +181,7 @@ Kafka support is behind the `kafka` feature, so RabbitMQ-only workers do not com
 cargo add milvaion-worker --features kafka
 ```
 
-The feature uses [rdkafka](https://crates.io/crates/rdkafka) and builds librdkafka from source, with a vendored OpenSSL for TLS and SASL/SCRAM. The build needs CMake, a C compiler and Perl (Debian and Ubuntu: `apt-get install cmake build-essential`; the `rust` Docker images only lack `cmake`). No system librdkafka or OpenSSL is needed.
+The feature uses [rdkafka](https://crates.io/crates/rdkafka) and builds librdkafka from source, with a vendored OpenSSL for TLS and SASL/SCRAM, and libcurl for OAUTHBEARER/OIDC also built from source. The build needs CMake, a C compiler and Perl (Debian and Ubuntu: `apt-get install cmake build-essential perl`; the `rust` Docker images only lack `cmake`). No system librdkafka, OpenSSL or libcurl, nor their development headers, is needed. The first build takes a few minutes; later builds reuse it.
 
 ```rust
 use milvaion_worker::{KafkaOptions, Transport, Worker, WorkerOptions};
