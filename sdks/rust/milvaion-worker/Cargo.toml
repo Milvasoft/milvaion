@@ -37,6 +37,9 @@ rdkafka = { version = "0.39", optional = true, default-features = false, feature
     "cmake-build",
     "ssl-vendored",
     "libz-static",
+    # librdkafka 2.12 includes curl/curl.h in every CMake build (an #ifdef on a 0/1 define), so
+    # build curl from source too rather than require the system's libcurl headers.
+    "curl-static",
     "tracing",
 ] }
 
