@@ -601,7 +601,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     {
         var rejected = await dbContext.BulkUpdateGuardedAsync(occurrences,
                                                               (occurrence, row) => !(_finalStatuses.Contains(row.Status) && _nonFinalStatuses.Contains(occurrence.Status)),
-                                                              bc => bc.PropertiesToIncludeOnUpdate = _updatePropNames,
+                                                              bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames,
                                                               cancellationToken);
 
         if (rejected.Count > 0)

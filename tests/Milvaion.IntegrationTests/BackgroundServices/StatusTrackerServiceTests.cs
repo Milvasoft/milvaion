@@ -1158,6 +1158,136 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         updatedJob.AutoDisableSettings.ConsecutiveFailureCount.Should().Be(0);
     }
 
+    [Fact]
+    public async Task ProcessStatusUpdate_OnWorkflowStep_ShouldKeepTheColumnsItDoesNotUpdate()
+    {
+        // The tracker loads occurrences as a projection that does not carry WorkflowStepId and the dispatch columns.
+        // Its bulk update must write only the status columns: a step that lost its WorkflowStepId is no longer bound to
+        // its step, so the workflow engine never sees it complete and the run never advances.
+
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "StepColumnsJob",
+            JobNameInWorker = "StepColumnsJob",
+            JobData = "{}",
+            IsActive = true,
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser",
+        };
+
+        var stepId = Guid.CreateVersion7();
+        var nextStepId = Guid.CreateVersion7();
+        var workflow = new Workflow
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "StepColumnsWorkflow",
+            IsActive = true,
+            Definition = new WorkflowDefinition
+            {
+                Steps =
+                [
+                    new WorkflowStepDefinition { Id = stepId, StepName = "Publish", NodeType = WorkflowNodeType.Task, JobId = job.Id, Order = 1 },
+                    new WorkflowStepDefinition { Id = nextStepId, StepName = "First comment", NodeType = WorkflowNodeType.Task, JobId = job.Id, Order = 2 }
+                ],
+                Edges = [new WorkflowEdgeDefinition { SourceStepId = stepId, TargetStepId = nextStepId, Order = 1 }]
+            }
+        };
+
+        var run = new WorkflowRun { Id = Guid.CreateVersion7(), WorkflowId = workflow.Id, Status = WorkflowStatus.Running, StartTime = DateTime.UtcNow };
+
+        var occurrence = new JobOccurrence
+        {
+            Id = Guid.CreateVersion7(),
+            JobId = job.Id,
+            JobName = job.JobNameInWorker,
+            JobVersion = 3,
+            CorrelationId = Guid.CreateVersion7(),
+            WorkflowRunId = run.Id,
+            WorkflowStepId = stepId,
+            StepRetryCount = 1,
+            ZombieTimeoutMinutes = 7,
+            ExecutionTimeoutSeconds = 90,
+            Status = JobOccurrenceStatus.Queued,
+            StepStatus = WorkflowStepStatus.Running,
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.Workflows.AddAsync(workflow);
+        await dbContext.WorkflowRuns.AddAsync(run);
+        await dbContext.JobOccurrences.AddAsync(occurrence);
+        await dbContext.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Act - the worker reports Running, then Completed, as the Node SDK does
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            OccurrenceId = occurrence.Id,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow,
+        }, cts.Token);
+
+        await WaitForConditionAsync(async () => (await GetOccurrenceAsync(occurrence.Id, cts.Token))?.Status == JobOccurrenceStatus.Running,
+                                    timeout: TimeSpan.FromSeconds(15),
+                                    pollInterval: TimeSpan.FromMilliseconds(300),
+                                    cancellationToken: cts.Token);
+
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            OccurrenceId = occurrence.Id,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Completed,
+            EndTime = DateTime.UtcNow,
+            DurationMs = 1200,
+            Result = "{\"postId\":\"123\"}",
+        }, cts.Token);
+
+        var completed = await WaitForConditionAsync(async () => (await GetOccurrenceAsync(occurrence.Id, cts.Token))?.Status == JobOccurrenceStatus.Completed,
+                                                    timeout: TimeSpan.FromSeconds(15),
+                                                    pollInterval: TimeSpan.FromMilliseconds(300),
+                                                    cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        completed.Should().BeTrue();
+
+        var updated = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updated.StepStatus.Should().Be(WorkflowStepStatus.Completed);
+        updated.Result.Should().Be("{\"postId\":\"123\"}");
+
+        updated.WorkflowRunId.Should().Be(run.Id);
+        updated.WorkflowStepId.Should().Be(stepId, "the step must stay bound to its workflow step");
+        updated.StepRetryCount.Should().Be(1);
+        updated.JobVersion.Should().Be(3);
+        updated.ZombieTimeoutMinutes.Should().Be(7);
+        updated.ExecutionTimeoutSeconds.Should().Be(90);
+    }
+
     private async Task<uint> GetQueueReadyMessageCountAsync(string queueName, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory

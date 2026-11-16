@@ -207,7 +207,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
 
         if (triggeredWorkflows.Count > 0)
-            await dbContext.BulkUpdateAsync(triggeredWorkflows, bc => bc.PropertiesToIncludeOnUpdate = _workflowUpdateProps, cancellationToken: cancellationToken);
+            await dbContext.BulkUpdateAsync(triggeredWorkflows, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _workflowUpdateProps, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -303,10 +303,10 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
         // Single bulk save for all run/step status changes
         if (runsToUpdate.Count > 0)
-            await dbContext.BulkUpdateAsync(runsToUpdate, bc => bc.PropertiesToIncludeOnUpdate = _workflowRunUpdateProps, cancellationToken: cancellationToken);
+            await dbContext.BulkUpdateAsync(runsToUpdate, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _workflowRunUpdateProps, cancellationToken: cancellationToken);
 
         if (occurrencesToUpdate.Count > 0)
-            await dbContext.BulkUpdateGuardedAsync(occurrencesToUpdate, static (_, row) => row.Status != JobOccurrenceStatus.Completed, bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceUpdateProps, cancellationToken);
+            await dbContext.BulkUpdateGuardedAsync(occurrencesToUpdate, static (_, row) => row.Status != JobOccurrenceStatus.Completed, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _stepOccurrenceUpdateProps, cancellationToken);
 
         // Batch dispatch all ready steps
         if (validDispatches.Count > 0)
@@ -925,7 +925,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         // A step that completed in the meantime must not be set back to Queued or published again.
         var rejected = (await dbContext.BulkUpdateGuardedAsync(dispatches.Select(d => d.Occurrence).ToList(),
                                                                static (_, row) => row.Status != JobOccurrenceStatus.Completed,
-                                                               bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceDispatchProps,
+                                                               bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _stepOccurrenceDispatchProps,
                                                                cancellationToken)).Select(o => o.Id).ToHashSet();
 
         if (rejected.Count > 0)
@@ -986,7 +986,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
 
         if (failedOccurrences.Count > 0)
-            await dbContext.BulkUpdateAsync(failedOccurrences, bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceFailProps, cancellationToken: cancellationToken);
+            await dbContext.BulkUpdateAsync(failedOccurrences, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _stepOccurrenceFailProps, cancellationToken: cancellationToken);
 
         if (succeededOccurrences.Count > 0)
         {

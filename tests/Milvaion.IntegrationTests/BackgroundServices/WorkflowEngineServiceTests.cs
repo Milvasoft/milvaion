@@ -210,6 +210,14 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
 
         cronRuns.Should().NotBeEmpty();
         cronRuns.Should().Contain(r => r.TriggerReason == "Cron schedule");
+
+        // The engine loads cron workflows as a projection; recording the slot must not overwrite the rest of the row.
+        var savedWorkflow = await dbContextAssert.Workflows.AsNoTracking().FirstAsync(w => w.Id == workflow.Id, CancellationToken.None);
+        savedWorkflow.Name.Should().Be("Cron Workflow");
+        savedWorkflow.IsActive.Should().BeTrue();
+        savedWorkflow.Definition.Should().NotBeNull();
+        savedWorkflow.Definition.Steps.Should().NotBeEmpty();
+        savedWorkflow.LastScheduledRunAt.Should().BeAfter(workflow.LastScheduledRunAt!.Value);
     }
 
     [Fact]

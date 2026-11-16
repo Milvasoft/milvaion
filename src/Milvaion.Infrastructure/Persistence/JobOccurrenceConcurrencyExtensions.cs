@@ -83,11 +83,28 @@ public static class JobOccurrenceConcurrencyExtensions
             }
 
             if (toWrite.Count > 0)
-                await dbContext.BulkUpdateAsync(toWrite, configure, cancellationToken: ct);
+                await dbContext.BulkUpdateAsync(toWrite, bc => RestrictToIncludedColumns(bc, configure), cancellationToken: ct);
 
             await transaction.CommitAsync(ct);
 
             return rejected;
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies <paramref name="configure"/> and makes sure the update writes only the columns it names.
+    /// </summary>
+    /// <remarks>
+    /// Milvasoft.BulkExtensions' BulkUpdate honours <see cref="BulkConfig.PropertiesToInclude"/> only;
+    /// <see cref="BulkConfig.PropertiesToIncludeOnUpdate"/> is for upserts. A configuration that names its columns in the
+    /// latter alone would write every column, and the candidates here are often projections, so the columns they do not
+    /// carry (WorkflowStepId, StepRetryCount, JobVersion...) would be overwritten with defaults.
+    /// </remarks>
+    public static void RestrictToIncludedColumns(BulkConfig config, Action<BulkConfig> configure)
+    {
+        configure?.Invoke(config);
+
+        if (config.PropertiesToInclude is not { Count: > 0 } && config.PropertiesToIncludeOnUpdate is { Count: > 0 } onUpdate)
+            config.PropertiesToInclude = [.. onUpdate];
     }
 }
