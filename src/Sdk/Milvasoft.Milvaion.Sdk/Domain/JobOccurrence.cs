@@ -256,6 +256,9 @@ public class JobOccurrence : CreationAuditableEntity<Guid>, IProjectScoped
             CorrelationId = s.CorrelationId,
             JobId = s.JobId,
             JobName = s.JobName,
+            ZombieTimeoutMinutes = s.ZombieTimeoutMinutes,
+            WorkflowRunId = s.WorkflowRunId,
+            StepStatus = s.StepStatus,
         };
 
         public static Expression<Func<JobOccurrence, JobOccurrence>> DetectZombie { get; } = s => new JobOccurrence
@@ -275,7 +278,9 @@ public class JobOccurrence : CreationAuditableEntity<Guid>, IProjectScoped
             CorrelationId = s.CorrelationId,
             JobId = s.JobId,
             JobName = s.JobName,
-            ZombieTimeoutMinutes = s.ZombieTimeoutMinutes
+            ZombieTimeoutMinutes = s.ZombieTimeoutMinutes,
+            WorkflowRunId = s.WorkflowRunId,
+            StepStatus = s.StepStatus,
         };
     }
 }

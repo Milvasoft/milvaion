@@ -1,4 +1,4 @@
-﻿using Cronos;
+using Cronos;
 using Milvasoft.BulkExtensions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -44,10 +44,12 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     private const string _engineLockName = "workflow_engine";
     private static readonly TimeSpan _engineLockTtl = TimeSpan.FromSeconds(30);
 
-    private static readonly List<string> _workflowUpdateProps = [nameof(Workflow.LastScheduledRunAt)];
+    // Repairs of a step occurrence's binding or step status. Written without the Completed guard: the occurrences that
+    // need them are usually Completed, and these columns are derived from the row's own final status.
+    private static readonly List<string> _stepOccurrenceRepairProps = [nameof(JobOccurrence.WorkflowStepId), nameof(JobOccurrence.StepStatus)];
     private static readonly List<string> _workflowRunUpdateProps = [nameof(WorkflowRun.Status), nameof(WorkflowRun.StartTime), nameof(WorkflowRun.EndTime), nameof(WorkflowRun.DurationMs), nameof(WorkflowRun.Error)];
     private static readonly List<string> _stepOccurrenceUpdateProps = [nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.StepRetryCount), nameof(JobOccurrence.StepScheduledAt), nameof(JobOccurrence.RetryAfter), nameof(JobOccurrence.StepRetryAfterCount), nameof(JobOccurrence.Exception), nameof(JobOccurrence.Result), nameof(JobOccurrence.Status), nameof(JobOccurrence.EndTime), nameof(JobOccurrence.DurationMs), nameof(JobOccurrence.JobName)];
-    private static readonly List<string> _stepOccurrenceDispatchProps = [nameof(JobOccurrence.Status), nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.LastHeartbeat), nameof(JobOccurrence.JobName), nameof(JobOccurrence.ZombieTimeoutMinutes), nameof(JobOccurrence.JobVersion), nameof(JobOccurrence.ExecutionTimeoutSeconds)];
+    private static readonly List<string> _stepOccurrenceDispatchProps = [nameof(JobOccurrence.Status), nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.LastHeartbeat), nameof(JobOccurrence.EndTime), nameof(JobOccurrence.DurationMs), nameof(JobOccurrence.JobName), nameof(JobOccurrence.ZombieTimeoutMinutes), nameof(JobOccurrence.JobVersion), nameof(JobOccurrence.ExecutionTimeoutSeconds)];
     private static readonly List<string> _stepOccurrenceFailProps = [nameof(JobOccurrence.Status), nameof(JobOccurrence.StepStatus), nameof(JobOccurrence.Exception)];
 
     /// <inheritdoc/>
@@ -164,8 +166,6 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                                                      .Select(Workflow.Projections.CheckCron)
                                                      .ToListAsync(cancellationToken);
 
-        var triggeredWorkflows = new List<Workflow>();
-
         foreach (var workflow in cronWorkflows)
         {
             try
@@ -179,6 +179,18 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
                 if (nextOccurrence.HasValue && nextOccurrence.Value <= now)
                 {
+                    // The slot, not the clock: recording "now" shifts the base of the next calculation on short periods.
+                    // The newest elapsed slot, so that catching up after downtime fires once rather than slot by slot.
+                    var slot = cronExpr.GetOccurrences(nextOccurrence.Value, now, TimeZoneInfo.Utc, fromInclusive: true, toInclusive: true).Last();
+
+                    // Claim the slot before triggering. If recording the slot failed after the trigger, every later pass
+                    // would see the old base and trigger again; claimed first, a failed trigger misses one slot instead.
+                    var claimed = await dbContext.Workflows.Where(w => w.Id == workflow.Id && (w.LastScheduledRunAt == null || w.LastScheduledRunAt < slot))
+                                                           .ExecuteUpdateAsync(s => s.SetProperty(w => w.LastScheduledRunAt, (DateTime?)slot), cancellationToken);
+
+                    if (claimed == 0)
+                        continue;
+
                     var command = new TriggerWorkflowCommand
                     {
                         WorkflowId = workflow.Id,
@@ -190,12 +202,6 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                     using (projectContext.EnterProjectScope(workflow.ProjectId))
                         await mediator.Send(command, cancellationToken);
 
-                    // The slot, not the clock: recording "now" shifts the base of the next calculation on short periods.
-                    // The newest elapsed slot, so that catching up after downtime fires once rather than slot by slot.
-                    workflow.LastScheduledRunAt = cronExpr.GetOccurrences(nextOccurrence.Value, now, TimeZoneInfo.Utc, fromInclusive: true, toInclusive: true).Last();
-
-                    triggeredWorkflows.Add(workflow);
-
                     _logger.Debug("Workflow {WorkflowId} triggered by cron schedule ({CronExpression})", workflow.Id, workflow.CronExpression);
                 }
             }
@@ -205,9 +211,6 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 _logger.Error(ex, "Error checking cron schedule for workflow {WorkflowId}", workflow.Id);
             }
         }
-
-        if (triggeredWorkflows.Count > 0)
-            await dbContext.BulkUpdateAsync(triggeredWorkflows, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _workflowUpdateProps, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -237,19 +240,41 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         var occurrencesToUpdate = new List<JobOccurrence>();
         var pendingDispatches = new List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStepDefinition StepDef)>();
         var runningOccurrencesToCancel = new List<JobOccurrence>();
+        var repairedOccurrences = new List<JobOccurrence>();
 
         foreach (var run in activeRuns)
         {
+            var marks = (Runs: runsToUpdate.Count, Occurrences: occurrencesToUpdate.Count, Dispatches: pendingDispatches.Count, Cancels: runningOccurrencesToCancel.Count);
+
             try
             {
-                DetectRunChanges(run, now, runsToUpdate, occurrencesToUpdate, pendingDispatches, runningOccurrencesToCancel);
+                DetectRunChanges(run, now, runsToUpdate, occurrencesToUpdate, pendingDispatches, runningOccurrencesToCancel, repairedOccurrences);
             }
             catch (Exception ex)
             {
                 _metrics.RecordServiceError(ServiceName, "Workflow_Run_Processing_Failed");
-                _logger.Error(ex, "Error processing workflow run {RunId}", run.Id);
+                _logger.Error(ex, "Error processing workflow run {RunId}. The run is failed.", run.Id);
+
+                // Processing a run is in memory only, so the same error would come back on every pass and the run would
+                // stay Running for ever. Drop what this run queued so far and fail it instead.
+                runsToUpdate.RemoveRange(marks.Runs, runsToUpdate.Count - marks.Runs);
+                occurrencesToUpdate.RemoveRange(marks.Occurrences, occurrencesToUpdate.Count - marks.Occurrences);
+                pendingDispatches.RemoveRange(marks.Dispatches, pendingDispatches.Count - marks.Dispatches);
+                runningOccurrencesToCancel.RemoveRange(marks.Cancels, runningOccurrencesToCancel.Count - marks.Cancels);
+
+                try
+                {
+                    FailRun(run, now, $"The workflow engine could not process this run: {ex.Message}", runsToUpdate, occurrencesToUpdate, runningOccurrencesToCancel);
+                }
+                catch (Exception failEx)
+                {
+                    _logger.Error(failEx, "Could not fail workflow run {RunId}", run.Id);
+                }
             }
         }
+
+        runsToUpdate = [.. runsToUpdate.Distinct()];
+        occurrencesToUpdate = [.. occurrencesToUpdate.Distinct()];
 
         // Load all jobs needed for dispatch and for naming non-dispatched occurrences (skipped, cancelled, delayed)
         var jobIds = pendingDispatches.Where(d => d.StepDef.JobId.HasValue)
@@ -293,20 +318,38 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             if (run.StepJobData != null && run.StepJobData.TryGetValue(stepDef.Id, out var runtimeStepData))
                 jobData = MergeJobData(jobData, runtimeStepData);
 
-            var occurrencesDict = run.StepOccurrences.ToDictionary(o => o.WorkflowStepId!.Value);
-
             if (!string.IsNullOrWhiteSpace(stepDef.DataMappings))
-                jobData = ApplyDataMappings(jobData, stepDef.DataMappings, occurrencesDict);
+                jobData = ApplyDataMappings(jobData, stepDef.DataMappings, MapByStep(run.StepOccurrences));
 
             validDispatches.Add((run, occurrence, stepDef, job, jobData));
         }
+
+        // A run cancelled (or otherwise finished) while this pass worked on it keeps that outcome: nothing of it is written
+        // or dispatched.
+        var activeRunIds = activeRuns.Select(r => r.Id).ToList();
+        var finishedRunIds = (await dbContext.WorkflowRuns.AsNoTracking()
+                                             .Where(r => activeRunIds.Contains(r.Id) && r.Status != WorkflowStatus.Pending && r.Status != WorkflowStatus.Running)
+                                             .Select(r => r.Id)
+                                             .ToListAsync(cancellationToken)).ToHashSet();
+
+        if (finishedRunIds.Count > 0)
+        {
+            runsToUpdate.RemoveAll(r => finishedRunIds.Contains(r.Id));
+            occurrencesToUpdate.RemoveAll(o => o.WorkflowRunId is Guid runId && finishedRunIds.Contains(runId));
+            validDispatches.RemoveAll(d => finishedRunIds.Contains(d.Run.Id));
+            runningOccurrencesToCancel.RemoveAll(o => o.WorkflowRunId is Guid runId && finishedRunIds.Contains(runId));
+        }
+
+        // Repairs first: the guarded update below writes the same in-memory rows and must not be undone by them.
+        if (repairedOccurrences.Count > 0)
+            await dbContext.BulkUpdateAsync(repairedOccurrences.Distinct().ToList(), bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _stepOccurrenceRepairProps, cancellationToken: cancellationToken);
 
         // Single bulk save for all run/step status changes
         if (runsToUpdate.Count > 0)
             await dbContext.BulkUpdateAsync(runsToUpdate, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _workflowRunUpdateProps, cancellationToken: cancellationToken);
 
         if (occurrencesToUpdate.Count > 0)
-            await dbContext.BulkUpdateGuardedAsync(occurrencesToUpdate, static (_, row) => row.Status != JobOccurrenceStatus.Completed, bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _stepOccurrenceUpdateProps, cancellationToken);
+            await dbContext.BulkUpdateGuardedAsync(occurrencesToUpdate, static (_, row) => IsStepRowWritable(row), bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _stepOccurrenceUpdateProps, cancellationToken);
 
         // Batch dispatch all ready steps
         if (validDispatches.Count > 0)
@@ -349,8 +392,13 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                                   List<WorkflowRun> runsToUpdate,
                                   List<JobOccurrence> occurrencesToUpdate,
                                   List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStepDefinition StepDef)> pendingDispatches,
-                                  List<JobOccurrence> runningOccurrencesToCancel)
+                                  List<JobOccurrence> runningOccurrencesToCancel,
+                                  List<JobOccurrence> repairedOccurrences)
     {
+        // What this run changes in this pass; nothing at all means it cannot move any more (see the end).
+        var occurrenceChangesBefore = occurrencesToUpdate.Count;
+        var dispatchesBefore = pendingDispatches.Count;
+
         // Start pending run
         if (run.Status == WorkflowStatus.Pending)
         {
@@ -366,9 +414,17 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             return;
         }
 
-        var stepDefinitions = run.Workflow?.Definition?.Steps?.ToDictionary(s => s.Id) ?? [];
-        var workflowEdges = run.Workflow?.Definition?.Edges ?? [];
-        var stepOccurrences = run.StepOccurrences.ToDictionary(o => o.WorkflowStepId!.Value);
+        var (stepDefinitions, workflowEdges) = ResolveRunDefinition(run);
+
+        if (!BindStepOccurrences(run, stepDefinitions, repairedOccurrences, out var bindingError))
+        {
+            FailRun(run, now, bindingError, runsToUpdate, occurrencesToUpdate, runningOccurrencesToCancel);
+            return;
+        }
+
+        ReconcileStepStatuses(run, repairedOccurrences);
+
+        var stepOccurrences = MapByStep(run.StepOccurrences);
 
         // Track virtual node states in-memory
         var virtualNodeStates = stepDefinitions.Values.Where(s => s.NodeType != WorkflowNodeType.Task && !stepOccurrences.ContainsKey(s.Id))
@@ -435,34 +491,46 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             }
         }
 
-        // Process virtual nodes first so their results are available for downstream task steps
-        foreach (var kvp in virtualNodeStates.Where(kv => kv.Value == WorkflowStepStatus.Pending).ToList())
+        // Process virtual nodes first so their results are available for downstream task steps. Their state is not
+        // stored, so it is worked out again on every pass; repeat until nothing changes, or a virtual node that
+        // depends on another one listed after it would wait for ever.
+        bool virtualNodeResolved;
+
+        do
         {
-            var stepId = kvp.Key;
-            var stepDef = stepDefinitions[stepId];
+            virtualNodeResolved = false;
 
-            if (!AreDependenciesSatisfied(stepDef, workflowEdges, stepOccurrences, virtualNodeStates, run.Workflow?.FailureStrategy ?? WorkflowFailureStrategy.StopOnFirstFailure, conditionResults, _logger))
-                continue;
-
-            // Condition nodes: evaluate expression
-            if (stepDef.NodeType == WorkflowNodeType.Condition)
+            foreach (var kvp in virtualNodeStates.Where(kv => kv.Value == WorkflowStepStatus.Pending).ToList())
             {
-                var result = EvaluateCondition(stepDef, workflowEdges, stepOccurrences);
+                var stepId = kvp.Key;
+                var stepDef = stepDefinitions[stepId];
 
-                virtualNodeStates[stepId] = WorkflowStepStatus.Completed;
-                conditionResults[stepId] = result ? "true" : "false";
+                if (!AreDependenciesSatisfied(stepDef, workflowEdges, stepOccurrences, virtualNodeStates, run.Workflow?.FailureStrategy ?? WorkflowFailureStrategy.StopOnFirstFailure, conditionResults, _logger))
+                    continue;
 
-                _logger.Debug("Condition node {StepId} ({StepName}) evaluated to {Result}", stepId, stepDef.StepName, conditionResults[stepId]);
-                continue;
-            }
+                // Condition nodes: evaluate expression
+                if (stepDef.NodeType == WorkflowNodeType.Condition)
+                {
+                    var result = EvaluateCondition(stepDef, workflowEdges, stepOccurrences);
 
-            // Merge: instant complete
-            if (stepDef.NodeType == WorkflowNodeType.Merge)
-            {
-                virtualNodeStates[stepId] = WorkflowStepStatus.Completed;
-                continue;
+                    virtualNodeStates[stepId] = WorkflowStepStatus.Completed;
+                    conditionResults[stepId] = result ? "true" : "false";
+                    virtualNodeResolved = true;
+
+                    _logger.Debug("Condition node {StepId} ({StepName}) evaluated to {Result}", stepId, stepDef.StepName, conditionResults[stepId]);
+                    continue;
+                }
+
+                // Merge: instant complete
+                if (stepDef.NodeType == WorkflowNodeType.Merge)
+                {
+                    virtualNodeStates[stepId] = WorkflowStepStatus.Completed;
+                    virtualNodeResolved = true;
+                    continue;
+                }
             }
         }
+        while (virtualNodeResolved);
 
         // Find steps that are ready to execute
         var stepsToSkipDueToPort = new List<JobOccurrence>();
@@ -471,8 +539,17 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         {
             var stepDef = stepDefinitions.GetValueOrDefault(occ.WorkflowStepId!.Value);
 
+            // The run's version of the workflow has no such step (a definition edited without a version snapshot):
+            // it can never run, so skip it rather than leave the run waiting for it.
             if (stepDef == null)
+            {
+                occ.StepStatus = WorkflowStepStatus.Skipped;
+                occ.Status = JobOccurrenceStatus.Skipped;
+                occ.EndTime = now;
+                occ.Exception = $"Step {occ.WorkflowStepId} is not part of version {run.WorkflowVersion} of the workflow.";
+                stepsToSkipDueToPort.Add(occ);
                 continue;
+            }
 
             // Check if this step should be skipped due to port-based branching
             if (ShouldSkipDueToPortMismatch(stepDef, workflowEdges, stepOccurrences, virtualNodeStates, conditionResults, stepDefinitions, out var skipReason))
@@ -504,12 +581,21 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         occurrencesToUpdate.AddRange(stepsToSkipDueToPort);
 
         // Also check delayed steps that are now due
-        foreach (var occ in run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Delayed && o.StepScheduledAt <= now))
+        foreach (var occ in run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Delayed && (o.StepScheduledAt == null || o.StepScheduledAt <= now)))
         {
             var stepDef = stepDefinitions.GetValueOrDefault(occ.WorkflowStepId!.Value);
 
             if (stepDef != null)
+            {
                 pendingDispatches.Add((run, occ, stepDef));
+                continue;
+            }
+
+            occ.StepStatus = WorkflowStepStatus.Skipped;
+            occ.Status = JobOccurrenceStatus.Skipped;
+            occ.EndTime = now;
+            occ.Exception = $"Step {occ.WorkflowStepId} is not part of version {run.WorkflowVersion} of the workflow.";
+            occurrencesToUpdate.Add(occ);
         }
 
         // Check completion
@@ -540,7 +626,162 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             runsToUpdate.Add(run);
 
             _logger.Information("Workflow run {RunId} completed with status {Status}", run.Id, run.Status);
+            return;
         }
+
+        // Nothing is running or waiting for its time, nothing was dispatched or changed in this pass, and the run is
+        // not finished: the remaining steps wait on steps that will never complete (cancelled outside the run, for
+        // example). Without this the run would stay Running until its timeout, or for ever without one.
+        var inFlight = run.StepOccurrences.Any(o => o.StepStatus is WorkflowStepStatus.Running or WorkflowStepStatus.Delayed);
+
+        if (!inFlight && occurrencesToUpdate.Count == occurrenceChangesBefore && pendingDispatches.Count == dispatchesBefore)
+        {
+            var blocked = run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Pending)
+                                             .Select(o => stepDefinitions.GetValueOrDefault(o.WorkflowStepId!.Value)?.StepName ?? o.WorkflowStepId.ToString());
+
+            FailRun(run, now, $"No step can run any more. Waiting for steps that will not complete: {string.Join(", ", blocked)}", runsToUpdate, occurrencesToUpdate, runningOccurrencesToCancel);
+        }
+    }
+
+    /// <summary>
+    /// The step graph the run was started with. A run keeps the version of the workflow it was triggered on; when the
+    /// workflow has been edited since, that version is in <see cref="Workflow.Versions"/>.
+    /// </summary>
+    internal static (Dictionary<Guid, WorkflowStepDefinition> Steps, List<WorkflowEdgeDefinition> Edges) ResolveRunDefinition(WorkflowRun run)
+    {
+        var workflow = run.Workflow;
+
+        if (workflow == null)
+            return ([], []);
+
+        var snapshot = workflow.Version != run.WorkflowVersion ? workflow.Versions?.FirstOrDefault(v => v.Version == run.WorkflowVersion && v.Steps != null) : null;
+
+        if (snapshot == null)
+            return (workflow.Definition?.Steps?.ToDictionary(s => s.Id) ?? [], workflow.Definition?.Edges ?? []);
+
+        var steps = snapshot.Steps.ToDictionary(s => s.Id, s => new WorkflowStepDefinition
+        {
+            Id = s.Id,
+            NodeType = s.NodeType,
+            JobId = s.JobId,
+            StepName = s.StepName,
+            Order = s.Order,
+            NodeConfigJson = s.NodeConfigJson,
+            DataMappings = s.DataMappings,
+            DelaySeconds = s.DelaySeconds,
+            JobDataOverride = s.JobDataOverride,
+            PositionX = s.PositionX,
+            PositionY = s.PositionY,
+        });
+
+        var edges = snapshot.Edges?.Select(e => new WorkflowEdgeDefinition
+        {
+            SourceStepId = e.SourceStepId,
+            TargetStepId = e.TargetStepId,
+            SourcePort = e.SourcePort,
+            TargetPort = e.TargetPort,
+            Label = e.Label,
+            Order = e.Order,
+            EdgeConfigJson = e.EdgeConfigJson,
+        }).ToList() ?? [];
+
+        return (steps, edges);
+    }
+
+    /// <summary>
+    /// Every step occurrence must be bound to exactly one step. An occurrence that lost its binding (a partial update
+    /// in 1.6.0 cleared WorkflowStepId) is bound again when its job identifies the step unambiguously.
+    /// </summary>
+    /// <returns>false with <paramref name="error"/> when the run's occurrences cannot be bound to its steps.</returns>
+    private bool BindStepOccurrences(WorkflowRun run, Dictionary<Guid, WorkflowStepDefinition> stepDefinitions, List<JobOccurrence> repairedOccurrences, out string error)
+    {
+        error = null;
+
+        var unbound = run.StepOccurrences.Where(o => o.WorkflowStepId == null).ToList();
+
+        if (unbound.Count > 0)
+        {
+            var boundStepIds = run.StepOccurrences.Where(o => o.WorkflowStepId.HasValue).Select(o => o.WorkflowStepId!.Value).ToHashSet();
+            var freeTaskSteps = stepDefinitions.Values.Where(s => s.NodeType == WorkflowNodeType.Task && s.JobId.HasValue && !boundStepIds.Contains(s.Id)).ToList();
+
+            foreach (var occ in unbound)
+            {
+                var candidates = freeTaskSteps.Where(s => s.JobId == occ.JobId).ToList();
+
+                if (candidates.Count != 1)
+                {
+                    error = $"Step occurrence {occ.Id} is not bound to a step of the workflow and its job ({occ.JobId}) matches {candidates.Count} unbound steps.";
+                    return false;
+                }
+
+                occ.WorkflowStepId = candidates[0].Id;
+                freeTaskSteps.Remove(candidates[0]);
+                repairedOccurrences.Add(occ);
+
+                _logger.Warning("Step occurrence {OccurrenceId} of workflow run {RunId} was not bound to a step; bound it to step {StepId} ({StepName}) by its job", occ.Id, run.Id, candidates[0].Id, candidates[0].StepName);
+            }
+        }
+
+        var duplicate = run.StepOccurrences.GroupBy(o => o.WorkflowStepId!.Value).FirstOrDefault(g => g.Count() > 1);
+
+        if (duplicate != null)
+        {
+            error = $"Step {duplicate.Key} has {duplicate.Count()} occurrences in this run.";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// A step is Running until its occurrence reaches a final status. Something that finishes the occurrence without
+    /// mirroring the step status (the zombie detector before 1.6.2, a direct cancel) would leave the run waiting on
+    /// it for ever, so the step status is taken from the occurrence's final status.
+    /// </summary>
+    private void ReconcileStepStatuses(WorkflowRun run, List<JobOccurrence> repairedOccurrences)
+    {
+        foreach (var occ in run.StepOccurrences.Where(o => o.StepStatus is null or WorkflowStepStatus.Running))
+        {
+            WorkflowStepStatus? mapped = occ.Status switch
+            {
+                JobOccurrenceStatus.Completed => WorkflowStepStatus.Completed,
+                JobOccurrenceStatus.Failed or JobOccurrenceStatus.TimedOut or JobOccurrenceStatus.Unknown => WorkflowStepStatus.Failed,
+                JobOccurrenceStatus.Cancelled => WorkflowStepStatus.Cancelled,
+                JobOccurrenceStatus.Skipped => WorkflowStepStatus.Skipped,
+                _ => null
+            };
+
+            if (mapped == null)
+                continue;
+
+            _logger.Warning("Step occurrence {OccurrenceId} of workflow run {RunId} is {Status} but its step was still {StepStatus}; set the step to {Mapped}", occ.Id, run.Id, occ.Status, occ.StepStatus, mapped);
+
+            occ.StepStatus = mapped;
+            repairedOccurrences.Add(occ);
+        }
+    }
+
+    /// <summary>
+    /// Whether the engine may still write a step occurrence row. A step that completed, or was skipped or cancelled
+    /// (by a run cancel that raced this pass), must not be set back to Queued or dispatched again.
+    /// </summary>
+    private static bool IsStepRowWritable(JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow row) => row.Status is not (JobOccurrenceStatus.Completed or JobOccurrenceStatus.Skipped or JobOccurrenceStatus.Cancelled);
+
+    /// <summary>
+    /// The run's step occurrences by step id. Unbound occurrences are left out, and of duplicates the first is kept;
+    /// <see cref="BindStepOccurrences"/> fails a run with either before this matters.
+    /// </summary>
+    private static Dictionary<Guid, JobOccurrence> MapByStep(IEnumerable<JobOccurrence> occurrences)
+    {
+        var map = new Dictionary<Guid, JobOccurrence>();
+
+        foreach (var occ in occurrences)
+        {
+            if (occ.WorkflowStepId is Guid stepId)
+                map.TryAdd(stepId, occ);
+        }
+
+        return map;
     }
 
     /// <summary>
@@ -897,6 +1138,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             // The occurrence was created with the run, possibly long before (scheduled run, waiting dependencies, retry-after);
             // the zombie detector counts a queued step's age from this instead of CreatedAt.
             occ.LastHeartbeat = now;
+            // A rerun (retry-after) still carries the timing of the attempt before it.
+            occ.EndTime = null;
+            occ.DurationMs = null;
             occ.JobName = job.JobNameInWorker;
             occ.ZombieTimeoutMinutes = job.ZombieTimeoutMinutes;
             occ.JobVersion = job.Version;
@@ -924,7 +1168,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         // Atomically persist all occurrence status changes and logs before any RabbitMQ publish
         // A step that completed in the meantime must not be set back to Queued or published again.
         var rejected = (await dbContext.BulkUpdateGuardedAsync(dispatches.Select(d => d.Occurrence).ToList(),
-                                                               static (_, row) => row.Status != JobOccurrenceStatus.Completed,
+                                                               static (_, row) => IsStepRowWritable(row),
                                                                bc => bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _stepOccurrenceDispatchProps,
                                                                cancellationToken)).Select(o => o.Id).ToHashSet();
 

@@ -52,7 +52,8 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         nameof(JobOccurrence.StatusChangeLogs),
         nameof(JobOccurrence.Exception),
         nameof(JobOccurrence.EndTime),
-        nameof(JobOccurrence.DurationMs)
+        nameof(JobOccurrence.DurationMs),
+        nameof(JobOccurrence.StepStatus)
     ];
 
     /// <inheritdoc/>
@@ -197,6 +198,16 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
 
     private static void ConfigureBulkUpdate(BulkConfig config) => config.PropertiesToInclude = config.PropertiesToIncludeOnUpdate = _updatePropNames;
 
+    /// <summary>
+    /// A workflow step mirrors its occurrence's status in StepStatus and the workflow engine waits on StepStatus, so a
+    /// step left Running here would keep its run Running for ever.
+    /// </summary>
+    private static void MarkWorkflowStepFailed(JobOccurrence occurrence)
+    {
+        if (occurrence.WorkflowRunId != null)
+            occurrence.StepStatus = WorkflowStepStatus.Failed;
+    }
+
     private int TimeoutFor(JobOccurrence occurrence) => occurrence.ZombieTimeoutMinutes ?? _options.ZombieTimeoutMinutes;
 
     private static bool IsHeartbeatExpired(DateTime? lastHeartbeat, int timeoutMinutes) => lastHeartbeat == null || lastHeartbeat < DateTime.UtcNow.AddMinutes(-timeoutMinutes);
@@ -300,6 +311,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             });
 
             occurrence.Status = JobOccurrenceStatus.Unknown;
+            MarkWorkflowStepFailed(occurrence);
             occurrence.Exception = $"Zombie occurrence detected - stuck in Queued status for {stuckDuration:F1} minutes (timeout: {timeoutMinutes} minutes). Likely causes: Worker never consumed the message, RabbitMQ queue issue, or worker was down during dispatch.";
             occurrence.EndTime = DateTime.UtcNow;
             occurrence.DurationMs = (long)(DateTime.UtcNow - occurrence.CreatedAt).TotalMilliseconds;
@@ -365,6 +377,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             });
 
             occurrence.Status = JobOccurrenceStatus.Unknown;
+            MarkWorkflowStepFailed(occurrence);
             occurrence.EndTime = DateTime.UtcNow;
             occurrence.DurationMs = occurrence.StartTime.HasValue ? (long)(DateTime.UtcNow - occurrence.StartTime.Value).TotalMilliseconds : null;
             occurrence.Exception = $"Job lost heartbeat after {TimeoutFor(occurrence)}m. Worker status: {workerStatus}. Possible causes: Worker crashed, RabbitMQ connection lost, or network failure.";

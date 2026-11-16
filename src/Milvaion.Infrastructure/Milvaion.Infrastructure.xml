@@ -837,10 +837,42 @@
             Processes all active workflow runs.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.DetectRunChanges(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.DateTime,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition}},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.DetectRunChanges(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.DateTime,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition}},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
             <summary>
             Processes a single workflow run in memory: mutates run/step state and populates change lists.
             No database calls — all persistence is batched at the caller level.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ResolveRunDefinition(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun)">
+            <summary>
+            The step graph the run was started with. A run keeps the version of the workflow it was triggered on; when the
+            workflow has been edited since, that version is in <see cref="P:Milvasoft.Milvaion.Sdk.Domain.Workflow.Versions"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.BindStepOccurrences(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.String@)">
+            <summary>
+            Every step occurrence must be bound to exactly one step. An occurrence that lost its binding (a partial update
+            in 1.6.0 cleared WorkflowStepId) is bound again when its job identifies the step unambiguously.
+            </summary>
+            <returns>false with <paramref name="error"/> when the run's occurrences cannot be bound to its steps.</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ReconcileStepStatuses(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+            <summary>
+            A step is Running until its occurrence reaches a final status. Something that finishes the occurrence without
+            mirroring the step status (the zombie detector before 1.6.2, a direct cancel) would leave the run waiting on
+            it for ever, so the step status is taken from the occurrence's final status.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.IsStepRowWritable(Milvaion.Infrastructure.Persistence.JobOccurrenceConcurrencyExtensions.LockedOccurrenceRow)">
+            <summary>
+            Whether the engine may still write a step occurrence row. A step that completed, or was skipped or cancelled
+            (by a run cancel that raced this pass), must not be set back to Queued or dispatched again.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.MapByStep(System.Collections.Generic.IEnumerable{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+            <summary>
+            The run's step occurrences by step id. Unbound occurrences are left out, and of duplicates the first is kept;
+            <see cref="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.BindStepOccurrences(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.String@)"/> fails a run with either before this matters.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ShouldSkipDueToPortMismatch(Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowEdgeDefinition},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowStepStatus},System.Collections.Generic.Dictionary{System.Guid,System.String},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition},System.String@)">
@@ -932,6 +964,12 @@
         <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.DetectAndCleanupProblematicOccurrencesAsync(System.Threading.CancellationToken)">
             <summary>
             Detects and cleans up problematic occurrences (zombie queued + lost running).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.MarkWorkflowStepFailed(Milvasoft.Milvaion.Sdk.Domain.JobOccurrence)">
+            <summary>
+            A workflow step mirrors its occurrence's status in StepStatus and the workflow engine waits on StepStatus, so a
+            step left Running here would keep its run Running for ever.
             </summary>
         </member>
         <member name="F:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService._runningJobReconcileGraceMinutes">
