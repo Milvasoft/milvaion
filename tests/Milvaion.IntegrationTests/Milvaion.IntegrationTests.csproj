@@ -24,8 +24,8 @@
 		<PackageReference Include="FluentAssertions" Version="[7.0.0]" />
 		<PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="11.0.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="11.0.0-rc.3.26522.148" />
-		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="11.0.0-rc.3" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="11.0.0" />
+		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="11.0.0" />
 		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
 		<PackageReference Include="Respawn" Version="7.0.0" />
 		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />

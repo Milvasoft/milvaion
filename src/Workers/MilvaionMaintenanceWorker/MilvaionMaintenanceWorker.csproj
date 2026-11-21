@@ -11,7 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
-    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Npgsql" Version="11.0.0" />
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
     <PackageReference Include="StackExchange.Redis" Version="3.2.0" />
 	  <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />

@@ -14,7 +14,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="11.0.0" />
     <PackageReference Include="MySqlConnector" Version="2.6.2" />
-    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Npgsql" Version="11.0.0" />
 	  <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
 	  <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
 	  <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
