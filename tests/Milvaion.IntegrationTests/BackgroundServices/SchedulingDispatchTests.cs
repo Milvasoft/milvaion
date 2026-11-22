@@ -117,13 +117,23 @@ public class SchedulingDispatchTests(ServicesWebApplicationFactory factory, ITes
 
         var occurrences = await WaitForOccurrencesAsync(job.Id);
 
+        // The dispatcher persists the occurrence first and its logs at the end of the same cycle. Stopping it as soon
+        // as the occurrence shows up can cancel that cycle before the logs are written, so wait for them first.
+        List<JobOccurrenceLog> logs = [];
+        var skippedOccurrenceId = occurrences[0].Id;
+
+        await WaitForConditionAsync(async () =>
+        {
+            logs = await GetDbContext().JobOccurrenceLogs.AsNoTracking().Where(l => l.OccurrenceId == skippedOccurrenceId).ToListAsync();
+            return logs.Count > 0;
+        }, TimeSpan.FromSeconds(10), TimeSpan.FromMilliseconds(200));
+
         await dispatcher.StopAsync(CancellationToken.None);
 
         occurrences.Should().ContainSingle();
         occurrences[0].Status.Should().Be(JobOccurrenceStatus.Skipped);
         occurrences[0].Result.Should().Contain(calendar.Name);
 
-        var logs = await GetDbContext().JobOccurrenceLogs.AsNoTracking().Where(l => l.OccurrenceId == occurrences[0].Id).ToListAsync();
         logs.Should().Contain(l => l.Category == "Scheduler" && l.Message.Contains("excluded by calendar"));
 
         // The schedule jumped past the excluded day.
@@ -153,9 +163,13 @@ public class SchedulingDispatchTests(ServicesWebApplicationFactory factory, ITes
 
         occurrences = await GetDbContext().JobOccurrences.AsNoTracking().Where(o => o.JobId == job.Id).ToListAsync();
 
-        occurrences.Should().ContainSingle();
-        occurrences[0].Status.Should().Be(JobOccurrenceStatus.Skipped);
-        occurrences[0].Result.Should().Contain("missed while the scheduler was down");
+        // Exactly one skipped record for the missed runs and no catch-up. When the extra wait crosses a minute
+        // boundary the next regular run starts as well; it is created after that boundary and is not a catch-up.
+        var skipped = occurrences.Where(o => o.Status == JobOccurrenceStatus.Skipped).ToList();
+        skipped.Should().ContainSingle();
+        skipped[0].Result.Should().Contain("missed while the scheduler was down");
+        occurrences.Where(o => o.Status != JobOccurrenceStatus.Skipped)
+                   .Should().NotContain(o => o.CreatedAt < MinuteFloor(now).AddMinutes(1), "Skip runs nothing for the missed runs");
 
         var next = await _serviceProvider.GetRequiredService<IRedisSchedulerService>().GetScheduledTimeAsync(job.Id);
         next.Should().BeAfter(now);
@@ -246,9 +260,11 @@ public class SchedulingDispatchTests(ServicesWebApplicationFactory factory, ITes
         await channel.QueueDeclareAsync(queueName, durable: false, exclusive: false, autoDelete: true);
         await channel.QueueBindAsync(queueName, WorkerConstant.ExchangeName, routingKey);
 
+        // The high priority job is seeded first: the host's own dispatcher also polls and may pick a job up between
+        // the two seeds. Seeded this way the high one still goes out first, in one cycle or in two.
         var due = DateTime.UtcNow.AddSeconds(-5);
-        var low = await SeedAsync(due, cron: null, priority: 1, routingPattern: routingKey);
         var high = await SeedAsync(due.AddSeconds(1), cron: null, priority: 8, routingPattern: routingKey);
+        var low = await SeedAsync(due, cron: null, priority: 1, routingPattern: routingKey);
 
         var dispatcher = CreateDispatcher();
         await dispatcher.StartAsync(CancellationToken.None);
