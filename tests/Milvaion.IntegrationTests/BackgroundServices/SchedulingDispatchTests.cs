@@ -192,7 +192,17 @@ public class SchedulingDispatchTests(ServicesWebApplicationFactory factory, ITes
                                               .ToListAsync();
 
         catchUpLogs.Should().ContainSingle(l => l.Message.StartsWith("Catch-up run"));
-        occurrences.Count(o => o.CreatedAt < now.AddSeconds(50)).Should().Be(1, "RunOnce runs a single catch-up for all the missed runs");
+
+        // Count the catch-ups by their log, not by a time window: when the test crosses a minute boundary the next
+        // regular run is created a few seconds after "now" and a window would count it as a second catch-up.
+        var occurrenceIds = occurrences.Select(o => o.Id).ToList();
+        var catchUpRuns = await GetDbContext().JobOccurrenceLogs.AsNoTracking()
+                                              .Where(l => occurrenceIds.Contains(l.OccurrenceId) && l.Category == "Scheduler" && l.Message.StartsWith("Catch-up run"))
+                                              .Select(l => l.OccurrenceId)
+                                              .Distinct()
+                                              .CountAsync();
+
+        catchUpRuns.Should().Be(1, "RunOnce runs a single catch-up for all the missed runs");
     }
 
     [Fact]
